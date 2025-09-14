@@ -2,3 +2,4 @@
 *.spp
 
 core/logs/error_log.txt
+config/config.xml
