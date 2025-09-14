@@ -2,7 +2,7 @@
 // for all options bellow: 1 - enable, 0 - disable
 $config = array(
 // MBA title
-"Title" => "World of Botcraft Armory",
+"Title" => "World of Warcraft Armory",
 // Items Locale (0 = English, 1 = Korean, 2 = French, 3 = German, 4 = Chinese, 5 = Taiwanese, 6 = Spanish, 7 = Latin America, 8 = Russian) 
 "locales" => 0,
 // Top blue ruler
@@ -49,9 +49,10 @@ $config = array(
 "results_per_page_items" => 25,
 );
 // Latest News showing on the main page
-//$news = array(
-///array("Latest News:","You can check Honor Ranking for all 3 realms!"),
-//array("Latest News:","For stats to appear at character page this character must login after //update!"),
-//array("Latest News:","Please report any issues in SPP/Bots Discord!")
-//);
+$news = array(
+array("Latest News:","You can check your Talents Tab!"),
+array("Latest News:","You can check Honor Ranking for all 3 realms!"),
+array("Latest News:","For stats to appear at character page this character must login after //update!"),
+array("Latest News:","Please report any issues in SPP/Bots Discord!")
+);
 ?>
