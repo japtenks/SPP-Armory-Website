@@ -587,6 +587,31 @@ $getDurSecBySpellId = function($sid){
 $currId  = isset($sp['id']) ? (int)$sp['id'] : 0;
 $durSecs = $getDurSecBySpellId($currId);
 
+// Evaluate ${$d-1} sec  → "<durSecs - 1> sec"
+$desc = preg_replace_callback(
+    '/\$\{\s*\$d\s*([+-])\s*(\d+)\s*\}\s*sec\b/i',
+    function ($m) use ($durSecs) {
+        $delta = (int)$m[2];
+        $v = $durSecs + ($m[1] === '-' ? -$delta : $delta);
+        if ($v < 0) $v = 0;
+        return $v . ' sec';
+    },
+    $desc
+);
+
+// Also support ${$d-1} (without trailing " sec")
+$desc = preg_replace_callback(
+    '/\$\{\s*\$d\s*([+-])\s*(\d+)\s*\}/i',
+    function ($m) use ($durSecs) {
+        $delta = (int)$m[2];
+        $v = $durSecs + ($m[1] === '-' ? -$delta : $delta);
+        if ($v < 0) $v = 0;
+        return (string)$v;
+    },
+    $desc
+);
+
+
 if (strpos($desc, '$d') !== false) {
   /* ---- forward: follow children triggered by this spell ---- */
   $seen  = array();
@@ -777,6 +802,7 @@ $desc = preg_replace_callback('/\$\*\s*([0-9]+(?:\.[0-9]+)?)\s*;\s*(s[1-3]|o[1-3
     return ($s === '') ? '0' : $s;
   },
 $desc);
+
 
 /* -------- ${min-max/divisor} style tokens -------- */
 $desc = preg_replace_callback('/\$\{([0-9]+)\s*-\s*([0-9]+)\/([0-9]+)\}/',
