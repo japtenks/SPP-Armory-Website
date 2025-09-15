@@ -89,7 +89,7 @@ else
 	"arenateams" => "character-arenateams.php",
 	"talents" => "character-talents.php",
 	"achievements" => "character-achievements.php",
-	//"calendar" => "character-calendar.php",
+	"calendar" => "character-calendar.php",
 	);
 	if(isset($_GET["charPage"]) && isset($PagesCharArray[$_GET["charPage"]]))
 		$requested_char_action = $_GET["charPage"];
@@ -138,7 +138,7 @@ var theCharName = "<?php echo $stat["name"] ?>";
 <li class="tab-right"></li>
 </ul>
 </div>
-<?php if (CLIENT/* && $stat["level"] >= 70*/) { ?>
+<?php if (CLIENT && $stat["level"] >= 70) { ?>
 <div class="select<?php echo $requested_char_action == "arenateams" ? 1 : 0 ?>">
 <ul>
 <li class="tab-left"></li>
@@ -149,7 +149,7 @@ var theCharName = "<?php echo $stat["name"] ?>";
 </ul>
 </div>
 <?php } ?>
-<div class="select<?php echo $requested_char_action == "talents" ? 1 : 0 ?>" onMouseOut="hideTip();" onMouseOver="showTip('Not yet implemented :(');">
+<div class="select<?php echo $requested_char_action == "talents" ? 1 : 0 ?>" onMouseOut="hideTip();" onMouseOver="showTip('Newly implemented');">
 <ul>
 <li class="tab-left"></li>
 <li class="tab-content">
@@ -158,10 +158,7 @@ var theCharName = "<?php echo $stat["name"] ?>";
 <li class="tab-right"></li>
 </ul>
 </div>
-<?php
-	if(CLIENT > 1)
-	{
-?>
+
 <div class="select<?php echo $requested_char_action == "achievements" ? 1 : 0 ?>">
 <ul>
 <li class="tab-left"></li>
@@ -171,9 +168,7 @@ var theCharName = "<?php echo $stat["name"] ?>";
 <li class="tab-right"></li>
 </ul>
 </div>
-<?php
-	}
-?>
+
 <?php
 if(CLIENT > 1)
 {
