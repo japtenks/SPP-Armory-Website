@@ -33,9 +33,15 @@ Website with working Armory for the \[SPP Classics Repack](https://github.com/ce
 
 \### Talent Trees
 
-!\[Shaman Talent Trees](img/talents01.jpg)
-!\[Hunter Talent Trees](img/talents02.jpg)
-!\[Paladin Talent Trees](img/talents03.jpg)
+**Shaman**
+![Shaman Talent Trees](img/talents01.jpg)
+
+**Hunter**
+![Hunter Talent Trees](img/talents02.jpg)
+
+**Paladin**
+![Paladin Talent Trees](img/talents03.jpg)
+
 
 
 ---
