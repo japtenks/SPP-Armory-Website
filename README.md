@@ -1,11 +1,15 @@
 \# SPP-Armory-Website
 
+Website with working Armory for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos).
 
+\# Features
 
-Website with working Armory for the \[SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos).
+- Auto-builds **Talent Trees** for different classes from the armory database  
+  *(uses `dbc_talent` and `dbc_talenttab`)*  
 
--Auto builds Talent Trees for differnet classes from the armory database (talents, talenttab dbc)
--Tooltips update from the dbc (spells, duration, icon, radius)
+- Tooltips update dynamically from the DBC  
+  *(pulls values like `spells`, `duration`, `icon`, `radius`)*  
+
 
 
 
@@ -17,7 +21,7 @@ Website with working Armory for the \[SPP Classics Repack](https://github.com/ce
 
 
 
-1\. Copy over the currently installed website located at `.\\Server\\website`
+1\. Copy over the currently installed website located at `.\Server\website`
 
 2\. Run `dbc\_spell field updates.sql` on your `classicarmory` or `tbcmarmory` database  
 
