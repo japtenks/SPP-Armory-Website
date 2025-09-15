@@ -1,0 +1,14 @@
+# Normalize line endings for consistency across OS
+* text=auto
+
+# Exclude images/screenshots from release zips
+/images/ export-ignore
+
+# Exclude IDE files from release zips
+/.idea/ export-ignore
+
+# Exclude local configs from release zips
+/config/config.xml export-ignore
+
+# Exclude logs from release zips
+/core/logs/ export-ignore
