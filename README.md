@@ -28,26 +28,11 @@ Website with working Armory for the \[SPP Classics Repack](https://github.com/ce
 
 
 
-\## Screenshots
-
-
-
-\### Homepage
-
-!\[Homepage](images/homepage.png)
-
-
-
 \### Talent Trees
 
-!\[Talent Trees](images/talents.png)
-
-
-
-\### Character Profile
-
-!\[Character Profile](images/character-profile.png)
-
+!\[Talent Trees](img/talents01.jpg)
+(img/talents01.jpg)
+(img/talents01.jpg)
 
 
 ---

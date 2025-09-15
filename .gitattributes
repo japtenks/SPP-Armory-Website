@@ -2,7 +2,7 @@
 * text=auto
 
 # Exclude images/screenshots from release zips
-/images/ export-ignore
+/img/ export-ignore
 
 # Exclude IDE files from release zips
 /.idea/ export-ignore
