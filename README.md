@@ -4,6 +4,9 @@
 
 Website with working Armory for the \[SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos).
 
+-Auto builds Talent Trees for differnet classes from the armory database (talents, talenttab dbc)
+-Tooltips update from the dbc (spells, duration, icon, radius)
+
 
 
 ---
@@ -30,9 +33,9 @@ Website with working Armory for the \[SPP Classics Repack](https://github.com/ce
 
 \### Talent Trees
 
-!\[Talent Trees](img/talents01.jpg)
-(img/talents01.jpg)
-(img/talents01.jpg)
+!\[Shaman Talent Trees](img/talents01.jpg)
+!\[Hunter Talent Trees](img/talents02.jpg)
+!\[Paladin Talent Trees](img/talents03.jpg)
 
 
 ---
@@ -41,7 +44,7 @@ Website with working Armory for the \[SPP Classics Repack](https://github.com/ce
 
 \## Notes
 
-\- The `images/` folder is \*\*not included\*\* in release zips (set via `.gitattributes`).
+\- The `img/` folder is \*\*not included\*\* in release zips (set via `.gitattributes`).
 
 
 
