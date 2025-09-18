@@ -151,7 +151,7 @@ function spell_info_for_talent(array $talRow, int $rank = 0) {
         return ['name' => 'Unknown', 'desc' => '', 'icon' => 'inv_misc_questionmark'];
     }
 
-    $desc = build_tooltip_desc($sp, $useRank, $maxRank);
+    $desc = build_tooltip_desc($sp);
 
     $icon = strtolower(preg_replace('/[^a-z0-9_]/i', '', (string)($sp['icon'] ?? '')));
     if ($icon === '') $icon = 'inv_misc_questionmark';
