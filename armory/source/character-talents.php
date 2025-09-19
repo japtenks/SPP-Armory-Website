@@ -363,34 +363,47 @@ function build_tooltip_desc(array $sp): string {
   };
 
   $rangeText = static function(int $min, int $max): string {
-    return ($max > $min) ? ($min . ' to ' . $max) : (string)$min; // en dash
+    return ($max > $min) ? ($min . ' to ' . $max) : (string)$min; 
   };
 
 // Produces min/max/text for $sN.  If $div==1000 and bp<0, treat as negative ms.
 $formatS = static function (int $bp, int $dieSides, int $div = 1): array {
-  // Special case: cast-time reductions stored as negative milliseconds
-  if ($div === 1000 && $bp < 0) {
-    $min = abs($bp) / 1000.0;
-    $max = $min + ($dieSides > 0 ? $dieSides / 1000.0 : 0.0);
-    // collapse if no range
-    $txt = ($max > $min) ? rtrim(rtrim(number_format($min,1,'.',''), '0'),'.')
-                           .' to '.
-                           rtrim(rtrim(number_format($max,1,'.',''), '0'),'.')
-                         : rtrim(rtrim(number_format($min,1,'.',''), '0'),'.');
-    return [$min, $max, $txt];
-  }
+			  // Special case: cast-time reductions stored as negative milliseconds
+			  if ($div === 1000 && $bp < 0) {
+				$min = abs($bp) / 1000.0;
+				$max = $min + ($dieSides > 0 ? $dieSides / 1000.0 : 0.0);
+				// collapse if no range
+				$txt = ($max > $min) ? rtrim(rtrim(number_format($min,1,'.',''), '0'),'.')
+									   .' to '.
+									   rtrim(rtrim(number_format($max,1,'.',''), '0'),'.')
+									 : rtrim(rtrim(number_format($min,1,'.',''), '0'),'.');
+				return [$min, $max, $txt];
+			  }
 
-  // Normal scalar (damage/heal/etc.)
-  $min = $bp + 1;
-  if ($dieSides <= 1) {
-    $txt = (string)abs($min);
-    return [$min, $min, $txt];
-  }
-  $max = $bp + $dieSides;
-  if ($max < $min) { [$min, $max] = [$max, $min]; }
-  return [$min, $max, $min . ' to ' . $max];
+			  // Normal scalar (damage/heal/etc.)
+			  $min = $bp + 1;
+			  if ($dieSides <= 1) {
+				$txt = (string)abs($min);
+				return [$min, $min, $txt];
+			  }
+			  $max = $bp + $dieSides;
+			  if ($max < $min) { [$min, $max] = [$max, $min]; }
+			  return [$min, $max, $min . ' to ' . $max];
 };
 
+
+// $/1000;12345S1 → "0.5 sec", "1 sec", etc
+$desc = preg_replace_callback('/\$\s*\/1000;(\d+)S1\b/', function($m) {
+    $sid = (int)$m[1];
+    $row = get_spell_row($sid);
+    if (!$row) return '0 sec';
+    $bp = (int)($row['effect_basepoints_1'] ?? 0);
+    $val = abs($bp + 1) / 1000.0;
+    // format like Blizzard: trim .0, always "sec"
+    $s = number_format($val, 1, '.', '');
+    $s = rtrim(rtrim($s, '0'), '.');
+    return $s . ' sec';
+}, $desc);
 
 
   // $12345sN
@@ -539,57 +552,72 @@ $desc = preg_replace_callback(
   list($s2min,$s2max,$s2txt) = $formatSLocal((int)($sp['effect_basepoints_2'] ?? 0), $die2);
   list($s3min,$s3max,$s3txt) = $formatSLocal((int)($sp['effect_basepoints_3'] ?? 0), $die3);
 
-// $/N; $sN and $/N; $<id>sN / $<id>oN  (support ranges; round outward)
+ // $/N; $sN   or   $/N; $<id>sN   (also supports ...oN)
 $desc = preg_replace_callback(
-    '/\$\s*\/\s*(\d+)\s*;\s*\$?(\d+)?(s|o)([1-3])/i',
-    function ($m) use ($s1min, $s1max, $s2min, $s2max, $s3min, $s3max, $formatSLocal) {
-        $div     = (float)$m[1];
-        $spellId = $m[2] ? (int)$m[2] : 0;
-        $type    = strtolower($m[3]);
-        $idx     = (int)$m[4];
+  '/\$\s*\/\s*(\d+)\s*;\s*\$?(\d+)?(s|o)([1-3])/i',
+  function ($m) use ($s1min, $s1max, $s2min, $s2max, $s3min, $s3max, $formatSLocal) {
+    $div     = (float)$m[1];
+    $spellId = $m[2] ? (int)$m[2] : 0;
+    $type    = strtolower($m[3]);  // 's' or 'o'
+    $idx     = (int)$m[4];
 
-        if ($div <= 0) { $div = 1; }
+    // helper: trim like the rest of the tooltip numbers
+    $fmt = static function ($v) {
+      $s = number_format((float)$v, 1, '.', '');
+      return rtrim(rtrim($s, '0'), '.') ?: '0';
+    };
 
-        // Helper to print either a single int or "min to max" after division
-        $printRange = static function (float $min, float $max, float $div) : string {
-            $min2 = floor($min / $div);
-            $max2 = ceil($max / $div);
-            if ($max2 > $min2) return (int)$min2 . ' to ' . (int)$max2;
-            return (string)(int)$min2;
-        };
+    if ($type === 's') {
+      // ---- scalar-with-range path
+      if ($spellId === 0) {
+        // current spell's sN (we already have min/max)
+        $mapMin = [1 => $s1min, 2 => $s2min, 3 => $s3min];
+        $mapMax = [1 => $s1max, 2 => $s2max, 3 => $s3max];
+        $min = abs((float)($mapMin[$idx] ?? 0.0));
+        $max = abs((float)($mapMax[$idx] ?? $min));
+      } else {
+        // external spell: compute sN min/max via formatSLocal
+        $row = _cache("spell:$spellId", function () use ($spellId) { return get_spell_row($spellId); });
+        if (!$row) return '0';
+        $bp  = (int)($row["effect_basepoints_{$idx}"] ?? 0);
+        $die = _cache("die:$spellId:$idx", function () use ($spellId, $idx) { return get_die_sides_n($spellId, $idx); });
+        list($min, $max) = $formatSLocal($bp, $die);
+      }
 
-        if ($spellId === 0) {
-            // Use current spell's sN min/max we already computed
-            $mapMin = [1 => (float)$s1min, 2 => (float)$s2min, 3 => (float)$s3min];
-            $mapMax = [1 => (float)$s1max, 2 => (float)$s2max, 3 => (float)$s3max];
-            $min = abs($mapMin[$idx] ?? 0.0);
-            $max = abs($mapMax[$idx] ?? 0.0);
-            return $printRange($min, $max, $div);
-        }
+if ($div > 0) { $min /= $div; $max /= $div; }
 
-        if ($type === 's') {
-            // Use another spell's sN; compute its min & max
-            $row = _cache("spell:$spellId", function() use ($spellId){ return get_spell_row($spellId); });
-            if (!$row) return '0';
-            $bp  = (int)($row["effect_basepoints_{$idx}"] ?? 0);
-            $die = _cache("die:$spellId:$idx", function() use ($spellId,$idx){ return get_die_sides_n($spellId,$idx); });
-            [$min, $max] = $formatSLocal($bp, $die);   // we only need min & max
-            return $printRange($min, $max, $div);
-        } else {
-            // $...oN are totals; treat as scalar (no range)
-            $row = _cache("spellO:$spellId", function() use ($spellId){ return get_spell_o_row($spellId); });
-            if (!$row) return '0';
-            $bp    = abs((int)($row["effect_basepoints_{$idx}"] ?? 0) + 1);
-            $amp   = (int)($row["effect_amplitude_{$idx}"] ?? 0);
-            $dur   = duration_secs_from_id((int)($row['ref_spellduration'] ?? 0));
-            $ticks = ($amp > 0) ? (int)floor(($dur * 1000) / $amp) : 0;
-            $val   = $ticks > 0 ? $bp * $ticks : $bp;
-            return (string)(int)round($val / $div);
-        }
-    },
-    $desc
+if ($max > $min) {
+  // Blizzard-style rounding for ranges:
+  // - lower bound rounds down
+  // - upper bound rounds up
+  $lo = (int)floor($min);
+  $hi = (int)ceil($max);
+  return $lo . ' to ' . $hi;
+}
+
+// single number (no range): keep normal formatting (e.g., 0.5 sec)
+return $fmt($min);
+
+    }
+
+    // ---- over-time totals (oN) are scalars: just divide
+    if ($spellId === 0) {
+      $map = [1 => $s1min, 2 => $s2min, 3 => $s3min]; // keep as fallback
+      $val = abs((float)($map[$idx] ?? 0.0));
+    } else {
+      $row = _cache("spellO:$spellId", function () use ($spellId) { return get_spell_o_row($spellId); });
+      if (!$row) return '0';
+      $bp    = abs((int)($row["effect_basepoints_{$idx}"] ?? 0) + 1);
+      $amp   = (int)($row["effect_amplitude_{$idx}"] ?? 0);
+      $dur   = duration_secs_from_id((int)($row['ref_spellduration'] ?? 0));
+      $ticks = ($amp > 0) ? (int)floor(($dur * 1000) / $amp) : 0;
+      $val   = $ticks > 0 ? $bp * $ticks : $bp;
+    }
+    if ($div > 0) $val /= $div;
+    return $fmt($val);
+  },
+  $desc
 );
-
 
 
 
@@ -869,6 +897,11 @@ $desc = preg_replace('/\s+%/', '%', $desc);               // tidy space before '
 return $desc;
 
 }
+
+
+
+
+
 
 
 
