@@ -39,13 +39,14 @@ function get_tabs_for_class($classId) {
   $mask = 1 << ((int)$classId - 1);
   return execute_query(
     'armory',
-    "SELECT `id`, `name`, `tab_number`
+    "SELECT `id`, `name`, `tab_number`, `SpellIconID`
        FROM `dbc_talenttab`
       WHERE (`refmask_chrclasses` & {$mask}) <> 0
       ORDER BY `tab_number` ASC",
     0
   ) ?: [];
 }
+
 
 /** fast learned-spells lookup (cached per guid;) */
 function get_learned_spells_map(int $guid): array {
@@ -986,23 +987,36 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 				if ($r > $maxRow) $maxRow = $r;
 			  }
 
-			  // Pick a tab icon (first valid talent spell’s icon for now)
-			  $tabIconName = (function() use ($talents){
-				foreach ($talents as $tal) {
-				  $sid = first_rank_spell($tal);
-				  if ($sid) {
+						
+				// Pick tab icon from dbc_talenttab.SpellIconID (fallback to question mark)
+				$tabIconName = (function() use ($t, $talents){
+				  $iconId = (int)($t['SpellIconID'] ?? 0);
+				  if ($iconId > 0) {
 					$r = execute_query('armory',
-					  "SELECT i.`name` AS icon
-						 FROM `dbc_spell` s
-						 LEFT JOIN `dbc_spellicon` i ON i.`id` = s.`ref_spellicon`
-						WHERE s.`id` = ".(int)$sid." LIMIT 1", 1);
-					if ($r && !empty($r['icon'])) {
-					  return strtolower(preg_replace('/[^a-z0-9_]/i', '', $r['icon']));
+					  "SELECT `name` FROM `dbc_spellicon` WHERE `id`={$iconId} LIMIT 1", 1);
+					if ($r && !empty($r['name'])) {
+					  return strtolower(preg_replace('/[^a-z0-9_]/i', '', $r['name']));
 					}
 				  }
-				}
-				return 'inv_misc_questionmark';
-			  })();
+
+				  // Fallback (rare): keep old behavior to find a reasonable icon
+				  foreach ($talents as $tal) {
+					$sid = first_rank_spell($tal);
+					if ($sid) {
+					  $rr = execute_query('armory',
+						"SELECT i.`name`
+						   FROM `dbc_spell` s
+						   LEFT JOIN `dbc_spellicon` i ON i.`id`=s.`ref_spellicon`
+						  WHERE s.`id`={$sid} LIMIT 1", 1);
+					  if ($rr && !empty($rr['name'])) {
+						return strtolower(preg_replace('/[^a-z0-9_]/i', '', $rr['name']));
+					  }
+					}
+				  }
+
+				  return 'inv_misc_questionmark';
+				})();
+
 
 			  $tabIconUrlQ = htmlspecialchars(icon_url($tabIconName), ENT_QUOTES);
 			  $talentCap   = get_talent_cap(isset($stat['level']) ? (int)$stat['level'] : null);
