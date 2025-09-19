@@ -894,7 +894,10 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 </head>
 <body class="show-guides">
 
-<div class="parchment-top"></div>
+<div class="parchment-top">
+    <div class="parch-profile-banner" id="banner" style="position: absolute;margin-left: 450px!important;margin-top: -110px!important;">
+        <h1 style="padding-top: 12px!important;"><?php echo $lang["talents"] ?></h1>
+    </div></div>
 
 <div class="parchment-content">
 

@@ -2,6 +2,7 @@
 .idea/
 
 # Local project files
+.github
 *.spp
 
 # Logs
