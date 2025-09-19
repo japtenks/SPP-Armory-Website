@@ -539,42 +539,62 @@ $desc = preg_replace_callback(
   list($s2min,$s2max,$s2txt) = $formatSLocal((int)($sp['effect_basepoints_2'] ?? 0), $die2);
   list($s3min,$s3max,$s3txt) = $formatSLocal((int)($sp['effect_basepoints_3'] ?? 0), $die3);
 
-  // $/N; $sN and $/N; $<id>sN / $<id>oN
-  $desc = preg_replace_callback('/\$\s*\/\s*(\d+)\s*;\s*\$?(\d+)?(s|o)([1-3])/i',
-    function ($m) use ($s1min,$s2min,$s3min,$formatSLocal) {
-      $div = (float)$m[1];
-      $spellId = $m[2] ? (int)$m[2] : 0;
-      $type = strtolower($m[3]);
-      $idx  = (int)$m[4];
+ // $/N; $sN   or   $/N; $<id>sN   (also supports ...oN)
+$desc = preg_replace_callback(
+  '/\$\s*\/\s*(\d+)\s*;\s*\$?(\d+)?(s|o)([1-3])/i',
+  function ($m) use ($s1min, $s1max, $s2min, $s2max, $s3min, $s3max, $formatSLocal) {
+    $div     = (float)$m[1];
+    $spellId = $m[2] ? (int)$m[2] : 0;
+    $type    = strtolower($m[3]);  // 's' or 'o'
+    $idx     = (int)$m[4];
 
-      if ($spellId === 0) {
-        $map = [1=>$s1min,2=>$s2min,3=>$s3min];
-        $val = abs($map[$idx] ?? 0.0);
-        $out = ($div > 0) ? ($val / $div) : $val;
-      } else {
-        if ($type === 's') {
-          $row = _cache("spell:$spellId", function() use ($spellId){ return get_spell_row($spellId); });
-          if (!$row) return '0';
-          $bp  = (int)($row["effect_basepoints_{$idx}"] ?? 0);
-          $die = _cache("die:$spellId:$idx", function() use ($spellId,$idx){ return get_die_sides_n($spellId,$idx); });
-          list($min) = $formatSLocal($bp,$die);
-          $out = ($div > 0) ? ($min / $div) : $min;
-        } else {
-          $row = _cache("spellO:$spellId", function() use ($spellId){ return get_spell_o_row($spellId); });
-          if (!$row) return '0';
-          $bp    = abs((int)($row["effect_basepoints_{$idx}"] ?? 0) + 1);
-          $amp   = (int)($row["effect_amplitude_{$idx}"] ?? 0);
-          $dur   = duration_secs_from_id((int)($row['ref_spellduration'] ?? 0));
-          $ticks = ($amp > 0) ? (int)floor(($dur * 1000)/$amp) : 0;
-          $val   = $ticks > 0 ? $bp * $ticks : $bp;
-          $out   = ($div > 0) ? ($val / $div) : $val;
-        }
-      }
-      $s = number_format($out, 1, '.', '');
+    // helper: trim like the rest of the tooltip numbers
+    $fmt = static function ($v) {
+      $s = number_format((float)$v, 1, '.', '');
       return rtrim(rtrim($s, '0'), '.') ?: '0';
-    },
-    $desc
-  );
+    };
+
+    if ($type === 's') {
+      // ---- scalar-with-range path
+      if ($spellId === 0) {
+        // current spell's sN (we already have min/max)
+        $mapMin = [1 => $s1min, 2 => $s2min, 3 => $s3min];
+        $mapMax = [1 => $s1max, 2 => $s2max, 3 => $s3max];
+        $min = abs((float)($mapMin[$idx] ?? 0.0));
+        $max = abs((float)($mapMax[$idx] ?? $min));
+      } else {
+        // external spell: compute sN min/max via formatSLocal
+        $row = _cache("spell:$spellId", function () use ($spellId) { return get_spell_row($spellId); });
+        if (!$row) return '0';
+        $bp  = (int)($row["effect_basepoints_{$idx}"] ?? 0);
+        $die = _cache("die:$spellId:$idx", function () use ($spellId, $idx) { return get_die_sides_n($spellId, $idx); });
+        list($min, $max) = $formatSLocal($bp, $die);
+      }
+
+      if ($div > 0) { $min /= $div; $max /= $div; }
+      // return "min to max" when it’s truly a range, else single number
+      return ($max > $min) ? ($fmt($min) . ' to ' . $fmt($max)) : $fmt($min);
+    }
+
+    // ---- over-time totals (oN) are scalars: just divide
+    if ($spellId === 0) {
+      $map = [1 => $s1min, 2 => $s2min, 3 => $s3min]; // keep as fallback
+      $val = abs((float)($map[$idx] ?? 0.0));
+    } else {
+      $row = _cache("spellO:$spellId", function () use ($spellId) { return get_spell_o_row($spellId); });
+      if (!$row) return '0';
+      $bp    = abs((int)($row["effect_basepoints_{$idx}"] ?? 0) + 1);
+      $amp   = (int)($row["effect_amplitude_{$idx}"] ?? 0);
+      $dur   = duration_secs_from_id((int)($row['ref_spellduration'] ?? 0));
+      $ticks = ($amp > 0) ? (int)floor(($dur * 1000) / $amp) : 0;
+      $val   = $ticks > 0 ? $bp * $ticks : $bp;
+    }
+    if ($div > 0) $val /= $div;
+    return $fmt($val);
+  },
+  $desc
+);
+
 
 
 /* -------- Duration / totals for current spell (forward + reverse trigger hops) -------- */
