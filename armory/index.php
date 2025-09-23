@@ -115,6 +115,31 @@ else
 <link rel="stylesheet" type="text/css" href="css/armory-tooltips.css" />
 <script src="source/ajax/coreajax.js" type="text/javascript"></script>
 <script src="source/ajax/tooltipajax.js" type="text/javascript"></script>
+<?php
+  $loadTalentCalcAssets = false;
+  if (defined('REQUESTED_ACTION')) {
+    if (REQUESTED_ACTION === 'talentscalc') {
+      $loadTalentCalcAssets = true;
+    } elseif (
+      REQUESTED_ACTION === 'profile' &&
+      isset($_GET['charPage']) &&
+      $_GET['charPage'] === 'talentcalc'
+    ) {
+      $loadTalentCalcAssets = true;
+    }
+  }
+
+  if ($loadTalentCalcAssets) {
+    $calcCssFile = __DIR__ . '/css/talents-calc.css';
+    $calcJsFile  = __DIR__ . '/js/talents-calc.js';
+    $calcCssSuffix = is_file($calcCssFile) ? ('?v=' . filemtime($calcCssFile)) : '';
+    $calcJsSuffix  = is_file($calcJsFile) ? ('?v=' . filemtime($calcJsFile)) : '';
+?>
+<link rel="stylesheet" href="/armory/css/talents-calc.css<?php echo $calcCssSuffix; ?>">
+<script defer src="/armory/js/talents-calc.js<?php echo $calcJsSuffix; ?>"></script>
+<?php
+  }
+?>
 <!-- From the old armory - End -->
 <div id="containerJavascript"></div>
 </head>

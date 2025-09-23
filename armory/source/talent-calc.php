@@ -352,27 +352,15 @@ if ($hasCharTalent) {
 $hasCharSpell = tbl_exists('char', 'character_spell');
 
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Character Talents Calculator</title>
-  <?php
-    $cssPath = $_SERVER['DOCUMENT_ROOT'].'/armory/css/talents-calc.css';
-    $jsPath  = $_SERVER['DOCUMENT_ROOT'].'/armory/js/talents-calc.js';
-  ?>
-  <link rel="stylesheet" href="/armory/css/talents-calc.css<?= is_file($cssPath) ? '?v='.filemtime($cssPath) : '' ?>">
-  <script defer src="/armory/js/talents-calc.js<?= is_file($jsPath) ? '?v='.filemtime($jsPath) : '' ?>"></script>
-</head>
-<body class="show-guides">
-
-<div class="parchment-top">
-  <div class="parch-profile-banner" id="banner" style="position: absolute;margin-left: 450px!important;margin-top: -110px!important;">
-    <h1 style="padding-top: 12px!important;"><?php echo $lang["talentscalc"] ?></h1>
-  </div>
+<?php
+$talentCalcStandalone = defined('REQUESTED_ACTION') && REQUESTED_ACTION === 'talentscalc';
+$talentCalcHeading = $lang['talentscalc'] ?? 'Talents Calculator';
+?>
+<?php if ($talentCalcStandalone): ?>
+<div class="parch-profile-banner" id="banner" style="position: absolute;margin-left: 450px!important;margin-top: -110px!important;">
+  <h1 style="padding-top: 12px!important;"><?php echo $talentCalcHeading; ?></h1>
 </div>
-
-<div class="parchment-content">
+<?php endif; ?>
 
 <?php if (empty($tabs)): ?>
   <em>No talent tabs found for this class.</em>
@@ -591,7 +579,6 @@ echo '<div class="'.$cellClass.'" style="--icon:url(\''.$iconQ.'\')"'
 </div><!-- /.tc-container -->
 <?php endif; ?>
 
-</div><!-- /.parchment-content -->
 <script>
 (function(){
   const root   = document.getElementById('tc-root');
@@ -719,6 +706,3 @@ echo '<div class="'.$cellClass.'" style="--icon:url(\''.$iconQ.'\')"'
   }
 })();
 </script>
-
-</body>
-</html>
