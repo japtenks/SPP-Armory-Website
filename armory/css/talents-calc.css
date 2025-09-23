@@ -511,3 +511,4 @@
 .class-reset:hover .tc-reset-ico::after{
   background: #ff4d4f;
 }
+#dataElement{min-height:auto;}

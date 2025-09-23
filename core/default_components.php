@@ -24,6 +24,7 @@ $mainnav_links = array(
   '3-menuGameGuide' =>
   array(
     0 => array('howtoplay', mw_url('gameguide', 'connect'), ''),
+    1 => array('armorsets',         'index.php?n=server&sub=armorsets',           ''),
     3 => array('bc',     'http://www.worldofwarcraft.com/burningcrusade/', ''),
     4 => array('wrath',  'http://www.worldofwarcraft.com/wrath/',          ''),
     5 => array('cata',   'http://www.worldofwarcraft.com/cataclysm/',      ''),
@@ -169,7 +170,7 @@ if ((int)$MW->getConfig->components->left_section->Statistic == 0)              
 if ((int)$MW->getConfig->components->left_section->ah_system == 0)               unset($mainnav_links['4-menuInteractive'][6]);
 if ((int)$MW->getConfig->components->left_section->Armory == 0)                  unset($mainnav_links['4-menuInteractive'][7]);
 if ((int)$MW->getConfig->components->left_section->Talent_calc == 0)             unset($mainnav_links['4-menuInteractive'][8]);  // calculator
-if ((int)$MW->getConfig->components->left_section->Armor_sets == 0)              unset($mainnav_links['4-menuInteractive'][9]);
+//if ((int)$MW->getConfig->components->left_section->Armor_sets == 0)              unset($mainnav_links['4-menuInteractive'][9]);
 if ((int)$MW->getConfig->components->left_section->Interactive_world_atlas == 0) unset($mainnav_links['4-menuInteractive'][10]);
 if ((int)$MW->getConfig->components->left_section->talents == 0 || empty($user['character_name']))
     unset($mainnav_links['4-menuInteractive'][11]);
@@ -181,6 +182,7 @@ if ((int)$MW->getConfig->components->left_section->In_Game_Support == 0)   unset
 if ((int)$MW->getConfig->components->left_section->Online_GMs == 0)        unset($mainnav_links['8-menuSupport'][3]);
 
 /* Game Guide */
+if ((int)$MW->getConfig->components->left_section->Armor_sets == 0)   unset($mainnav_links['3-menuGameGuide'][1]);				//armor sets
 if ((int)$MW->getConfig->components->left_section->wow_bc == 0)     unset($mainnav_links['3-menuGameGuide'][3]);
 if ((int)$MW->getConfig->components->left_section->wow_wrath == 0)  unset($mainnav_links['3-menuGameGuide'][4]);
 if ((int)$MW->getConfig->components->left_section->wow_cata == 0)   unset($mainnav_links['3-menuGameGuide'][5]);
