@@ -35,12 +35,26 @@ $PagesArray = array(
 "honor" => "honorranking.php",
 "login" => "login.php",
 "registration" => "registration.php",
+"talentscalc" => "talent-calc.php"
 );
 
 if(isset($_GET["searchType"]) && isset($PagesArray[$_GET["searchType"]]))
 	define("REQUESTED_ACTION", $_GET["searchType"]);
 else
 	define("REQUESTED_ACTION", "idx");
+
+// Redirect old profile-tab links for the calc to the standalone calc page
+if (
+  defined('REQUESTED_ACTION') &&
+  REQUESTED_ACTION === 'profile' &&
+  isset($_GET['charPage']) &&
+  $_GET['charPage'] === 'talentcalc'
+) {
+    $cls = isset($_GET['class']) ? (int)$_GET['class'] : 0;
+    header('Location: index.php?searchType=talentscalc&class=' . $cls);
+    exit;
+}
+
 
 if(isset($_GET["searchType"]) && isset($PagesArray[$_GET["searchType"]]))
 {
@@ -95,36 +109,7 @@ else
 	@import "css/master.css";
 	@import "css/<?php echo LANGUAGE ?>/language.css";
 </style>
-<script type="text/javascript">
-//
-if (is_moz) {
-} else if (is_ie7) {
-	document.write('<link rel="stylesheet" type="text/css" media="screen, projection" href="css/ie7.css" />');
-}
-else if (is_ie6) {
-	document.write('<link rel="stylesheet" type="text/css" media="screen, projection" href="css/ie.css" />');
 
-	try {
-	  document.execCommand("BackgroundImageCache", false, true);
-	} catch(err) {}
-}
-else if (is_opera) {
-    document.write('<link rel="stylesheet" type="text/css" media="screen, projection" href="css/opera.css" />');
-}
-if (is_mac && !is_moz) {
-	document.write('<link rel="stylesheet" type="text/css" media="screen, projection" href="css/opera-mac.css" />');
-}
-
-if (is_safari && is_mac) {
-	if (is_safari3)
-		document.write('<link rel="stylesheet" type="text/css" media="screen, projection" href="css/safari3.css" />');
-	document.write('<link rel="stylesheet" type="text/css" media="screen, projection" href="css/safari.css" />');
-} else if (is_safari) {
-	document.write('<link rel="stylesheet" type="text/css" media="screen, projection" href="css/safari-pc.css" />');
-}
-
-//
-</script>
 <!-- From the old armory - Start -->
 <link rel="stylesheet" type="text/css" href="css/armory-css.css" />
 <link rel="stylesheet" type="text/css" href="css/armory-tooltips.css" />
@@ -530,7 +515,7 @@ require "source/".$PagesArray[REQUESTED_ACTION];
 <a href="index.php"></a>
 </div>
 <div class="copyright"><?php echo "Page generated in ",round(microtime_float() - $script_start, 4)," sec. Used amount of memory: ",memory_get_peak_usage()," Bytes" ?>
-<br />MBA project leader - SUPERGADGET<br />2008-2010</div>
+<br />2008-2025</div>
 </td><td class="section-general" id="imageRight" width="50%"></td>
 </tr>
 </table>
@@ -560,6 +545,30 @@ require "source/".$PagesArray[REQUESTED_ACTION];
       $exp = "wotlk";
   ?>
 
-</script><script src="shared/global/menu/<?php echo LANGUAGE ?>/menutree_<?php echo $exp ?>.js" type="text/javascript"></script><script src="shared/global/menu/menu132_com.js" type="text/javascript"></script><script src="js/<?php echo LANGUAGE ?>/menus.js" type="text/javascript"></script><script src="shared/global/third-party/sarissa/0.9.7.6/sarissa.js" type="text/javascript"></script><script src="shared/global/third-party/sarissa/0.9.7.6/sarissa_dhtml.js" type="text/javascript"></script><script src="js/ajaxtooltip.js" type="text/javascript"></script>
+</script>
+<script src="shared/global/menu/<?php echo LANGUAGE ?>/menutree_<?php echo $exp ?>.js" type="text/javascript"></script>
+<script src="shared/global/menu/menu132_com.js" type="text/javascript"></script>
+<script src="js/<?php echo LANGUAGE ?>/menus.js" type="text/javascript"></script>
+<script src="shared/global/third-party/sarissa/0.9.7.6/sarissa.js" type="text/javascript"></script>
+<script src="shared/global/third-party/sarissa/0.9.7.6/sarissa_dhtml.js" type="text/javascript"></script>
+<script src="js/ajaxtooltip.js" type="text/javascript"></script>
+<script>
+
+(function () {
+  // Wowhead-like short code: <class>-<tree1>-<tree2>-<tree3>
+  var h = location.hash.slice(1);
+  if (!/^\d+-[0-5-]+$/.test(h)) return;
+
+  // already on the calculator? do nothing
+  if (/[?&]searchType=talentscalc\b/.test(location.search)) return;
+
+  // jump to the calculator and keep the hash (short code)
+  var u = new URL(location.href);
+  u.searchParams.set('searchType', 'talentscalc'); // <-- note the plural key
+  location.replace(u.pathname + '?' + u.searchParams.toString() + '#' + h);
+})();
+</script>
+
+
 </body>
 </html>

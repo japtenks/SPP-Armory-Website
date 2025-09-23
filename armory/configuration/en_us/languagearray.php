@@ -172,6 +172,7 @@ $lang = array(
 "runic" => "Runic",
 "skills" => "Skills",
 "talents" => "Talents",
+"talentscalc" => "Talents Calculator",
 "talent_specialization" => "Talent Specialization",
 /* Ranking */
 "honor" => "Honor",

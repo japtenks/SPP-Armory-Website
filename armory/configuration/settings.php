@@ -6,7 +6,7 @@ $config = array(
 // Items Locale (0 = English, 1 = Korean, 2 = French, 3 = German, 4 = Chinese, 5 = Taiwanese, 6 = Spanish, 7 = Latin America, 8 = Russian) 
 "locales" => 0,
 // Top blue ruler
-"Site_Name" => "World of Botcraft",
+"Site_Name" => "World of Warcraft",
 "Site_Link" => "../index.php",
 "Forum_Link" => "../index.php?n=forum",
 // Use login page

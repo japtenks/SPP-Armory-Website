@@ -62,7 +62,10 @@ $this_rss_url .= "rss.php";
 var site_name = '<?php echo (string)$MW->getConfig->generic->site_title ?>';
 var site_link = '<?php echo (string)$MW->getConfig->temp->site_href; echo "index.php" ?>';
 var forum_link = '<?php echo (string)$MW->getConfig->temp->site_href; echo "index.php?n=forum" ?>';
-var armory_link = '<?php echo (string)$MW->getConfig->temp->site_href; echo "armory/index.php" ?>';</script>
+var armory_link = '<?php echo (string)$MW->getConfig->temp->site_href; echo "armory/index.php" ?>';
+
+
+</script>
 <style>@import "<?php echo $currtmp; ?>/css/topnav.css"; </style>
 <div id="shared_topnav">
 <script src="<?php echo $currtmp; ?>/js/buildtopnav.js"></script>

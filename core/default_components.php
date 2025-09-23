@@ -168,6 +168,12 @@ $mainnav_links = array (
       1 => 'index.php?n=server&sub=armorsets',
       2 => '',
     ),
+    10 =>
+    array (
+      0 => 'talent_calculator',
+      1 => './armory/index.php#0-0-0',
+      2 => '',
+    ),
   ),
   '5-menuMedia' => 
   array (

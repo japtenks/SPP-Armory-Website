@@ -150,7 +150,7 @@
 
 /* ===== hover flair ===== */
 .talent-cell:hover {
-  transform: scale(1.1);
+  transform: scale(1.2);
   z-index: 10;
   box-shadow: 0 0 8px 2px rgba(255,255,200,.7),
               inset 0 0 0 2px #fff;
@@ -177,3 +177,33 @@
 		.talent-tt p{ margin:0; white-space:normal; color:#f3e0b3; text-shadow:0 1px 0 rgba(0,0,0,.25); }
 
 
+
+/* ====== Trees block (remove light background between columns) ====== */
+
+/* Tree “card” shell (header + grid) */
+.talent-tree{
+  background-color: #0e0f10;     /* sits under your inline bg image */
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 2px 8px rgba(0,0,0,.45);
+  background-size: cover;
+  background-position: center top;
+}
+
+/* Tree title bar aligns with the new dark theme */
+.talent-head{ margin: 0 0 8px; }
+
+/* Grid padding & subtle backdrop so icons pop */
+.talent-flex{
+  --gap: 10px;                   /* keep compact grid spacing */
+  gap: var(--gap);
+  padding: 10px;
+  background: rgba(0,0,0,.22);
+  border-radius: 10px;
+}
+
+/* Optional: make rank badge slightly bolder on dark */
+.talent-rank{
+  font-weight: 700;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.5));
+}

@@ -1,0 +1,513 @@
+/* =======================================================================
+   TALENT CALCULATOR — CLEAN STYLESHEET (aligned to widest content)
+   ======================================================================= */
+
+/* ---------------------------
+   Tokens / defaults
+---------------------------- */
+:root{
+  --panel-bg:#0e0f10;
+  --panel-shadow:0 1px 0 #000 inset, 0 10px 28px rgba(0,0,0,.35);
+
+  --text:#e4e8ee;
+  --muted:#a7b4c9;
+  --gold:#ffd700;
+
+  --header-h:40px;
+  --grid-gap:10px;
+  --cell-size:48px;
+
+  /* header icons */
+  --icon-size: clamp(36px, 4.2vw, 44px);
+  --icon-gap:10px;
+
+  /* class color (overridden per class container) */
+  --class-color:#c79c6e;
+
+  /* states */
+  --eligible-glow:#50ff78;
+  --eligible-shadow:rgba(80,255,120,.85);
+
+  /* tree layout math */
+  --tree-gap:12px;
+  --tree-inner-w: calc(var(--cell-size)*4 + var(--grid-gap)*3);   /* 4 cols + 3 gaps */
+  --tree-card-w:  calc(var(--tree-inner-w) + 20px);               /* +10px L/R padding */
+
+  /* JS will set this so header == trees width */
+  --tc-measured: auto;
+}
+
+/* Class palettes */
+.tc-container.is-warrior {--class-color:#C79C6E;}
+.tc-container.is-paladin {--class-color:#F58CBA;}
+.tc-container.is-hunter  {--class-color:#ABD473;}
+.tc-container.is-rogue   {--class-color:#FFF569;}
+.tc-container.is-priest  {--class-color:#FFFFFF;}
+.tc-container.is-shaman  {--class-color:#0070DE;}
+.tc-container.is-mage    {--class-color:#69CCF0;}
+.tc-container.is-warlock {--class-color:#9482C9;}
+.tc-container.is-druid   {--class-color:#FF7D0A;}
+
+/* ---------------------------
+   Outer container (fills page; inner stack is centered)
+---------------------------- */
+.tc-container{
+  background: var(--panel-bg);
+  color: var(--text);
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px;
+  border-radius: 14px;
+  box-shadow: var(--panel-shadow);
+  overflow: visible;
+  isolation: isolate;
+}
+
+/* ---------------------------
+   “Stack” wrapper for header + trees (shrink-wrap + centered)
+---------------------------- */
+#tc-root{
+  width: max-content;               /* shrink to content (the trees) */
+  margin: 12px auto 16px;           /* center the stack */
+}
+
+/* ---------------------------
+   Header (same width as trees via --tc-measured)
+---------------------------- */
+.tc-header{
+  width: var(--tc-measured);        /* JS sets this to trees width */
+  margin: 0 auto 10px;
+  box-sizing: border-box;
+
+  background:#111;
+  border-radius:12px;
+  padding:16px;
+  box-shadow:0 1px 0 #000 inset, 0 1px 2px rgba(0,0,0,.35);
+
+  display:grid;
+  grid-template-columns:1fr auto;   /* left text | right icons */
+  gap:16px;
+}
+
+/* Left block */
+.tc-head-left{display:flex;flex-direction:column;gap:8px}
+
+/* Title with subtle underline glow */
+.tc-head-left .tc-subtitle{
+  margin:0 0 10px;
+  color:var(--class-color);
+  font:800 24px/1.25 "Trebuchet MS", Arial, sans-serif;
+  position:relative;
+}
+.tc-head-left .tc-subtitle::after{
+  content:"";
+  position:absolute;left:0;right:0;bottom:-6px;height:2px;border-radius:999px;
+  background:linear-gradient(90deg,color-mix(in oklab,var(--class-color) 85%,#fff 15%),transparent 70%);
+  box-shadow:0 0 6px color-mix(in oklab,var(--class-color) 60%,#000 40%);
+  pointer-events:none;
+}
+
+/* “Class: 0/0/0” line */
+.tc-classcolor{
+  color:var(--class-color);
+  font:700 18px/1.35 "Trebuchet MS", Arial, sans-serif;
+}
+.tc-classcolor .tc-splits{color:#fff;font-weight:700}
+
+/* Summary lines */
+.tc-summary-inline{
+  display:flex;flex-wrap:wrap;gap:12px;
+  font:700 16px/1.4 "Trebuchet MS", Arial, sans-serif;
+}
+.tc-summary-inline span{color:var(--class-color)}
+.tc-summary-inline strong{color:#fff;font-weight:700}
+
+/* Right block — class icon grid */
+.tc-head-right{margin-left:12px}
+.tc-classgrid{
+  display:grid;
+  grid-template-columns:repeat(4,var(--icon-size));
+  grid-auto-rows:var(--icon-size);
+  gap:var(--icon-gap);
+  justify-items:center;
+  align-items:center;
+  padding:6px;
+  background:#141516;
+  border-radius:12px;
+}
+
+/* Icon ring */
+.tc-class{position:relative;line-height:0;color:inherit;transition:transform .15s ease,filter .15s ease}
+.tc-class img{
+  width:var(--icon-size);height:var(--icon-size);border-radius:50%;display:block;background:#0e1116;
+  border:3px solid currentColor;
+  box-shadow:0 0 0 2px rgba(0,0,0,.65), inset 0 0 0 1px rgba(255,255,255,.15);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.tc-class:hover img,.tc-class.active img{
+  transform:scale(1.08);
+  box-shadow:0 0 0 2px rgba(0,0,0,.65), inset 0 0 0 1px rgba(255,255,255,.2), 0 0 14px 0 currentColor
+}
+.tc-class:not(.active):not(:hover) img{filter:saturate(.9) brightness(.95)}
+
+/* Per-class ring color */
+.tc-class.class-warrior{color:#C79C6E}
+.tc-class.class-paladin{color:#F58CBA}
+.tc-class.class-hunter{color:#ABD473}
+.tc-class.class-rogue{color:#FFF569}
+.tc-class.class-priest{color:#FFFFFF}
+.tc-class.class-shaman{color:#0070DE}
+.tc-class.class-mage{color:#69CCF0}
+.tc-class.class-warlock{color:#9482C9}
+.tc-class.class-druid{color:#FF7D0A}
+
+/* ---------------------------
+   Trees wrapper (natural width; centered)
+---------------------------- */
+.talent-trees{
+  width: max-content;               /* three cards + two gaps */
+  margin: 0 auto;
+  display:flex;
+  gap:var(--tree-gap);
+  justify-content:center;
+  align-items:flex-start;
+  overflow:visible;
+}
+
+/* Tree card + header pill */
+.talent-tree{
+  position:relative;
+  width:var(--tree-card-w);         /* deterministic card width */
+  background-color:#0b0c10;
+  background-position:center;
+  background-size:100% 100%;
+  border-radius:12px;
+  padding:calc(var(--header-h) + 10px) 10px 12px;
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.85), 0 6px 16px rgba(0,0,0,.45);
+}
+.talent-head{
+  position:absolute;top:0;left:0;right:0;height:var(--header-h);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 12px 0 44px;border-radius:8px;background:#151515;
+  box-shadow:0 1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(0,0,0,.65);z-index:2;
+}
+.talent-head-ico{
+  position:absolute;left:8px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border-radius:50%;background-size:cover;background-position:center;
+  box-shadow:0 0 0 2px rgba(0,0,0,.7), 0 0 6px rgba(0,0,0,.5) inset;
+}
+.talent-head-title{font:700 20px/1 "Trebuchet MS", Arial, sans-serif;color:#d8e0ea;text-shadow:0 1px 0 #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.talent-head-pts{font:700 20px/1 "Trebuchet MS", Arial, sans-serif;color:#c9d4df;display:flex;align-items:center;gap:2px}
+
+/* 4-column grid of talents */
+.talent-flex{
+  --cell:var(--cell-size);--gap:var(--grid-gap);
+  width:var(--tree-inner-w);
+  margin:0 auto;padding:10px;border-radius:10px;
+  display:flex;flex-wrap:wrap;gap:var(--gap);justify-content:center;
+  background:rgba(0,0,0,.22);position:relative;
+}
+
+/* Talent cells */
+.talent-cell{
+  position:relative;width:var(--cell);height:var(--cell);border-radius:6px;
+  background:#2a2a2a var(--icon) center/cover no-repeat;
+  box-shadow:inset 0 0 0 1px #555;display:flex;align-items:center;justify-content:center;
+  font:12px/1.2 "Trebuchet MS", Arial, sans-serif;color:#ddd;overflow:hidden;z-index:1;
+}
+.talent-cell.placeholder{visibility:hidden;box-shadow:none;pointer-events:none}
+
+/* Rank badge */
+.talent-rank{
+  position:absolute;right:2px;bottom:2px;padding:0 6px;border-radius:8px;background:#000;
+  font-weight:700;font-size:12px;line-height:1;color:#999;filter:drop-shadow(0 1px 0 rgba(0,0,0,.5))
+}
+
+/* States */
+.talent-cell.empty{filter:grayscale(100%) brightness(.8);box-shadow:inset 0 0 0 1px #555}
+.talent-cell.empty .talent-rank{color:#999}
+.talent-cell.learned{filter:none;box-shadow:inset 0 0 0 2px #00ff00}
+.talent-cell.learned .talent-rank{color:#00ff00}
+.talent-cell.maxed{filter:none;box-shadow:inset 0 0 0 2px var(--gold)}
+.talent-cell.maxed .talent-rank{color:var(--gold)}
+.talent-cell.eligible{filter:none;box-shadow:0 0 10px var(--eligible-shadow), inset 0 0 0 2px var(--eligible-glow)}
+.talent-cell.locked{cursor:not-allowed;filter:grayscale(1) brightness(.65);box-shadow:inset 0 0 0 2px rgba(255,255,255,.05)}
+.talent-cell:hover{transform:scale(1.1);z-index:10;box-shadow:0 0 8px 2px rgba(255,255,200,.7), inset 0 0 0 2px #fff}
+.talent-cell.learned:hover{box-shadow:0 0 8px 2px rgba(0,255,0,.7), inset 0 0 0 2px #00ff00}
+.talent-cell.maxed:hover{box-shadow:0 0 8px 2px rgba(255,215,0,.8), inset 0 0 0 2px var(--gold)}
+.talent-cell.deny{animation:tc-deny .25s linear}
+@keyframes tc-deny{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+
+/* Requirement connectors (behind icons) */
+.req-layer{position:absolute;inset:0;pointer-events:none;z-index:0}
+.req-line{position:absolute;background:rgba(255,255,255,.22);border-radius:2px}
+.req-line.met{background:rgba(255,215,0,.85)}
+
+/* Tooltips */
+.talent-tt{
+  position:fixed;z-index:9999;min-width:220px;max-width:320px;padding:14px;border-radius:10px;
+  background:rgba(16,24,48,.78);border:1px solid rgba(200,220,255,.18);
+  box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
+  color:#e9eefb;font:14px/1.45 "Trebuchet MS", Arial, sans-serif;pointer-events:none;backdrop-filter:blur(2px)
+}
+.talent-tt h5{margin:0 0 8px;font-size:22px;font-weight:800;letter-spacing:.2px;color:#f1f6ff}
+.talent-tt .tt-subtle{opacity:.7;font-size:.9em;margin-top:.15rem}
+.talent-tt .tt-nexthead{margin-top:6px;color:#9fb4d9;font-size:12px}
+.talent-tt .tt-action{margin-top:.6rem;font-weight:600}
+.talent-tt .tt-learn{color:#7CFC00}
+.talent-tt .tt-unlearn{color:#7ab8ff}
+
+/* Share controls */
+.tc-share { display:flex; flex-direction:column; gap:6px; align-items:flex-start; margin-top:8px; }
+.tc-token{display:flex;align-items:center;gap:8px}
+.tc-share-btn{
+  background: var(--class-color); color:#111; font:700 13px/1 "Trebuchet MS", Arial, sans-serif;
+  padding:8px 10px; border:none; border-radius:8px; cursor:pointer;
+  box-shadow: 0 1px 0 #000 inset, 0 3px 8px rgba(0,0,0,.25);
+}
+.tc-share-btn:hover{ filter:brightness(1.05); }
+.tc-share-link{ color:#fff; text-decoration:underline; font:700 13px/1 "Trebuchet MS", Arial, sans-serif; }
+#tcTokenBox{
+  width: 340px; max-width: 60vw;
+  padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
+  background:#15181c;color:#e9eefb;font:700 13px/1.2 "Trebuchet MS", Arial, sans-serif;
+}
+
+/* Class-name tooltip (for class icon hover) */
+.tc-class-tip {
+  position: fixed; z-index: 10000; display: none; padding: 4px 8px; border-radius: 8px;
+  background: rgba(8,12,18,.92); border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 10px 24px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+  color: #fff; font: 700 14px/1.2 "Trebuchet MS", Arial, sans-serif;
+  pointer-events: none; transform: translateY(0); transition: transform .08s, opacity .08s; opacity: 0;
+  white-space: nowrap; text-shadow: 0 1px 0 #000;
+}
+.tc-class-tip.show { display:block; opacity:1; transform: translateY(-2px); }
+.tc-header,.tc-head-right,.tc-classgrid { position: relative; overflow: visible; z-index: 2; }
+.tc-class { position: relative; isolation: isolate; }
+.tc-class[data-name]::after{
+  content: attr(data-name);
+  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%) translateY(4px);
+  padding: 4px 10px; border-radius: 8px; background: #0a0c10; border: 1px solid rgba(255,255,255,.15);
+  box-shadow: 0 6px 16px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+  font: 800 14px/1.25 "Trebuchet MS", Arial, sans-serif; color: var(--class-color, #ffd37a);
+  text-shadow: 0 1px 0 #000; white-space: nowrap; pointer-events: none; opacity: 0; z-index: 3;
+  transition: opacity .12s ease, transform .12s ease;
+}
+.tc-class[data-name]::before{
+  content: ""; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+  width: 60%; height: 2px; border-radius: 999px;
+  background: color-mix(in oklab, var(--class-color) 85%, #fff 15%);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--class-color) 55%, #000 45%);
+  opacity: 0; pointer-events: none; transition: opacity .12s ease;
+}
+
+/* Whisper hint line under the token+button */
+.tc-whisper{
+  margin-top: 6px;
+  color: #c9d4df;
+  font: 700 13px/1.25 "Trebuchet MS", Arial, sans-serif;
+  opacity: .9;
+  white-space: nowrap;
+}
+
+/* Misc small helpers */
+.tooltip-next { color:#ffd100; }
+.tooltip-disabled { color:#999; font-style:italic; }
+
+/* Theme rules that sometimes add a full-width separator */
+.tc-container + hr,
+.tc-container hr { display: none !important; }
+
+
+/* if the theme inserts a sibling divider after the calc */
+#tc-root + hr,
+#tc-root + .hr,
+#tc-root + .separator,
+#tc-root + .line,
+#tc-root + .page-sep { display:none !important; }
+
+/* if it's a pseudo-element on the parchment content area */
+.parchment-content::after { content:none !important; }
+
+:root { --tc-nudge-x: -22px; }   /* negative = left, positive = right */
+
+#tc-root{
+  transform: translateX(var(--tc-nudge-x));
+}
+
+/* Nuke any theme separators that appear after the calculator */
+.tc-container ~ hr,
+.tc-container ~ .separator,
+.tc-container ~ .divider,
+.tc-container ~ .parch-sep,
+.tc-container ~ .parchment-sep,
+.tc-container ~ .rule,
+.tc-container ~ .line,
+.tc-container ~ .spacer {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* If the bar is drawn with a pseudo-element on the content wrapper */
+.parchment-content::before,
+.parchment-content::after {
+  content: none !important;   /* <- only keep if you still see the bar */
+}
+/* kill any theme rule that appears directly under the calculator */
+.tc-container + * {
+  border-top: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+  background-color: transparent !important;
+}
+.tc-container + *::before,
+.tc-container + *::after {
+  content: none !important;
+}
+/* Buttons */
+.tc-actions { margin-top: 6px; }
+
+.tc-btn{
+  background:#1b1e24; color:#e9eefb;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:8px; padding:7px 10px;
+  font:700 13px/1 "Trebuchet MS", Arial, sans-serif;
+  cursor:pointer; box-shadow:0 1px 0 #000 inset, 0 2px 6px rgba(0,0,0,.25);
+}
+.tc-btn:hover{ filter:brightness(1.06); border-color:rgba(255,255,255,.22); }
+.tc-btn:active{ transform:translateY(1px); }
+
+.tc-btn--sm{
+  padding:3px 8px; border-radius:7px; font-weight:800;
+  margin-left:8px;
+}
+
+/* keep the little button aligned on the tree header row */
+.talent-head { gap:8px; }
+/* reset-all "icon" built from CSS so it matches size/ring/hover */
+.tc-class.class-reset {
+  color: #9fb4d9;                   /* base ring/X color (neutral blue/grey) */
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+/* the circular badge (same sizing as your <img>) */
+.tc-reset-ico{
+  width: var(--icon-size);
+  height: var(--icon-size);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #0e1116;
+  border: 3px solid currentColor;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.65),
+              inset 0 0 0 1px rgba(255,255,255,.15);
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  position: relative;
+}
+
+/* draw the X with two bars; inherit currentColor so hover color applies */
+.tc-reset-ico::before,
+.tc-reset-ico::after{
+  content:"";
+  position:absolute;
+  width: 60%;
+  height: 12%;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: .9;
+}
+.tc-reset-ico::before{ transform: rotate(45deg); }
+.tc-reset-ico::after { transform: rotate(-45deg); }
+
+/* hover/focus = red + glow; mimic the icon scale you use on images */
+.tc-class.class-reset:hover .tc-reset-ico,
+.tc-class.class-reset:focus-visible .tc-reset-ico{
+  transform: scale(1.08);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.65),
+              inset 0 0 0 1px rgba(255,255,255,.2),
+              0 0 14px 0 currentColor;
+}
+
+/* make the whole thing turn red on hover */
+.tc-class.class-reset:hover,
+.tc-class.class-reset:focus-visible{
+  color: #ff4747;
+  outline: none;
+}
+
+/* match your slight desaturation for idle icons */
+.tc-class.class-reset:not(:hover) .tc-reset-ico { filter: saturate(.9) brightness(.95); }
+
+/* group things naturally, title on the left, points + reset on the right */
+.talent-head{
+  justify-content: flex-start;      /* not space-between */
+  gap: 10px;                        /* small breathing room between title and points */
+}
+
+/* push this item to the right edge, and give it a small gap to neighbors */
+.talent-head-pts{
+  margin-left: auto;                /* this creates the left “fill” */
+  display: flex;
+  align-items: center;
+  gap: 8px;                         /* "61 [x]" spacing */
+}
+
+/* if your reset button is a sibling right after .talent-head-pts */
+.talent-head-pts + .tree-reset{ margin-left: 8px; }
+:root{ --reset-row: 3; --reset-col: 4; }
+.tc-reset{ grid-row: var(--reset-row); grid-column: var(--reset-col); }
+/* grid already: 4 columns x auto rows */
+.tc-classgrid{
+  display:grid;
+  grid-template-columns: repeat(4, var(--icon-size));
+  grid-auto-rows: var(--icon-size);
+  gap: var(--icon-gap);
+}
+
+/* place the reset button in row 3 / col 4 */
+.class-reset{ grid-row: 3; grid-column: 4; }
+
+/* make the button look like the class icons */
+.class-reset{
+  background: none; border: 0; padding: 0; line-height: 0; cursor: pointer;
+}
+.tc-reset-ico{
+  width: var(--icon-size);
+  height: var(--icon-size);
+  border-radius: 50%;
+  background: #0e1116;
+  border: 3px solid #9aa6b2;            /* ring */
+  box-shadow: 0 0 0 2px rgba(0,0,0,.65), inset 0 0 0 1px rgba(255,255,255,.15);
+  position: relative;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.tc-reset-ico::before,
+.tc-reset-ico::after{
+  content:"";
+  position:absolute; left:50%; top:50%;
+  width: 56%; height: 4px; border-radius: 999px;
+  background: #cfd6df;
+  transform-origin:center;
+}
+.tc-reset-ico::before{ transform: translate(-50%,-50%) rotate(45deg); }
+.tc-reset-ico::after { transform: translate(-50%,-50%) rotate(-45deg); }
+
+/* hover -> red + glow (like “danger”) */
+.class-reset:hover .tc-reset-ico{
+  border-color: #ff4d4f;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.65),
+              inset 0 0 0 1px rgba(255,255,255,.2),
+              0 0 14px #ff4d4f;
+  transform: scale(1.08);
+}
+.class-reset:hover .tc-reset-ico::before,
+.class-reset:hover .tc-reset-ico::after{
+  background: #ff4d4f;
+}
