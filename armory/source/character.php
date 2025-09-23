@@ -160,17 +160,19 @@ var theCharName = "<?php echo $stat["name"] ?>";
 </ul>
 </div>
 
-<div class="select<?php echo $requested_char_action == "talentcalc" ? 1 : 0 ?>" onMouseOut="hideTip();" onMouseOver="showTip('Work In Progress');">
+ <!--
+ <div class="select<?php //echo $requested_char_action == "talentcalc" ? 1 : 0 ?>" onMouseOut="hideTip();" onMouseOver="showTip('Work In Progress');">
   <ul>
     <li class="tab-left"></li>
     <li class="tab-content">
-      <a class="active" href="index.php?searchType=profile&charPage=talentcalc&character=<?php echo $stat['name'],"&realm=",REALM_NAME ?>">
+      <a class="active" href="index.php?searchType=profile&charPage=talentcalc&character=<?php// echo $stat['name'],"&realm=",REALM_NAME ?>">
         Talent Calculator
       </a>
     </li>
     <li class="tab-right"></li>
   </ul>
-</div>
+</div> 
+-->
 
 
 <div class="select<?php echo $requested_char_action == "achievements" ? 1 : 0 ?>">

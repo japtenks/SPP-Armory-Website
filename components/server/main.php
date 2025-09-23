@@ -1,4 +1,25 @@
 <?php
+
+$talentsLink = mw_url('server', 'talents');
+
+if (!empty($user['character_name'])) {
+    $selectedRealmName = '';
+
+    if (!empty($user['cur_selected_realmd'])) {
+        $selectedRealm = get_realm_byid($user['cur_selected_realmd']);
+
+        if (!empty($selectedRealm['name'])) {
+            $selectedRealmName = $selectedRealm['name'];
+        }
+    }
+
+    if ($selectedRealmName !== '') {
+        $talentsLink = './armory/index.php?searchType=profile&charPage=talents&character='
+            . rawurlencode($user['character_name'])
+            . '&realm=' . rawurlencode($selectedRealmName);
+    }
+}
+
 $com_content['server'] = array(
     'index' => array(
         '', // g_ option require for view     [0]
@@ -66,7 +87,7 @@ $com_content['server'] = array(
     'talents' => array(
         '', 
         'Talents', 
-        mw_url('server', 'talents'),
+        $talentsLink,
         '4-menuInteractive',
         0
     ),

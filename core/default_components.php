@@ -156,24 +156,30 @@ $mainnav_links = array (
       1 => './armory/',
       2 => '',
     ),
+    11 =>
+    array (
+      0 => 'talents',
+      1 => '#',
+      2 => '',
+    ),
+    9 =>
+    array (
+      0 => 'talent_calculator',
+      1 => './armory/index.php#0-0-0',
+      2 => '',
+    ),	
+    10 =>
+    array (
+      0 => 'armorsets',
+      1 => 'index.php?n=server&sub=armorsets',
+      2 => '',
+    ),	
     8 =>
     array (
       0 => 'flashmap',
       1 => './components/tools/maps/flashmap/',
       2 => '',
-    ),
-    9 =>
-    array (
-      0 => 'armorsets',
-      1 => 'index.php?n=server&sub=armorsets',
-      2 => '',
-    ),
-    10 =>
-    array (
-      0 => 'talent_calculator',
-      1 => './armory/index.php#0-0-0',
-      2 => '',
-    ),
+    ),		
   ),
   '5-menuMedia' => 
   array (
@@ -302,6 +308,39 @@ $allowed_ext = array (
   10 => 'armory',
   11 => 'gameguide',
 );
+//pull up active character talents
+$talentMenuIndex = 11;
+if (isset($mainnav_links['4-menuInteractive'][$talentMenuIndex])) {
+    $talentCharacter = isset($user['character_name']) ? trim($user['character_name']) : '';
+
+    if ($talentCharacter !== '') {
+        $talentRealmName = '';
+
+        if (!empty($user['cur_selected_realmd'])) {
+            $selectedRealm = get_realm_byid($user['cur_selected_realmd']);
+            if (!empty($selectedRealm['name'])) {
+                $talentRealmName = $selectedRealm['name'];
+            }
+        }
+
+        if ($talentRealmName === '' && isset($MW->getConfig->generic_values->realm_info->default_realm_id)) {
+            $defaultRealmId = (int)$MW->getConfig->generic_values->realm_info->default_realm_id;
+            if ($defaultRealmId > 0) {
+                $defaultRealm = get_realm_byid($defaultRealmId);
+                if (!empty($defaultRealm['name'])) {
+                    $talentRealmName = $defaultRealm['name'];
+                }
+            }
+        }
+
+        $talentLink = '/armory/index.php?searchType=profile&charPage=talents&character=' . rawurlencode($talentCharacter);
+        if ($talentRealmName !== '') {
+            $talentLink .= '&realm=' . rawurlencode($talentRealmName);
+        }
+
+        $mainnav_links['4-menuInteractive'][$talentMenuIndex][1] = $talentLink;
+    }
+}
 
 // Main Forum Navigation Link
 if ((int)$MW->getConfig->generic_values->forum->frame_forum || (int)$MW->getConfig->generic_values->forum->externalforum){
@@ -398,9 +437,16 @@ if ((int)$MW->getConfig->components->left_section->Interactive_world_atlas==0)
 }
 if ((int)$MW->getConfig->components->left_section->Armor_sets==0)
 {
+    unset($mainnav_links['4-menuInteractive'][10]);
+}
+if ((int)$MW->getConfig->components->left_section->Talent_calc==0)
+{
     unset($mainnav_links['4-menuInteractive'][9]);
 }
-
+if ((int)$MW->getConfig->components->left_section->talents==0 || empty($user['character_name']))
+{
+    unset($mainnav_links['4-menuInteractive'][$talentMenuIndex]);
+}
 /*Support*/
 if ((int)$MW->getConfig->components->left_section->Commands==0)
 {
