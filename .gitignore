@@ -9,7 +9,7 @@
 core/logs/error_log.txt
 
 # Private configs (use config.example.xml instead)
-#config/config.xml
+config/config.xml
 
 # System files
 *.bak

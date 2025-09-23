@@ -33,22 +33,55 @@ Menu1_2=new Array("Account","account/default.htm","reg",dv3,dv4,dv5,dv6,dv7,dv8,
 Menu1_3=new Array("Game Guide","info/default.htm","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 
 /*Workshop Menu1_*/
-Menu1_4=new Array("Workshop","","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-Menu1_4_1=new Array("Armory","index.php","reg",8,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-    Menu1_4_1_1=new Array("Character Profiles","index.php?searchType=characters","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-    Menu1_4_1_2=new Array("Guild Profiles","index.php?searchType=guilds","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-	Menu1_4_1_3=new Array("Team Profiles","index.php?searchType=arenateams","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-	Menu1_4_1_4=new Array("Honor Ranking","index.php?searchType=honor","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-    Menu1_4_1_5=new Array("Arena Rankings","index.php?searchType=arena","reg",3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-		Menu1_4_1_5_1=new Array("2v2 Arena Ranking","index.php?searchType=arena&type=2","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-		Menu1_4_1_5_2=new Array("3v3 Arena Ranking","index.php?searchType=arena&type=3","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-		Menu1_4_1_5_3=new Array("5v5 Arena Ranking","index.php?searchType=arena&type=5","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-	Menu1_4_1_6=new Array("Team Rankings","index.php?searchType=team","reg",3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-		Menu1_4_1_6_1=new Array("2v2 Team Ranking","index.php?searchType=team&type=2","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-		Menu1_4_1_6_2=new Array("3v3 Team Ranking","index.php?searchType=team&type=3","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-		Menu1_4_1_6_3=new Array("5v5 Team Ranking","index.php?searchType=team&type=5","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-    Menu1_4_1_7=new Array("Items","index.php?searchType=items","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-    Menu1_4_1_8=new Array("Talent Calculator","../index.php?n=server.talents","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4 = new Array("Workshop", "", "reg", 1, dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// Armory (8 children)
+Menu1_4_1 = new Array("Armory", "/armory/index.php", "reg", 8, dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 1) Character Profiles
+Menu1_4_1_1 = new Array("Character Profile", "/armory/index.php?searchType=characters", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 2) Guild Profiles
+Menu1_4_1_2 = new Array("Guild Profiles", "/armory/index.php?searchType=guilds", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 3) Team Profiles
+Menu1_4_1_3 = new Array("Team Profiles", "/armory/index.php?searchType=arenateams", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 4) Honor Ranking
+Menu1_4_1_4 = new Array("Honor Ranking", "/armory/index.php?searchType=honor", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 5) Arena Rankings (3 children)
+Menu1_4_1_5 = new Array("Arena Rankings", "/armory/index.php?searchType=arena", "reg", 3,
+  dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1_5_1 = new Array("2v2 Arena Ranking", "/armory/index.php?searchType=arena&type=2", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1_5_2 = new Array("3v3 Arena Ranking", "/armory/index.php?searchType=arena&type=3", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1_5_3 = new Array("5v5 Arena Ranking", "/armory/index.php?searchType=arena&type=5", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 6) Team Rankings (3 children)
+Menu1_4_1_6 = new Array("Team Rankings", "/armory/index.php?searchType=team", "reg", 3,
+  dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1_6_1 = new Array("2v2 Team Ranking", "/armory/index.php?searchType=team&type=2", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1_6_2 = new Array("3v3 Team Ranking", "/armory/index.php?searchType=team&type=3", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1_6_3 = new Array("5v5 Team Ranking", "/armory/index.php?searchType=team&type=5", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 7) Items
+Menu1_4_1_7 = new Array("Items", "/armory/index.php?searchType=items", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
+// 8) Talent Calculator						  
+Menu1_4_1_8 = new Array("Talent Calculator", "/armory/index.php#0-0-0", "reg",
+  dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+
 
 
 /*Media Menu1_*/
