@@ -10,7 +10,8 @@ if (!defined('Armory')) { exit; }
  */
 
 /* -------------------- helpers -------------------- */
-
+    $cssPath = $_SERVER['DOCUMENT_ROOT'].'/armory/css/talents-calc.css';
+    $jsPath  = $_SERVER['DOCUMENT_ROOT'].'/armory/js/talents-calc.js';
 function tbl_exists($conn, $table) {
     if (!preg_match('/^[A-Za-z0-9_]+$/', $table)) return false;
     return (bool) execute_query(
@@ -357,10 +358,6 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 <head>
   <meta charset="UTF-8">
   <title>Character Talents Calculator</title>
-  <?php
-    $cssPath = $_SERVER['DOCUMENT_ROOT'].'/armory/css/talents-calc.css';
-    $jsPath  = $_SERVER['DOCUMENT_ROOT'].'/armory/js/talents-calc.js';
-  ?>
   <link rel="stylesheet" href="/armory/css/talents-calc.css<?= is_file($cssPath) ? '?v='.filemtime($cssPath) : '' ?>">
   <script defer src="/armory/js/talents-calc.js<?= is_file($jsPath) ? '?v='.filemtime($jsPath) : '' ?>"></script>
 </head>

@@ -547,6 +547,50 @@ require "source/".$PagesArray[REQUESTED_ACTION];
 
 </script>
 <script src="shared/global/menu/<?php echo LANGUAGE ?>/menutree_<?php echo $exp ?>.js" type="text/javascript"></script>
+<?php
+// ---- AFTER menutree_*.js is loaded, BEFORE menu132_com.js ----
+$list  = !empty($accountCharacters) ? array_values($accountCharacters) : [];
+$realm = isset($realmParam) ? $realmParam : (defined('REALM_NAME') ? REALM_NAME : '');
+if ($list) {
+?>
+<script type="text/javascript">
+(function () {
+  // Characters and realm from PHP
+  var chars = <?php echo json_encode($list); ?>;
+  var realm = <?php echo json_encode($realm); ?>;
+  if (!chars || !chars.length) return;
+
+  // Find the array for "Character Profiles" in the loaded menutree_* file.
+  // We match by the link (…searchType=characters). This works in any language.
+  var targetKey = null;
+  for (var k in window) {
+    if (!Object.prototype.hasOwnProperty.call(window, k)) continue;
+    if (!/^Menu\d(?:_\d+)*$/.test(k)) continue;      // only menu arrays
+    var a = window[k];
+    if (a && a.constructor === Array
+        && typeof a[1] === 'string'
+        && a[1].indexOf('searchType=characters') !== -1) {
+      targetKey = k; break;
+    }
+  }
+  if (!targetKey) return; // menutree layout unexpected
+
+  // Set child count and define submenu items: MenuX_Y_Z_1, _2, …
+  window[targetKey][3] = chars.length;
+  for (var i = 0; i < chars.length; i++) {
+    var name = chars[i];
+    var href = 'index.php?searchType=profile&character='
+              + encodeURIComponent(name)
+              + '&realm=' + encodeURIComponent(realm);
+    window[targetKey + '_' + (i+1)] =
+      new Array(name, href, 'reg',
+        dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+  }
+})();
+</script>
+<?php } ?>
+
+
 <script src="shared/global/menu/menu132_com.js" type="text/javascript"></script>
 <script src="js/<?php echo LANGUAGE ?>/menus.js" type="text/javascript"></script>
 <script src="shared/global/third-party/sarissa/0.9.7.6/sarissa.js" type="text/javascript"></script>
