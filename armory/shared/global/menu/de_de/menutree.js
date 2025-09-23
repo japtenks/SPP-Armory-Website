@@ -34,7 +34,7 @@ Menu1_3=new Array("Game Guide","info/default.htm","reg",dv3,dv4,dv5,dv6,dv7,dv8,
 
 /*Workshop Menu1_*/
 Menu1_4=new Array("Workshop","","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-Menu1_4_1=new Array("Armory","index.php","reg",7,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1=new Array("Armory","index.php","reg",8,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
     Menu1_4_1_1=new Array("Charakterprofile","index.php?searchType=characters","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
     Menu1_4_1_2=new Array("Gildenprofile","index.php?searchType=guilds","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 	Menu1_4_1_3=new Array("Teamprofile","index.php?searchType=arenateams","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
@@ -48,6 +48,7 @@ Menu1_4_1=new Array("Armory","index.php","reg",7,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv
 		Menu1_4_1_6_2=new Array("3v3 Teamrangliste","index.php?searchType=team&type=3","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 		Menu1_4_1_6_3=new Array("5v5 Teamrangliste","index.php?searchType=team&type=5","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
     Menu1_4_1_7=new Array("Gegenst&auml;nde","index.php?searchType=items","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+    Menu1_4_1_8=new Array("Talentrechner","../index.php?n=server.talents","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 
 
 /*Media Menu1_*/

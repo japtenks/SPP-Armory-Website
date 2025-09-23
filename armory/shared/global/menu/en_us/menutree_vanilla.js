@@ -34,11 +34,12 @@ Menu1_3=new Array("Game Guide","info/default.htm","reg",dv3,dv4,dv5,dv6,dv7,dv8,
 
 /*Workshop Menu1_*/
 Menu1_4=new Array("Workshop","","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
-Menu1_4_1=new Array("Armory","index.php","reg",4,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+Menu1_4_1=new Array("Armory","index.php","reg",5,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
     Menu1_4_1_1=new Array("Character Profiles","index.php?searchType=characters","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
     Menu1_4_1_2=new Array("Guild Profiles","index.php?searchType=guilds","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 	Menu1_4_1_3=new Array("Honor Ranking","index.php?searchType=honor","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
     Menu1_4_1_4=new Array("Items","index.php?searchType=items","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+    Menu1_4_1_5=new Array("Talent Calculator","../index.php?n=server.talents","reg",dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 
 
 /*Media Menu1_*/
