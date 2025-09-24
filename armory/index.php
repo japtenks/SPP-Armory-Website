@@ -74,6 +74,53 @@ if(isset($_GET["searchType"]) && isset($PagesArray[$_GET["searchType"]]))
 session_start();
 initialize_realm();
 require "configuration/".LANGUAGE."/languagearray.php";
+
+$accountCharacters = array();
+$realmParam = defined('REALM_NAME') ? REALM_NAME : '';
+
+if (isset($_SESSION["realm"]) && isset($realms[$_SESSION["realm"]])) {
+    $realmParam = $_SESSION["realm"];
+}
+
+if (isset($_SESSION["logged_MBA"], $_SESSION["user_id"]) && $realmParam && isset($realms[$realmParam])) {
+    $userId = (int)$_SESSION["user_id"];
+
+    if (defined('REALM_NAME') && REALM_NAME === $realmParam) {
+        $charRows = execute_query("char", "SELECT `name` FROM `characters` WHERE `account` = " . $userId . " ORDER BY `name`");
+        if (is_array($charRows)) {
+            foreach ($charRows as $row) {
+                if (!empty($row["name"])) {
+                    $accountCharacters[] = $row["name"];
+                }
+            }
+        }
+    } else {
+        $realmCharKey = $realms[$realmParam][1];
+        if (isset($characters_DB[$realmCharKey])) {
+            $dbInfo = $characters_DB[$realmCharKey];
+            $dsn = "mysql://" . $dbInfo[1] . ":" . $dbInfo[2] . "@" . $dbInfo[0] . "/" . $dbInfo[3];
+            $tmpDb = @dbsimple_Generic::connect($dsn);
+            if ($tmpDb) {
+                $tmpDb->setErrorHandler('databaseErrorHandler');
+                $tmpDb->query("SET NAMES UTF8;");
+                $charList = $tmpDb->selectCol(
+                    "SELECT `name` FROM `characters` WHERE `account` = ?d ORDER BY `name`",
+                    $userId
+                );
+                if (is_array($charList)) {
+                    $accountCharacters = $charList;
+                }
+                $tmpDb = null;
+            }
+        }
+    }
+
+    if ($accountCharacters) {
+        $accountCharacters = array_values(array_unique($accountCharacters));
+        sort($accountCharacters, SORT_STRING);
+    }
+}
+
 function session_security($fingerprint = "fingerprint001")
 {
 	if(isset($_SESSION["HTTP_USER_AGENT"]))
@@ -574,8 +621,8 @@ require "source/".$PagesArray[REQUESTED_ACTION];
 <script src="shared/global/menu/<?php echo LANGUAGE ?>/menutree_<?php echo $exp ?>.js" type="text/javascript"></script>
 <?php
 // ---- AFTER menutree_*.js is loaded, BEFORE menu132_com.js ----
-$list  = !empty($accountCharacters) ? array_values($accountCharacters) : [];
-$realm = isset($realmParam) ? $realmParam : (defined('REALM_NAME') ? REALM_NAME : '');
+$list  = !empty($accountCharacters) ? array_values($accountCharacters) : array();
+$realm = !empty($realmParam) ? $realmParam : (defined('REALM_NAME') ? REALM_NAME : '');
 if ($list) {
 ?>
 <script type="text/javascript">
@@ -583,33 +630,54 @@ if ($list) {
   // Characters and realm from PHP
   var chars = <?php echo json_encode($list); ?>;
   var realm = <?php echo json_encode($realm); ?>;
-  if (!chars || !chars.length) return;
+  if (!chars || !chars.length) {
+    return;
+  }
 
-  // Find the array for "Character Profiles" in the loaded menutree_* file.
-  // We match by the link (…searchType=characters). This works in any language.
-  var targetKey = null;
-  for (var k in window) {
-    if (!Object.prototype.hasOwnProperty.call(window, k)) continue;
-    if (!/^Menu\d(?:_\d+)*$/.test(k)) continue;      // only menu arrays
-    var a = window[k];
-    if (a && a.constructor === Array
-        && typeof a[1] === 'string'
-        && a[1].indexOf('searchType=characters') !== -1) {
-      targetKey = k; break;
+  var targetKey = 'Menu1_4_1_1';
+  var target = window[targetKey];
+
+  if (!target || target.constructor !== Array) {
+    targetKey = null;
+    for (var key in window) {
+      if (!Object.prototype.hasOwnProperty.call(window, key)) {
+        continue;
+      }
+      if (!/^Menu\d(?:_\d+)*$/.test(key)) {
+        continue;
+      }
+      var candidate = window[key];
+      if (candidate && candidate.constructor === Array && typeof candidate[1] === 'string' && candidate[1].indexOf('searchType=characters') !== -1) {
+        targetKey = key;
+        target = candidate;
+        break;
+      }
+    }
+    if (!targetKey) {
+      return;
     }
   }
-  if (!targetKey) return; // menutree layout unexpected
 
-  // Set child count and define submenu items: MenuX_Y_Z_1, _2, …
-  window[targetKey][3] = chars.length;
-  for (var i = 0; i < chars.length; i++) {
+  var baseHref = 'index.php?searchType=profile&character=';
+  var menuRealm = realm || '';
+  var childCount = chars.length;
+
+  var cleanupIndex = 1;
+  while (Object.prototype.hasOwnProperty.call(window, targetKey + '_' + cleanupIndex)) {
+    delete window[targetKey + '_' + cleanupIndex];
+    cleanupIndex++;
+  }
+
+  target[3] = childCount;
+
+  var primaryHref = baseHref + encodeURIComponent(chars[0]) + '&realm=' + encodeURIComponent(menuRealm);
+  target[1] = primaryHref;
+
+  for (var i = 0; i < childCount; i++) {
     var name = chars[i];
-    var href = 'index.php?searchType=profile&character='
-              + encodeURIComponent(name)
-              + '&realm=' + encodeURIComponent(realm);
-    window[targetKey + '_' + (i+1)] =
-      new Array(name, href, 'reg',
-        dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
+    var href = baseHref + encodeURIComponent(name) + '&realm=' + encodeURIComponent(menuRealm);
+    var childKey = targetKey + '_' + (i + 1);
+    window[childKey] = new Array(name, href, 'reg', dv3, dv4, dv5, dv6, dv7, dv8, dv9, dv10, dv11, dv12, dv13, dv14, dv15, dv16);
   }
 })();
 </script>
