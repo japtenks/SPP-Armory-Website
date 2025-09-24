@@ -120,7 +120,10 @@ function spell_info_for_talent(array $talRow, int $rank = 0) {
   $sp = execute_query('armory', $sql, 1);
   if (!$sp || !is_array($sp)) return ['name'=>'Unknown','desc'=>'','icon'=>'inv_misc_questionmark'];
 
-  $desc = build_tooltip_desc($sp);
+  //$desc = build_tooltip_desc($sp);
+  
+$desc = build_tooltip_desc($sp, $useRank, $maxRank);
+
   $icon = strtolower(preg_replace('/[^a-z0-9_]/i', '', (string)($sp['icon'] ?? '')));
   if ($icon==='') $icon='inv_misc_questionmark';
   return ['name'=>(string)($sp['name'] ?? 'Unknown'), 'desc'=>$desc, 'icon'=>$icon];
@@ -231,7 +234,6 @@ function _trigger_col_base(){
   return $base;
 }
 
-/* -------------------- VIEW-ONLY / SELECTION -------------------- */
 // -------------------- CALCULATOR SETTINGS (no prefill) --------------------
 $CALC_MODE    = true;         // interactive calc (ignore learned ranks)
 $MAX_POINTS   = 61;           // TBC max
@@ -261,10 +263,8 @@ $classSlug = $CLASS_SLUGS[$charClassId] ?? 'warrior';
 $tabs = get_tabs_for_class($charClassId); // use selected class
 
 /* -------------------- tooltip builder (unchanged core) -------------------- */
-function build_tooltip_desc(array $sp): string {
-  // (… your existing long tooltip builder exactly as before …)
-  // Keeping content identical to your provided version for brevity.
-  // BEGIN pasted from your message
+//function build_tooltip_desc(array $sp): string {
+function build_tooltip_desc(array $sp, int $cur = 1, int $max = 1): string {
   $desc = (string)($sp['description'] ?? '');
   $trimNum = static function($v): string { $s=number_format((float)$v,1,'.',''); $s=rtrim(rtrim($s,'0'),'.'); return ($s==='')?'0':$s; };
   $rangeText = static function(int $min, int $max): string { return ($max > $min) ? ($min . ' to ' . $max) : (string)$min; };
@@ -329,7 +329,6 @@ function build_tooltip_desc(array $sp): string {
   $desc=preg_replace('/\$\w*sec:secs;/',' sec',$desc);
   $desc=preg_replace('/\s+%/','%',$desc);
   return $desc;
-  // END pasted section
 }
 
 /* -------------------- build data -------------------- */
@@ -353,59 +352,61 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 
 ?>
 <?php
+// --- view header vars ---
 $talentCalcStandalone = defined('REQUESTED_ACTION') && REQUESTED_ACTION === 'talentscalc';
-$talentCalcHeading = $lang['talentscalc'] ?? 'Talents Calculator';
+$talentCalcHeading    = $lang['talentscalc'] ?? 'Talents Calculator';
+
+// pre-escape so we don’t repeat htmlspecialchars everywhere
+$classSlugSafe = htmlspecialchars($classSlug, ENT_QUOTES);
+$charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
 ?>
-<?php if ($talentCalcStandalone): ?>
-<div class="parch-profile-banner" id="banner" style="position: absolute;margin-left: 450px!important;margin-top: -110px!important;">
-  <h1 style="padding-top: 12px!important;"><?php echo $talentCalcHeading; ?></h1>
-</div>
-<?php endif; ?>
-
 <?php if (empty($tabs)): ?>
-  <em>No talent tabs found for this class.</em>
-
+  <!-- No tabs case -->
+  <div id="tc-root" class="tc-container is-<?= $classSlugSafe ?>">
+    <div class="tc-header is-<?= $classSlugSafe ?>">
+      <em>No talent tabs found for this class.</em>
+    </div>
+  </div>
 <?php else: ?>
-<div id="tc-root" class="tc-container is-<?= htmlspecialchars($classSlug) ?>">
-<!-- Header block -->
-<div class="tc-header is-<?= htmlspecialchars($classSlug) ?>">
-
-<div class="tc-head-left">
+  <!-- Has tabs: render full UI -->
+  <div id="tc-root" class="tc-container is-<?= $classSlugSafe ?>">
+    <div class="tc-header is-<?= $classSlugSafe ?>">
+<div class="tc-head-left"> 	<!--Area above the left two talent trees, class, points,share-->
   <div class="tc-leftpanel">
     <div class="tc-subtitle">Talent Calculator</div>
+
     <div class="tc-classcolor">
-      <?= htmlspecialchars($charClass) ?>:
+      <?= htmlspecialchars($charClass, ENT_QUOTES) ?>:
       <span class="tc-splits" id="tcSplits">0 / 0 / 0</span>
     </div>
 
     <div class="tc-summary-inline">
-      <span class="tc-req">Required level: <strong id="tcReqLvl">10</strong></span>
+      <span class="tc-req">
+        Required level:
+        <strong id="tcReqLvl" aria-live="polite">10</strong>
+      </span>
     </div>
-    <div class="tc-summary-inline">
-      <span class="tc-pointsleft">Points left: <strong id="tcLeft"><?= (int)$talentCap ?></strong></span>
-    </div>
-	
 
-    <div class="tc-share">
+    <div class="tc-summary-inline">
+      <span class="tc-pointsleft">
+        Points left:
+        <strong id="tcLeft" aria-live="polite"><?= (int) $talentCap ?></strong>
+      </span>
+    </div>
+
+    <div class="tc-share" role="group" aria-label="Share build">
       <div class="tc-token">
-        <input id="tcTokenBox" type="text" readonly>
-        <button id="tcCopyToken" class="tc-share-btn">Share build</button>
+        <input id="tcTokenBox" type="text" readonly aria-label="Share token">
+        <button id="tcCopyToken" class="tc-share-btn" type="button">Share build</button>
       </div>
 
       <!-- whisper hint (updated by JS refreshShareUI) -->
-      <div id="tcWhisperText" class="tc-whisper"></div>
+      <div id="tcWhisperText" class="tc-whisper" aria-live="polite"></div>
     </div>
-	
-	
-
-
   </div>
 </div>
-
-
-  
-  <div class="tc-head-right">
-    <div class="tc-classgrid">
+<div class="tc-head-right">	<!--Area above the right talent tree-->
+    <div class="tc-classgrid"><!--the icons-->
       <?php foreach ($CLASS_NAMES as $cid => $cname): ?>
         <?php
           $href = "index.php?searchType=profile&charPage=talentcalc"
@@ -423,7 +424,7 @@ $talentCalcHeading = $lang['talentscalc'] ?? 'Talents Calculator';
           <img src="<?= htmlspecialchars($ico) ?>" alt="<?= htmlspecialchars($cname) ?>">
         </a>
       <?php endforeach; ?>
-	  <!-- reset-all icon (same size cell) -->
+	  
 <button
   type="button"
   id="tcResetAllBtn"
@@ -431,153 +432,153 @@ $talentCalcHeading = $lang['talentscalc'] ?? 'Talents Calculator';
   data-name="Reset all"
   aria-label="Reset all">
   <span class="tc-reset-ico" aria-hidden="true"></span>
-</button>
+</button><!-- reset-all icon (same size cell) -->
 
-    </div>
-  </div>
-</div>
+    </div><!--.tc-classgrid-->
+  </div><!--.tc-head-right-->
+</div><!--.tc-header-->
  <!-- Trees -->
-  <div class="talent-trees">
-    <?php foreach ($tabs as $t): ?>
-      <?php
-        $tabId   = (int)$t['id'];
-        $tabName = (string)$t['name'];
-        $points  = 0;                 // view-only
-        $bgUrl   = talent_bg_for_tab($tabId);
+<div class="talent-trees">
+  <?php foreach ($tabs as $t): ?>
+    <?php
+      $tabId   = (int) $t['id'];
+      $tabName = (string) $t['name'];
+      $points  = 0; // view-only
+      $bgUrl   = talent_bg_for_tab($tabId);
 
-$talents = execute_query(
-  'armory',
-  "SELECT `id`, `row`, `col`,
-          `rank1`, `rank2`, `rank3`, `rank4`, `rank5`,
-          `prereq_talent_1` AS req_tid,
-          `prereq_rank_1`   AS req_rank
-     FROM `dbc_talent`
-    WHERE `ref_talenttab` = {$tabId}
-    ORDER BY `row`, `col`",
-  0
-) ?: [];
-
-
-        $byPos = []; $maxRow = 0;
-        foreach ($talents as $tal) {
-          $r = (int)$tal['row']; $c = (int)$tal['col'];
-          $byPos["$r:$c"] = $tal;
-          if ($r > $maxRow) $maxRow = $r;
-        }
-
-// Pick tab icon directly from dbc_talenttab.SpellIconID
-$tabIconName = icon_base_from_icon_id((int)($t['SpellIconID'] ?? 0));
-
-// Fallback: try the first-rank spell in this tab
-if ($tabIconName === 'inv_misc_questionmark') {
-  foreach ($talents as $tal) {
-    $sid = first_rank_spell($tal);
-    if ($sid) {
-      $rr = execute_query(
+      // Pull talents for this tab
+      $talents = execute_query(
         'armory',
-        "SELECT i.`name`
-           FROM `dbc_spell` s
-           LEFT JOIN `dbc_spellicon` i ON i.`id` = s.`ref_spellicon`
-          WHERE s.`id` = {$sid}
-          LIMIT 1",
-        1
-      );
-      if ($rr && !empty($rr['name'])) {
-        $tabIconName = strtolower(preg_replace('/[^a-z0-9_]/i', '', $rr['name']));
-        break;
+        "SELECT `id`, `row`, `col`,
+                `rank1`, `rank2`, `rank3`, `rank4`, `rank5`,
+                `prereq_talent_1` AS req_tid,
+                `prereq_rank_1`   AS req_rank
+           FROM `dbc_talent`
+          WHERE `ref_talenttab` = {$tabId}
+          ORDER BY `row`, `col`",
+        0
+      ) ?: [];
+
+      // Index by position
+      $byPos  = [];
+      $maxRow = 0;
+      foreach ($talents as $tal) {
+        $r = (int) $tal['row'];
+        $c = (int) $tal['col'];
+        $byPos["$r:$c"] = $tal;
+        if ($r > $maxRow) $maxRow = $r;
       }
-    }
-  }
-}
 
-$tabIconUrlQ  = htmlspecialchars(icon_url($tabIconName), ENT_QUOTES);
-$capForHeader = (int)$talentCap; // from dropdown level
+      // Tab icon: prefer dbc_talenttab.SpellIconID
+      $tabIconName = icon_base_from_icon_id((int)($t['SpellIconID'] ?? 0));
 
-      ?>
+      // Fallback: first-rank spell icon from any talent in this tab
+      if ($tabIconName === 'inv_misc_questionmark') {
+        foreach ($talents as $tal) {
+          if ($sid = first_rank_spell($tal)) {
+            $rr = execute_query(
+              'armory',
+              "SELECT i.`name`
+                 FROM `dbc_spell` s
+                 LEFT JOIN `dbc_spellicon` i ON i.`id` = s.`ref_spellicon`
+                WHERE s.`id` = {$sid}
+                LIMIT 1",
+              1
+            );
+            if ($rr && !empty($rr['name'])) {
+              $tabIconName = strtolower(preg_replace('/[^a-z0-9_]/i', '', $rr['name']));
+              break;
+            }
+          }
+        }
+      }
 
-      <div class="talent-tree" style="background-image:url('<?= htmlspecialchars($bgUrl, ENT_QUOTES) ?>');">
-        <div class="talent-head">
-          <span class="talent-head-ico" style="background-image:url('<?= $tabIconUrlQ ?>')"></span>
-          <span class="talent-head-title"><?= htmlspecialchars($tabName) ?></span>
-          <span class="talent-head-pts">
-            <b class="num"><?= (int)$points ?></b>
-            <span class="slash"> / </span>
-            <span class="cap"><?= $capForHeader ?></span>
-          </span>
-		  <!-- per tree reset
-		  <button type="button" class="tree-reset tc-btn tc-btn--sm" title="Reset this tree" aria-label="Reset this tree">↺</button>
-		  -->
+      $tabIconUrlQ  = htmlspecialchars(icon_url($tabIconName), ENT_QUOTES, 'UTF-8');
+      $capForHeader = (int) $talentCap;
+      $bgUrlQ       = htmlspecialchars($bgUrl, ENT_QUOTES, 'UTF-8');
+      $tabNameQ     = htmlspecialchars($tabName, ENT_QUOTES, 'UTF-8');
+    ?>
 
-        </div>
-
-        <div class="talent-flex">
-          <?php
-$cols = 4;
-for ($r = 0; $r <= $maxRow; $r++) {
-  for ($c = 0; $c < $cols; $c++) {
-    if (!isset($byPos["$r:$c"])) {
-      echo '<div class="talent-cell placeholder"></div>';
-      continue;
-    }
-    $found = $byPos["$r:$c"];
-
-    // max ranks available for this talent
-    
-	$max = 0; for ($x=5;$x>=1;$x--) { if (!empty($found["rank$x"])) { $max=$x; break; } }
-$cur = $CALC_MODE ? 0 : current_rank_for_talent((int)$stat['guid'], $found, $rankMap, $hasCharSpell);
-
-// title/icon from rank 1
-$sp1   = spell_info_for_talent($found, 1);
-$title = htmlspecialchars($sp1['name'], ENT_QUOTES);
-$iconQ = htmlspecialchars(icon_url($sp1['icon']), ENT_QUOTES);
-
-// build per-rank tooltip descriptions: data-tt-desc1..5
-$descAttrs = '';
-for ($ri = 1; $ri <= $max; $ri++) {
-  $spi  = spell_info_for_talent($found, $ri);
-  $desc = htmlspecialchars($spi['desc'], ENT_QUOTES);
-  $descAttrs .= ' data-tt-desc' . $ri . '="' . $desc . '"';
-}
-// optional generic fallback (rank 1)
-$descFirst = htmlspecialchars($sp1['desc'], ENT_QUOTES);
-
-$tid     = (int)$found['id'];
-$reqTid  = (int)($found['req_tid']  ?? 0);
-$reqRank = (int)($found['req_rank'] ?? 0);
-
-$cellClass = 'talent-cell';
-if     ($cur >= $max && $max > 0) $cellClass .= ' maxed';
-elseif ($cur > 0)                 $cellClass .= ' learned';
-else                              $cellClass .= ' empty';
-
-echo '<div class="'.$cellClass.'" style="--icon:url(\''.$iconQ.'\')"'
-   . ' data-tt-title="'.$title.'"'
-   . ' data-tt-desc="'.$descFirst.'"'
-   . $descAttrs
-   . ' data-talent-id="'.$tid.'"'
-   . ' data-prereq-id="'.$reqTid.'"'
-   . ' data-prereq-rank="'.$reqRank.'"'
-   . ' data-row="'.$r.'"'
-   . ' data-col="'.$c.'"'            // <-- add this
-   . ' data-current="'.$cur.'"'
-   . ' data-max="'.(int)$max.'">'
-   . '  <span class="talent-rank">'.(int)$cur.'/'.(int)$max.'</span>'
-   . '</div>';
-
-
-	
-  }
-}
-	  ?>
-		  
-		  
-        </div>
+    <div class="talent-tree" style="background-image:url('<?= $bgUrlQ ?>');">
+      <div class="talent-head">
+        <span class="talent-head-ico" style="background-image:url('<?= $tabIconUrlQ ?>')"></span>
+        <span class="talent-head-title"><?= $tabNameQ ?></span>
+        <span class="talent-head-pts">
+          <b class="num"><?= (int) $points ?></b>
+          <span class="slash"> / </span>
+          <span class="cap"><?= $capForHeader ?></span>
+        </span>
       </div>
-    <?php endforeach; ?>
-  </div><!-- /.talent-trees -->
 
-</div><!-- /.tc-container -->
+      <div class="talent-flex">
+        <?php
+          $cols = 4;
+          for ($r = 0; $r <= $maxRow; $r++) {
+            for ($c = 0; $c < $cols; $c++) {
+              if (!isset($byPos["$r:$c"])) {
+                echo '<div class="talent-cell placeholder"></div>';
+                continue;
+              }
+
+              $found = $byPos["$r:$c"];
+
+              // max ranks available for this talent
+              $max = 0;
+              for ($x = 5; $x >= 1; $x--) {
+                if (!empty($found["rank$x"])) { $max = $x; break; }
+              }
+
+              $cur = $CALC_MODE ? 0 : current_rank_for_talent((int)$stat['guid'], $found, $rankMap, $hasCharSpell);
+
+              // title/icon from rank 1
+              $sp1    = spell_info_for_talent($found, 1);
+              $titleQ = htmlspecialchars($sp1['name'], ENT_QUOTES, 'UTF-8');
+              $iconQ  = htmlspecialchars(icon_url($sp1['icon']), ENT_QUOTES, 'UTF-8');
+
+              // per-rank tooltip descriptions
+              $descAttrs = '';
+              for ($ri = 1; $ri <= $max; $ri++) {
+                $spi     = spell_info_for_talent($found, $ri);
+                $descQ   = htmlspecialchars($spi['desc'], ENT_QUOTES, 'UTF-8');
+                $descAttrs .= ' data-tt-desc' . $ri . '="' . $descQ . '"';
+              }
+              $descFirstQ = htmlspecialchars($sp1['desc'], ENT_QUOTES, 'UTF-8');
+
+              $tid     = (int) ($found['id']      ?? 0);
+              $reqTid  = (int) ($found['req_tid'] ?? 0);
+              $reqRank = (int) ($found['req_rank']?? 0);
+
+              $cellClass = 'talent-cell';
+              if     ($cur >= $max && $max > 0) $cellClass .= ' maxed';
+              elseif ($cur > 0)                 $cellClass .= ' learned';
+              else                              $cellClass .= ' empty';
+
+              printf(
+                '<div class="%s" style="--icon:url(\'%s\')" '.
+                'data-tt-title="%s" data-tt-desc="%s"%s '.
+                'data-talent-id="%d" data-prereq-id="%d" data-prereq-rank="%d" '.
+                'data-row="%d" data-col="%d" data-current="%d" data-max="%d">'.
+                '<span class="talent-rank">%d/%d</span></div>',
+                $cellClass,
+                $iconQ,
+                $titleQ,
+                $descFirstQ,
+                $descAttrs,
+                $tid, $reqTid, $reqRank,
+                $r, $c, $cur, $max,
+                (int)$cur, (int)$max
+              );
+            }
+          }
+        ?>
+      </div>
+    </div>
+  <?php endforeach; ?>
+</div><!-- /.talent-trees -->
 <?php endif; ?>
+</div><!-- /.tc-container -->
+
+
 
 <script>
 (function(){
@@ -625,6 +626,8 @@ echo '<div class="'.$cellClass.'" style="--icon:url(\''.$iconQ.'\')"'
   // Create one tooltip for all class icons
   const tip = document.createElement('div');
   tip.className = 'tc-class-tip';
+  tip.style.display = 'none';      // hide by default
+  tip.style.position = 'fixed';    // not in document flow
   document.body.appendChild(tip);
 
   let anchor = null;
@@ -695,7 +698,9 @@ echo '<div class="'.$cellClass.'" style="--icon:url(\''.$iconQ.'\')"'
 })();
 </script>
 
-<script>window.tcClassId = <?= (int)$charClassId ?>;</script>
+<script>
+window.tcClassId = <?= (int)$charClassId ?>;
+</script>
 <script>
 (function () {
   var q = new URLSearchParams(location.search);

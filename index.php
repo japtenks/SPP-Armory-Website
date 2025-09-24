@@ -46,13 +46,13 @@ include ( 'core/class.mangosweb.php' ) ;
 $MW = new mangosweb ; // Super global.
 
 // Site functions & classes ...
-include ( 'core/common.php' ) ;
-include ( 'core/mangos.class.php' ) ;
-include ( 'core/class.auth.php' ) ;
-require_once ( 'core/dbsimple/Generic.php' ) ;
-require ( 'core/class.captcha.php' ) ;
-include ( 'core/cache_class/safeIO.php' ) ;
-include ( 'core/cache_class/gCache.php' ) ;
+include 	( 'core/common.php' ) ;
+include 	( 'core/mangos.class.php' ) ;
+include 	( 'core/class.auth.php' ) ;
+require_once( 'core/dbsimple/Generic.php' ) ;
+require 	( 'core/class.captcha.php' ) ;
+include 	( 'core/cache_class/safeIO.php' ) ;
+include 	( 'core/cache_class/gCache.php' ) ;
 
 
 //Site notice cookie

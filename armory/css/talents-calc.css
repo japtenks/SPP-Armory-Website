@@ -1,5 +1,5 @@
 /* =======================================================================
-   TALENT CALCULATOR — CLEAN STYLESHEET (aligned to widest content)
+   TALENT CALCULATOR — CLEAN STYLESHEET
    ======================================================================= */
 
 /* ---------------------------
@@ -35,6 +35,9 @@
 
   /* JS will set this so header == trees width */
   --tc-measured: auto;
+
+  /* optional tiny horizontal nudge (set to 0 to disable) */
+  --tc-nudge-x: -1px;
 }
 
 /* Class palettes */
@@ -69,6 +72,7 @@
 #tc-root{
   width: max-content;               /* shrink to content (the trees) */
   margin: 12px auto 16px;           /* center the stack */
+  transform: translateX(var(--tc-nudge-x, 0));
 }
 
 /* ---------------------------
@@ -274,7 +278,7 @@
 }
 
 /* Class-name tooltip (for class icon hover) */
-.tc-class-tip {
+.tc-class-tip{
   position: fixed; z-index: 10000; display: none; padding: 4px 8px; border-radius: 8px;
   background: rgba(8,12,18,.92); border: 1px solid rgba(255,255,255,.12);
   box-shadow: 0 10px 24px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
@@ -315,62 +319,8 @@
 .tooltip-next { color:#ffd100; }
 .tooltip-disabled { color:#999; font-style:italic; }
 
-/* Theme rules that sometimes add a full-width separator */
-.tc-container + hr,
-.tc-container hr { display: none !important; }
-
-
-/* if the theme inserts a sibling divider after the calc */
-#tc-root + hr,
-#tc-root + .hr,
-#tc-root + .separator,
-#tc-root + .line,
-#tc-root + .page-sep { display:none !important; }
-
-/* if it's a pseudo-element on the parchment content area */
-.parchment-content::after { content:none !important; }
-
-:root { --tc-nudge-x: -22px; }   /* negative = left, positive = right */
-
-#tc-root{
-  transform: translateX(var(--tc-nudge-x));
-}
-
-/* Nuke any theme separators that appear after the calculator */
-.tc-container ~ hr,
-.tc-container ~ .separator,
-.tc-container ~ .divider,
-.tc-container ~ .parch-sep,
-.tc-container ~ .parchment-sep,
-.tc-container ~ .rule,
-.tc-container ~ .line,
-.tc-container ~ .spacer {
-  display: none !important;
-  height: 0 !important;
-  margin: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-}
-
-/* If the bar is drawn with a pseudo-element on the content wrapper */
-.parchment-content::before,
-.parchment-content::after {
-  content: none !important;   /* <- only keep if you still see the bar */
-}
-/* kill any theme rule that appears directly under the calculator */
-.tc-container + * {
-  border-top: 0 !important;
-  box-shadow: none !important;
-  background-image: none !important;
-  background-color: transparent !important;
-}
-.tc-container + *::before,
-.tc-container + *::after {
-  content: none !important;
-}
 /* Buttons */
 .tc-actions { margin-top: 6px; }
-
 .tc-btn{
   background:#1b1e24; color:#e9eefb;
   border:1px solid rgba(255,255,255,.14);
@@ -388,6 +338,7 @@
 
 /* keep the little button aligned on the tree header row */
 .talent-head { gap:8px; }
+
 /* reset-all "icon" built from CSS so it matches size/ring/hover */
 .tc-class.class-reset {
   color: #9fb4d9;                   /* base ring/X color (neutral blue/grey) */
@@ -461,8 +412,10 @@
 
 /* if your reset button is a sibling right after .talent-head-pts */
 .talent-head-pts + .tree-reset{ margin-left: 8px; }
+
 :root{ --reset-row: 3; --reset-col: 4; }
 .tc-reset{ grid-row: var(--reset-row); grid-column: var(--reset-col); }
+
 /* grid already: 4 columns x auto rows */
 .tc-classgrid{
   display:grid;
@@ -511,4 +464,6 @@
 .class-reset:hover .tc-reset-ico::after{
   background: #ff4d4f;
 }
-#dataElement{min-height:auto;}
+
+/* === theme seam fix (calc page only) === */
+.footerplate{ margin-top:-16px; }

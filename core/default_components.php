@@ -44,7 +44,7 @@ $mainnav_links = array(
     6  => array('module_ah',         mw_url('server', 'ah'),                       ''),
     7  => array('armory',            '/armory/',                                   ''),
     8  => array('talent_calculator', '/armory/index.php#0-0-0',                    ''), // Always available if enabled in config
-    9  => array('armorsets',         'index.php?n=server&sub=armorsets',           ''),
+   // 9  => array('armorsets',         'index.php?n=server&sub=armorsets',           ''),
     10 => array('flashmap',          '/components/tools/maps/flashmap/',           ''), // Interactive world atlas (toggle controls this)
     11 => array('talents',           '#',                                           ''), // Will be replaced below with the logged-in character talents
   ),

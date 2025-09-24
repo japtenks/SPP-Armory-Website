@@ -942,14 +942,14 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
   <link rel="stylesheet" href="/armory/css/talents.css<?= is_file($cssPath) ? '?v='.filemtime($cssPath) : '' ?>">
   <script defer src="/armory/js/talents.js<?= is_file($jsPath) ? '?v='.filemtime($jsPath) : '' ?>"></script>
 </head>
-<body class="show-guides">
+<body>
 
 <div class="parchment-top">
     <div class="parch-profile-banner" id="banner" style="position: absolute;margin-left: 450px!important;margin-top: -110px!important;">
         <h1 style="padding-top: 12px!important;"><?php echo $lang["talents"] ?></h1>
     </div></div>
 
-<div class="parchment-content">
+<br><br>
 
 <?php if (empty($tabs)): ?>
   <!-- If no talent tabs are available for this class, show a fallback message -->

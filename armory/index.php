@@ -74,6 +74,52 @@ if(isset($_GET["searchType"]) && isset($PagesArray[$_GET["searchType"]]))
 session_start();
 initialize_realm();
 require "configuration/".LANGUAGE."/languagearray.php";
+
+$accountCharacters = array();
+$realmParam = defined('REALM_NAME') ? REALM_NAME : '';
+
+if (isset($_SESSION["realm"]) && isset($realms[$_SESSION["realm"]])) {
+    $realmParam = $_SESSION["realm"];
+}
+
+if (isset($_SESSION["logged_MBA"], $_SESSION["user_id"]) && $realmParam && isset($realms[$realmParam])) {
+    $userId = (int)$_SESSION["user_id"];
+
+    if (defined('REALM_NAME') && REALM_NAME === $realmParam) {
+        $charRows = execute_query("char", "SELECT `name` FROM `characters` WHERE `account` = " . $userId . " ORDER BY `name`");
+        if (is_array($charRows)) {
+            foreach ($charRows as $row) {
+                if (!empty($row["name"])) {
+                    $accountCharacters[] = $row["name"];
+                }
+            }
+        }
+    } else {
+        $realmCharKey = $realms[$realmParam][1];
+        if (isset($characters_DB[$realmCharKey])) {
+            $dbInfo = $characters_DB[$realmCharKey];
+            $dsn = "mysql://" . $dbInfo[1] . ":" . $dbInfo[2] . "@" . $dbInfo[0] . "/" . $dbInfo[3];
+            $tmpDb = @dbsimple_Generic::connect($dsn);
+            if ($tmpDb) {
+                $tmpDb->setErrorHandler('databaseErrorHandler');
+                $tmpDb->query("SET NAMES UTF8;");
+                $charList = $tmpDb->selectCol(
+                    "SELECT `name` FROM `characters` WHERE `account` = ?d ORDER BY `name`",
+                    $userId
+                );
+                if (is_array($charList)) {
+                    $accountCharacters = $charList;
+                }
+            }
+        }
+    }
+
+    if ($accountCharacters) {
+        $accountCharacters = array_values(array_unique($accountCharacters));
+        sort($accountCharacters, SORT_STRING);
+    }
+}
+
 function session_security($fingerprint = "fingerprint001")
 {
 	if(isset($_SESSION["HTTP_USER_AGENT"]))

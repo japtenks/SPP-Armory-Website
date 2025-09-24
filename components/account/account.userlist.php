@@ -28,13 +28,15 @@ if($_GET['id'] > 0){
 }else{
     $pathway_info[] = array('title'=>$lang['userlist'],'link'=>'');
 	//===== Filter ==========//
-    if($_GET['char'] && preg_match("/[a-z]/",$_GET['char'])){
-        $filter = "WHERE `username` LIKE '".escape_string($_GET['char'])."%'";
-    }elseif($_GET['char']==1){
-        $filter = "WHERE `username` REGEXP '^[^A-Za-z]'";
-    }else{
-        $filter = '';
-      }
+    $filters = array("LOWER(`username`) NOT LIKE 'rndbot%'");
+     if($_GET['char'] && preg_match("/[a-z]/",$_GET['char'])){
+
+        $filters[] = "`username` LIKE '".escape_string($_GET['char'])."%'";
+     }elseif($_GET['char']==1){
+
+        $filters[] = "`username` REGEXP '^[^A-Za-z]'";
+    }
+    $filter = 'WHERE '.implode(' AND ', $filters);
 	//===== Calc pages =====//
     $items_per_pages = (int)$MW->getConfig->generic->users_per_page;
     $itemnum = $DB->selectCell("SELECT count(*) FROM account $filter");

@@ -7,9 +7,9 @@
 .talent-trees {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: nowrap;
-  max-width: 980px;
+  width: 100%;
   margin: 0 auto;
 }
 
@@ -178,22 +178,9 @@
 
 
 
-/* ====== Trees block (remove light background between columns) ====== */
 
-/* Tree “card” shell (header + grid) */
-.talent-tree{
-  background-color: #0e0f10;     /* sits under your inline bg image */
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 2px 8px rgba(0,0,0,.45);
-  background-size: cover;
-  background-position: center top;
-}
 
-/* Tree title bar aligns with the new dark theme */
-.talent-head{ margin: 0 0 8px; }
 
-/* Grid padding & subtle backdrop so icons pop */
 .talent-flex{
   --gap: 10px;                   /* keep compact grid spacing */
   gap: var(--gap);
@@ -202,7 +189,6 @@
   border-radius: 10px;
 }
 
-/* Optional: make rank badge slightly bolder on dark */
 .talent-rank{
   font-weight: 700;
   filter: drop-shadow(0 1px 0 rgba(0,0,0,.5));
