@@ -73,6 +73,7 @@ if(isset($_GET["searchType"]) && isset($PagesArray[$_GET["searchType"]]))
 }
 session_start();
 initialize_realm();
+$armoryHasMultipleRealms = is_array($realms) && count($realms) > 1;
 require "configuration/".LANGUAGE."/languagearray.php";
 function session_security($fingerprint = "fingerprint001")
 {
@@ -245,6 +246,7 @@ else
 
 
 </script>
+<?php if ($armoryHasMultipleRealms): ?>
 <div class="dropdown1" onMouseOut="javascript: varOverRealm = 0;" onMouseOver="javascript: varOverRealm = 1;">
 <a class="profile-stats" href="javascript: document.formDropdownRealm.dummyLang.focus();" id="displayRealm"><?php echo DefaultRealmName ?></a>
 </div>
@@ -270,14 +272,10 @@ foreach($realms as $key => $data)
     $query['realm'] = str_replace(" ", "%20", $key);
     $query_result = http_build_query($query);
     if (isset($_GET["searchQuery"]))
-        echo "<a href=\"javascript: selectRealm('",addslashes($key),"'); window.location.href='index.php?".addslashes($query_result)."';\">",$key,"</a>";
+        echo "<a href=\"javascript: selectRealm('".addslashes($key)."'); window.location.href='index.php?".addslashes($query_result)."';\">".$key."</a>";
     else
-        echo "<a href=\"javascript: selectRealm('",addslashes($key),"');\">",$key,"</a>";
+        echo "<a href=\"javascript: selectRealm('".addslashes($key)."');\">".$key."</a>";
 }
-?>
-<?php
-if (isset($_GET["realm"]))
-    echo "<script type=\"text/javascript\"> searchRealm = '",addslashes($_GET["realm"]),"';</script>";
 ?>
 </td><td class="r"><q></q></td>
 </tr>
@@ -287,6 +285,16 @@ if (isset($_GET["realm"]))
 </table>
 </div>
 </div>
+<?php else: ?>
+<div class="dropdown1">
+<span class="profile-stats" id="displayRealm"><?php echo DefaultRealmName ?></span>
+</div>
+<?php endif; ?>
+<?php if (isset($_GET["realm"])): ?>
+<script type="text/javascript">
+    searchRealm = '<?php echo addslashes($_GET["realm"]); ?>';
+</script>
+<?php endif; ?>
 <div class="lrs"></div>
 </div>
 </div>
