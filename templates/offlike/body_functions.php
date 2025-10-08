@@ -65,8 +65,7 @@ function build_menu_items($links_arr){
     }
     return $r;
 }
-
-function build_main_menu(){
+/* function build_main_menu(){
 
     global $mainnav_links;
     foreach($mainnav_links as $menuname=>$menuitems){
@@ -116,6 +115,272 @@ function build_main_menu(){
         }
     }
 }
+ */
+
+// ------------------ MAIN MENU ------------------
+function build_main_menu($asList = false) {
+    global $mainnav_links, $lang;
+    if (empty($mainnav_links)) return;
+
+    foreach ($mainnav_links as $menuname => $menuitems) {
+        // Skip Account from main nav
+        if (stripos($menuname, 'account') !== false) continue;
+
+        if (count($menuitems) > 0) {
+            $menukey   = preg_replace('/^\d+-/', '', $menuname);
+            $menulabel = $lang[$menukey] ?? $menukey;
+
+            if (!$asList) {
+                echo '<div class="menu-block">';
+                foreach ($menuitems as $item) {
+                    if (isset($item[0], $lang[$item[0]])) {
+                        if ($menukey === "community" && $item[0] === "server_rules") {
+                            echo '<div class="menu-item"><a href="'.$item[1].'">'.$lang[$item[0]].'</a></div>';
+                        } elseif ($menukey !== "community" || $item[0] !== "server_rules") {
+                            echo '<div class="menu-item"><a href="'.$item[1].'">'.$lang[$item[0]].'</a></div>';
+                        }
+                    }
+                }
+                echo '</div>';
+            } else {
+                echo '<li class="has-sub"><a href="#">'.$menulabel.'</a><ul>';
+                foreach ($menuitems as $item) {
+                    if (isset($item[0], $lang[$item[0]])) {
+                        if ($menukey === "community" && $item[0] === "server_rules") {
+                            echo '<li><a href="'.$item[1].'">'.$lang[$item[0]].'</a></li>';
+                        } elseif ($menukey !== "community" || $item[0] !== "server_rules") {
+                            echo '<li><a href="'.$item[1].'">'.$lang[$item[0]].'</a></li>';
+                        }
+                    }
+                }
+                echo '</ul></li>';
+            }
+        }
+    }
+
+// Place Languages after the last main menu entry (Support)
+
+//build_language_menu($asList);
+
+}
+
+function build_serverinfo_menu($asList = true) {
+    global $servers, $lang, $MW;
+
+    // Bail out early if no servers
+    if (empty($servers)) return;
+
+    $cfg = $MW->getConfig->components->server_information;
+
+    if ($asList) {
+        echo '<li class="has-sub"><a href="#">🖥️ '.$lang['serverinfo'].'</a><ul>';
+
+        if (!empty($servers)) {
+            foreach ($servers as $server) {
+                echo '<li><div class="serverinfo-tooltip">';
+
+                echo '<div class="info-row"><span class="label">'.$lang['si_name'].':</span> 
+                      <span class="value"><b>'.$server['name'].'</b></span></div>';
+
+                if (!empty($cfg->realm_status)) {
+                    $status = $server['realm_status']
+                        ? '<span class="status-online">▲ '.$lang['online'].'</span>'
+                        : '<span class="status-offline">▼ '.$lang['offline'].'</span>';
+                    echo '<div class="info-row"><span class="label">'.$lang['si_status'].':</span> 
+                          <span class="value">'.$status.'</span></div>';
+                }
+
+                if (!empty($cfg->server_ip)) {
+                    echo '<div class="info-row"><span class="label">'.$lang['si_ip'].':</span> 
+                          <span class="value">'.$server['server_ip'].'</span></div>';
+                }
+
+                if (!empty($cfg->online)) {
+                    echo '<div class="info-row"><span class="label">'.$lang['si_pop'].':</span>';
+                    if (!empty($server['realm_status'])) {
+                        echo '<span class="value"><a href="index.php?n=server&sub=playermap" class="maplink">Player Map</a></span>';
+                    } else {
+                        echo '<span class="value"><span class="maplink-offline">Player Map</span></span>';
+                    }
+                    echo '</div>';
+                }
+
+                if (!empty($cfg->population)) {
+                    echo '<div class="info-row"><span class="label">'.$lang['si_bon'].':</span> 
+                          <span class="value status-online">'.$server['population'].'</span></div>';
+                }
+
+                if (!empty($cfg->online)) {
+                    echo '<div class="info-row"><span class="label">'.$lang['si_on'].':</span> 
+                          <span class="value">'.$server['realplayersonline'].'</span></div>';
+                }
+
+                if (!empty($cfg->characters)) {
+                    echo '<div class="info-row"><span class="label">'.$lang['si_chars'].':</span> 
+                          <span class="value">'.$server['characters'].'</span></div>';
+                }
+
+                if (!empty($cfg->accounts)) {
+                    $acctInfo = $server['accounts'];
+                    if (!empty($cfg->active_accounts)) {
+                        $acctInfo .= ' <span class="small">('.$server['active_accounts'].' active)</span>';
+                    }
+                    echo '<div class="info-row"><span class="label">'.$lang['si_acc'].':</span> 
+                          <span class="value">'.$acctInfo.'</span></div>';
+                }
+
+                echo '</div></li>';
+            }
+        } else {
+            echo '<li><div class="serverinfo-tooltip"><div class="info-row"><span class="label">'.$lang['serverinfo'].':</span> 
+                  <span class="value"><i>No data</i></span></div></div></li>';
+        }
+
+        echo '</ul></li>';
+    }
+}
+
+// ------------------ ACCOUNT MENU ------------------
+function build_account_menu($asList = true) {
+    global $user, $auth, $languages;
+
+    // Pick display name: current char if available, else "Account"
+    $charName = "Account";
+    if (!empty($GLOBALS['characters']) && !empty($user["character_id"])) {
+        foreach ($GLOBALS['characters'] as $character) {
+            if ($character["guid"] == $user["character_id"]) {
+                $charName = htmlspecialchars($character["name"]);
+                break;
+            }
+        }
+    }
+
+    if ($asList) {
+        echo '<li class="has-sub">';
+        echo '<a href="#">👤 '.$charName.' ▼</a>';
+        echo '<ul>';
+    }
+
+    if ($user['id'] <= 0) {
+        echo '<li><a href="index.php?n=account&sub=login">Login</a></li>';
+        echo '<li><a href="index.php?n=account&sub=register">Register</a></li>';
+    } else {
+        // Game Commands
+        echo '<li><a href="index.php?n=server&sub=commands">Game Commands</a></li>';
+
+        // Messages + Userlist
+        if ($user["g_use_pm"]) {
+            $userpm_num = $auth->check_pm();
+            $label = ($userpm_num > 0) ? "Messages ($userpm_num)" : "Messages";
+            echo '<li><a href="' . mw_url('account','pms') . '">' . $label . '</a></li>';
+            echo '<li><a href="index.php?n=account&sub=userlist">Userlist</a></li>';
+        }
+
+        // Admin Panel (GM only)
+        if (!empty($user['gmlevel']) && $user['gmlevel'] > 0) {
+            echo '<li><a href="index.php?n=admin">Admin Panel</a></li>';
+        }
+
+        // Characters list
+        if (!empty($GLOBALS['characters'])) {
+            foreach ($GLOBALS['characters'] as $character) {
+                $isActive = ($user["character_id"] == $character["guid"]);
+                $activeMark = $isActive ? "&gt; " : "";
+                $class = $isActive ? "char-item active-char" : "char-item";
+
+                echo '<li class="'.$class.'"><a href="index.php" 
+                      onclick="document.cookie=\'cur_selected_character='.$character['guid'].'; path=/\';">'
+                      .$activeMark.htmlspecialchars($character['name']).'</a></li>';
+            }
+            echo '<li class="menu-spacer"></li>';
+        }
+
+        // Logout
+        echo '<li><a href="?n=account&sub=login&action=logout">Logout</a></li>';
+    }
+
+
+
+    if ($asList) {
+        echo '</ul></li>';
+    }
+}
+
+// ------------------ RIGHT MENU ------------------
+function build_right_menu($wrap = true) {
+    global $user, $languages, $DB, $MW;
+    if ($wrap) echo "<ul class='right-menu accordion-menu'>";
+
+    if ($user['id'] > 0 && !empty($GLOBALS['characters'])) {
+        echo '<li class="has-sub"><a href="#">'.lang('character_menu',false).'</a><ul>';
+        foreach ($GLOBALS['characters'] as $character) {
+            $active = ($user["character_id"] == $character["guid"]) ? "&gt; " : "";
+            echo '<li><a href="javascript:setcookie(\'cur_selected_character\', \''.$character['guid'].'\'); window.location.reload();">'
+                 .$active.htmlspecialchars($character['name']).'</a></li>';
+        }
+        echo '</ul></li>';
+    }
+
+    if (!empty($GLOBALS['context_menu'])) {
+        echo '<li class="has-sub"><a href="#">'.lang('context_menu',false).'</a><ul>';
+        foreach ($GLOBALS['context_menu'] as $cmenuitem) {
+            echo '<li><a href="'.$cmenuitem['link'].'">'.htmlspecialchars($cmenuitem['title']).'</a></li>';
+        }
+        echo '</ul></li>';
+    }
+
+    if (!empty($languages)) {
+        echo '<li class="has-sub"><a href="#">'.lang('choose_lang',false).'</a><ul>';
+        foreach ($languages as $lang_s => $lang_name) {
+            $active = ($GLOBALS['user_cur_lang'] == $lang_s) ? "&gt; " : "";
+            echo '<li><a href="javascript:setcookie(\'Language\', \''.$lang_s.'\'); window.location.reload();">'
+                 .$active.htmlspecialchars($lang_name).'</a></li>';
+        }
+        echo '</ul></li>';
+    }
+
+    if ((int)$MW->getConfig->generic_values->realm_info->multirealm) {
+        $realms = $DB->select("SELECT `id`,`name` FROM `realmlist` ORDER by id DESC");
+        if (!empty($realms)) {
+            echo '<li class="has-sub"><a href="#">'.lang('realm_menu',false).'</a><ul>';
+            foreach ($realms as $realm) {
+                $active = ($user['cur_selected_realmd'] == $realm['id']) ? "&gt; " : "";
+                echo '<li><a href="javascript:setcookie(\'cur_selected_realmd\', \''.$realm['id'].'\'); window.location.reload();">'
+                     .$active.htmlspecialchars($realm['name']).'</a></li>';
+            }
+            echo '</ul></li>';
+        }
+    }
+
+    if ($wrap) echo "</ul>";
+}
+
+function build_language_menu($asList = true) {
+    global $languages;
+
+    if (empty($languages)) return;
+
+    if ($asList) {
+        echo '<li class="has-sub"><a href="#">🌐 Languages</a><ul>';
+        foreach ($languages as $lang_s => $lang_name) {
+            $active = ($GLOBALS['user_cur_lang'] == $lang_s) ? "&gt; " : "";
+            echo '<li><a href="javascript:setcookie(\'Language\', \''.$lang_s.'\'); window.location.reload();">'
+                 .$active.htmlspecialchars($lang_name).'</a></li>';
+        }
+        echo '</ul></li>';
+    } else {
+        echo '<div class="menu-block has-sub">';
+        echo '<a href="#">🌐 Languages</a>';
+        echo '<div class="menu-sub">';
+        foreach ($languages as $lang_s => $lang_name) {
+            $active = ($GLOBALS['user_cur_lang'] == $lang_s) ? "&gt; " : "";
+            echo '<div class="menu-item"><a href="javascript:setcookie(\'Language\', \''.$lang_s.'\'); window.location.reload();">'
+                 .$active.htmlspecialchars($lang_name).'</a></div>';
+        }
+        echo '</div></div>';
+    }
+}
+
 
 function write_subheader($subheader){
     global $MW;
@@ -305,27 +570,15 @@ function paginate($num_pages, $cur_page, $link_to){
 }
 
 function builddiv_start($type = 0, $title = "No title set") {
-global $currtmp;
-if ($type == 1) {
-echo '<div style="width: 659px; height: 29px; background: url(\''.$currtmp.'/images/content-parting.jpg\') no-repeat;"><div style="padding: 2px 0px 0px 23px;"><font style="font-family: \'Times New Roman\', Times, serif; color: #640909;"><h2>'.$title.'</h2></font></div></div>';
-echo '<div style="background: url(\''.$currtmp.'/images/light.jpg\') repeat; border-width: 1px; border-color: #000000; border-bottom-style: solid; margin: 0px 0px 5px 0px">';
-echo '<div class="contentdiv">';
+  echo '<div class="modern-wrapper">';
+  if ($title !== "No title set") {
+    echo '<div class="modern-header">'.$title.'</div>';
+  }
+  echo '<div class="modern-content">';
 }
-else {
-if ($title != "No title set") {
-echo '<div style="width: 659px; height: 29px; background: url(\''.$currtmp.'/images/content-parting2.jpg\') no-repeat;"><div style="padding: 2px 0px 0px 23px;"><font style="font-family: \'Times New Roman\', Times, serif; color: #640909;"><h2>'.$title.'</h2></font></div></div>';
-echo '<div style="background: url(\''.$currtmp.'/images/light.jpg\') repeat; border-width: 1px; border-color: #000000; border-bottom-style: solid; margin: 0px 0px 5px 0px">';
-echo '<div class="contentdiv">';
-}
-else {
-echo '<div style="background: url(\''.$currtmp.'/images/light.jpg\') repeat; border-width: 1px; border-color: #000000; border-top-style: solid; border-bottom-style: solid; margin: 4px 0px 5px 0px">';
-echo '<div class="contentdiv">';
-}
-}
-}
-
 
 function builddiv_end() {
-echo '</div></div>';
+  echo '</div></div>';
 }
+
 ?>

@@ -25,9 +25,10 @@ $mainnav_links = array(
   array(
     0 => array('howtoplay', mw_url('gameguide', 'connect'), ''),
     1 => array('armorsets',         'index.php?n=server&sub=armorsets',           ''),
+	2 => array('worldsets',         'index.php?n=server&sub=worldsets',           ''),
     3 => array('bc',     'http://www.worldofwarcraft.com/burningcrusade/', ''),
     4 => array('wrath',  'http://www.worldofwarcraft.com/wrath/',          ''),
-    5 => array('cata',   'http://www.worldofwarcraft.com/cataclysm/',      ''),
+    5 => array('pvpsets',   'index.php?n=server&sub=pvpsets',      ''),
   ),
 
   /* ===========================
@@ -37,7 +38,7 @@ $mainnav_links = array(
   array(
     0  => array('realms_status',     mw_url('server', 'realmstatus'),              ''),
     1  => array('honor',             '/armory/index.php?searchType=honor',         ''),
-    2  => array('players_online',    mw_url('server', 'playersonline'),            ''),
+    //2  => array('players_online',    mw_url('server', 'playersonline'),            ''),
     3  => array('chars',             mw_url('server', 'chars'),                    ''),
     4  => array('playermap',         mw_url('server', 'playermap'),                ''),
     5  => array('statistic',         mw_url('server', 'statistic'),                ''),
@@ -80,6 +81,7 @@ $mainnav_links = array(
     1 => array('bugs',      'index.php?n=forum&sub=viewforum&fid=2', ''),
     2 => array('gmlist',    mw_url('server', 'gms'), ''),
     3 => array('gm_online', mw_url('server', 'gmonline'), ''),
+	4 => array('botcommands',  mw_url('server', 'botcommands'), ''),
   ),
 );
 
@@ -163,7 +165,7 @@ if ((int)$MW->getConfig->components->left_section->chat == 0)      unset($mainna
 /* Workshop (Interactive) */
 if ((int)$MW->getConfig->components->left_section->Realms_status == 0)          unset($mainnav_links['4-menuInteractive'][0]);
 if ((int)$MW->getConfig->components->left_section->Honor == 0)                   unset($mainnav_links['4-menuInteractive'][1]);
-if ((int)$MW->getConfig->components->left_section->Players_online == 0)          unset($mainnav_links['4-menuInteractive'][2]);
+//if ((int)$MW->getConfig->components->left_section->Players_online == 0)          unset($mainnav_links['4-menuInteractive'][2]);
 if ((int)$MW->getConfig->components->left_section->Characters == 0)              unset($mainnav_links['4-menuInteractive'][3]);
 if ((int)$MW->getConfig->components->left_section->Playermap == 0)               unset($mainnav_links['4-menuInteractive'][4]);
 if ((int)$MW->getConfig->components->left_section->Statistic == 0)               unset($mainnav_links['4-menuInteractive'][5]);
@@ -180,12 +182,14 @@ if ((int)$MW->getConfig->components->left_section->Commands == 0)          unset
 if ((int)$MW->getConfig->components->left_section->Bug_tracker == 0)       unset($mainnav_links['8-menuSupport'][1]);
 if ((int)$MW->getConfig->components->left_section->In_Game_Support == 0)   unset($mainnav_links['8-menuSupport'][2]);
 if ((int)$MW->getConfig->components->left_section->Online_GMs == 0)        unset($mainnav_links['8-menuSupport'][3]);
+if ((int)$MW->getConfig->components->left_section->botcommands == 1)          unset($mainnav_links['8-menuSupport'][4]);
 
 /* Game Guide */
-if ((int)$MW->getConfig->components->left_section->Armor_sets == 0)   unset($mainnav_links['3-menuGameGuide'][1]);				//armor sets
-if ((int)$MW->getConfig->components->left_section->wow_bc == 0)     unset($mainnav_links['3-menuGameGuide'][3]);
-if ((int)$MW->getConfig->components->left_section->wow_wrath == 0)  unset($mainnav_links['3-menuGameGuide'][4]);
-if ((int)$MW->getConfig->components->left_section->wow_cata == 0)   unset($mainnav_links['3-menuGameGuide'][5]);
+if ((int)$MW->getConfig->components->left_section->Armor_sets == 0)   	unset($mainnav_links['3-menuGameGuide'][1]);				//armor sets
+if ((int)$MW->getConfig->components->left_section->world_sets == 0)   	unset($mainnav_links['3-menuGameGuide'][2]);				//world sets
+if ((int)$MW->getConfig->components->left_section->wow_bc == 0)     	unset($mainnav_links['3-menuGameGuide'][3]);
+if ((int)$MW->getConfig->components->left_section->wow_wrath == 0)  	unset($mainnav_links['3-menuGameGuide'][4]);
+if ((int)$MW->getConfig->components->left_section->pvp_sets == 0)   		unset($mainnav_links['3-menuGameGuide'][5]);
 
 /* Account */
 if ((int)$MW->getConfig->components->left_section->retrieve_pass == 0)   unset($mainnav_links['2-menuAccount'][3]);

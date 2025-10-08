@@ -130,6 +130,9 @@ $auth = new AUTH( $DB, $MW->getConfig ) ;
 $user = $auth->user ;
 // ================== //
 
+
+
+
 //Determine Current Template
 if ( $user['id'] == -1 )
 {
@@ -299,6 +302,34 @@ if ( strpos( $ext, '/' ) !== false )
 else
 	$sub = ( isset( $_REQUEST['sub'] ) ? $_REQUEST['sub'] : 'index' ) ;
 $req_tpl = false ;
+
+// Handle character switch from ?setchar=ID
+if (isset($_GET['setchar'])) {
+    $charId = (int) $_GET['setchar'];
+
+    if ($charId > 0 && isset($user['id']) && $user['id'] > 0) {
+        // Verify the character belongs to this account
+        $char = $CHDB->selectRow(
+            "SELECT guid, name FROM `characters` WHERE guid=?d AND account=?d",
+            $charId, $user['id']
+        );
+
+        if ($char) {
+            // Update cookie and DB
+            setcookie('cur_selected_character', $char['guid'], time() + 86400, '/');
+            $DB->query(
+                "UPDATE website_accounts 
+                 SET character_id=?d, character_name=? 
+                 WHERE account_id=?d",
+                $char['guid'], $char['name'], $user['id']
+            );
+        }
+    }
+
+    // Always redirect to clean the URL
+    header("Location: index.php");
+    exit;
+}
 
 //initialize modules
 //if installing a new module, please delete the cache file

@@ -1,66 +1,188 @@
-<br>
-<?php builddiv_start(0, $lang['commands']) ?>
-<?php $MANG = new Mangos; ?>
-<style media="screen, projection" type="text/css">
-	@import "css/master.css";
-	@import "css/<?php echo LANGUAGE ?>/language.css";
+<style>
+/* ---------- Modern Command List ---------- */
+.modern-wrapper {
+  max-width: 950px;
+  margin: 30px auto;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.9);
+  overflow: hidden;
+  color: #ddd;
+  font-family: 'Trebuchet MS', sans-serif;
+}
+
+.modern-header {
+  background: linear-gradient(to right, #2a1b05, #111);
+  color: #ffcc66;
+  text-align: center;
+  padding: 12px;
+  font-size: 1.4rem;
+  font-weight: bold;
+  border-bottom: 1px solid #2e2e2e;
+}
+
+.modern-content {
+  padding: 20px 24px;
+}
+
+/* ---------- Search Box ---------- */
+#commandSearch {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #0f0f0f;
+  color: #eee;
+  font-size: 1rem;
+}
+#commandSearch:focus {
+  border-color: #ffcc66;
+  outline: none;
+}
+
+/* ---------- Command Table ---------- */
+#commandTable {
+  width: 100%;
+  border-collapse: collapse;
+  color: #ddd;
+}
+
+#commandTable th {
+  background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+  color: #ffcc66;
+  font-weight: bold;
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #333;
+  text-transform: uppercase;
+}
+
+#commandTable td {
+  padding: 10px;
+  border-bottom: 1px solid #222;
+  vertical-align: top;
+}
+
+#commandTable tr:nth-child(even) {
+  background: rgba(255,255,255,0.03);
+}
+
+#commandTable tr:hover {
+  background: rgba(255,204,102,0.08);
+}
+
+/* ---------- Details + Summary ---------- */
+details summary {
+  cursor: pointer;
+  font-weight: bold;
+  color: #7abaff;
+  transition: color 0.3s;
+}
+details summary:hover {
+  color: #ffd97a;
+}
+details p {
+  margin-top: 8px;
+  color: #ccc;
+  line-height: 1.4;
+}
+
+/* ---------- Security Level ---------- */
+td.serverStatus b {
+  color: #aefb6b;
+}
+
+/* ---------- Banner ---------- */
+img.ah-banner {
+  display: block;
+  margin: 0 auto 16px auto;
+  max-width: 100%;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.6);
+}
 </style>
-	
-<?php write_metalborder_header(); ?>
-	<div>
-		<input type="text" id="commandSearch" onkeyup="myFunction()" placeholder="Search commands..">
-	</div>
-    <table id="commandTable" cellpadding="3" cellspacing="0" width='100%'>
+
+
+<?php builddiv_start(1, $lang['commands']); ?>
+<div class="modern-content">
+  <img src="<?php echo $currtmp; ?>/images/banner1.jpg" alt="Command Banner" class="ah-banner" />
+
+  <input type="text" id="commandSearch" onkeyup="filterCommands()" placeholder="Search commands...">
+
+  <table id="commandTable">
+    <thead>
+      <tr>
+        <th><?php echo $lang['command_name'] ?? 'Command Name'; ?></th>
+        <th><?php echo $lang['security_level'] ?? 'Security Level'; ?></th>
+      </tr>
+    </thead>
     <tbody>
-        <tr>
-            <th class="rankingHeader" align="center" nowrap="nowrap">Command name&nbsp;</td> 
-            <th class="rankingHeader" align="center" nowrap="nowrap">Security level&nbsp;</td>
-        </tr>
-<?php foreach($alltopics as $postanum => $topic){ ?>
-        <tr>
-            <td class="serverStatus">
-				<b style="color: rgb(102, 13, 2);">
-					<details>
-						<summary>
-							<b style="color: rgb(35, 67, 3);">
-								<?php echo $topic['name'];?>
-							</b>
-						</summary>
-						<p>
-							<?php echo $topic['help'];?>
-						</p>
-					</details>
-				</b>
-			</td>
-            <td class="serverStatus" align="center"><b style="color: rgb(35, 67, 3);"><?php echo $topic['security'];?></b></td>
-        </tr>
-		<script>
-		function myFunction() {
-		  // Declare variables
-		  var input, filter, table, tr, td, i, txtValue;
-		  input = document.getElementById("commandSearch");
-		  filter = input.value.toUpperCase();
-		  table = document.getElementById("commandTable");
-		  tr = table.getElementsByTagName("tr");
-
-		  // Loop through all table rows, and hide those who don't match the search query
-		  for (i = 0; i < tr.length; i++) {
-			td = tr[i].getElementsByTagName("td")[0];
-			if (td) {
-			  txtValue = td.textContent || td.innerText;
-			  if (txtValue.toUpperCase().indexOf(filter) > -1) {
-				tr[i].style.display = "";
-			  } else {
-				tr[i].style.display = "none";
-			  }
-			}
-		  }
-		}
-		</script>
-<?php } unset($res_info, $res) ?>
+      <?php foreach($alltopics as $topic): ?>
+      <tr>
+        <td>
+          <details>
+            <summary><?php echo htmlspecialchars($topic['name']); ?></summary>
+            <p><?php echo nl2br(htmlspecialchars($topic['help'])); ?></p>
+          </details>
+        </td>
+        <td class="serverStatus" align="center">
+          <b><?php echo htmlspecialchars($topic['security']); ?></b>
+        </td>
+      </tr>
+      <?php endforeach; ?>
     </tbody>
-    </table>
-<?php write_metalborder_footer(); ?>
+  </table>
+</div>
+<?php builddiv_end(); ?>
 
-<?php unset($MANG); ?>
-<?php builddiv_end() ?>
+<?php builddiv_start(1, $lang['botcommands']); ?>
+<div class="modern-content">
+  <img src="<?php echo $currtmp; ?>/images/banner1.jpg" alt="Bot Command Banner" class="ah-banner" />
+
+  <input type="text" id="commandSearch" onkeyup="filterCommands()" placeholder="Search commands...">
+
+  <table id="commandTable">
+    <thead>
+      <tr>
+        <th><?php echo $lang['command_name'] ?? 'Command Name'; ?></th>
+        <th><?php echo $lang['security_level'] ?? 'Security Level'; ?></th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach($botCommands as $topic): ?>
+      <tr>
+        <td>
+          <details>
+            <summary><?php echo htmlspecialchars($topic['name']); ?></summary>
+            <p><?php echo nl2br(htmlspecialchars($topic['help'])); ?></p>
+          </details>
+        </td>
+        <td class="serverStatus" align="center">
+          <b><?php echo htmlspecialchars($topic['security']); ?></b>
+        </td>
+      </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php builddiv_end(); ?>
+
+
+<script>
+function filterCommands() {
+  const input = document.getElementById("commandSearch");
+  const filter = input.value.toUpperCase();
+  const table = document.getElementById("commandTable");
+  const tr = table.getElementsByTagName("tr");
+
+  for (let i = 1; i < tr.length; i++) {
+    const td = tr[i].getElementsByTagName("td")[0];
+    if (td) {
+      const txtValue = td.textContent || td.innerText;
+      tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+    }
+  }
+}
+</script>

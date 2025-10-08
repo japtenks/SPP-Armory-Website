@@ -1,14 +1,19 @@
 <?php
 if(INCLUDED!==true)exit;
 
-// ==================== //
+/* ---------- Pagination setup ---------- */
+//           ====================        //
 $pathway_info[] = array('title'=>$lang['chars'],'link'=>'');
 
 	//===== Calc pages1 =====//
-	$items_per_pages = (int)$MW->getConfig->generic->users_per_page;
- 	$limit_start = ($p-1)*$items_per_pages;
+	//$items_per_page = (int)$MW->getConfig->generic->users_per_page;
+	$items_per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 25; //(int)$MW->getConfig->generic->users_per_page;
+ 	$limit_start = ($p-1)*$items_per_page;
+	if ($items_per_page < 1) $items_per_page = 25;
 
 // ==================== //
+
+
 
 
 
@@ -56,10 +61,21 @@ if ($_GET['sort']) {
     if ($_GET['sort'] == 'lvldesc') { $filter_string = " ORDER BY `level` DESC";}
 }
 
+$showBots = isset($_GET['show_bots']) && $_GET['show_bots'] == '1';
+$filterBots = $showBots ? "" : "AND account > 504";
+
+
 ## output_message('alert',$filter);
 
-$query1 =  $CHDB->select("SELECT `guid`, `name`, `race`, `class`, `zone`, `level`, `gender` FROM `characters` $filter $filter_string LIMIT
-$limit_start,$items_per_pages");
+$query1 = $CHDB->select("
+  SELECT `guid`, `name`, `race`, `class`, `zone`, `level`, `gender`
+  FROM `characters`
+  $filter AND `zone` <> 0
+  $filterBots
+  $filter_string
+  LIMIT $limit_start,$items_per_page
+");
+
 
 $cc1 = 0;
 $item_res = array();
@@ -74,6 +90,7 @@ foreach ($query1 as $result1) {
       $res_color=1;
     $cc1++;
     $res_pos=$MANG->get_zone_name($result1['zone']);
+	//if ($res_pos == 'Unknown zone') continue;	//skips non used bots
 
     //$char_gender = $result1['gender'];
     //$char_gender = str_pad($char_gender,8, 0, STR_PAD_LEFT);
@@ -92,10 +109,23 @@ foreach ($query1 as $result1) {
 unset($query1, $result1);
 
 //Find total number of characters in database -- used to calculate total number of pages
-$cc2 =  $CHDB->selectCell("SELECT count(*) FROM `characters` $filter");
+// Count total for pagination
+$cc2 = $CHDB->selectCell("
+  SELECT COUNT(*) 
+  FROM `characters`
+  $filter AND `zone` <> 0
+  $filterBots
+");
 
 	//===== Calc pages2 =====//
-	$pnum = ceil($cc2/$items_per_pages);
+	$pnum = ceil($cc2/$items_per_page);
+	
+	// redirect to page 1 if current page has no data
+if ($p > $pnum && $pnum > 0) {
+    header("Location: index.php?n=server&sub=chars&char={$_GET['char']}&p=1&per_page={$items_per_page}&show_bots=" . ($showBots ? 1 : 0));
+    exit;
+}
+
     $urlstring = "index.php?n=server&sub=chars&char=".$_GET['char'];
     if ($_GET['lvl']) {
         $urlstring .= "&lvl=".$_GET['lvl'];
@@ -115,6 +145,14 @@ $cc2 =  $CHDB->selectCell("SELECT count(*) FROM `characters` $filter");
     if ($_GET['race']) {
         $urlstring .= "&race=".$_GET['race'];
     }
+	
+	if ($_GET['per_page']) {
+    $urlstring .= "&per_page=" . (int)$_GET['per_page'];
+}
+if ($showBots) {
+    $urlstring .= "&show_bots=1";
+}
+
 	$pages_str = default_paginate($pnum, $p, $urlstring);
 
 

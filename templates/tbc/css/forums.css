@@ -468,3 +468,121 @@ td.na6 { text-align: left; vertical-align: bottom;}
 #typemsg { padding: 0; text-align: center; margin: 0 auto; margin-top: 10px; margin-bottom: 23px; width: 623px; }
 .post-button-right ul li { display: inline-table; }
 } /* endif */
+
+
+/* === WoW-Styled Modern Panel === */
+.forum-panel {
+  max-width: 820px;
+  margin: 80px auto;
+  background: #1b1b1b url('../images/post-bg2.gif') repeat;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.6), inset 0 0 6px rgba(255,204,102,0.1);
+  padding: 24px 30px;
+  color: #ddd;
+}
+.forum-header h1 {
+  background: url('../images/thread-topic-bg2.gif') repeat-x;
+  border: 1px solid #554422;
+  border-radius: 6px;
+  padding: 10px;
+  color: #ffcc66;
+  text-shadow: 1px 1px 2px #000;
+  text-align: center;
+}
+
+/* Buttons with WoW style */
+.btn {
+  border: 1px solid #5a400f;
+  border-radius: 6px;
+  background: url('../images/thread-topic-bg2.gif') repeat-x center #40310a;
+  color: #f8e7b0;
+  font-weight: bold;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(0,0,0,0.5);
+  transition: all .2s ease;
+}
+.btn:hover {
+  background: url('../images/button-hover.gif') repeat-x center #503e14;
+  color: #fff7cc;
+  transform: translateY(-1px);
+}
+.btn.danger {
+  background: linear-gradient(#5a1b1b, #311010);
+  border-color: #7a2929;
+  color: #ffd6d6;
+}
+.btn.danger:hover {
+  background: linear-gradient(#7a2c2c, #3d1212);
+}
+
+/* Forum Post boxes */
+.forum-post {
+  background: #1b1b1b url('../images/post-tile-top.gif') repeat-x top;
+  border: 1px solid #2c2c2c;
+  border-radius: 8px;
+  margin: 14px 0;
+  display: flex;
+  gap: 14px;
+  color: #ccc;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
+}
+.forum-avatar img {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  border: 2px solid #333;
+  background: url('../images/portrait-frame.gif') no-repeat center;
+}
+.forum-name {
+  font-weight: bold;
+  color: #ffcc66;
+}
+.forum-tools a {
+  color: #66aaff;
+}
+.forum-tools a:hover {
+  color: #ffd97a;
+  text-decoration: underline;
+}
+/* === WoW BBCode Toolbar === */
+#form_tool {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  background: url('../images/thread-topic-bg2.gif') repeat-x center #1b1b1b;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  padding: 6px;
+  margin-bottom: 10px;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
+}
+
+#form_tool ul {
+  list-style: none;
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+
+#form_tool li {
+  display: inline-block;
+}
+
+#form_tool li a img {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: url('../images/button-bg.gif') repeat-x center #2c2c2c;
+  box-shadow: 0 0 3px rgba(255,204,102,0.2);
+  transition: all .15s;
+}
+
+#form_tool li a img:hover {
+  border-color: #ffcc66;
+  box-shadow: 0 0 6px rgba(255,204,102,0.5);
+  transform: translateY(-1px);
+}

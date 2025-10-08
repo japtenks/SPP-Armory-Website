@@ -1,4 +1,37 @@
 <?php
-if(INCLUDED!==true)exit;
+if (INCLUDED !== true) exit;
 
+switch ($sub) {
+    case 'realmstatus':
+        include('realmstatus.php');
+        break;
+
+    case 'commands':
+        include('commands.php');
+        break;
+
+    case 'botcommands':
+        include('botcommands.php');
+        break;
+
+    case 'playermap':
+        include('playermap.php');
+        break;
+
+    case 'statistic':
+        include('statistic.php');
+        break;
+
+    case 'ah':
+        include('ah.php');
+        break;
+
+    case 'chars':
+        include('chars.php');
+        break;
+
+    default:
+        echo "<div style='color:red;text-align:center;padding:10px;'>Unknown or missing server page.</div>";
+        break;
+}
 ?>

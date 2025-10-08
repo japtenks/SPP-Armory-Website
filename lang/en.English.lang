@@ -59,7 +59,9 @@
 |=|are_you_sure :=: Are you sure?
 |=|areonline :=: Users active on Web Server
 |=|armor :=: Armor
-|=|armorsets :=: Armor Sets
+|=|pvpsets :=: Class PvP Armor Sets
+|=|armorsets :=: Class Armor Sets
+|=|worldsets :=: Misc Armor Sets		
 |=|armorsets_desc :=: This page shows some of the high level armor sets which players can obtain in dungeons or by completing quests. New and existing sets will be added to this page regularly, so check back often.
 |=|armorsets2 :=: High Level Armor Sets
 |=|armory :=: Armory
@@ -141,6 +143,7 @@
 |=|comm_header1 :=: Remember to Abide by all Server Rules! Here is a list of some helpful links for you to use:
 |=|comm_header2 :=: If you have any questions or concerns, Be sure to check out the <a href="./index.php?n=forum">Forums</a><br /> and/or the <a href="./index.php?n=forum&sub=viewforum&fid=6">FAQ Site</a>. If you need to conatact the website admin, Just send a <br />PM by using the "Userlist" option from the navagation menu to the webadmin <br />or any other admin.
 |=|commands :=: Commands
+|=|botcommands :=: Bot Commands
 |=|commands_manage :=: Edit Commands
 |=|comment :=: Comment
 |=|common :=: Common
@@ -472,7 +475,7 @@
 |=|off_hand :=: Off hand
 |=|off_misc :=: Off (Misc)
 |=|one_hand :=: One hand
-|=|online :=: are online
+|=|online :=: Online
 |=|onlinelist_on :=: Switch online list on (1-yes/0-no)
 |=|open :=: Open
 |=|Orc :=: Orc
@@ -493,7 +496,7 @@
 |=|personal_messages :=: Personal messages
 |=|physical_dmg :=: Physical
 |=|plate :=: Plate
-|=|playermap :=: Playermap
+|=|playermap :=: Player Map
 |=|players_all :=: All Players
 |=|players_online :=: Players online
 |=|polearm :=: Polearm
@@ -830,3 +833,11 @@
 his/her gender, name, and and his/her looks.
 |=|customize_desc2 :=: Only re-customize 1 character at a time (per login). Multiple customizations will lock your account!
 |=|rename_desc1 :=: If you characters name doesnt change right away, but you recieved a success message, Make sure you <u>DO NOT</u> refresh your screen. Leave the page and come back again.
+|=|menuNews :=: News
+|=|menuAccount :=: Account
+|=|menuGameGuide :=: Game Guide
+|=|menuInteractive :=: Workshop
+|=|menuMedia :=: Media
+|=|menuForums :=: Forums
+|=|menuCommunity :=: Discord
+|=|menuSupport :=: Support

@@ -1,74 +1,224 @@
-<?php if((int)$MW->getConfig->generic_values->forum->externalforum): ?>
-<?php if((int)$MW->getConfig->generic_values->forum->frame_forum): ?>
-    <center>
-    <br/>
-    <iframe src="<?php echo (string)$MW->getConfig->generic_values->forum->forum_external_link; ?>" height="1050" width="640" frameborder="0" scrolling="yes">
-        <?php lang('not_support_inline_frames') ?>
-    </iframe>
-    </center>
-<?php else: ?>
-    <meta http-equiv=refresh content="0;url='<?php echo (string)$MW->getConfig->generic_values->forum->forum_external_link; ?>'"/>
-<?php endif; ?>
-<?php else: ?>
-<style type="text/css">
-.forum_category .col2 { vertical-align: top; }
-.forum_category .col3, .forum_category .col4 { color:#333333; font-size:12px; }
-.forum_category .newmessages { color:#ff0000; }
-.forum_category .hidden { font-weight: bold; }
-.forum_category .lastreplyin, .forum_category .lastreplyfrom { color:#666666; }
-.forum_forum { height: 6em; }
-.forum_seperator { background-image:url(<?php echo $currtmp; ?>/images/metalborder-top.gif); background-repeat:repeat-x; height: 7px; }
-</style>
-<img src="<?php echo $currtmp; ?>/images/forum_top.png" border="0" width="100%" alt=""/>
-<?php write_metalborder_header(); ?>
-<?php foreach($items as $catitem): ?>
-    <table cellspacing="0" cellpadding="2" border="0" width="100%" class="forum_category">
-    <thead style="background-image:url(<?php echo $currtmp; ?>/images/light2.jpg); background-repeat:repeat-x;">
-        <tr><td colspan="4"><h3><img src="<?php echo $currtmp; ?>/images/nav_m.gif" alt=""/> <?php echo $catitem[0]['cat_name'];?></h3></td></tr>
-    </thead>
-    <tbody>
-<?php foreach($catitem as $forumitem): ?>
-        <tr class="forum_forum">
-            <td class="col1">
-<?php if($forumitem['isnew']): ?>
-                <img src="<?php echo $currtmp; ?>/images/<?php echo ($forumitem['closed']==1?'lock-icon.gif':'news-community.gif');?>" alt=""/>
-<?php else:?>
-                <img src="<?php echo $currtmp; ?>/images/<?php echo ($forumitem['closed']==1?'lock-icon.gif':'no-news-community.gif');?>" alt=""/>
-<?php endif; ?>
-            </td>
-            <td class="col2">
-                <a class="title" href="<?php echo $forumitem['linktothis'];?>"><?php echo $forumitem['forum_name'];?></a>
-<?php if($forumitem['hidden']==1): ?>
-                <span class="hidden"><?php lang('hidden'); ?></span>
-<?php endif; ?>
-<?php if($forumitem['isnew']): ?>
-                <span class="newmessages"><?php lang('newmessages');?></span>
-<?php endif; ?>
-                <div class="desc"><?php echo $forumitem['forum_desc'];?></div>
-<?php if($forumitem['num_posts'] > 0): ?>
-                <div class="lastreplyin"><?php lang('lastreplyin');?> <a href="<?php echo $forumitem['linktolastpost'];?>"> <?php echo $forumitem['topic_name'];?></a></div>
-                <div class="lastreplyfrom"><?php lang('from');?> <a href="<?php echo $forumitem['linktoprofile'];?>"> <?php echo $forumitem['last_poster'];?></a> <?php echo $forumitem['last_post'];?></div>
-<?php endif; ?>
-            </td>
-            <td class="col3"><?php echo $forumitem['num_topics'];?> <?php echo declension($forumitem['num_topics'],array($lang['l_theme1'],$lang['l_theme2'],$lang['l_theme3'])); ?></td>
-            <td class="col4"><?php echo $forumitem['num_posts'];?> <?php echo declension($forumitem['num_posts'],array($lang['l_post1'],$lang['l_post2'],$lang['l_post3'])); ?></td>
-        </tr>
-        <tr class="forum_seperator">
-            <td colspan="4"></td>
-        </tr>
-<?php endforeach; ?>
-    </tbody>
-    </table>
-<?php endforeach; ?>
-<?php write_metalborder_footer(); ?>
+<style>
+/* ---------- Category Blocks ---------- */
+.forum-category {
+  margin-bottom: 18px;
+  border-radius: 6px;
+  background: #161616;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.7);
+  padding: 10px;
+}
 
-<br/>
-<table id="iconLegend" border="1" cellpadding="0" cellspacing="0" width="60%" align="center"><tbody><tr><td>
-<table class="tb2" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-image:url(<?php echo $currtmp; ?>//images/light2.jpg); background-repeat:repeat-x;"><tbody><tr>
-    <td><img src="<?php echo $currtmp; ?>/images/news-community.gif" style="margin: 0pt 3px 0pt 2px;" alt="Unviewed Post" border="0"/><small style="color:#333333">&nbsp;<?php echo $lang['newpost'] ?>&nbsp;</small></td>
-    <td><img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt="Viewed Post" border="0"/><small style="color:#333333">&nbsp;<?php echo $lang['nonewpost'] ?>&nbsp;</small></td>
-    <td><img src="<?php echo $currtmp; ?>/images/lock-icon.gif" style="margin: 0pt 3px 0pt 2px;" alt="New Post" border="0"/><small style="color:#333333">&nbsp;<?php echo $lang['postclose'] ?>&nbsp;</small></td>
-</tr></tbody></table>
-</td></tr></tbody></table>
-<br/><br/>
+.modern-title {
+  background: linear-gradient(to right, #604015, #3a2a10);
+  color: #ffcc66;
+  font-size: 1.1rem;
+  font-weight: bold;
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- Forum Entry ---------- */
+.forum-entry {
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid #222;
+  padding: 10px 6px;
+  transition: background 0.25s;
+}
+
+.forum-entry:hover {
+  background: rgba(255, 204, 102, 0.08);
+}
+
+/* Icon */
+.forum-icon img {
+  width: 28px;
+  height: 28px;
+  margin-right: 10px;
+}
+
+/* Details */
+.forum-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.forum-title {
+  font-weight: bold;
+  color: #b0d0ff;
+  text-decoration: none;
+  transition: color 0.2s, text-shadow 0.3s;
+}
+
+.forum-title:hover {
+  color: #ffd97a;
+  text-shadow: 0 0 8px rgba(255,204,102,0.4);
+}
+
+.forum-desc {
+  color: #aaa;
+  font-size: 0.9rem;
+  margin: 4px 0;
+}
+
+.lastreply {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+/* Stats */
+.forum-stats {
+  text-align: right;
+  color: #ccc;
+  min-width: 100px;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+/* Legend */
+.forum-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  font-size: 0.85rem;
+  color: #bbb;
+  padding: 12px 0 4px;
+  border-top: 1px solid #222;
+  margin-top: 10px;
+}
+
+.forum-legend img {
+  vertical-align: middle;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  .forum-entry {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .forum-stats {
+    text-align: left;
+    margin-top: 4px;
+  }
+}
+
+/* Centered Header Image */
+img[src*="forum_top.png"] {
+  display: block;
+  margin: 0 auto 12px auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.6);
+}
+
+</style>
+
+
+<?php
+// Always load local self-hosted forum
+if (true):
+  builddiv_start(1, $lang['spp_forum']);
+?>
+<div class="modern-content">
+  <img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="Forums" class="forum-header"/>
+
+  <div class="modern-content forum-container">
+    <?php foreach ($items as $catitem): ?>
+      <section class="forum-category modern-block">
+        <div class="modern-title">
+          <img src="<?php echo $currtmp; ?>/images/nav_m.gif" alt=""/> 
+          <?php echo htmlspecialchars($catitem[0]['cat_name']); ?>
+        </div>
+
+        <?php foreach ($catitem as $forumitem): ?>
+          <article class="forum-entry <?php echo $forumitem['isnew'] ? 'is-new' : ''; ?>">
+            <div class="forum-icon">
+              <img src="<?php echo $currtmp; ?>/images/<?php
+                echo $forumitem['closed']
+                  ? 'lock-icon.gif'
+                  : ($forumitem['isnew']
+                    ? 'news-community.gif'
+                    : 'no-news-community.gif');
+              ?>" alt=""/>
+            </div>
+
+            <div class="forum-details">
+              <a class="forum-title" href="<?php echo $forumitem['linktothis']; ?>">
+                <?php echo htmlspecialchars($forumitem['forum_name']); ?>
+              </a>
+
+              <?php if ($forumitem['hidden']): ?>
+                <span class="hidden"><?php echo $lang['hidden']; ?></span>
+              <?php endif; ?>
+
+              <?php if ($forumitem['isnew']): ?>
+                <span class="newmessages"><?php echo $lang['newmessages']; ?></span>
+              <?php endif; ?>
+
+              <p class="forum-desc">
+                <?php echo htmlspecialchars($forumitem['forum_desc']); ?>
+              </p>
+
+              <?php if ($forumitem['num_posts'] > 0): ?>
+                <div class="lastreply">
+                  <?php echo $lang['lastreplyin']; ?> 
+                  <a href="<?php echo $forumitem['linktolastpost']; ?>">
+                    <?php echo htmlspecialchars($forumitem['topic_name']); ?>
+                  </a>
+                  <br/>
+                  <?php echo $lang['from']; ?> 
+                  <a href="<?php echo $forumitem['linktoprofile']; ?>">
+                    <?php echo htmlspecialchars($forumitem['last_poster']); ?>
+                  </a> 
+                  <?php echo $forumitem['last_post']; ?>
+                </div>
+              <?php endif; ?>
+            </div>
+
+            <div class="forum-stats">
+              <div>
+                <?php echo $forumitem['num_topics']; ?>
+                <?php echo declension($forumitem['num_topics'], [
+                  $lang['l_theme1'], $lang['l_theme2'], $lang['l_theme3']
+                ]); ?>
+              </div>
+              <div>
+                <?php echo $forumitem['num_posts']; ?>
+                <?php echo declension($forumitem['num_posts'], [
+                  $lang['l_post1'], $lang['l_post2'], $lang['l_post3']
+                ]); ?>
+              </div>
+            </div>
+          </article>
+        <?php endforeach; ?>
+      </section>
+    <?php endforeach; ?>
+
+    <div class="forum-legend">
+      <div>
+        <img src="<?php echo $currtmp; ?>/images/news-community.gif" alt=""/> 
+        <?php echo $lang['newpost']; ?>
+      </div>
+      <div>
+        <img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt=""/> 
+        <?php echo $lang['nonewpost']; ?>
+      </div>
+      <div>
+        <img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt=""/> 
+        <?php echo $lang['postclose']; ?>
+      </div>
+    </div>
+  </div>
+</div>
+<?php builddiv_end(); ?>
 <?php endif; ?>

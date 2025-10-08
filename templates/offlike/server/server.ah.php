@@ -1,326 +1,238 @@
-<br>
-<?php builddiv_start(0, $lang['module_ah']) ?>
-<style type = "text/css">
-
-  a.server { border-style: solid; border-width: 0px 1px 1px 0px; border-color: #D8BF95; font-weight: bold; }
-  td.serverStatus1 { font-size: 0.8em; border-style: solid; border-width: 0px 1px 1px 0px; border-color: #D8BF95; }
-  td.serverStatus2 { font-size: 0.8em; border-style: solid; border-width: 0px 1px 1px 0px; border-color: #D8BF95; background-color: #C3AD89; }
-  td.rankingHeader { color: #C7C7C7; font-size: 10pt; font-family: arial,helvetica,sans-serif; font-weight: bold; background-color: #2E2D2B; border-style: solid; border-width: 1px; border-color: #5D5D5D #5D5D5D #1E1D1C #1E1D1C; padding: 3px;}
-</style>
-
-<style media="screen" title="currentStyle" type="text/css">
-/*item quality CSS */
-a.iqual0:link, a.iqual0:visited { background-color: transparent; color: #9e9e9e; }
-a.iqual1:link, a.iqual1:visited { background-color: transparent; color: #eee; }
-a.iqual2:link, a.iqual2:visited { background-color: transparent; color: #00ff10; }
-a.iqual3:link, a.iqual3:visited { background-color: transparent; color: #0010ff; }
-a.iqual4:link, a.iqual4:visited { background-color: transparent; color: #cc00dd; }
-a.iqual5:link, a.iqual5:visited { background-color: transparent; color: #ff8810; }
-a.iqual6:link, a.iqual6:visited { background-color: transparent; color: #e60000; }
-
-a.iqual0:hover { color: #fff; }
-a.iqual1:hover { color: #ff0000; }
-a.iqual2:hover { color: #f00; }
-a.iqual3:hover { color: #fff; }
-a.iqual4:hover { color: #fff; }
-a.iqual5:hover { color: #fff; }
-a.iqual6:hover { color: #fff; }
-/*End item qual CSS*/
-
-/*Fixes/Defns for various table parts*/
-td.rankingHeader {background-color: #0e0e0e;}
-td.rankingHeader a:link,a:visited {color: #006677;}
-
-tr.ahrow td {border-style: solid; border-width: 1px; border-color: #5D5D5D #5D5D5D #1E1D1C #1E1D1C; padding: 3px; font-size: 0.8em; color: rgb(180, 180, 180);}
-
-font.expired {font-weight:bold; font-size: 0.96em;color: rgb(170, 20, 20);}
-/*End fixes/defns*/
-  tr.ahrow {background: url('<?php echo $currtmp . "/images/ah_system/ah_tr_bg.jpg"; ?>') }
-</style>
-
-<?php 
-global $use_itemsite_url;
-//$use_itemsite_url = "http://wowhead.com/$wowhead_domain/item=";
-$use_itemsite_url = "armory/index.php?searchType=iteminfo&item=";
-
-
-global $current_time;
+<?php
+global $use_itemsite_url, $current_time;
+$use_itemsite_url = "/armory/index.php?searchType=iteminfo&item=";
 $current_time = time();
 
+/* ---------- helpers ---------- */
 function item_manage_class($iclass) {
-    
-    //Two-ish-letter Names
-    $iclass_names = array(
-        'Cbl',
-        'Cnt',
-        'Weap',
-        'Gem',
-        'Armr',
-        'Rgt',
-        'Prj',
-        'Trade Good',
-        '',
-        'Rcp',
-        '',
-        'Amo',
-        'Ques',
-        'Key',
-        'MR',
-        'Misc',
-    );
-
-    return $iclass_names[$iclass];
-}
-        
-
-function parse_gold($number) {
-
-	$gold = array();
-	$gold['gold'] = intval($number/10000);
-	$gold['silver'] = intval(($number % 10000)/100);
-	$gold['copper'] = (($number % 10000) % 100);
-
-	return $gold;
+  $iclass_names = [
+    'Consumable',      // 0
+    'Container',       // 1
+    'Weapon',          // 2
+    'Gem',             // 3
+    'Armor',           // 4
+    'Reagent',         // 5
+    'Projectile',      // 6
+    'Trade Goods',     // 7
+    'Generic',         // 8 (unused)
+    'Recipe',          // 9
+    'Money',           // 10 (unused)
+    'Quiver',          // 11
+    'Quest Item',      // 12
+    'Key',             // 13
+    'Permanent',       // 14
+    'Miscellaneous'    // 15
+  ];
+  return $iclass_names[$iclass] ?? 'Unknown';
 }
 
-function print_gold($gold_array) {
-	global $currtmp;
-	if($gold_array['gold'] > 0) {
-		echo $gold_array['gold'];
-		echo "<img src='".$currtmp."/images/ah_system/gold.GIF'>";
-	}
-	if($gold_array['silver'] > 0) {
-		echo $gold_array['silver'];
-		echo "<img src='".$currtmp."/images/ah_system/silver.GIF'>";
-	}
-	if($gold_array['copper'] > 0) {
-		echo $gold_array['copper'];
-		echo "<img src='".$currtmp."/images/ah_system/copper.GIF'>";
-	}
+function parse_gold($n){return ['g'=>intval($n/10000),'s'=>intval(($n%10000)/100),'c'=>$n%100];}
+function print_gold($g){
+  global $currtmp;
+  echo "<span class='gold-inline'>";
+  if($g['g'])echo"{$g['g']}<img src='{$currtmp}/images/ah_system/gold.GIF' alt='g'> ";
+  if($g['s'])echo"{$g['s']}<img src='{$currtmp}/images/ah_system/silver.GIF' alt='s'> ";
+  if($g['c'])echo"{$g['c']}<img src='{$currtmp}/images/ah_system/copper.GIF' alt='c'>";
+  echo"</span>";
 }
-
-function ah_print_gold($var) {
-	if($var == '---') {
-		echo $var;
-	}
-	else {
-		print_gold(parse_gold($var));
-	}
+function ah_print_gold($v){echo($v==='---')?$v:print_gold(parse_gold($v));}
+function parse_time($n){return['h'=>intval($n/3600),'m'=>intval(($n%3600)/60),'s'=>$n%60];}
+function ah_time_left($exp){
+  global $current_time,$lang;
+  $left=$exp-$current_time;
+  if($left>0){$t=parse_time($left);
+    if($t['h'])echo"{$t['h']}h ";if($t['m'])echo"{$t['m']}m ";if($t['s'])echo"{$t['s']}s";
+  }else echo"<span class='expired'>{$lang['ah_expired']}</span>";
 }
-
-
-function parse_time($number) {
-
-	$time = array();
-	$time['h'] = intval($number/3600);
-	$time['m'] = intval(($number % 3600)/60);
-	$time['s'] = (($number % 3600) % 60);
-
-	return $time;
-}
-
-function print_time($time_array) {
-	global $lang;
-	$count = 0;
-	if($time_array['h'] > 0) {
-		echo $time_array['h'];
-		echo $lang['ah_hours'];
-		$count++;
-	}
-	if($time_array['m'] > 0) {
-		if ($count > 0) echo ',';
-		echo $time_array['m'];
-		echo $lang['ah_minutes'];
-		$count++;
-	}
-	if($time_array['s'] > 0) {
-		if ($count > 0) echo ',';
-		echo $time_array['s'];
-		echo $lang['ah_seconds'];
-	}
-}
-
-function ah_time_left($exp_time) {
-	global $current_time;
-	global $lang;
-
-	$time_left = $exp_time - $current_time;
-
-	if($time_left > 0) {
-		print_time(parse_time($time_left));
-	}
-	else echo "<font class='expired'>" . $lang['ah_expired'] . "</font>";
-}
-
-function AHsortlink($clicked) {
-	$link = "index.php";
-	
-	$cf = 0;
-
-	foreach($_GET as $key => $value) {
-		if ($key != 'd' && $key != 'sort') {
-			if($cf == 0) {
-				$link .= '?';
-				$cf = 1;
-			}
-			else {$link .= '&';}
-			$link .= $key . '=' . $value;
-		}
-		elseif ($key == 'sort') {
-			if($clicked != null) {
-				if($cf == 0) {
-					$link .= '?';
-					$cf = 1;
-				}
-				else {$link .= '&';}
-
-				$link .= 'sort=' . $clicked;
-				if($_GET['d']!='1' && $value == $clicked) {
-					$link .= '&d=1';
-				}
-			}
-		}
-	}
-	if(!$_GET['sort'] && $clicked != null) $link .= '&sort=' . $clicked;
-	return $link;
-}
-
-function tableAH($ah_entry) { 
-	$current_time = time();
-	$time_subtract = 312497;
-	$current_time -= $time_subtract;
-	global $lang;
-	global $use_itemsite_url;
 ?>
-      <table cellpadding='3' cellspacing='0' width='100%' border = '1'>
-        <tbody>   
-         <tr> 
-          <td class='rankingHeader' align='center' colspan='8' nowrap='nowrap'><?php echo $lang['ah_auctionhouse']; ?> <a href="index.php?n=server&sub=ah"><?php echo $lang['ah_reset']; ?></a><br/>
-          <a href="<?php echo AHsortlink('quality'); ?>"><?php echo $lang['ah_sortbyquality']; ?></a></td></tr>
-		 <tr><td class="rankingHeader" align="center" colspan="8" nowrap="nowrap">
-<?php
-if (isset($_GET['filter'])){
-$rmvthis = '&filter='.$_GET["filter"];
-$finalurl = str_replace ($rmvthis, "", $_SERVER['REQUEST_URI']);
-if ($_GET['filter'] == "ally") {echo '['.$lang["ah_alliance"].']&nbsp;&nbsp;-&nbsp;&nbsp;';} else {echo '<a href="'.$finalurl.'&filter=ally">'.$lang["ah_alliance"].'</a>&nbsp;&nbsp;-&nbsp;&nbsp;';}
-if ($_GET['filter'] == "horde") {echo '['.$lang["ah_horde"].']&nbsp;&nbsp;-&nbsp;&nbsp;';} else {echo '<a href="'.$finalurl.'&filter=horde">'.$lang["ah_horde"].'</a>&nbsp;&nbsp;-&nbsp;&nbsp;';}
-if ($_GET['filter'] == "black") {echo '['.$lang["ah_blackwater"].']&nbsp;&nbsp;-&nbsp;&nbsp;';} else {echo '<a href="'.$finalurl.'&filter=black">'.$lang["ah_blackwater"].'</a>&nbsp;&nbsp;-&nbsp;&nbsp;';}
-echo '<a href="'.$finalurl.'">'.$lang["all"].'</a>';
-}
-else {
-echo '<a href="'.$_SERVER['REQUEST_URI'].'&filter=ally">'.$lang["ah_alliance"].'</a>&nbsp;&nbsp;-&nbsp;&nbsp;';
-echo '<a href="'.$_SERVER['REQUEST_URI'].'&filter=horde">'.$lang["ah_horde"].'</a>&nbsp;&nbsp;-&nbsp;&nbsp;';
-echo '<a href="'.$_SERVER['REQUEST_URI'].'&filter=black">'.$lang["ah_blackwater"].'</a>&nbsp;&nbsp;-&nbsp;&nbsp;';
-echo '['.$lang["all"].']';
-}
-//
-//?>
-</td></tr>
-<?php
-global $numofpgs;
-if ($numofpgs > 1) { ?> 
-		<tr>
-            <td class="rankingHeader" align="center" colspan="8" nowrap="nowrap"><?php echo $lang['page']; ?>:&nbsp;
-		<?php
-			for ($pnum = 1; $pnum <= $numofpgs; $pnum++) {
-			if (isset($_GET["pid"])) {
-			if ($_GET["pid"] == $pnum) {
-			echo '['.$pnum.']&nbsp;';
-			}
-			else {
-			$rmvthis = '&pid='.$_GET["pid"];
-			$finalurl = str_replace ($rmvthis, "", $_SERVER['REQUEST_URI']);
-			if (abs($_GET["pid"] - $pnum) < 5) {			
-			
-			echo '<a href="'.$finalurl.'&pid='.$pnum.'">'.$pnum.'</a>&nbsp;';
-			}
-			elseif (abs($_GET["pid"] - $pnum) >= 5 && $pnum % 10 == 0) {echo '&nbsp;&nbsp;<a href="'.$finalurl.'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>&nbsp;&nbsp;';}
-			elseif ($pnum == 1) {echo '<a href="'.$finalurl.'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>&nbsp;&nbsp;&nbsp;&nbsp;';}
-			elseif ($pnum == $numofpgs) {echo '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$finalurl.'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>';}
-			}
-			
-			}
-			else {
-			if ($pnum == 1) {echo '['.$pnum.']&nbsp;';}
-			else {
-			if (abs(1 - $pnum) < 5) {
-			echo '<a href="'.$_SERVER['REQUEST_URI'].'&pid='.$pnum.'">'.$pnum.'</a>&nbsp;';}
-			elseif (abs($_GET["pid"] - $pnum) >= 5 && $pnum % 10 == 0) {echo '&nbsp;&nbsp;<a href="'.$_SERVER['REQUEST_URI'].'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>&nbsp;&nbsp;';}
-			elseif ($pnum == $numofpgs) {echo '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$_SERVER['REQUEST_URI'].'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>';}
-			}
-			}
-			}
-			?>
-			</td>
-        </tr>
-		<?php } ?>
-        <tr>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('class'); ?>"><?php echo $lang['ah_itemclass']; ?></a></td>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('itemname'); ?>"><?php echo $lang['ah_itemname']; ?></a></td>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('quantity'); ?>"><?php echo $lang['ah_quantity']; ?></a></td>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('seller'); ?>"><?php echo $lang['ah_seller']; ?></a></td>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('time'); ?>"><?php echo $lang['ah_time']; ?></a></td>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('buyer'); ?>"><?php echo $lang['ah_buyer']; ?></a></td>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('currentbid'); ?>"><?php echo $lang['ah_currentbid']; ?></a></td>
-          <td class='rankingHeader' align='center' nowrap='nowrap'><a href="<?php echo AHsortlink('buyout'); ?>"><?php echo $lang['ah_buyout']; ?></a></td>
-        </tr>
-        <?php if (empty($ah_entry)){echo "ahbot failed to load!";} foreach($ah_entry as $row){ ?>
-        <tr class="ahrow">
-          <td><?php echo item_manage_class($row['class']);?></td>
-          <td><a data-wowhead="domain=<?php echo $wowhead_domain;?>" class="iqual<?php echo $row['quality'];?>" href="<?php echo $use_itemsite_url; echo $row['item_entry'] ; ?>"target="_blank"><?php echo $row['itemname']; ?></a></td>
-          <td align='right'><?php echo $row['quantity']; ?></td>
-          <td><?php echo $row['seller']; ?></td>
-          <td align='right'><?php ah_time_left($row['time']); ?></td>
-          <td><?php echo $row['buyer'] ?></td>
-          <td align='right'><?php ah_print_gold($row['currentbid']);?></td>
-          <td align='right'><?php ah_print_gold($row['buyout']); ?></td>
-        </tr>
-	<?php }  ?>
-	<?php
-if ($numofpgs > 1) { ?> 
-		<tr>
-            <td class="rankingHeader" align="center" colspan="8" nowrap="nowrap"><?php echo $lang['page']; ?>:&nbsp;
-		<?php
-			for ($pnum = 1; $pnum <= $numofpgs; $pnum++) {
-			if (isset($_GET["pid"])) {
-			if ($_GET["pid"] == $pnum) {
-			echo '['.$pnum.']&nbsp;';
-			}
-			else {
-			$rmvthis = '&pid='.$_GET["pid"];
-			$finalurl = str_replace ($rmvthis, "", $_SERVER['REQUEST_URI']);
-			if (abs($_GET["pid"] - $pnum) < 5) {			
-			
-			echo '<a href="'.$finalurl.'&pid='.$pnum.'">'.$pnum.'</a>&nbsp;';
-			}
-			elseif (abs($_GET["pid"] - $pnum) >= 5 && $pnum % 10 == 0) {echo '&nbsp;&nbsp;<a href="'.$finalurl.'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>&nbsp;&nbsp;';}
-			elseif ($pnum == 1) {echo '<a href="'.$finalurl.'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>&nbsp;&nbsp;&nbsp;&nbsp;';}
-			elseif ($pnum == $numofpgs) {echo '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$finalurl.'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>';}
-			}
-			
-			}
-			else {
-			if ($pnum == 1) {echo '['.$pnum.']&nbsp;';}
-			else {
-			if (abs(1 - $pnum) < 5) {
-			echo '<a href="'.$_SERVER['REQUEST_URI'].'&pid='.$pnum.'">'.$pnum.'</a>&nbsp;';}
-			elseif (abs($_GET["pid"] - $pnum) >= 5 && $pnum % 10 == 0) {echo '&nbsp;&nbsp;<a href="'.$_SERVER['REQUEST_URI'].'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>&nbsp;&nbsp;';}
-			elseif ($pnum == $numofpgs) {echo '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$_SERVER['REQUEST_URI'].'&pid='.$pnum.'" style="color: gray">'.$pnum.'</a>';}
-			}
-			}
-			}
-			?>
-			</td>
-        </tr>
-		<?php } ?>
-        </tbody>
-      </table>
 
-<?php
+
+
+<style>
+
+.ah-filter-bar{text-align:center;margin:10px 0 20px;}
+.ah-filter{color:#aaa;text-decoration:none;margin:0 8px;font-weight:bold;}
+.ah-filter.is-active,.ah-filter:hover{color:#ffcc66;}
+.ah-table-header,.ah-row{
+  display:grid;
+  grid-template-columns:130px 250px 70px 120px 100px 120px 120px 120px;
+  align-items:center;text-align:center;padding:8px 0;border-bottom:1px solid #222;
+}
+.ah-table-header{background:linear-gradient(to bottom,#1a1a1a,#101010);color:#ffcc66;font-weight:bold;text-transform:uppercase;}
+.ah-row:nth-child(even){background:rgba(255,255,255,0.04);}
+.ah-row:hover{background:rgba(255,255,255,0.08);}
+.ah-row.empty{text-align:center;padding:12px;color:#ff6666;}
+.ah-row .col:first-child{text-align:left;padding-left:10px;}
+.gold-cell{text-align:right;padding-right:10px;}
+.expired{color:#c33;font-weight:bold;}
+a.iqual0{color:#9e9e9e;}a.iqual1{color:#eee;}a.iqual2{color:#00ff10;}
+a.iqual3{color:#0070dd;}a.iqual4{color:#a335ee;}a.iqual5{color:#ff8000;}
+a.iqual6{color:#e60000;}a[class^="iqual"]:hover{color:#fff;}
+.pagination-controls{text-align:center;margin-top:12px;color:#ccc;}
+.has-dropdown { position: relative; cursor: pointer; }
+.ah-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%; left: 0;
+  background: #181818;
+  border: 1px solid #333;
+  border-radius: 4px;
+  min-width: 160px;
+  z-index: 20;
+}
+.has-dropdown:hover .ah-dropdown { display: block; }
+.ah-option {
+  padding: 5px 10px;
+  color: #ddd;
+  white-space: nowrap;
+}
+.ah-option:hover {
+  background: #333;
+  color: #ffcc66;
 }
 
-?>
-<?php write_metalborder_header(); ?>
-	<?php tableAH($ah_entry); ?>
-<?php write_metalborder_footer(); ?>
-<?php builddiv_end() ?>
+</style>
+
+<?php builddiv_start(1, $lang['ah_auctionhouse']); ?>
+
+<div class="modern-content">
+  <img src="<?php echo $currtmp; ?>/images/banner1.jpg" alt="Auction House" class="ah-banner"/>
+
+
+    <div class="ah-filter-bar">
+      <?php
+        $filter=$_GET['filter']??'all';
+        $filters=['ally'=>$lang['ah_alliance'],'horde'=>$lang['ah_horde'],'black'=>$lang['ah_blackwater'],'all'=>$lang['all']];
+        foreach($filters as $key=>$label){
+          $active=($filter===$key)?'is-active':'';
+          echo"<a href='?n=server&sub=ah&filter={$key}' class='ah-filter {$active}'>{$label}</a>";
+        }
+      ?>
+    </div>
+
+    <div class="ah-table">
+<div class="ah-table-header">
+  <div class="col sortable has-dropdown" data-sort="type">
+    <?php echo $lang['ah_itemclass']; ?>
+
+  </div>
+  <div class="col sortable" data-sort="item"><?php echo $lang['ah_itemname']; ?></div>
+  <div class="col sortable" data-sort="qty"><?php echo $lang['ah_quantity']; ?></div>
+  <div class="col sortable" data-sort="time"><?php echo $lang['ah_time']; ?></div>
+  <div class="col sortable" data-sort="bid"><?php echo $lang['ah_currentbid']; ?></div>
+  <div class="col sortable" data-sort="buyout"><?php echo $lang['ah_buyout']; ?></div>
+</div>
+
+
+
+      <?php if (empty($ah_entry)): ?>
+        <div class="ah-row empty">AHBot failed to load!</div>
+      <?php else: foreach ($ah_entry as $row): ?>
+        <div class="ah-row">
+          <div class="col"><?php echo item_manage_class($row['class']); ?></div>
+          <div class="col">
+            <a class="iqual<?php echo $row['quality']; ?>"
+               href="<?php echo '/' . ltrim($use_itemsite_url, '/') . $row['item_entry']; ?>"
+               target="_blank"><?php echo htmlspecialchars($row['itemname']); ?></a>
+          </div>
+          <div class="col"><?php echo $row['quantity']; ?></div>
+          <!--<div class="col"><?php// echo htmlspecialchars($row['seller']); ?></div>-->
+          <div class="col"><?php ah_time_left($row['time']); ?></div>
+          <!--<div class="col"><?php// echo htmlspecialchars($row['buyer']); ?></div>-->
+          <div class="col gold-cell"><?php ah_print_gold($row['currentbid']); ?></div>
+          <div class="col gold-cell"><?php ah_print_gold($row['buyout']); ?></div>
+        </div>
+      <?php endforeach; endif; ?>
+    </div>
+
+    <?php if (!empty($numofpgs) && $numofpgs > 1): ?>
+    <div class="pagination-controls">
+      <?php echo $lang['page']; ?>:&nbsp;
+      <?php
+        for ($pnum=1;$pnum<=$numofpgs;$pnum++){
+          $url=preg_replace('/(&?pid=\d+)/','',$_SERVER['REQUEST_URI']);
+          echo(isset($_GET["pid"])&&$_GET["pid"]==$pnum)?'['.$pnum.'] ':'<a href="'.$url.'&pid='.$pnum.'">'.$pnum.'</a> ';
+        }
+      ?>
+    </div>
+    <?php endif; ?>
+  </div>
+
+
+</div> <!-- closes .modern-content -->
+<?php builddiv_end(); ?>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const headers = document.querySelectorAll(".ah-table-header .sortable");
+  let sortStack = [];
+
+  headers.forEach(header => {
+    header.addEventListener("click", e => {
+      // Skip clicks inside dropdown
+      if (e.target.closest(".ah-dropdown")) return;
+
+      const table = header.closest(".ah-table");
+      const rows = Array.from(table.querySelectorAll(".ah-row"));
+
+      const index = [...header.parentNode.children].indexOf(header);
+      let state = header.dataset.state || "none";
+
+      if (!e.shiftKey) sortStack = [];
+      sortStack = sortStack.filter(s => s.index !== index);
+
+      if (state === "none") state = "asc";
+      else if (state === "asc") state = "desc";
+      else state = "none";
+
+      if (state !== "none") sortStack.push({ index, state });
+      header.dataset.state = state;
+
+      // Update header arrows (preserve dropdown HTML)
+      headers.forEach(h => {
+        const s = sortStack.find(x => x.index === [...headers].indexOf(h));
+        if (!h.classList.contains("has-dropdown")) {
+          h.textContent = h.dataset.sort.toUpperCase() + (s ? (s.state === "asc" ? " ▲" : " ▼") : "");
+        } else {
+          const title = h.querySelector(".sort-title");
+          if (title) title.textContent = h.dataset.sort.toUpperCase() + (s ? (s.state === "asc" ? " ▲" : " ▼") : "");
+        }
+      });
+
+      // Sort rows
+      rows.sort((a, b) => {
+        for (const s of sortStack) {
+          const asc = s.state === "asc";
+          const aCell = a.querySelectorAll(".col")[s.index];
+          const bCell = b.querySelectorAll(".col")[s.index];
+
+          const aVal = (aCell?.innerText || "").trim().toLowerCase();
+          const bVal = (bCell?.innerText || "").trim().toLowerCase();
+
+          const cmp = aVal.localeCompare(bVal, undefined, { numeric: true });
+          if (cmp !== 0) return asc ? cmp : -cmp;
+        }
+        return 0;
+      });
+
+      // Re-append
+      const frag = document.createDocumentFragment();
+      rows.forEach(r => frag.appendChild(r));
+      table.appendChild(frag);
+    });
+  });
+});
+
+// Dropdown filter
+document.addEventListener("click", e => {
+  const opt = e.target.closest(".ah-option");
+  if (!opt) return;
+  const filter = opt.dataset.filter;
+  document.querySelectorAll(".ah-row").forEach(row => {
+    const typeCol = row.querySelector(".col:first-child");
+    const classIndex = typeCol ? typeCol.dataset.classIndex : "";
+    row.style.display = (filter === "all" || classIndex == filter) ? "" : "none";
+  });
+});
+</script>

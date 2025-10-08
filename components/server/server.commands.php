@@ -13,4 +13,13 @@ if($WSDB) {
 	    ORDER BY `name` ASC");
 }
 
+if ($DB) {
+    $botCommands = $DB->select("
+        SELECT *
+        FROM bot_command
+        WHERE security <= $userlevel
+        ORDER BY `name` ASC
+    ");
+}
+
 ?>

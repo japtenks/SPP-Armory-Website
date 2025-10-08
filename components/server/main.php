@@ -130,9 +130,24 @@ $com_content['server'] = array(
         '', 
         'armorsets', 
         mw_url('server', 'armorsets'),
-        '4-menuGameGuide',
+        '3-menuGameGuide',
         0
     ),
+	'worldsets' => array(
+    '', 
+    'worldsets', 
+    mw_url('server', 'worldsets'),
+    '3-menuGameGuide',
+    0
+),
+	'pvpsets' => array(
+    '', 
+    'pvpsets', 
+    mw_url('server', 'worldsets'),
+    '3-menuGameGuide',
+    0
+),
+
     'rules' => array(
         '', 
         'rules', 
