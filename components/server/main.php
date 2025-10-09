@@ -35,6 +35,14 @@ $com_content['server'] = array(
         '8-menuSupport',
         0
     ),
+	'botcommands' => array(
+    '', 
+    'Bot Commands', 
+    mw_url('server', 'botcommands'),
+    '8-menuSupport',
+    0
+),
+
 	'gmonline' => array(
         '', 
         'gm_online', 

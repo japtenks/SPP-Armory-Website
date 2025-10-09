@@ -16,14 +16,14 @@
 |=|agility :=: Agility
 |=|agree :=: Agree
 |=|agreeement_detailschange :=: You agree that you are the owner of this account.
-|=|ah_alliance :=: Alliance Auctions
+|=|ah_alliance :=: Alliance 
 |=|ah_auctionhouse :=: Auction House
-|=|ah_blackwater :=: Blackwater Auctions
+|=|ah_blackwater :=: Netural 
 |=|ah_buyer :=: Buyer
 |=|ah_buyout :=: Buyout Price
 |=|ah_currentbid :=: Current Bid
 |=|ah_expired :=: Expired
-|=|ah_horde :=: Horde Auctions
+|=|ah_horde :=: Horde 
 |=|ah_hours :=: h
 |=|ah_itemclass :=: Type
 |=|ah_itemname :=: Item
@@ -59,7 +59,7 @@
 |=|are_you_sure :=: Are you sure?
 |=|areonline :=: Users active on Web Server
 |=|armor :=: Armor
-|=|pvpsets :=: Class PvP Armor Sets
+|=|pvpsets :=: PvP Armor Sets
 |=|armorsets :=: Class Armor Sets
 |=|worldsets :=: Misc Armor Sets		
 |=|armorsets_desc :=: This page shows some of the high level armor sets which players can obtain in dungeons or by completing quests. New and existing sets will be added to this page regularly, so check back often.
@@ -836,8 +836,9 @@ his/her gender, name, and and his/her looks.
 |=|menuNews :=: News
 |=|menuAccount :=: Account
 |=|menuGameGuide :=: Game Guide
-|=|menuInteractive :=: Workshop
+|=|menuWorkshop :=: Workshop
 |=|menuMedia :=: Media
 |=|menuForums :=: Forums
-|=|menuCommunity :=: Discord
+|=|menuCommunity :=: Community
 |=|menuSupport :=: Support
+|=|menuArmory :=: Armory

@@ -23,6 +23,17 @@
 /*                                $Rev$                                     */
 /****************************************************************************/
 
+
+// path to your background images
+$bgDir = 'templates/offlike/images/modern/bkgd/';
+
+// gather all images in the directory
+$bgImages = glob($bgDir . '*.{jpg,jpeg,png,gif}', GLOB_BRACE);
+
+// pick a random one
+$randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/images/modern/bkgd/19.jpg';
+
+
 // Current Revision
 $rev = "57";
 session_start();

@@ -1,31 +1,4 @@
 <style>
-/* ---------- Modern Command List ---------- */
-.modern-wrapper {
-  max-width: 950px;
-  margin: 30px auto;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 10px;
-  box-shadow: 0 0 12px rgba(0,0,0,0.9);
-  overflow: hidden;
-  color: #ddd;
-  font-family: 'Trebuchet MS', sans-serif;
-}
-
-.modern-header {
-  background: linear-gradient(to right, #2a1b05, #111);
-  color: #ffcc66;
-  text-align: center;
-  padding: 12px;
-  font-size: 1.4rem;
-  font-weight: bold;
-  border-bottom: 1px solid #2e2e2e;
-}
-
-.modern-content {
-  padding: 20px 24px;
-}
-
 /* ---------- Search Box ---------- */
 #commandSearch {
   width: 100%;
@@ -36,6 +9,7 @@
   background: #0f0f0f;
   color: #eee;
   font-size: 1rem;
+  margin-top: 240px; /*modify to liking*/
 }
 #commandSearch:focus {
   border-color: #ffcc66;
@@ -107,7 +81,8 @@ img.ah-banner {
 
 <?php builddiv_start(1, $lang['commands']); ?>
 <div class="modern-content">
-  <img src="<?php echo $currtmp; ?>/images/banner1.jpg" alt="Command Banner" class="ah-banner" />
+  <!--uncomment to add imgage
+  <img src="<?php //echo $currtmp; ?>/images/banner1.jpg" alt="Command Banner" class="ah-banner" />-->
 
   <input type="text" id="commandSearch" onkeyup="filterCommands()" placeholder="Search commands...">
 
@@ -136,39 +111,6 @@ img.ah-banner {
   </table>
 </div>
 <?php builddiv_end(); ?>
-
-<?php builddiv_start(1, $lang['botcommands']); ?>
-<div class="modern-content">
-  <img src="<?php echo $currtmp; ?>/images/banner1.jpg" alt="Bot Command Banner" class="ah-banner" />
-
-  <input type="text" id="commandSearch" onkeyup="filterCommands()" placeholder="Search commands...">
-
-  <table id="commandTable">
-    <thead>
-      <tr>
-        <th><?php echo $lang['command_name'] ?? 'Command Name'; ?></th>
-        <th><?php echo $lang['security_level'] ?? 'Security Level'; ?></th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php foreach($botCommands as $topic): ?>
-      <tr>
-        <td>
-          <details>
-            <summary><?php echo htmlspecialchars($topic['name']); ?></summary>
-            <p><?php echo nl2br(htmlspecialchars($topic['help'])); ?></p>
-          </details>
-        </td>
-        <td class="serverStatus" align="center">
-          <b><?php echo htmlspecialchars($topic['security']); ?></b>
-        </td>
-      </tr>
-      <?php endforeach; ?>
-    </tbody>
-  </table>
-</div>
-<?php builddiv_end(); ?>
-
 
 <script>
 function filterCommands() {

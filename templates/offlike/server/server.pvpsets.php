@@ -1,72 +1,3 @@
-<style>
-/* identical CSS as World Sets */
-.class-bar {
-  position: sticky; top: 0; z-index: 20;
-  display: flex; flex-wrap: wrap; gap: 10px;
-  margin: 6px 0 16px; padding: 8px 6px;
-  background: rgba(244,230,198,.92);
-  border: 1px solid #c3a779; border-radius: 8px;
-  backdrop-filter: saturate(160%) blur(2px);
-}
-.class-token {
-  --ring:#888; --glow:rgba(136,136,136,.55);
-  width: 40px; height: 40px; border-radius: 999px;
-  background: transparent; cursor: pointer;
-  box-shadow: 0 0 0 2px rgba(0,0,0,.45) inset,
-              0 0 0 2px rgba(255,255,255,.2);
-  transition: transform .12s, box-shadow .12s, filter .12s;
-}
-.class-token img { width: 100%; height: 100%; border-radius: 999px; }
-.class-token:hover, .class-token:focus {
-  transform: translateY(-1px);
-  filter: brightness(1.05);
-  box-shadow: 0 0 0 2px rgba(0,0,0,.6) inset,
-              0 0 0 2px var(--ring),
-              0 0 16px var(--glow);
-}
-.class-token.is-active {
-  box-shadow: 0 0 0 2px rgba(0,0,0,.7) inset,
-              0 0 0 2px var(--ring),
-              0 0 18px var(--glow);
-}
-
-/* class colors */
-.is-warrior{--ring:#C79C6E;--glow:rgba(199,156,110,.6)}
-.is-paladin{--ring:#F58CBA;--glow:rgba(245,140,186,.6)}
-.is-hunter{--ring:#ABD473;--glow:rgba(171,212,115,.6)}
-.is-rogue {--ring:#FFF569;--glow:rgba(255,245,105,.55)}
-.is-priest{--ring:#FFF;--glow:rgba(255,255,255,.55)}
-.is-shaman{--ring:#0070DE;--glow:rgba(0,112,222,.55)}
-.is-mage  {--ring:#40C7EB;--glow:rgba(64,199,235,.55)}
-.is-warlock{--ring:#8787ED;--glow:rgba(135,135,237,.55)}
-.is-druid {--ring:#FF7D0A;--glow:rgba(255,125,10,.55)}
-.is-dk    {--ring:#C41F3B;--glow:rgba(196,31,59,.55)}
-
-.set-group { margin: 20px 0 10px; }
-.set-title { font-size: 20px; font-weight: 700; color: #6b2d1f; margin: 14px 0 6px; }
-.set-subtitle { font-weight: 700; color: #7a3f28; }
-.set-desc { margin: 2px 0 10px; }
-.set-note { color: #7b6a52; display: block; margin-top: 2px; }
-
-.set-item { display:inline-block;padding:1px 6px;margin:0 3px;border-radius:7px;background:rgba(0,0,0,.06);
-  box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 1px 2px rgba(0,0,0,.08);
-  font-weight:700;font-size:12px;white-space:nowrap;}
-.set-item img{width:14px;height:14px;margin-right:4px;border-radius:3px;vertical-align:-2px;}
-.set-item.ghost{background:rgba(0,0,0,.05);color:#7b6a52;opacity:.95;}
-
-.talent-tt{position:fixed;z-index:9999;min-width:220px;max-width:360px;padding:14px;background:rgba(16,24,48,.78);
-border:1px solid rgba(200,220,255,.18);border-radius:10px;color:#e9eefb;font:14px/1.45 "Trebuchet MS",Arial,sans-serif;
-pointer-events:none;backdrop-filter:blur(2px);}
-.talent-tt h5{margin:0 0 6px;font-size:18px;font-weight:800;color:#f1f6ff;}
-.talent-tt .tt-subtle{font-size:13px;opacity:.9;}
-
-.set-row{display:flex;align-items:center;margin:6px 0;}
-.set-name{flex:0 0 240px;font-weight:bold;}
-.set-icons{display:flex;gap:6px;margin-left:10px;}
-.set-icons img{border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,.2),0 1px 2px rgba(0,0,0,.4);
-transition:transform .12s,box-shadow .12s;}
-.set-icons img:hover{transform:translateY(-2px) scale(1.08);box-shadow:0 0 0 1px rgba(255,255,255,.35),0 2px 6px rgba(0,0,0,.6);}
-</style>
 
 <?php
 /* ---------- DEBUG MODE ---------- */
@@ -880,9 +811,31 @@ function render_armor_set($nm, $pieces, $setData, $setId, string $rankKey = '') 
     }
 
     echo "<div class='set-row'>";
-    echo "<div class='set-name js-set-tip' data-tip-html='{$bonusTip}'>"
-       . htmlspecialchars($nm)
-       . "</div>";
+// find highest item quality in this set to colorize the name
+$qualityColors = [
+  0 => '#9d9d9d',  // poor
+  1 => '#ffffff',  // common
+  2 => '#1eff00',  // uncommon
+  3 => '#0070dd',  // rare (blue)
+  4 => '#a335ee',  // epic (purple)
+  5 => '#ff8000',  // legendary (orange)
+  6 => '#e6cc80',  // artifact
+  7 => '#e6cc80'
+];
+
+$maxQ = 0;
+if (!empty($setData['items'])) {
+  foreach ($setData['items'] as $it) {
+    $q = (int)($it['q'] ?? 0);
+    if ($q > $maxQ) $maxQ = $q;
+  }
+}
+$nameColor = $qualityColors[$maxQ] ?? '#ffffff';
+
+echo "<div class='set-name js-set-tip' data-tip-html='{$bonusTip}' style='color:{$nameColor};'>"
+   . htmlspecialchars($nm)
+   . "</div>";
+
 
     // item icons
     echo "<div class='set-icons'>";
@@ -1424,7 +1377,7 @@ $desc = preg_replace_callback(
 
 <?php builddiv_start(1, $lang['pvpsets']); ?>
 <div class="modern-content">
-  <img src="<?php echo $currtmp; ?>/images/armorsets.jpg" alt="PVP sets" class="ah-banner"/>
+  <img src="<?php echo $currtmp; ?>/images/armorsets.jpg" alt="PVP sets" class="banner"/>
   
 
 <?php
@@ -1467,8 +1420,40 @@ foreach ($order as $key) {
   if (empty($pairs)) continue;
 
   echo "<div class='set-block'>";
-  echo "<div class='set-title'>{$title}</div>";
-  echo "<div class='set-desc'>{$text}</div>";
+/* ---------- render title + description with class color highlights ---------- */
+echo "<div class='set-title'>".htmlspecialchars($title)."</div>";
+
+// Remove any leftover <b> or </b> tags safely
+$text = str_replace(['<b>', '</b>'], '', $text);
+
+// Map class names to CSS classes (reuse your .is-* colors)
+$classesToCSS = [
+  'Warrior'      => 'is-warrior',
+  'Paladin'      => 'is-paladin',
+  'Hunter'       => 'is-hunter',
+  'Rogue'        => 'is-rogue',
+  'Priest'       => 'is-priest',
+  'Shaman'       => 'is-shaman',
+  'Mage'         => 'is-mage',
+  'Warlock'      => 'is-warlock',
+  'Druid'        => 'is-druid',
+  'Death Knight' => 'is-dk'
+];
+
+// Auto-wrap all class names (handles plurals too)
+$text = preg_replace_callback(
+  '/\b(' . implode('|', array_map('preg_quote', array_keys($classesToCSS))) . ')(s)?\b/i',
+  function($m) use ($classesToCSS) {
+    $name = ucfirst(strtolower($m[1]));
+    $css  = $classesToCSS[$name] ?? '';
+    $suffix = $m[2] ?? ''; // capture plural 's'
+    return "<span class='{$css}'><b>{$name}{$suffix}</b></span>";
+  },
+  $text
+);
+
+echo "<div class='set-desc'>{$text}</div>";
+
 
   foreach ($pairs as $nm) {
     $setName = $nm['name'];

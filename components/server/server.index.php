@@ -10,9 +10,10 @@ switch ($sub) {
         include('commands.php');
         break;
 
-    case 'botcommands':
-        include('botcommands.php');
-        break;
+	case 'botcommands':
+		include('botcommands.php');
+		break;
+
 
     case 'playermap':
         include('playermap.php');

@@ -2,13 +2,18 @@
 
 .faction-columns {
   display: flex;
-  justify-content: center;
+  justify-content: space-between; /* push Horde & Alliance to edges */
   align-items: flex-start;
-  gap: 24px;
   flex-wrap: wrap;
+  gap: 24px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  transition: all 0.3s ease;
 }
 
 .faction-col {
+  margin-top: 30px;
   position: relative;
   flex: 1 1 300px;
   max-width: 260px;
@@ -45,7 +50,7 @@
 }
 
 .faction-col.alliance .faction-text {
-  color: #ffcc66;
+  color: #79a9ff;
   text-shadow: 0 0 6px rgba(255,220,100,0.4);
 }
 
@@ -95,6 +100,8 @@
   }
 }
 
+
+
 </style>
 
 
@@ -103,7 +110,7 @@
 <?php builddiv_start(1, $lang['statistic']); ?>
 
 <div class="modern-content">
-  <img src="<?php echo $currtmp; ?>/images/banner1.jpg" alt="Auction House" class="ah-banner"/>
+ <!-- <img src="<?php //echo $currtmp; ?>/images/banner1.jpg" alt="Auction House" class="ah-banner"/>-->
 
   <?php if ($num_chars == 0): ?>
     <p class="no-chars">0 <?php echo $lang['characters'] ?? 'Characters'; ?></p>
@@ -126,34 +133,40 @@
     ?>
 
     <div class="faction-columns">
-      <!-- Alliance -->
-      <div class="faction-col alliance">
-        <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/alliance.png');"></div>
-        <div class="faction-text">
-          Alliance: <strong><?php echo $num_ally; ?></strong> (<?php echo $pc_ally; ?>%)
-        </div>
-        <?php foreach ($allianceRaces as $id => $data): ?>
-          <div class="race-line">
-            <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
-            <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
-          </div>
-        <?php endforeach; ?>
-      </div>
 
-      <!-- Horde -->
-      <div class="faction-col horde">
-        <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/horde.png');"></div>
-        <div class="faction-text">
-          Horde: <strong><?php echo $num_horde; ?></strong> (<?php echo $pc_horde; ?>%)
-        </div>
-        <?php foreach ($hordeRaces as $id => $data): ?>
-          <div class="race-line">
-            <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
-            <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
-          </div>
-        <?php endforeach; ?>
-      </div>
+
+      <div class="faction-columns">
+
+  <!-- Horde (now left) -->
+  <div class="faction-col horde">
+    <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/horde.png');"></div>
+    <div class="faction-text">
+      Horde: <strong><?php echo $num_horde; ?></strong> (<?php echo $pc_horde; ?>%)
     </div>
+    <?php foreach ($hordeRaces as $id => $data): ?>
+      <div class="race-line class-<?php echo strtolower($MANG->characterInfoByID['character_class'][$id] ?? ''); ?>">
+        <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
+        <span class=><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
+      </div>
+    <?php endforeach; ?>
+  </div>
+
+  <!-- Alliance (now right) -->
+  <div class="faction-col alliance">
+    <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/alliance.png');"></div>
+    <div class="faction-text">
+      Alliance: <strong><?php echo $num_ally; ?></strong> (<?php echo $pc_ally; ?>%)
+    </div>
+    <?php foreach ($allianceRaces as $id => $data): ?>
+      <div class="race-line class-<?php echo strtolower($MANG->characterInfoByID['character_class'][$id] ?? ''); ?>">
+        <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
+        <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
+      </div>
+    <?php endforeach; ?>
+  </div>
+
+</div>
+
 
     <?php if ($hasDK): ?>
       <div class="neutral-dk">

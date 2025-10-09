@@ -15,7 +15,9 @@ Website with working Armory for the [SPP Classics Repack](https://github.com/cel
 	will take you to the Paladin Talent calculator, with 2 points in each tree
 -New links to navigate the website
 
--Armor set page - WIP
+-Armor set page - Complete
+
+-Start to total revamp 
 
 
 
@@ -30,11 +32,11 @@ Website with working Armory for the [SPP Classics Repack](https://github.com/cel
 
 1\. Copy over the currently installed website located at `.\Server\website`
 
-2\. Run `dbc\_spell field updates.sql` on your `classicarmory` or `tbcmarmory` database  
-
-&nbsp;  \*(adds 3 new fields)\*.
+2\. Run `Armory_Tooltip_Updates.sql` and `Armory_bot_command_SQL.sql` on your `classicarmory` or `tbcmarmory` database . (Files are located in `website\DB updates`.
 
 3\. Refresh the website.
+
+
 
 
 
@@ -70,7 +72,23 @@ Talent Calculator - Take you to new character talent calculator.
 **New Link under the Armory dropdown**
 ![Paladin Talent Trees](img/website03.png)
 
+**New registration page - no more fuss with questions**
+![New registration page](img/website05.png)
 
+**New Bot Command Interactive Search **
+![Bot Commands](img/website06.png)
+
+**New Login**
+![New Login](img/website07.png)
+
+**New Front Page**
+![Front Page](img/website08.png)
+
+**New Character List with bot filter**
+![Character list](img/website09.png)
+
+**New**
+![Server Stats](img/website10.png)
 ---
 
 

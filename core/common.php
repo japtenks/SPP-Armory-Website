@@ -1664,15 +1664,42 @@ function header_image($img) {
 
 function header_image_gif($img) {
 ?>
-    <table cellspacing="0" cellpadding="0" border="0" width="100%" style="background: url('templates/offlike/images/headers/<?php echo $img; ?>_bg.jpg');">
+    <table 
+	cellspacing="0" 
+	cellpadding="0" 
+	border="0" 
+	width="100%" 
+	style="background: url('templates/offlike/images/headers/<?php echo $img; ?>_bg.jpg');">
         <tbody><tr>
-            <td width="293" height="187"><img src="templates/offlike/images/headers/<?php echo $img; ?>_left.gif" width="293" height="187"><div style="position:relative;"><div style="position:absolute; left:-16px; top:-213px;"><img src="templates/offlike/images/headers/<?php echo $img; ?>_image.gif" width="446" height="213"></div></div>
+            <td 
+			width="293" 
+			height="187">
+			<img src="templates/offlike/images/headers/<?php echo $img; ?>_left.gif" 
+			width="293" 
+			height="187">
+			<div style="position:relative;">
+			<div style="position:absolute; left:-16px; top:-213px;">
+			<img src="templates/offlike/images/headers/<?php echo $img; ?>_image.gif" 
+			width="446" 
+			height="213">
+			</div>
+			</div>
             </td>
-            <td width="175" height="187"><img src="templates/offlike/images/headers/<?php echo $img; ?>_right.gif" width="175" height="187" name="C1" usemap="#thaddeus" border="0"></td>
+            <td 
+			width="175" 
+			height="187">
+			<img src="templates/offlike/images/headers/<?php echo $img; ?>_right.gif" 
+			width="175" 
+			height="187" 
+			name="C1" 
+			usemap="#thaddeus" 
+			border="0">
+			</td>
         </tr>
         </tbody>
     </table>
 <?php
 }
+?>
 
 

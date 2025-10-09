@@ -4,24 +4,6 @@ $templategenderimage = array(
     1 => $currtmp.'/images/icons/male.gif',
     2 => $currtmp.'/images/icons/female.gif'
 );
-/**
-There are 8 menu blocks:
-    1-menuNews
-    2-menuAccount
-    3-menuGameGuide
-    4-menuInteractive
-    5-menuMedia
-    6-menuForums
-    7-menuCommunity
-    8-menuSupport
-
-    adding custom link, for example:
-    $mainnav_links['1-menuNews'][] = array(
-        'lang_variable',
-        'link',
-        ''
-    );
-*/
 
 function population_view($n) {
     global $lang;
@@ -65,57 +47,6 @@ function build_menu_items($links_arr){
     }
     return $r;
 }
-/* function build_main_menu(){
-
-    global $mainnav_links;
-    foreach($mainnav_links as $menuname=>$menuitems){
-        $menunamev = explode('-',strtolower($menuname));
-        if(count($menuitems)>0)// && $menuitems[0][0])
-        {
-            static $index = 0;
-            $index++;
-            echo '
-                                    <div id="'.$menunamev[1].'">
-                                      <div onclick="javascript:toggleNewMenu('.$menunamev[0].'-1);" class="menu-button-off" id="'.$menunamev[1].'-button">
-                                        <span class="'.$menunamev[1].'-icon-off" id="'.$menunamev[1].'-icon">&nbsp;</span><a class="'.$menunamev[1].'-header-off" id="'.$menunamev[1].'-header"><em>Menu item</em></a><a id="'.$menunamev[1].'-collapse"></a><span class="menuentry-rightborder"></span>
-                                      </div>
-                                      <div id="'.$menunamev[1].'-inner">
-                                        <script type="text/javascript">
-                                            if (menuCookie['.$menunamev[0].'-1] == 0) {
-                                                document.getElementById("'.$menunamev[1].'-inner").style.display = "none";
-                                                document.getElementById("'.$menunamev[1].'-button").className = "menu-button-off";
-                                                document.getElementById("'.$menunamev[1].'-collapse").className = "leftmenu-pluslink";
-                                                document.getElementById("'.$menunamev[1].'-icon").className = "'.$menunamev[1].'-icon-off";
-                                                document.getElementById("'.$menunamev[1].'-header").className = "'.$menunamev[1].'-header-off";
-                                            } else {
-                                                document.getElementById("'.$menunamev[1].'-inner").style.display = "block";
-                                                document.getElementById("'.$menunamev[1].'-button").className = "menu-button-on";
-                                                document.getElementById("'.$menunamev[1].'-collapse").className = "leftmenu-minuslink";
-                                                document.getElementById("'.$menunamev[1].'-icon").className = "'.$menunamev[1].'-icon-on";
-                                                document.getElementById("'.$menunamev[1].'-header").className = "'.$menunamev[1].'-header-on";
-                                            }
-                                        </script>
-                                        <div class="leftmenu-cont-top"></div>
-                                        <div class="leftmenu-cont-mid">
-                                          <div class="m-left">
-                                            <div class="m-right">
-                                              <div class="leftmenu-cnt" id="menucontainer'.$index.'">
-                                                <ul class="mainnav">
-                                                  <li style="position:relative;" id="menufiller'.$index.'">
-                                                    '.build_menu_items($menuitems).'
-                                                  </li>
-                                                </ul>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div class="leftmenu-cont-bot"></div>
-                                      </div>
-                                    </div>';
-        }
-    }
-}
- */
 
 // ------------------ MAIN MENU ------------------
 function build_main_menu($asList = false) {
@@ -123,8 +54,11 @@ function build_main_menu($asList = false) {
     if (empty($mainnav_links)) return;
 
     foreach ($mainnav_links as $menuname => $menuitems) {
-        // Skip Account from main nav
-        if (stripos($menuname, 'account') !== false) continue;
+                // Skip unwanted menus
+        if (
+            stripos($menuname, 'account') !== false || 
+            stripos($menuname, 'news')    !== false
+        ) continue;
 
         if (count($menuitems) > 0) {
             $menukey   = preg_replace('/^\d+-/', '', $menuname);
@@ -255,18 +189,20 @@ function build_account_menu($asList = true) {
         }
     }
 
-    if ($asList) {
-        echo '<li class="has-sub">';
-        echo '<a href="#">👤 '.$charName.' ▼</a>';
-        echo '<ul>';
-    }
+if ($asList) {
+    echo '<li class="has-sub account-dropdown">';
+    echo '<a href="#">';
+    echo '<span class="account-icon">👤</span>';
+    echo '<span class="account-name">'.$charName.' ▼</span>';
+    echo '</a>';
+    echo '<ul>';
+}
+
 
     if ($user['id'] <= 0) {
         echo '<li><a href="index.php?n=account&sub=login">Login</a></li>';
         echo '<li><a href="index.php?n=account&sub=register">Register</a></li>';
     } else {
-        // Game Commands
-        echo '<li><a href="index.php?n=server&sub=commands">Game Commands</a></li>';
 
         // Messages + Userlist
         if ($user["g_use_pm"]) {
@@ -579,6 +515,80 @@ function builddiv_start($type = 0, $title = "No title set") {
 
 function builddiv_end() {
   echo '</div></div>';
+}
+
+?>
+
+<?php
+
+function compact_paginate($current, $total, $base) {
+      $html = '';
+      $range = 2;
+      $show_first = $current > $range + 2;
+      $show_last  = $current < $total - ($range + 1);
+
+      if ($current > 1)
+        $html .= '<a href="'.$base.'&p='.($current-1).'">« Prev</a> ';
+
+      if ($show_first)
+        $html .= '<a href="'.$base.'&p=1">1</a> … ';
+
+      for ($i = max(1, $current-$range); $i <= min($total, $current+$range); $i++) {
+        $active = $i == $current ? 'class="active"' : '';
+        $html .= '<a '.$active.' href="'.$base.'&p='.$i.'">'.$i.'</a> ';
+      }
+
+      if ($show_last)
+        $html .= '… <a href="'.$base.'&p='.$total.'">'.$total.'</a> ';
+
+      if ($current < $total)
+        $html .= '<a href="'.$base.'&p='.($current+1).'">Next »</a>';
+
+      return $html;
+    }
+	
+function render_page_size_form($items_per_page, $extra_params = [], $show_bots = true, $show_per_page = true) {
+    // detect current page params
+    $n   = isset($_GET['n'])   ? htmlspecialchars($_GET['n'])   : '';
+    $sub = isset($_GET['sub']) ? htmlspecialchars($_GET['sub']) : '';
+
+    // persistent GET vars
+    $persist = ['char', 'lvl', 'minlvl', 'maxlvl', 'class', 'race', 'p'];
+    $persist = array_unique(array_merge($persist, $extra_params));
+
+    echo '<form method="get" class="page-size-form">';
+    if ($n)   echo '<input type="hidden" name="n" value="' . $n . '">';
+    if ($sub) echo '<input type="hidden" name="sub" value="' . $sub . '">';
+
+    // preserve other query parameters
+    foreach ($persist as $param) {
+        if (isset($_GET[$param]) && $param !== 'per_page') {
+            echo '<input type="hidden" name="' . htmlspecialchars($param) . 
+                 '" value="' . htmlspecialchars($_GET[$param]) . '">';
+        }
+    }
+
+    // per-page selector
+    if ($show_per_page) {
+        echo '<label for="per_page">Show:</label>';
+        echo '<select id="per_page" name="per_page" onchange="this.form.submit()">';
+        foreach ([10, 25, 50, 100] as $opt) {
+            $sel = ($items_per_page == $opt) ? 'selected' : '';
+            echo "<option value=\"$opt\" $sel>$opt</option>";
+        }
+        echo '</select> <span>per page</span>';
+    }
+
+    // show bots checkbox
+    if ($show_bots) {
+        $checked = !empty($_GET['show_bots']) ? 'checked' : '';
+        echo '<label style="margin-left:10px;">';
+        echo '<input type="hidden" name="show_bots" value="0">';
+        echo '<input type="checkbox" name="show_bots" value="1" onchange="this.form.submit()" ' . $checked . '>';
+        echo ' Include bots</label>';
+    }
+
+    echo '</form>';
 }
 
 ?>

@@ -47,117 +47,211 @@ function ah_time_left($exp){
 ?>
 
 
-
 <style>
-
-.ah-filter-bar{text-align:center;margin:10px 0 20px;}
-.ah-filter{color:#aaa;text-decoration:none;margin:0 8px;font-weight:bold;}
-.ah-filter.is-active,.ah-filter:hover{color:#ffcc66;}
-.ah-table-header,.ah-row{
-  display:grid;
-  grid-template-columns:130px 250px 70px 120px 100px 120px 120px 120px;
-  align-items:center;text-align:center;padding:8px 0;border-bottom:1px solid #222;
+.ah-table { composes: wow-table; }
+.ah-table .header,
+.ah-table .row {
+  grid-template-columns: 130px 250px 70px 120px 100px 120px 120px 120px;
 }
-.ah-table-header{background:linear-gradient(to bottom,#1a1a1a,#101010);color:#ffcc66;font-weight:bold;text-transform:uppercase;}
-.ah-row:nth-child(even){background:rgba(255,255,255,0.04);}
-.ah-row:hover{background:rgba(255,255,255,0.08);}
-.ah-row.empty{text-align:center;padding:12px;color:#ff6666;}
-.ah-row .col:first-child{text-align:left;padding-left:10px;}
-.gold-cell{text-align:right;padding-right:10px;}
-.expired{color:#c33;font-weight:bold;}
-a.iqual0{color:#9e9e9e;}a.iqual1{color:#eee;}a.iqual2{color:#00ff10;}
-a.iqual3{color:#0070dd;}a.iqual4{color:#a335ee;}a.iqual5{color:#ff8000;}
-a.iqual6{color:#e60000;}a[class^="iqual"]:hover{color:#fff;}
-.pagination-controls{text-align:center;margin-top:12px;color:#ccc;}
-.has-dropdown { position: relative; cursor: pointer; }
-.ah-dropdown {
-  display: none;
-  position: absolute;
-  top: 100%; left: 0;
-  background: #181818;
-  border: 1px solid #333;
-  border-radius: 4px;
-  min-width: 160px;
-  z-index: 20;
+.ah-table .gold-cell { text-align: right; padding-right: 10px; }
+/* ===============================
+   AUCTION HOUSE FILTER BUTTONS
+   =============================== */
+.ah-filter-bar {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.has-dropdown:hover .ah-dropdown { display: block; }
-.ah-option {
-  padding: 5px 10px;
-  color: #ddd;
-  white-space: nowrap;
+.pagination-controls {
+  margin-top: 200px;
 }
-.ah-option:hover {
-  background: #333;
+.ah-filter {
   color: #ffcc66;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 4px 10px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.95rem;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
+
+.ah-filter:hover {
+  background: rgba(255,204,102,0.1);
+  box-shadow: 0 0 6px rgba(255,204,102,0.5);
+}
+
+.ah-filter.is-active {
+  background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+  border-color: #ffcc66;
+  color: #fff3a0;
+  box-shadow: 0 0 8px rgba(255,204,102,0.4);
+}
+/* ===============================
+   FACTION COLOR THEMES
+   =============================== */
+
+/* Base look inherited from .ah-filter */
+.ah-filter.faction-alliance {
+  color: #79a9ff;
+  border-color: #3366ff;
+  text-shadow: 0 0 6px rgba(120,160,255,0.4);
+}
+.ah-filter.faction-alliance:hover,
+.ah-filter.faction-alliance.is-active {
+  background: rgba(60,100,255,0.15);
+  box-shadow: 0 0 8px rgba(120,160,255,0.6);
+  color: #bcd8ff;
+}
+
+.ah-filter.faction-horde {
+  color: #ff5c5c;
+  border-color: #b30000;
+  text-shadow: 0 0 6px rgba(255,60,60,0.4);
+}
+.ah-filter.faction-horde:hover,
+.ah-filter.faction-horde.is-active {
+  background: rgba(180,0,0,0.15);
+  box-shadow: 0 0 8px rgba(255,60,60,0.6);
+  color: #ffc0c0;
+}
+
+.ah-filter.faction-blackwater {
+  color: #ffcc66;
+  border-color: #8b6a2a;
+  text-shadow: 0 0 6px rgba(255,204,102,0.4);
+}
+.ah-filter.faction-blackwater:hover,
+.ah-filter.faction-blackwater.is-active {
+  background: rgba(255,204,102,0.1);
+  box-shadow: 0 0 8px rgba(255,204,102,0.6);
+  color: #fff3a0;
+}
+
+.ah-filter.faction-neutral {
+  color: #ccc;
+  border-color: #555;
+  text-shadow: 0 0 4px rgba(255,255,255,0.2);
+}
+.ah-filter.faction-neutral:hover,
+.ah-filter.faction-neutral.is-active {
+  background: rgba(200,200,200,0.1);
+  box-shadow: 0 0 8px rgba(255,255,255,0.4);
+  color: #fff;
+}
+
 
 </style>
+
 
 <?php builddiv_start(1, $lang['ah_auctionhouse']); ?>
 
 <div class="modern-content">
-  <img src="<?php echo $currtmp; ?>/images/banner1.jpg" alt="Auction House" class="ah-banner"/>
+  <!--<img src="<?php// echo $currtmp; ?>/images/banner1.jpg" alt="Auction House" class="ah-banner"/>-->
 
-
-    <div class="ah-filter-bar">
+	<!--paganation-->
+<?php if (!empty($numofpgs) && $numofpgs > 1): ?>
+  <div class="pagination-controls">
+    <div class="page-links">
       <?php
-        $filter=$_GET['filter']??'all';
-        $filters=['ally'=>$lang['ah_alliance'],'horde'=>$lang['ah_horde'],'black'=>$lang['ah_blackwater'],'all'=>$lang['all']];
-        foreach($filters as $key=>$label){
-          $active=($filter===$key)?'is-active':'';
-          echo"<a href='?n=server&sub=ah&filter={$key}' class='ah-filter {$active}'>{$label}</a>";
-        }
+        // Build current base URL without &p= fragment
+        $urlstring = preg_replace('/(&?p=\d+)/', '', $_SERVER['REQUEST_URI']);
+        echo compact_paginate($p, $numofpgs, $urlstring);
       ?>
     </div>
+    <div class="page-size-form">
+  <?php render_page_size_form($items_per_page, ['filter'], false, false); ?>
 
-    <div class="ah-table">
-<div class="ah-table-header">
-  <div class="col sortable has-dropdown" data-sort="type">
-    <?php echo $lang['ah_itemclass']; ?>
+    </div>
+<div class="ah-filter-bar">
+  <?php
+    $filter = $_GET['filter'] ?? 'all';
+    $filters = [
+      'ally'  => $lang['ah_alliance'],
+      'horde' => $lang['ah_horde'],
+      'black' => $lang['ah_blackwater'],
+      'all'   => $lang['all']
+    ];
 
-  </div>
-  <div class="col sortable" data-sort="item"><?php echo $lang['ah_itemname']; ?></div>
-  <div class="col sortable" data-sort="qty"><?php echo $lang['ah_quantity']; ?></div>
-  <div class="col sortable" data-sort="time"><?php echo $lang['ah_time']; ?></div>
-  <div class="col sortable" data-sort="bid"><?php echo $lang['ah_currentbid']; ?></div>
-  <div class="col sortable" data-sort="buyout"><?php echo $lang['ah_buyout']; ?></div>
+    foreach ($filters as $key => $label) {
+      $active = ($filter === $key) ? 'is-active' : '';
+
+      // PHP 7.x compatible faction class logic
+      if ($key === 'ally')       $class = 'faction-alliance';
+      elseif ($key === 'horde')  $class = 'faction-horde';
+      elseif ($key === 'black')  $class = 'faction-blackwater';
+      else                       $class = 'faction-neutral';
+
+      echo "<a href='?n=server&sub=ah&filter={$key}' class='ah-filter {$class} {$active}'>{$label}</a>";
+    }
+  ?>
 </div>
 
 
+  </div>
+<?php endif; ?>
 
-      <?php if (empty($ah_entry)): ?>
-        <div class="ah-row empty">AHBot failed to load!</div>
-      <?php else: foreach ($ah_entry as $row): ?>
-        <div class="ah-row">
-          <div class="col"><?php echo item_manage_class($row['class']); ?></div>
-          <div class="col">
-            <a class="iqual<?php echo $row['quality']; ?>"
-               href="<?php echo '/' . ltrim($use_itemsite_url, '/') . $row['item_entry']; ?>"
-               target="_blank"><?php echo htmlspecialchars($row['itemname']); ?></a>
-          </div>
-          <div class="col"><?php echo $row['quantity']; ?></div>
-          <!--<div class="col"><?php// echo htmlspecialchars($row['seller']); ?></div>-->
-          <div class="col"><?php ah_time_left($row['time']); ?></div>
-          <!--<div class="col"><?php// echo htmlspecialchars($row['buyer']); ?></div>-->
-          <div class="col gold-cell"><?php ah_print_gold($row['currentbid']); ?></div>
-          <div class="col gold-cell"><?php ah_print_gold($row['buyout']); ?></div>
-        </div>
-      <?php endforeach; endif; ?>
-    </div>
+<div class="wow-table ah-table">
 
-    <?php if (!empty($numofpgs) && $numofpgs > 1): ?>
-    <div class="pagination-controls">
-      <?php echo $lang['page']; ?>:&nbsp;
-      <?php
-        for ($pnum=1;$pnum<=$numofpgs;$pnum++){
-          $url=preg_replace('/(&?pid=\d+)/','',$_SERVER['REQUEST_URI']);
-          echo(isset($_GET["pid"])&&$_GET["pid"]==$pnum)?'['.$pnum.'] ':'<a href="'.$url.'&pid='.$pnum.'">'.$pnum.'</a> ';
-        }
-      ?>
+  <div class="header">
+    <div class="col sortable has-dropdown" data-sort="type">
+      <?php echo $lang['ah_itemclass']; ?>
     </div>
-    <?php endif; ?>
+    <div class="col sortable" data-sort="item">
+      <?php echo $lang['ah_itemname']; ?>
+    </div>
+    <div class="col sortable" data-sort="qty">
+      <?php echo $lang['ah_quantity']; ?>
+    </div>
+    <div class="col sortable" data-sort="time">
+      <?php echo $lang['ah_time']; ?>
+    </div>
+    <div class="col sortable" data-sort="bid">
+      <?php echo $lang['ah_currentbid']; ?>
+    </div>
+    <div class="col sortable" data-sort="buyout">
+      <?php echo $lang['ah_buyout']; ?>
+    </div>
   </div>
 
+  <?php if (empty($ah_entry)): ?>
+    <div class="row empty">AHBot failed to load!</div>
+
+  <?php else: foreach ($ah_entry as $row): ?>
+    <div class="row">
+      <div class="col">
+        <?php echo item_manage_class($row['class']); ?>
+      </div>
+
+      <div class="col">
+        <a class="iqual<?php echo $row['quality']; ?>"
+           href="<?php echo '/' . ltrim($use_itemsite_url, '/') . $row['item_entry']; ?>"
+           target="_blank">
+          <?php echo htmlspecialchars($row['itemname']); ?>
+        </a>
+      </div>
+
+      <div class="col">
+        <?php echo $row['quantity']; ?>
+      </div>
+
+      <div class="col">
+        <?php ah_time_left($row['time']); ?>
+      </div>
+
+      <div class="col gold-cell">
+        <?php ah_print_gold($row['currentbid']); ?>
+      </div>
+
+      <div class="col gold-cell">
+        <?php ah_print_gold($row['buyout']); ?>
+      </div>
+    </div>
+  <?php endforeach; endif; ?>
+
+</div>
 
 </div> <!-- closes .modern-content -->
 <?php builddiv_end(); ?>
@@ -165,23 +259,27 @@ a.iqual6{color:#e60000;}a[class^="iqual"]:hover{color:#fff;}
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const headers = document.querySelectorAll(".ah-table-header .sortable");
+  const headers = document.querySelectorAll(".wow-table .sortable");
   let sortStack = [];
 
   headers.forEach(header => {
     header.addEventListener("click", e => {
-      // Skip clicks inside dropdown
-      if (e.target.closest(".ah-dropdown")) return;
+      // Skip clicks inside dropdowns
+      if (e.target.closest(".dropdown")) return;
 
-      const table = header.closest(".ah-table");
-      const rows = Array.from(table.querySelectorAll(".ah-row"));
+      const table = header.closest(".wow-table");
+      const rows = Array.from(table.querySelectorAll(".row"))
+        .filter(r => !r.classList.contains("header") && !r.classList.contains("empty"));
 
+      // Determine column index relative to header
       const index = [...header.parentNode.children].indexOf(header);
       let state = header.dataset.state || "none";
 
+      // Reset if shift not held
       if (!e.shiftKey) sortStack = [];
       sortStack = sortStack.filter(s => s.index !== index);
 
+      // Toggle sort direction
       if (state === "none") state = "asc";
       else if (state === "asc") state = "desc";
       else state = "none";
@@ -189,14 +287,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (state !== "none") sortStack.push({ index, state });
       header.dataset.state = state;
 
-      // Update header arrows (preserve dropdown HTML)
+      // Update header arrows (preserve dropdown titles)
       headers.forEach(h => {
-        const s = sortStack.find(x => x.index === [...headers].indexOf(h));
-        if (!h.classList.contains("has-dropdown")) {
-          h.textContent = h.dataset.sort.toUpperCase() + (s ? (s.state === "asc" ? " ▲" : " ▼") : "");
-        } else {
+        const s = sortStack.find(x => x.index === [...h.parentNode.children].indexOf(h));
+        const arrow = s ? (s.state === "asc" ? " ▲" : " ▼") : "";
+
+        if (h.classList.contains("has-dropdown")) {
           const title = h.querySelector(".sort-title");
-          if (title) title.textContent = h.dataset.sort.toUpperCase() + (s ? (s.state === "asc" ? " ▲" : " ▼") : "");
+          if (title) title.textContent = (h.dataset.sort || "").toUpperCase() + arrow;
+        } else {
+          const text = (h.dataset.sort || "").toUpperCase();
+          // Strip existing arrows before reapplying
+          h.textContent = text + arrow;
         }
       });
 
@@ -216,7 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return 0;
       });
 
-      // Re-append
+      // Re-append sorted rows
       const frag = document.createDocumentFragment();
       rows.forEach(r => frag.appendChild(r));
       table.appendChild(frag);
@@ -224,12 +326,21 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// Dropdown filter
+
+// ==========================
+// FILTER DROPDOWN (AH only)
+// ==========================
 document.addEventListener("click", e => {
-  const opt = e.target.closest(".ah-option");
+  const opt = e.target.closest(".option[data-filter]");
   if (!opt) return;
+
   const filter = opt.dataset.filter;
-  document.querySelectorAll(".ah-row").forEach(row => {
+  const table = opt.closest(".wow-table") || document.querySelector(".wow-table.ah-table");
+  if (!table) return;
+
+  const rows = table.querySelectorAll(".row");
+  rows.forEach(row => {
+    if (row.classList.contains("header") || row.classList.contains("empty")) return;
     const typeCol = row.querySelector(".col:first-child");
     const classIndex = typeCol ? typeCol.dataset.classIndex : "";
     row.style.display = (filter === "all" || classIndex == filter) ? "" : "none";
