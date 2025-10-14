@@ -1,6 +1,8 @@
-\# SPP-Armory-Website
+\# SPP-Armory-Website 2025 Refresh
+**New Front Page**
+![Front Page](img/website08.png)
 
-Website with working Armory for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos).
+Website for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos).
 
 \# Features
 
@@ -15,7 +17,7 @@ Website with working Armory for the [SPP Classics Repack](https://github.com/cel
 	will take you to the Paladin Talent calculator, with 2 points in each tree
 -New links to navigate the website
 
--Armor set page - Complete
+-Armor set pages, bot command page, character page redesign and much more. 
 
 -Start to total revamp 
 
@@ -29,12 +31,14 @@ Website with working Armory for the [SPP Classics Repack](https://github.com/cel
 \## Installation
 
 
+1\. Download the most recent code. `https://github.com/japtenks/SPP-Armory-Website/archive/refs/heads/main.zip`
 
-1\. Copy over the currently installed website located at `.\Server\website`
+2\. Extract and copy over the currently installed website located at `.\Server\website` 
+Ensure the web server is shutdown.
 
-2\. Run `Armory_Tooltip_Updates.sql` and `Armory_bot_command_SQL.sql` on your `classicarmory` or `tbcmarmory` database . (Files are located in `website\DB updates`.
+3\. Using Heidi or similar. Open and run `Armory_Tooltip_Updates.sql` and `Armory_bot_command_SQL.sql` on your `classicarmory` or `tbcmarmory` database . (Files are located in `website\DB updates`.
 
-3\. Refresh the website.
+3.1\. Refresh the website.
 
 
 
@@ -80,9 +84,6 @@ Talent Calculator - Take you to new character talent calculator.
 
 **New Login**
 ![New Login](img/website07.png)
-
-**New Front Page**
-![Front Page](img/website08.png)
 
 **New Character List with bot filter**
 ![Character list](img/website09.png)
