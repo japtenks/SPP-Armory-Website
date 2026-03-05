@@ -15,3 +15,6 @@ config/config.xml
 *.bak
 *.tmp
 *.swp
+
+# Local images
+/img/
