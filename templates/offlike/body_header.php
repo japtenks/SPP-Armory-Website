@@ -34,7 +34,7 @@ $randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/im
 	
 	<div class="nav-logo">
       <a href="./">
-        <img src="templates/offlike/images/Modern/wow.png" alt="WoW Logo" class="nav-logo-img" />
+        <img src="templates/offlike/images/modern/wow.png" alt="WoW Logo" class="nav-logo-img" />
       </a>
     </div>
 
@@ -46,7 +46,7 @@ $randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/im
         <img 
           src="<?php echo ($expansion == 1) 
             ? 'components/pomm/img/map_tbc/realm_on.gif' 
-            : 'templates/offlike/images/Modern/Logo-wow-NA.png'; ?>" 
+            : 'templates/offlike/images/modern/Logo-wow-NA.png'; ?>" 
           alt="WoW Logo" 
           class="menu-logo" 
         />
@@ -102,7 +102,7 @@ $randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/im
   padding: 24px;
   font-family: 'Trebuchet MS', sans-serif;
   color: #ccc;
-  background: url('<?php echo $currtmp; ?>/images/stone-dark.jpg') repeat center;
+
 }
 
 .modern-wrapper::before {
@@ -146,7 +146,7 @@ $randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/im
   box-sizing: border-box;
   font-family: 'Trebuchet MS', sans-serif;
   color: #ccc;
-  background: url('<?php echo $currtmp; ?>/images/stone-dark.jpg') repeat center;
+
 }
 
 /* Transparent stone overlay */
