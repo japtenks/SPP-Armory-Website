@@ -1,77 +1,165 @@
-
 <?php
-/* ---------- DEBUG MODE ---------- */
-//$DEBUG = 'on';
-$DEBUG = isset($_GET['debug']) ? strtolower($_GET['debug']) : '';
-if ($DEBUG) {
-  echo "<div style='background:black;color:lime;padding:6px;font-weight:bold;'>DEBUG MODE: "
-     . htmlspecialchars($DEBUG) . "</div>";
+/* ==========================================================
+   Unified Server Page Connection Header (2025-10-28)
+   Works for: server.armorsets.php / server.pvpsets.php / server.worldsets.php
+   ========================================================== */
+
+if (!isset($_GET['debug'])) {
+    error_reporting(E_ERROR | E_PARSE);
+    ini_set('display_errors', 0);
 }
+
+/* ---------- Minimal includes ---------- */
+define('INCLUDED', true);
+require_once(__DIR__ . '/../../../core/dbsimple/Mysql.php');
+require_once(__DIR__ . '/../../../core/common.php');
+
+/* ---------- Realm selection ---------- */
+$realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 1;
+switch ($realmId) {
+    case 1:
+        $db = [
+            'host' => '192.168.1.13',
+            'port' => 3310,
+            'user' => 'root',
+            'pass' => 'eltnub',
+            'chars' => 'classiccharacters',
+            'world' => 'classicmangos',
+            'armory' => 'classicarmory',
+        ];
+        $realmName = 'Classic';
+        break;
+    case 2:
+        $db = [
+            'host' => '192.168.1.13',
+            'port' => 3310,
+            'user' => 'root',
+            'pass' => 'eltnub',
+            'chars' => 'tbccharacters',
+            'world' => 'tbcmangos',
+            'armory' => 'tbcarmory',
+        ];
+        $realmName = 'The Burning Crusade';
+        break;
+    case 3:
+        $db = [
+            'host' => '192.168.1.13',
+            'port' => 3310,
+            'user' => 'root',
+            'pass' => 'eltnub',
+            'chars' => 'wotlkcharacters',
+            'world' => 'wotlkmangos',
+            'armory' => 'wotlkarmory',
+        ];
+        $realmName = 'Wrath of the Lich King';
+        break;
+    default:
+        $db = [
+            'host' => '192.168.1.13',
+            'port' => 3310,
+            'user' => 'root',
+            'pass' => 'eltnub',
+            'chars' => 'classiccharacters',
+            'world' => 'classicmangos',
+            'armory' => 'classicarmory',
+        ];
+        $realmName = 'Classic';
+}
+
+/* ---------- Database connection helpers ---------- */
+function dbConnect($host, $port, $user, $pass, $name) {
+    try {
+        $db = DbSimple_Generic::connect("mysql://$user:$pass@$host:$port/$name");
+        $db->setErrorHandler('dbErrorHandler');
+        return $db;
+    } catch (Exception $e) {
+        echo "<div style='color:red;font-weight:bold;'>Database connection failed: {$e->getMessage()}</div>";
+        return null;
+    }
+}
+
+function dbErrorHandler($message, $info) {
+    if (!error_reporting()) return;
+    $debugMode = isset($_GET['debug']);
+    if ($debugMode) {
+        echo "<div style='color:red;font-weight:bold;'>SQL Error: "
+           . htmlspecialchars($message) . "</div>";
+        if (!empty($info['query'])) {
+            echo "<pre style='color:orange;font-family:monospace;'>"
+               . htmlspecialchars($info['query']) . "</pre>";
+        }
+    }
+}
+
+/* ---------- Establish connections ---------- */
+$CHDB = dbConnect($db['host'], $db['port'], $db['user'], $db['pass'], $db['chars']);
+$WSDB = dbConnect($db['host'], $db['port'], $db['user'], $db['pass'], $db['world']);
+$ARDB = dbConnect($db['host'], $db['port'], $db['user'], $db['pass'], $db['armory']);
+
+if (!$ARDB || !$WSDB) {
+    die("<div style='color:red;font-weight:bold;'>Failed to connect to required databases for {$realmName}</div>");
+}
+
+/* ---------- Safe query helper ---------- */
+function q($conn, string $sql, int $mode = 0) {
+    if (!$conn) return [];
+    try {
+        switch ($mode) {
+            case 1:
+                $row = $conn->selectRow($sql);
+                return is_array($row) ? $row : [];
+            case 2:
+                return $conn->selectCell($sql) ?? '';
+            default:
+                $rows = $conn->select($sql);
+                return is_array($rows) ? $rows : [];
+        }
+    } catch (Exception $e) {
+        if (isset($_GET['debug'])) {
+            echo "<div style='color:red;font-family:monospace'>"
+               . htmlspecialchars($e->getMessage())
+               . "<br><small>".htmlspecialchars($sql)."</small></div>";
+        }
+        return [];
+    }
+}
+
+/* ---------- Schema qualifiers ---------- */
+$expansion     = ($realmId == 3) ? 2 : (($realmId == 2) ? 1 : 0);
+$ARMORY_SCHEMA = $db['armory'];
+$WORLD_SCHEMA  = $db['world'];
+
+function qualify_tables($sql, $schema, array $tables) {
+    $pat = '/(?<=\bFROM|\bJOIN)\s+`?(' . implode('|', array_map('preg_quote', $tables)) . ')`?\b/i';
+    return preg_replace($pat, ' `'.$schema.'`.`$1`', $sql);
+}
+
+function armory_query($sql, $mode = 0) {
+    global $ARDB, $ARMORY_SCHEMA;
+    $sql = qualify_tables($sql, $ARMORY_SCHEMA, [
+        'dbc_spell','dbc_spellicon','dbc_spellduration','dbc_spellradius',
+        'dbc_itemset','dbc_talent','dbc_talenttab','dbc_itemdisplayinfo',
+        'dbc_itemsubclass','dbc_itemrandomproperties','dbc_itemrandomsuffix',
+        'dbc_randproppoints'
+    ]);
+    return q($ARDB, $sql, $mode);
+}
+
+function world_query($sql, $mode = 0) {
+    global $WSDB, $WORLD_SCHEMA;
+    $sql = qualify_tables($sql, $WORLD_SCHEMA, ['item_template']);
+    return q($WSDB, $sql, $mode);
+}
+
+/* ---------- Header info ---------- */
+echo "<div style='padding:8px;background:#111;color:#eee;font-family:Arial;'>
+<strong>Realm:</strong> {$realmName} &nbsp;&nbsp;
+<strong>Expansion:</strong> " . ($expansion==2?'WotLK':($expansion==1?'TBC':'Classic')) . "
+</div>";
 ?>
 
-<!--Armor page (tier/dungeon sets) solid code-->
+
 <?php
-
-
-/* ---------- read expansion from the parent index ---------- */
-$expansion = isset($GLOBALS['expansion']) ? (int)$GLOBALS['expansion'] : 1; // 0 Classic, 1 TBC, 2 WotLK
-
-
-/* Uses the connections created in index.php: $DB (site/armory), $WSDB (world), $CHDB (chars) */
-
-// Adjust names here if your schema names differ
-$SCHEMAS = [
-  0 => ['armory' => 'classicarmory', 'world' => 'classicmangos'],
-  1 => ['armory' => 'tbcarmory',     'world' => 'tbcmangos'],
-  2 => ['armory' => 'wotlkarmory',   'world' => 'wotlkmangos'],
-];
-
-$ERA           = isset($SCHEMAS[$expansion]) ? $expansion : 1;
-$ARMORY_SCHEMA = $SCHEMAS[$ERA]['armory'];
-$WORLD_SCHEMA  = $SCHEMAS[$ERA]['world'];
-
-/* Qualify bare table names with a schema (only the tables we use). */
-function qualify_tables($sql, $schema, array $tables) {
-  $pat = '/(?<=\bFROM|\bJOIN)\s+`?(' . implode('|', array_map('preg_quote', $tables)) . ')`?\b/i';
-  return preg_replace($pat, ' `'.$schema.'`.`$1`', $sql);
-}
-
-/* DbSimple dispatcher that mimics your execute_query modes: 0=list, 1=row, 2=cell */
-function _dbsimple_run($conn, $sql, $mode = 0) {
-  switch ($mode) {
-    case 1: return $conn->selectRow($sql);
-    case 2: return $conn->selectCell($sql);
-    default:return $conn->select($sql);
-  }
-}
-
-/* DBC (armory) query helper – runs against <era>armory schema */
-function armory_query($sql, $mode = 0) {
-  global $DB, $ARMORY_SCHEMA;
-  $sql = qualify_tables($sql, $ARMORY_SCHEMA, [
-    'dbc_spell','dbc_spellicon','dbc_spellduration','dbc_spellradius',
-    'dbc_itemset','dbc_talent','dbc_talenttab','dbc_itemdisplayinfo',
-    'dbc_itemsubclass','dbc_itemrandomproperties','dbc_itemrandomsuffix',
-    'dbc_randproppoints'
-  ]);
-  return _dbsimple_run($DB, $sql, $mode);
-}
-
-/* WORLD query helper – runs against <era>mangos schema */
-function world_query($sql, $mode = 0) {
-  global $WSDB, $WORLD_SCHEMA;
-  $sql = qualify_tables($sql, $WORLD_SCHEMA, ['item_template']);
-  return _dbsimple_run($WSDB, $sql, $mode);
-}
-
-
-
-/* ---------- style mode (classic | floating) ---------- */
-$styleParam    = isset($_GET['style']) ? strtolower($_GET['style']) : '';
-$MODE_FLOATING = in_array($styleParam, ['floating','float','1','on'], true);
-$styleQS       = $MODE_FLOATING ? '&style=floating' : '';
-
-
 /* ---------- config/data ---------- */
 $selectedClass = isset($_GET['class']) ? trim($_GET['class']) : '';
 $iconBase   = './armory/shared/icons/';
@@ -1375,7 +1463,7 @@ $desc = preg_replace_callback(
 
 <!--Main body of page HTML -->
 
-<?php builddiv_start(1, $lang['pvpsets']); ?>
+<?php builddiv_start(1, $lang['pvpsets'],1); ?>
 <div class="modern-content">
   <img src="<?php echo $currtmp; ?>/images/armorsets.jpg" alt="PVP sets" class="banner"/>
   
@@ -1386,14 +1474,25 @@ foreach ($classes as $c) {
   if (strcasecmp($selectedClass, $c['name']) === 0) { $selectedClass = $c['name']; break; }
 }
 
-/* ---------- class bar ---------- */
+/* ---------- Detect current subpage (armorsets, pvpsets, worldsets) ---------- */
+$currentSub = isset($_GET['sub']) ? $_GET['sub'] : 'armorsets';
+
+/* ---------- Class bar ---------- */
 echo '<div class="class-bar">';
-foreach ($classes as $c){
-  $href   = 'index.php?n=server&sub=pvpsets&class='.rawurlencode($c['name']).$styleQS;
-  $src    = $iconBase.$iconPref.$c['slug'].$iconExt;
-  $active = (strcasecmp($selectedClass,$c['name'])===0) ? ' is-active' : '';
-  echo '<a class="class-token '.$c['css'].$active.'" href="'.$href.'" aria-label="'.htmlspecialchars($c['name']).'" data-name="'.htmlspecialchars($c['name']).'"><img src="'.$src.'" alt="'.htmlspecialchars($c['name']).'"></a>';
+
+foreach ($classes as $c) {
+    $className = $c['name'];  // ensure variable exists
+    $slug      = $c['slug'];
+    $href = "index.php?n=server&sub={$currentSub}&class={$className}&realm={$realmId}";
+    $src  = $iconBase . $iconPref . $slug . $iconExt;
+    $active = (strcasecmp($selectedClass, $className) === 0) ? ' is-active' : '';
+    echo '<a class="class-token ' . $c['css'] . $active . '" href="' . $href . '"'
+       . ' aria-label="' . htmlspecialchars($className) . '"'
+       . ' data-name="' . htmlspecialchars($className) . '">'
+       . '<img src="' . $src . '" alt="' . htmlspecialchars($className) . '">'
+       . '</a>';
 }
+
 echo '</div>';
 
 /* If no class, pick one at random */

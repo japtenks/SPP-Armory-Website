@@ -1,59 +1,14 @@
-<?php
-global $use_itemsite_url, $current_time;
-$use_itemsite_url = "/armory/index.php?searchType=iteminfo&item=";
-$current_time = time();
-
-/* ---------- helpers ---------- */
-function item_manage_class($iclass) {
-  $iclass_names = [
-    'Consumable',      // 0
-    'Container',       // 1
-    'Weapon',          // 2
-    'Gem',             // 3
-    'Armor',           // 4
-    'Reagent',         // 5
-    'Projectile',      // 6
-    'Trade Goods',     // 7
-    'Generic',         // 8 (unused)
-    'Recipe',          // 9
-    'Money',           // 10 (unused)
-    'Quiver',          // 11
-    'Quest Item',      // 12
-    'Key',             // 13
-    'Permanent',       // 14
-    'Miscellaneous'    // 15
-  ];
-  return $iclass_names[$iclass] ?? 'Unknown';
-}
-
-function parse_gold($n){return ['g'=>intval($n/10000),'s'=>intval(($n%10000)/100),'c'=>$n%100];}
-function print_gold($g){
-  global $currtmp;
-  echo "<span class='gold-inline'>";
-  if($g['g'])echo"{$g['g']}<img src='{$currtmp}/images/ah_system/gold.GIF' alt='g'> ";
-  if($g['s'])echo"{$g['s']}<img src='{$currtmp}/images/ah_system/silver.GIF' alt='s'> ";
-  if($g['c'])echo"{$g['c']}<img src='{$currtmp}/images/ah_system/copper.GIF' alt='c'>";
-  echo"</span>";
-}
-function ah_print_gold($v){echo($v==='---')?$v:print_gold(parse_gold($v));}
-function parse_time($n){return['h'=>intval($n/3600),'m'=>intval(($n%3600)/60),'s'=>$n%60];}
-function ah_time_left($exp){
-  global $current_time,$lang;
-  $left=$exp-$current_time;
-  if($left>0){$t=parse_time($left);
-    if($t['h'])echo"{$t['h']}h ";if($t['m'])echo"{$t['m']}m ";if($t['s'])echo"{$t['s']}s";
-  }else echo"<span class='expired'>{$lang['ah_expired']}</span>";
-}
-?>
-
-
 <style>
+/* ===============================
+   AUCTION HOUSE TABLE
+   =============================== */
 .ah-table { composes: wow-table; }
 .ah-table .header,
 .ah-table .row {
   grid-template-columns: 130px 250px 70px 120px 100px 120px 120px 120px;
 }
 .ah-table .gold-cell { text-align: right; padding-right: 10px; }
+
 /* ===============================
    AUCTION HOUSE FILTER BUTTONS
    =============================== */
@@ -77,23 +32,20 @@ function ah_time_left($exp){
   font-size: 0.95rem;
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
-
 .ah-filter:hover {
   background: rgba(255,204,102,0.1);
   box-shadow: 0 0 6px rgba(255,204,102,0.5);
 }
-
 .ah-filter.is-active {
   background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
   border-color: #ffcc66;
   color: #fff3a0;
   box-shadow: 0 0 8px rgba(255,204,102,0.4);
 }
+
 /* ===============================
    FACTION COLOR THEMES
    =============================== */
-
-/* Base look inherited from .ah-filter */
 .ah-filter.faction-alliance {
   color: #79a9ff;
   border-color: #3366ff;
@@ -142,208 +94,325 @@ function ah_time_left($exp){
   color: #fff;
 }
 
+/* === GOLD DISPLAY FIX === */
+.gold-cell {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.gold-inline {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 2px;
+  white-space: nowrap;
+}
+.gold-inline img {
+  height: 14px;
+  width: auto;
+  vertical-align: middle;
+  margin: 0 1px -1px 1px;
+}
+.ah-table .col.gold-cell {
+  padding-right: 8px;
+}
+.ah-table .header,
+.ah-table .row {
+  grid-template-columns:
+    130px   /* Type */
+    280px   /* Item name */
+    70px    /* Qty */
+    120px   /* Time Left */
+    minmax(140px, 1fr)  /* Current Bid */
+    minmax(160px, 1fr); /* Buyout */
+}
+
+/* keep coin sections aligned and readable */
+.gold-cell {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 140px;
+  gap: 2px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
+.gold-inline img {
+  height: 14px;
+  width: auto;
+  vertical-align: middle;
+  margin: 0 1px -1px 1px;
+}
+/* === Base Grid === */
+.ah-table .header,
+.ah-table .row {
+  display: grid;
+  grid-template-columns:
+    130px  /* Type */
+    280px  /* Item */
+    70px   /* Qty */
+    120px  /* Time Left */
+    minmax(140px, 1fr)  /* Current Bid */
+    minmax(160px, 1fr); /* Buyout */
+  align-items: center;
+}
+.ah-table .col a {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  display: inline-block;
+  max-width: 100%;
+}
+
+
+/* === Responsive Compression === */
+
+/* Medium screens — hide less relevant info */
+@media (max-width: 1100px) {
+  .ah-table .header .col:nth-child(1),
+  .ah-table .row .col:nth-child(1), /* Type */
+  .ah-table .header .col:nth-child(3),
+  .ah-table .row .col:nth-child(3), /* Qty */
+  .ah-table .header .col:nth-child(4),
+  .ah-table .row .col:nth-child(4)  /* Time Left */
+  { display: none; }
+
+  .ah-table .header,
+  .ah-table .row {
+    grid-template-columns:
+      300px  /* Item */
+      minmax(160px, 1fr) /* Current Bid */
+      minmax(160px, 1fr); /* Buyout */
+  }
+}
+
+/* Small screens — show only Item + Buyout */
+@media (max-width: 700px) {
+  .ah-table .header .col:nth-child(5),
+  .ah-table .row .col:nth-child(5) /* Hide Bid */ 
+  { display: none; }
+
+  .ah-table .header,
+  .ah-table .row {
+    grid-template-columns:
+      1fr   /* Item */
+      160px /* Buyout */;
+  }
+}
+
+/* Keep gold layout tight and clean */
+.gold-cell {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 140px;
+  gap: 2px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
 
 </style>
 
+<?php
+/* =========================================================
+   Auction House Standalone - verified for TBC layout
+   ========================================================= */
 
-<?php builddiv_start(1, $lang['ah_auctionhouse']); ?>
+$currtmp = '/armory';
+$use_itemsite_url = '/armory/index.php?searchType=iteminfo&item=';
 
-<div class="modern-content">
-  <!--<img src="<?php// echo $currtmp; ?>/images/banner1.jpg" alt="Auction House" class="ah-banner"/>-->
+/* ---------- Realm Selection ---------- */
+$realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 2;
+switch ($realmId) {
+    case 1: $db_chars = 'classiccharacters'; $db_world = 'classicmangos'; $realmName = 'Classic'; break;
+    case 2: $db_chars = 'tbccharacters';     $db_world = 'tbcmangos';     $realmName = 'The Burning Crusade'; break;
+    case 3: $db_chars = 'wotlkcharacters';   $db_world = 'wotlkmangos';   $realmName = 'Wrath of the Lich King'; break;
+    default: die("Invalid realm ID");
+}
 
-	<!--paganation-->
-<?php if (!empty($numofpgs) && $numofpgs > 1): ?>
+/* ---------- PDO Connection ---------- */
+try {
+    $pdo = new PDO(
+        "mysql:host=192.168.1.13;port=3310;dbname={$db_chars};charset=utf8mb4",
+        'root', 'eltnub',
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+} catch (PDOException $e) {
+    die("DB connection failed: " . $e->getMessage());
+}
+
+/* ---------- Lang ---------- */
+$lang = [
+  'ah_auctionhouse' => 'Auction House',
+  'ah_alliance'     => 'Alliance',
+  'ah_horde'        => 'Horde',
+  'ah_blackwater'   => 'Blackwater',
+  'all'             => 'All',
+  'ah_itemclass'    => 'Type',
+  'ah_itemname'     => 'Item',
+  'ah_quantity'     => 'Qty',
+  'ah_time'         => 'Time Left',
+  'ah_currentbid'   => 'Current Bid',
+  'ah_buyout'       => 'Buyout',
+  'ah_expired'      => 'Expired'
+];
+
+/* ---------- Sorting ---------- */
+$validSorts = [
+  'type'   => 'i.class',
+  'item'   => 'i.name',
+  'qty'    => 'a.item_count',
+  'time'   => 'a.time',
+  'bid'    => 'a.startbid',
+  'buyout' => 'a.buyoutprice'
+];
+
+$sort = $_GET['sort'] ?? 'time';
+$dir  = strtolower($_GET['dir'] ?? 'desc');
+if (!array_key_exists($sort, $validSorts)) $sort = 'time';
+if (!in_array($dir, ['asc','desc'])) $dir = 'desc';
+$orderBy = "ORDER BY {$validSorts[$sort]} " . strtoupper($dir);
+
+/* ---------- Filter ---------- */
+$filter = isset($_GET['filter']) ? strtolower($_GET['filter']) : 'all';
+switch ($filter) {
+  case 'ally':  $whereClause = "WHERE a.houseid IN (6)"; break;
+  case 'horde': $whereClause = "WHERE a.houseid IN (7)"; break;
+  case 'black': $whereClause = "WHERE a.houseid IN (1)"; break;
+  default:      $whereClause = "WHERE a.houseid IN (1,6,7)"; break;
+}
+
+/* ---------- Pagination ---------- */
+$page = isset($_GET['p']) ? max(1, intval($_GET['p'])) : 1;
+$limit = 100;
+$offset = ($page - 1) * $limit;
+
+/* ---------- Auction Query ---------- */
+$sql = "
+SELECT
+  a.id, a.houseid, a.item_template,
+  a.item_count AS quantity,
+  a.buyoutprice AS buyout,
+  a.startbid AS currentbid,
+  a.time,
+  i.class, i.Quality AS quality, i.name AS itemname
+FROM `{$db_chars}`.`auction` AS a
+LEFT JOIN `{$db_world}`.`item_template` AS i ON i.entry = a.item_template
+{$whereClause}
+AND a.time > UNIX_TIMESTAMP(NOW())
+{$orderBy}
+LIMIT :limit OFFSET :offset";
+$stmt = $pdo->prepare($sql);
+$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
+$ah_entry = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/* ---------- Count ---------- */
+$count_sql = "SELECT COUNT(*) FROM `{$db_chars}`.`auction` AS a {$whereClause}";
+$total = $pdo->query($count_sql)->fetchColumn();
+$numofpgs = max(1, ceil($total / $limit));
+
+/* ---------- Helpers ---------- */
+$current_time = time();
+$icon_path = "/templates/tbc/images/ah_system";
+function item_manage_class($iclass) {
+  $names = ['Consumable','Container','Weapon','Gem','Armor','Reagent','Projectile',
+    'Trade Goods','Generic','Recipe','Money','Quiver','Quest Item','Key','Permanent','Miscellaneous'];
+  return $names[$iclass] ?? 'Unknown';
+}
+function parse_gold($n){return ['g'=>intval($n/10000),'s'=>intval(($n%10000)/100),'c'=>$n%100];}
+function print_gold($g){global $icon_path;
+  echo "<span class='gold-inline'>";
+  if ($g['g']>0) echo "{$g['g']}<img src='{$icon_path}/gold.GIF'> ";
+  if ($g['s']>0) echo "{$g['s']}<img src='{$icon_path}/silver.GIF'> ";
+  if ($g['c']>0 || ($g['g']==0 && $g['s']==0)) echo "{$g['c']}<img src='{$icon_path}/copper.GIF'>";
+  echo "</span>";
+}
+function ah_print_gold($v){echo($v==='---')?$v:print_gold(parse_gold($v));}
+function ah_time_left($exp){global $current_time, $lang;
+  $left=$exp-$current_time;
+  if($left<=0){echo"<span class='expired'>{$lang['ah_expired']}</span>";return;}
+  $h=intval($left/3600);$m=intval(($left%3600)/60);
+  echo $h>0?"{$h}h {$m}m":"{$m}m";
+}
+
+/* ---------- Output ---------- */
+builddiv_start(1, $lang['ah_auctionhouse'], 1);
+
+$currentRealm  = $realmId;
+$currentFilter = $filter;
+$baseUrl = "index.php?n=server&sub=ah&realm={$currentRealm}&filter={$currentFilter}";
+?>
+
+<!-- Pagination + Filters -->
+<?php if ($numofpgs > 1): ?>
   <div class="pagination-controls">
     <div class="page-links">
+      <?php echo compact_paginate($page, $numofpgs, $baseUrl); ?>
+    </div>
+
+    <div class="ah-filter-bar">
       <?php
-        // Build current base URL without &p= fragment
-        $urlstring = preg_replace('/(&?p=\d+)/', '', $_SERVER['REQUEST_URI']);
-        echo compact_paginate($p, $numofpgs, $urlstring);
+      $filters = [
+        'ally'  => $lang['ah_alliance'],
+        'horde' => $lang['ah_horde'],
+        'black' => $lang['ah_blackwater'],
+        'all'   => $lang['all']
+      ];
+      foreach ($filters as $key => $label) {
+        $active = ($currentFilter === $key) ? 'is-active' : '';
+        if ($key === 'ally')       $class = 'faction-alliance';
+        elseif ($key === 'horde')  $class = 'faction-horde';
+        elseif ($key === 'black')  $class = 'faction-blackwater';
+        else                       $class = 'faction-neutral';
+        echo "<a href='index.php?n=server&sub=ah&realm={$currentRealm}&filter={$key}' class='ah-filter {$class} {$active}'>{$label}</a>";
+      }
       ?>
     </div>
-    <div class="page-size-form">
-  <?php render_page_size_form($items_per_page, ['filter'], false, false); ?>
-
-    </div>
-<div class="ah-filter-bar">
-  <?php
-    $filter = $_GET['filter'] ?? 'all';
-    $filters = [
-      'ally'  => $lang['ah_alliance'],
-      'horde' => $lang['ah_horde'],
-      'black' => $lang['ah_blackwater'],
-      'all'   => $lang['all']
-    ];
-
-    foreach ($filters as $key => $label) {
-      $active = ($filter === $key) ? 'is-active' : '';
-
-      // PHP 7.x compatible faction class logic
-      if ($key === 'ally')       $class = 'faction-alliance';
-      elseif ($key === 'horde')  $class = 'faction-horde';
-      elseif ($key === 'black')  $class = 'faction-blackwater';
-      else                       $class = 'faction-neutral';
-
-      echo "<a href='?n=server&sub=ah&filter={$key}' class='ah-filter {$class} {$active}'>{$label}</a>";
-    }
-  ?>
-</div>
-
-
   </div>
 <?php endif; ?>
 
-<div class="wow-table ah-table">
+<?php
+function sort_link($key, $label, $currentSort, $currentDir, $baseUrl) {
+  $newDir = ($currentSort === $key && $currentDir === 'asc') ? 'desc' : 'asc';
+  $arrow  = '';
+  if ($currentSort === $key) $arrow = $currentDir === 'asc' ? ' ?' : ' ?';
+  return "<a href='{$baseUrl}&sort={$key}&dir={$newDir}'>{$label}{$arrow}</a>";
+}
+?>
 
+<!-- Auction Table -->
+<div class="wow-table ah-table">
   <div class="header">
-    <div class="col sortable has-dropdown" data-sort="type">
-      <?php echo $lang['ah_itemclass']; ?>
-    </div>
-    <div class="col sortable" data-sort="item">
-      <?php echo $lang['ah_itemname']; ?>
-    </div>
-    <div class="col sortable" data-sort="qty">
-      <?php echo $lang['ah_quantity']; ?>
-    </div>
-    <div class="col sortable" data-sort="time">
-      <?php echo $lang['ah_time']; ?>
-    </div>
-    <div class="col sortable" data-sort="bid">
-      <?php echo $lang['ah_currentbid']; ?>
-    </div>
-    <div class="col sortable" data-sort="buyout">
-      <?php echo $lang['ah_buyout']; ?>
-    </div>
+    <div class="col"><?php echo sort_link('type', $lang['ah_itemclass'], $sort, $dir, $baseUrl); ?></div>
+    <div class="col"><?php echo sort_link('item', $lang['ah_itemname'],  $sort, $dir, $baseUrl); ?></div>
+    <div class="col"><?php echo sort_link('qty',  $lang['ah_quantity'],  $sort, $dir, $baseUrl); ?></div>
+    <div class="col"><?php echo sort_link('time', $lang['ah_time'],      $sort, $dir, $baseUrl); ?></div>
+    <div class="col"><?php echo sort_link('bid',  $lang['ah_currentbid'],$sort, $dir, $baseUrl); ?></div>
+    <div class="col"><?php echo sort_link('buyout',$lang['ah_buyout'],   $sort, $dir, $baseUrl); ?></div>
   </div>
 
-  <?php if (empty($ah_entry)): ?>
-    <div class="row empty">AHBot failed to load!</div>
-
+  <?php if (!$ah_entry): ?>
+    <div class="row empty">No auctions found for this faction.</div>
   <?php else: foreach ($ah_entry as $row): ?>
     <div class="row">
+      <div class="col"><?php echo item_manage_class($row['class']); ?></div>
       <div class="col">
-        <?php echo item_manage_class($row['class']); ?>
-      </div>
-
-      <div class="col">
-        <a class="iqual<?php echo $row['quality']; ?>"
-           href="<?php echo '/' . ltrim($use_itemsite_url, '/') . $row['item_entry']; ?>"
-           target="_blank">
+        <a class="iqual<?php echo $row['quality']; ?>" href="<?php echo $use_itemsite_url . $row['item_template']; ?>" target="_blank">
           <?php echo htmlspecialchars($row['itemname']); ?>
         </a>
       </div>
-
-      <div class="col">
-        <?php echo $row['quantity']; ?>
-      </div>
-
-      <div class="col">
-        <?php ah_time_left($row['time']); ?>
-      </div>
-
-      <div class="col gold-cell">
-        <?php ah_print_gold($row['currentbid']); ?>
-      </div>
-
-      <div class="col gold-cell">
-        <?php ah_print_gold($row['buyout']); ?>
-      </div>
+      <div class="col"><?php echo $row['quantity']; ?></div>
+      <div class="col"><?php ah_time_left($row['time']); ?></div>
+      <div class="col gold-cell"><?php ah_print_gold($row['currentbid']); ?></div>
+      <div class="col gold-cell"><?php ah_print_gold($row['buyout']); ?></div>
     </div>
   <?php endforeach; endif; ?>
-
 </div>
 
-</div> <!-- closes .modern-content -->
 <?php builddiv_end(); ?>
-
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const headers = document.querySelectorAll(".wow-table .sortable");
-  let sortStack = [];
-
-  headers.forEach(header => {
-    header.addEventListener("click", e => {
-      // Skip clicks inside dropdowns
-      if (e.target.closest(".dropdown")) return;
-
-      const table = header.closest(".wow-table");
-      const rows = Array.from(table.querySelectorAll(".row"))
-        .filter(r => !r.classList.contains("header") && !r.classList.contains("empty"));
-
-      // Determine column index relative to header
-      const index = [...header.parentNode.children].indexOf(header);
-      let state = header.dataset.state || "none";
-
-      // Reset if shift not held
-      if (!e.shiftKey) sortStack = [];
-      sortStack = sortStack.filter(s => s.index !== index);
-
-      // Toggle sort direction
-      if (state === "none") state = "asc";
-      else if (state === "asc") state = "desc";
-      else state = "none";
-
-      if (state !== "none") sortStack.push({ index, state });
-      header.dataset.state = state;
-
-      // Update header arrows (preserve dropdown titles)
-      headers.forEach(h => {
-        const s = sortStack.find(x => x.index === [...h.parentNode.children].indexOf(h));
-        const arrow = s ? (s.state === "asc" ? " â–²" : " â–¼") : "";
-
-        if (h.classList.contains("has-dropdown")) {
-          const title = h.querySelector(".sort-title");
-          if (title) title.textContent = (h.dataset.sort || "").toUpperCase() + arrow;
-        } else {
-          const text = (h.dataset.sort || "").toUpperCase();
-          // Strip existing arrows before reapplying
-          h.textContent = text + arrow;
-        }
-      });
-
-      // Sort rows
-      rows.sort((a, b) => {
-        for (const s of sortStack) {
-          const asc = s.state === "asc";
-          const aCell = a.querySelectorAll(".col")[s.index];
-          const bCell = b.querySelectorAll(".col")[s.index];
-
-          const aVal = (aCell?.innerText || "").trim().toLowerCase();
-          const bVal = (bCell?.innerText || "").trim().toLowerCase();
-
-          const cmp = aVal.localeCompare(bVal, undefined, { numeric: true });
-          if (cmp !== 0) return asc ? cmp : -cmp;
-        }
-        return 0;
-      });
-
-      // Re-append sorted rows
-      const frag = document.createDocumentFragment();
-      rows.forEach(r => frag.appendChild(r));
-      table.appendChild(frag);
-    });
-  });
-});
-
-
-// ==========================
-// FILTER DROPDOWN (AH only)
-// ==========================
-document.addEventListener("click", e => {
-  const opt = e.target.closest(".option[data-filter]");
-  if (!opt) return;
-
-  const filter = opt.dataset.filter;
-  const table = opt.closest(".wow-table") || document.querySelector(".wow-table.ah-table");
-  if (!table) return;
-
-  const rows = table.querySelectorAll(".row");
-  rows.forEach(row => {
-    if (row.classList.contains("header") || row.classList.contains("empty")) return;
-    const typeCol = row.querySelector(".col:first-child");
-    const classIndex = typeCol ? typeCol.dataset.classIndex : "";
-    row.style.display = (filter === "all" || classIndex == filter) ? "" : "none";
-  });
-});
-</script>

@@ -99,92 +99,121 @@
    
   }
 }
-
-
-
+select {
+  background:#111;
+  color:#ccc;
+  border:1px solid #333;
+  border-radius:6px;
+  padding:4px 8px;
+}
 </style>
 
 
-
-
-<?php builddiv_start(1, $lang['statistic']); ?>
+<?php
+builddiv_start(1, $lang['statistic'],1); ?>
 
 <div class="modern-content">
- <!-- <img src="<?php //echo $currtmp; ?>/images/banner1.jpg" alt="Auction House" class="ah-banner"/>-->
 
-  <?php if ($num_chars == 0): ?>
-    <p class="no-chars">0 <?php echo $lang['characters'] ?? 'Characters'; ?></p>
-  <?php else: ?>
-  
-    <?php
-      $allianceMap = [1 => 'human', 3 => 'dwarf', 4 => 'nightelf', 7 => 'gnome', 11 => 'dranei'];
-      $hordeMap    = [2 => 'orc', 5 => 'undead', 6 => 'tauren', 8 => 'troll', 10 => 'be'];
+<?php
+/* ---------- Realm selection ---------- */
+$realmId = (int)($_GET['realm'] ?? 1);
+switch ($realmId) {
+  case 1: $realmDB = "classiccharacters"; $realmName = "Classic"; break;
+  case 2: $realmDB = "tbccharacters";     $realmName = "The Burning Crusade"; break;
+  case 3: $realmDB = "wotlkcharacters";   $realmName = "Wrath of the Lich King"; break;
+  default:$realmDB = "classiccharacters"; $realmName = "Classic";
+}
 
-      $allianceRaces = [];
-      $hordeRaces    = [];
+/* ---------- Character data ---------- */
+$rc = [];
+$num_chars = 0;
 
-      foreach ($allianceMap as $id => $key)
-        $allianceRaces[$id] = ['count' => $rc[$id] ?? 0, 'pc' => ${'pc_'.$key} ?? 0];
+try {
+  $charData = $DB->select("SELECT race, COUNT(*) AS total FROM {$realmDB}.characters GROUP BY race");
+  foreach ($charData as $row) {
+      $rc[$row['race']] = $row['total'];
+      $num_chars += $row['total'];
+  }
+} catch (Exception $e) {
+  echo "<p style='color:#f66;'>Database error reading from {$realmDB}</p>";
+  $num_chars = 0;
+}
 
-      foreach ($hordeMap as $id => $key)
-        $hordeRaces[$id] = ['count' => $rc[$id] ?? 0, 'pc' => ${'pc_'.$key} ?? 0];
+/* ---------- Faction breakdown ---------- */
+$alliance_races = [1,3,4,7,11];
+$horde_races    = [2,5,6,8,10];
 
-      $hasDK = !empty($rc[12]);
-    ?>
+$num_ally  = array_sum(array_intersect_key($rc, array_flip($alliance_races)));
+$num_horde = array_sum(array_intersect_key($rc, array_flip($horde_races)));
 
-    <div class="faction-columns">
+if ($num_chars == 0) {
+  $pc_ally = $pc_horde = 0;
+} else {
+  $pc_ally  = round(($num_ally / $num_chars) * 100, 1);
+  $pc_horde = round(($num_horde / $num_chars) * 100, 1);
+}
 
+// Race percentages
+foreach ($rc as $race => $count) {
+  ${'pc_'.$race} = $num_chars > 0 ? round(($count / $num_chars) * 100, 1) : 0;
+}
+?>
 
-      <div class="faction-columns">
+<?php if ($num_chars == 0): ?>
+  <p class="no-chars">0 <?php echo $lang['characters'] ?? 'Characters'; ?></p>
+<?php else: ?>
 
-  <!-- Horde (now left) -->
-  <div class="faction-col horde">
-    <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/horde.png');"></div>
-    <div class="faction-text">
-      Horde: <strong><?php echo $num_horde; ?></strong> (<?php echo $pc_horde; ?>%)
-    </div>
-    <?php foreach ($hordeRaces as $id => $data): ?>
-      <div class="race-line class-<?php echo strtolower($MANG->characterInfoByID['character_class'][$id] ?? ''); ?>">
-        <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
-        <span class=><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
+  <?php
+  $allianceMap = [1=>'human',3=>'dwarf',4=>'nightelf',7=>'gnome',11=>'dranei'];
+  $hordeMap    = [2=>'orc',5=>'undead',6=>'tauren',8=>'troll',10=>'be'];
+  $allianceRaces=[]; $hordeRaces=[];
+
+  foreach ($allianceMap as $id=>$key)
+    $allianceRaces[$id]=['count'=>$rc[$id]??0,'pc'=>${'pc_'.$id}??0];
+  foreach ($hordeMap as $id=>$key)
+    $hordeRaces[$id]=['count'=>$rc[$id]??0,'pc'=>${'pc_'.$id}??0];
+
+  $hasDK=!empty($rc[12]);
+  ?>
+
+  <div class="faction-columns">
+    <!-- Horde -->
+    <div class="faction-col horde">
+      <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/horde.png');"></div>
+      <div class="faction-text">
+        Horde: <strong><?php echo $num_horde; ?></strong> (<?php echo $pc_horde; ?>%)
       </div>
-    <?php endforeach; ?>
+      <?php foreach ($hordeRaces as $id=>$data): ?>
+        <div class="race-line">
+          <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
+          <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
+        </div>
+      <?php endforeach; ?>
+    </div>
+
+    <!-- Alliance -->
+    <div class="faction-col alliance">
+      <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/alliance.png');"></div>
+      <div class="faction-text">
+        Alliance: <strong><?php echo $num_ally; ?></strong> (<?php echo $pc_ally; ?>%)
+      </div>
+      <?php foreach ($allianceRaces as $id=>$data): ?>
+        <div class="race-line">
+          <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
+          <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
+        </div>
+      <?php endforeach; ?>
+    </div>
   </div>
 
-  <!-- Alliance (now right) -->
-  <div class="faction-col alliance">
-    <div class="faction-bg" style="background-image:url('<?php echo $currtmp; ?>/images/icon/faction/alliance.png');"></div>
-    <div class="faction-text">
-      Alliance: <strong><?php echo $num_ally; ?></strong> (<?php echo $pc_ally; ?>%)
+  <?php if ($hasDK): ?>
+    <div class="neutral-dk">
+      <img src="<?php echo $currtmp; ?>/images/stat/12-0.gif" alt="Death Knight">
+      <span>Death Knights: <strong><?php echo $rc[12]; ?></strong>
+      (<?php echo ${'pc_12'} ?? number_format(($rc[12] / $num_chars) * 100, 2); ?>%)</span>
     </div>
-    <?php foreach ($allianceRaces as $id => $data): ?>
-      <div class="race-line class-<?php echo strtolower($MANG->characterInfoByID['character_class'][$id] ?? ''); ?>">
-        <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
-        <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
-      </div>
-    <?php endforeach; ?>
-  </div>
+  <?php endif; ?>
 
+<?php endif; ?>
 </div>
-
-
-    <?php if ($hasDK): ?>
-      <div class="neutral-dk">
-        <img src="<?php echo $currtmp; ?>/images/stat/12-0.gif" alt="Death Knight">
-        <span>
-          Death Knights:
-          <strong><?php echo $rc[12]; ?></strong>
-          (<?php echo ${'pc_dk'} ?? number_format(($rc[12] / $num_chars) * 100, 2); ?>%)
-        </span>
-      </div>
-    <?php endif; ?> 
-	<?php endif; ?>
-</div> <!-- closes .modern-content -->
 <?php builddiv_end(); ?>
-
-
-
-
-
-
-

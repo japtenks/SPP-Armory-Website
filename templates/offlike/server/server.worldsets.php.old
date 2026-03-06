@@ -1,18 +1,20 @@
 <?php
+/* ==========================================================
+   Unified Server Page Connection Header (2025-10-28)
+   Works for: server.armorsets.php / server.pvpsets.php / server.worldsets.php
+   ========================================================== */
+
+if (!isset($_GET['debug'])) {
+    error_reporting(E_ERROR | E_PARSE);
+    ini_set('display_errors', 0);
+}
 
 /* ---------- Minimal includes ---------- */
 define('INCLUDED', true);
 require_once(__DIR__ . '/../../../core/dbsimple/Mysql.php');
-require_once(__DIR__ . '/../../../core/common.php');   // optional helper set
+require_once(__DIR__ . '/../../../core/common.php');
 
-/* ---------------------------------------------------------
-   Armor & Dungeon Sets - Standalone Version
-   Self-contained like server.ah.php (no external includes)
-----------------------------------------------------------*/
-
-global $DB, $CHDB, $WSDB, $realmId, $realmName;
-
-/* ---------- Realm selector ---------- */
+/* ---------- Realm selection ---------- */
 $realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 1;
 switch ($realmId) {
     case 1:
@@ -23,11 +25,10 @@ switch ($realmId) {
             'pass' => 'eltnub',
             'chars' => 'classiccharacters',
             'world' => 'classicmangos',
-            'armory' => 'classicarmory'
+            'armory' => 'classicarmory',
         ];
         $realmName = 'Classic';
         break;
-
     case 2:
         $db = [
             'host' => '192.168.1.13',
@@ -36,11 +37,10 @@ switch ($realmId) {
             'pass' => 'eltnub',
             'chars' => 'tbccharacters',
             'world' => 'tbcmangos',
-            'armory' => 'tbcarmory'
+            'armory' => 'tbcarmory',
         ];
         $realmName = 'The Burning Crusade';
         break;
-
     case 3:
         $db = [
             'host' => '192.168.1.13',
@@ -49,11 +49,10 @@ switch ($realmId) {
             'pass' => 'eltnub',
             'chars' => 'wotlkcharacters',
             'world' => 'wotlkmangos',
-            'armory' => 'wotlkarmory'
+            'armory' => 'wotlkarmory',
         ];
         $realmName = 'Wrath of the Lich King';
         break;
-
     default:
         $db = [
             'host' => '192.168.1.13',
@@ -62,10 +61,12 @@ switch ($realmId) {
             'pass' => 'eltnub',
             'chars' => 'classiccharacters',
             'world' => 'classicmangos',
-            'armory' => 'classicarmory'
+            'armory' => 'classicarmory',
         ];
         $realmName = 'Classic';
 }
+
+/* ---------- Database connection helpers ---------- */
 function dbConnect($host, $port, $user, $pass, $name) {
     try {
         $db = DbSimple_Generic::connect("mysql://$user:$pass@$host:$port/$name");
@@ -76,21 +77,21 @@ function dbConnect($host, $port, $user, $pass, $name) {
         return null;
     }
 }
+
 function dbErrorHandler($message, $info) {
     if (!error_reporting()) return;
-
     $debugMode = isset($_GET['debug']);
     if ($debugMode) {
         echo "<div style='color:red;font-weight:bold;'>SQL Error: "
            . htmlspecialchars($message) . "</div>";
-        if (!empty($info['query']))
+        if (!empty($info['query'])) {
             echo "<pre style='color:orange;font-family:monospace;'>"
                . htmlspecialchars($info['query']) . "</pre>";
+        }
     }
-    // otherwise, stay silent in normal mode
 }
 
-/* Connections */
+/* ---------- Establish connections ---------- */
 $CHDB = dbConnect($db['host'], $db['port'], $db['user'], $db['pass'], $db['chars']);
 $WSDB = dbConnect($db['host'], $db['port'], $db['user'], $db['pass'], $db['world']);
 $ARDB = dbConnect($db['host'], $db['port'], $db['user'], $db['pass'], $db['armory']);
@@ -99,10 +100,9 @@ if (!$ARDB || !$WSDB) {
     die("<div style='color:red;font-weight:bold;'>Failed to connect to required databases for {$realmName}</div>");
 }
 
-/* ---------- Helper to run queries ---------- */
-function q($conn, $sql, $mode = 0) {
+/* ---------- Safe query helper ---------- */
+function q($conn, string $sql, int $mode = 0) {
     if (!$conn) return [];
-
     try {
         switch ($mode) {
             case 1:
@@ -124,44 +124,41 @@ function q($conn, $sql, $mode = 0) {
     }
 }
 
-/* ---------- Set up schemas ---------- */
-$expansion = ($realmId == 3) ? 2 : (($realmId == 2) ? 1 : 0);
+/* ---------- Schema qualifiers ---------- */
+$expansion     = ($realmId == 3) ? 2 : (($realmId == 2) ? 1 : 0);
 $ARMORY_SCHEMA = $db['armory'];
 $WORLD_SCHEMA  = $db['world'];
 
-/* ---------- Qualify bare table names ---------- */
 function qualify_tables($sql, $schema, array $tables) {
-  $pat = '/(?<=\bFROM|\bJOIN)\s+`?(' . implode('|', array_map('preg_quote', $tables)) . ')`?\b/i';
-  return preg_replace($pat, ' `'.$schema.'`.`$1`', $sql);
+    $pat = '/(?<=\bFROM|\bJOIN)\s+`?(' . implode('|', array_map('preg_quote', $tables)) . ')`?\b/i';
+    return preg_replace($pat, ' `'.$schema.'`.`$1`', $sql);
 }
 
-/* ---------- Armory and world query helpers ---------- */
 function armory_query($sql, $mode = 0) {
-  global $ARDB, $ARMORY_SCHEMA;
-  $sql = qualify_tables($sql, $ARMORY_SCHEMA, [
-    'dbc_spell','dbc_spellicon','dbc_spellduration','dbc_spellradius',
-    'dbc_itemset','dbc_talent','dbc_talenttab','dbc_itemdisplayinfo',
-    'dbc_itemsubclass','dbc_itemrandomproperties','dbc_itemrandomsuffix',
-    'dbc_randproppoints'
-  ]);
-  return q($ARDB, $sql, $mode);
+    global $ARDB, $ARMORY_SCHEMA;
+    $sql = qualify_tables($sql, $ARMORY_SCHEMA, [
+        'dbc_spell','dbc_spellicon','dbc_spellduration','dbc_spellradius',
+        'dbc_itemset','dbc_talent','dbc_talenttab','dbc_itemdisplayinfo',
+        'dbc_itemsubclass','dbc_itemrandomproperties','dbc_itemrandomsuffix',
+        'dbc_randproppoints'
+    ]);
+    return q($ARDB, $sql, $mode);
 }
+
 function world_query($sql, $mode = 0) {
-  global $WSDB, $WORLD_SCHEMA;
-  $sql = qualify_tables($sql, $WORLD_SCHEMA, ['item_template']);
-  return q($WSDB, $sql, $mode);
+    global $WSDB, $WORLD_SCHEMA;
+    $sql = qualify_tables($sql, $WORLD_SCHEMA, ['item_template']);
+    return q($WSDB, $sql, $mode);
 }
 
-/* ---------- Max Tier by expansion ---------- */
-$maxTier = ($expansion === 2) ? 10 : (($expansion === 1) ? 6 : 3);
-
-/* ---------- Page header ---------- */
+/* ---------- Header info ---------- */
 echo "<div style='padding:8px;background:#111;color:#eee;font-family:Arial;'>
 <strong>Realm:</strong> {$realmName} &nbsp;&nbsp;
 <strong>Expansion:</strong> " . ($expansion==2?'WotLK':($expansion==1?'TBC':'Classic')) . "
 </div>";
-
 ?>
+
+
 <?php
 $selectedClass = isset($_GET['class']) ? trim($_GET['class']) : '';
 $iconBase   = './armory/shared/icons/';
@@ -180,114 +177,279 @@ $classes = [
   ['name'=>'Druid','slug'=>'druid','css'=>'is-druid'],
 ];
 if ($expansion >= 2) { $classes[] = ['name'=>'Death Knight','slug'=>'deathknight','css'=>'is-dk']; }
+//cloth
+$N['WD_Necropile'] = [
+	'Mage'=>"Necropile Raiment",
+	'Priest'=>"Necropile Raiment",
+	'Warlock'=>"Necropile Raiment"];
+$N['WD_Postmaster'] = [
+	'Mage'=>"The Postmaster",
+	'Priest'=>"The Postmaster",
+	'Warlock'=>"The Postmaster"];
+$N['WD_UndeadCleansing'] = [
+	'Mage'=>"Regalia of Undead Cleansing",
+	'Priest'=>"Regalia of Undead Cleansing",
+	'Warlock'=>"Regalia of Undead Cleansing"];
+	//Leather
+$N['WD_Defias'] = [
+	'Rogue'=>"Defias Leather",
+	'Druid'=>"Defias Leather"];
+$N['WD_Viper'] = [
+	'Rogue'=>"Embrace of the Viper",
+	'Druid'=>"Embrace of the Viper"
+	];
+$N['WD_Cadaverous'] = [
+	'Rogue'=>"Cadaverous Garb",
+	'Druid'=>"Cadaverous Garb"];
+	//mail
+		$N['WD_Scarlet'] = [
+	'Warrior'=>"Chain of the Scarlet Crusade",
+	'Paladin'=>"Chain of the Scarlet Crusade",	
+	'Hunter'=>"Chain of the Scarlet Crusade",
+	'Shaman'=>"Chain of the Scarlet Crusade"];
+	$N['WD_MailUndead'] = [
+	'Hunter'=>"Garb of the Undead Slayer",
+	'Shaman'=>"Garb of the Undead Slayer"];
+	
+	
+	//plate
+$N['WD_Deathbone'] = [
+	//'Warrior'=>"Deathbone Guardian",
+	'Paladin'=>"Deathbone Guardian"];
+$N['WD_PlateUndead'] = [
+	'Warrior'=>"Battlegear of Undead Slaying",
+	'Paladin'=>"Battlegear of Undead Slaying"];
 
-/* ---------- CLASS SET NAMES (unchanged lists) ---------- */
-// ... (keep your $N[...] blocks exactly as you sent)
-$N['T0']=['Warrior'=>"Battlegear of Valor",'Paladin'=>"Lightforge Armor",'Hunter'=>"Beaststalker Armor",'Rogue'=>"Shadowcraft Armor",'Priest'=>"Vestments of the Devout",'Shaman'=>"The Elements",'Mage'=>"Magister's Regalia",'Warlock'=>"Dreadmist Raiment",'Druid'=>"Wildheart Raiment"];
-$N['T0_5']=['Warrior'=>"Battlegear of Heroism",'Paladin'=>"Soulforge Armor",'Hunter'=>"Beastmaster Armor",'Rogue'=>"Darkmantle Armor",'Priest'=>"Vestments of the Virtuous",'Shaman'=>"The Five Thunders",'Mage'=>"Sorcerer's Regalia",'Warlock'=>"Deathmist Raiment",'Druid'=>"Feralheart Raiment"];
-$N['T1']=['Warrior'=>"Battlegear of Might",'Paladin'=>"Lawbringer Armor",'Hunter'=>"Giantstalker Armor",'Rogue'=>"Nightslayer Armor",'Priest'=>"Vestments of Prophecy",'Shaman'=>"The Earthfury",'Mage'=>"Arcanist Regalia",'Warlock'=>"Felheart Raiment",'Druid'=>"Cenarion Raiment"];
-$N['T1_5']=['Warrior'=>"Vindicator's Battlegear",'Paladin'=>"Freethinker's Armor",'Hunter'=>"Predator's Armor",'Rogue'=>"Madcap's Outfit",'Priest'=>"Confessor's Raiment",'Shaman'=>"Augur's Regalia",'Mage'=>"Illusionist's Attire",'Warlock'=>"Demoniac's Threads",'Druid'=>"Haruspex's Garb"];
-$N['T2']=['Warrior'=>"Battlegear of Wrath",'Paladin'=>"Judgement Armor",'Hunter'=>"Dragonstalker Armor",'Rogue'=>"Bloodfang Armor",'Priest'=>"Vestments of Transcendence",'Shaman'=>"The Ten Storms",'Mage'=>"Netherwind Regalia",'Warlock'=>"Nemesis Raiment",'Druid'=>"Stormrage Raiment"];
-$N['T2_25']=['Warrior'=>"Battlegear of Unyielding Strength",'Paladin'=>"Battlegear of Eternal Justice",'Hunter'=>"Trappings of the Unseen Path",'Rogue'=>"Emblems of Veiled Shadows",'Priest'=>"Finery of Infinite Wisdom",'Shaman'=>"Gift of the Gathering Storm",'Mage'=>"Trappings of Vaulted Secrets",'Warlock'=>"Implements of Unspoken Names",'Druid'=>"Symbols of Unending Life"];
-$N['T2_5']=['Warrior'=>"Conqueror's Battlegear",'Paladin'=>"Avenger's Battlegear",'Hunter'=>"Striker's Garb",'Rogue'=>"Deathdealer's Embrace",'Priest'=>"Garments of the Oracle",'Shaman'=>"Stormcaller's Garb",'Mage'=>"Enigma Vestments",'Warlock'=>"Doomcaller's Attire",'Druid'=>"Genesis Raiment"];
-$N['T3']=['Warrior'=>"Dreadnaught's Battlegear",'Paladin'=>"Redemption Armor",'Hunter'=>"Cryptstalker Armor",'Rogue'=>"Bonescythe Armor",'Priest'=>"Vestments of Faith",'Shaman'=>"The Earthshatterer",'Mage'=>"Frostfire Regalia",'Warlock'=>"Plagueheart Raiment",'Druid'=>"Dreamwalker Raiment"];
-$N['T4']=['Druid'=>"Malorne Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Demon Stalker Armor",'Mage'=>"Aldor Regalia",'Paladin'=>"Justicar Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Incarnate Raiment / Regalia (Holy/Disc / Shadow)",'Rogue'=>"Netherblade",'Shaman'=>"Cyclone Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Voidheart Raiment",'Warrior'=>"Warbringer Battlegear / Armor (Arms/Fury / Protection)"];
-$N['T5']=['Druid'=>"Nordrassil Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Rift Stalker Armor",'Mage'=>"Tirisfal Regalia",'Paladin'=>"Crystalforge Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Avatar Raiment / Regalia (Holy/Disc / Shadow)",'Rogue'=>"Deathmantle",'Shaman'=>"Cataclysm Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Corruptor Raiment",'Warrior'=>"Destroyer Battlegear / Armor (Arms/Fury / Protection)"];
-$N['T6']=['Druid'=>"Thunderheart Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Gronnstalker's Armor",'Mage'=>"Tempest Regalia",'Paladin'=>"Lightbringer Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Vestments of Absolution / Absolution Regalia (Holy/Disc / Shadow)",'Rogue'=>"Slayer's Armor",'Shaman'=>"Skyshatter Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Malefic Raiment",'Warrior'=>"Onslaught Battlegear / Armor (Arms/Fury / Protection)"];
-$N['T7']=['Death Knight'=>"Scourgeborne Battlegear / Scourgeborne Plate (DPS / Tank)",'Druid'=>"Dreamwalker Regalia / Dreamwalker Battlegear / Dreamwalker Garb (Balance / Feral / Restoration)",'Hunter'=>"Cryptstalker Battlegear",'Mage'=>"Frostfire Regalia",'Paladin'=>"Redemption Regalia / Redemption Armor / Redemption Battlegear (Holy / Protection / Retribution)",'Priest'=>"Regalia of Faith / Garb of Faith (Shadow / Holy–Discipline)",'Rogue'=>"Bonescythe Battlegear",'Shaman'=>"Earthshatter Regalia / Earthshatter Battlegear / Earthshatter Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Plagueheart Garb",'Warrior'=>"Dreadnaught Battlegear / Dreadnaught Plate (Arms/Fury / Protection)"];
-$N['T8']=['Death Knight'=>"Darkruned Battlegear / Darkruned Plate (DPS / Tank)",'Druid'=>"Nightsong Regalia / Nightsong Battlegear / Nightsong Garb (Balance / Feral / Restoration)",'Hunter'=>"Scourgestalker Battlegear",'Mage'=>"Kirin Tor Garb",'Paladin'=>"Aegis Regalia / Aegis Armor / Aegis Battlegear (Holy / Protection / Retribution)",'Priest'=>"Sanctification Regalia / Sanctification Garb (Shadow / Holy–Discipline)",'Rogue'=>"Terrorblade Battlegear",'Shaman'=>"Worldbreaker Regalia / Worldbreaker Battlegear / Worldbreaker Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Deathbringer Garb",'Warrior'=>"Siegebreaker Battlegear / Siegebreaker Plate (Arms/Fury / Protection)"];
-$N['T9']=['Death Knight'=>"Thassarian's / Koltira's Battlegear / Plate (A / H)",'Druid'=>"Malfurion's / Runetotem's Regalia / Battlegear / Garb (A / H)",'Hunter'=>"Windrunner's Battlegear (Alliance / Horde)",'Mage'=>"Khadgar's / Sunstrider's Regalia (A / H)",'Paladin'=>"Turalyon's / Liadrin's Regalia / Armor / Battlegear (A / H)",'Priest'=>"Velen's / Zabra's Regalia / Garb (A / H)",'Rogue'=>"VanCleef's / Garona's Battlegear (A / H)",'Shaman'=>"Nobundo's / Thrall's Regalia / Battlegear / Garb (A / H)",'Warlock'=>"Kel'Thuzad's / Gul'dan's Regalia (A / H)",'Warrior'=>"Wrynn's / Hellscream's Battlegear / Plate (A / H)"];
-$N['T10']=['Death Knight'=>"Scourgelord's Battlegear / Scourgelord's Plate (DPS / Tank)",'Druid'=>"Lasherweave Regalia / Lasherweave Battlegear / Lasherweave Garb (Balance / Feral / Restoration)",'Hunter'=>"Ahn'Kahar Blood Hunter's Battlegear",'Mage'=>"Bloodmage's Regalia",'Paladin'=>"Lightsworn Regalia / Lightsworn Armor / Lightsworn Battlegear (Holy / Protection / Retribution)",'Priest'=>"Crimson Acolyte's Regalia / Crimson Acolyte's Garb (Shadow / Holy–Discipline)",'Rogue'=>"Shadowblade's Battlegear",'Shaman'=>"Frost Witch's Regalia / Frost Witch's Battlegear / Frost Witch's Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Dark Coven's Regalia",'Warrior'=>"Ymirjar Lord's Battlegear / Ymirjar Lord's Plate (Arms/Fury / Protection)"];
-$N['DS3'] = [
-  'Mage'    => "Incanter's Regalia / Mana-Etched Regalia (Caster / DPS)",
-  'Priest'  => "Hallowed Raiment /Mana-Etched Regalia",
-  'Warlock' => "Oblivion Raiment / Mana-Etched Regalia (Caster / DPS)",
 
-  'Druid'   => "Moonglade Raiment / Wastewalker Armor (DPS)", 
-  'Rogue'   => "Assassination Armor / Wastewalker Armor (DPS)",
-
-  'Hunter'  => "Beast Lord Armor / Desolation Battlegear (DPS)",
-  'Shaman'  => "Tidefury Raiment (Caster / Healer) / Desolation Battlegear (DPS)",
-
-  'Paladin' => "Righteous Armor / Doomplate Battlegear (Tank/ DPS)",	
-  'Warrior' => "Bold Armor / Doomplate Battlegear",
+// Weapons & Trinket combos — split by set
+$N['WD_DalRend'] = [
+  'Warrior' => "Dal'Rend's Arms",
+  'Rogue'   => "Dal'Rend's Arms",
+  'Death Knight' => "Dal'Rend's Arms", // WotLK
 ];
+
+$N['WD_SpiderKiss'] = [
+  'Warrior' => "Spider's Kiss",
+  'Rogue'   => "Spider's Kiss",
+  'Druid'   => "Spider's Kiss",
+];
+
+$N['WD_Shard'] = [
+  'Mage'    => "Shard of the Gods",
+  'Warlock' => "Shard of the Gods",
+  'Priest'  => "Shard of the Gods",
+  'Paladin' => "Shard of the Gods",
+  'Shaman'  => "Shard of the Gods",
+  'Druid'   => "Shard of the Gods",
+];
+
+$N['WD_Hakkari'] = [
+  'Warrior' => "The Twin Blades of Hakkari",
+  'Rogue'   => "The Twin Blades of Hakkari",
+  'Hunter'  => "The Twin Blades of Hakkari",
+  'Shaman'  => "The Twin Blades of Hakkari",
+  'Death Knight' => "The Twin Blades of Hakkari",
+];
+
+$N['WD_Primal'] = [
+  'Warrior' => "Primal Blessing",
+  'Rogue'   => "Primal Blessing",
+  'Hunter'  => "Primal Blessing",
+  'Shaman'  => "Primal Blessing",
+  'Druid'   => "Primal Blessing",
+  'Death Knight' => "Primal Blessing",
+];
+
+$N['WD_Zanzil'] = [
+  'Mage'    => "Zanzil's Concentration",
+  'Warlock' => "Zanzil's Concentration",
+  'Priest'  => "Zanzil's Concentration",
+  'Shaman'  => "Zanzil's Concentration",
+  'Druid'   => "Zanzil's Concentration",
+  'Death Knight' => "Zanzil's Concentration",
+];
+
+$N['WD_Overlord'] = [
+  'Warrior' => "Overlord's Resolution",
+  'Paladin' => "Overlord's Resolution",
+  'Druid'   => "Overlord's Resolution",
+  'Death Knight' => "Overlord's Resolution",
+];
+
+$N['WD_Prayer'] = [
+  'Priest'  => "Prayer of the Primal",
+  'Paladin' => "Prayer of the Primal",
+  'Shaman'  => "Prayer of the Primal",
+  'Druid'   => "Prayer of the Primal",
+];
+
+$N['WD_Mojo'] = [
+  'Warrior' => "Major Mojo Infusion",
+  'Rogue'   => "Major Mojo Infusion",
+  'Hunter'  => "Major Mojo Infusion",
+  'Shaman'  => "Major Mojo Infusion",
+  'Druid'   => "Major Mojo Infusion",
+  'Paladin' => "Major Mojo Infusion",
+  'Death Knight' => "Major Mojo Infusion",
+];
+$N['WD_Eskhandar'] = [
+  'Warrior' => "Spirit of Eskhandar",
+  'Rogue'   => "Spirit of Eskhandar",
+  'Hunter'  => "Spirit of Eskhandar",
+  'Shaman'  => "Spirit of Eskhandar",
+  'Druid'   => "Spirit of Eskhandar", // some Ferals used it too
+];
+
+
+
+if ($expansion >= 2) {
+  $N['WD_Weapons']['Death Knight'] = "Dal'Rend's Arms / The Twin Blades of Hakkari / Primal Blessing / Zanzil's Concentration / Overlord's Resolution / Major Mojo Infusion";
+}
 
 
 
 /* ---------- blurbs ---------- */
+/*-----------cloth-------------*/
+
 $BLURB = [
-  'T0'=>[
-    'title'=>"Tier 0 (Dungeon Set 1)",'pieces'=>8,
-    'text'=>"Tier 0 marked the dawn of class sets in World of Warcraft. Forged through drops in the most difficult dungeons of Classic—Stratholme, Scholomance, and Blackrock Spire—these blue-quality sets gave players their first taste of coordinated gearing. While they lacked raid-level stats, their 8-piece bonuses hinted at the specialization that future raid sets would embody. Collecting these pieces was the natural bridge from leveling dungeons into endgame raiding, and many raiders proudly wore them into Molten Core. <span class='set-note'>(Patch 1.05)</span>"
+  'WD_Necropile'=>[
+    'title'=>"Necropile Raiment",'pieces'=>5,
+    'text'=>"A shadow-themed Scholomance set for <b>Mages</b>, <b>Warlocks</b>, and <b>Priests</b>. 
+             Popular for its spell damage bonuses and dark aesthetic."
   ],
-  'T0_5'=>[
-    'title'=>"Tier 0.5 (Dungeon Set 2)",'pieces'=>8,
-    'text'=>"The upgrade path to Dungeon Set 1, Tier 0.5 introduced one of the most ambitious questlines in Classic WoW. Players reforged their original sets through long chains involving world events, demon hunts, and even the summoning of the dreadlord Lord Valthalak. This was Blizzard’s first experiment with epic quest-driven gear progression, demanding coordination, gold, and patience. The final reward: a visually upgraded purple set with stronger stats and more powerful bonuses, forever remembered as a community-defining grind. <span class='set-note'>(Patch 1.10 “Storms of Azeroth”)</span>"
+  'WD_Postmaster'=>[
+    'title'=>"The Postmaster",'pieces'=>5,
+    'text'=>"A quirky set from Stratholme mail couriers. Provided movement speed and bag space bonuses. 
+             Favored by <b>Mages</b> and <b>Priests</b> farming dungeons."
   ],
-  'T1'=>[
-    'title'=>"Tier 1",'pieces'=>8,
-    'text'=>"Tier 1 came from the fiery heart of Molten Core, WoW’s first true 40-man raid. These lava-forged epics embodied the essence of raiding: helm and shoulders dropping from bosses like Garr and Golemagg, and the final legs claimed from Ragnaros himself. Attunement to Molten Core required braving Blackrock Depths, further cementing Tier 1 as the gateway to endgame raiding. The sets cemented raid identity, with class-defining looks like the Warrior’s Might and the Mage’s Arcanist Regalia. <span class='set-note'>(Classic launch, Phase 1)</span>"
+  'WD_UndeadCleansing'=>[
+    'title'=>"Regalia of Undead Cleansing",'pieces'=>4,
+    'text'=>"Scourge Invasion event set tailored against undead foes. 
+             Used by <b>Mages</b>, <b>Warlocks</b>, and <b>Priests</b>."
   ],
-  'T1_5'=>[
-    'title'=>"Tier 1.5",'pieces'=>5,
-    'text'=>"Zul’Gurub introduced a 20-man raid experience distinct from Molten Core. Instead of full 8-piece sets, Tier 1.5 delivered 5-piece collections, offering 2, 3, and 5-piece bonuses. These jungle-themed armor sets tied into the Zandalar Troll empire and required reputation with the Zandalar Tribe. They gave mid-tier guilds a unique progression path and provided catch-up gear for raiders not yet ready for Blackwing Lair. <span class='set-note'>(Patch 1.7 “Rise of the Blood God”)</span>"
+  //-------------------leather
+  'WD_Defias'=>[
+    'title'=>"Defias Leather",'pieces'=>5,
+    'text'=>"The classic Deadmines rogue look. Light stats but iconic appearance."
   ],
-  'T2'=>[
-    'title'=>"Tier 2",'pieces'=>8,
-    'text'=>"Blackwing Lair’s dragonsteel sets defined Classic WoW’s mid-raid progression. The bulk of the pieces came from Nefarian’s minions, while legs dropped from Ragnaros in Molten Core and helms from Onyxia. Completing Tier 2 meant conquering nearly every endgame raid of the Blackrock era, marking it as the most comprehensive raid tier of Classic. Iconic appearances such as the Paladin’s Judgement Armor and the Warlock’s Nemesis Raiment became enduring symbols of WoW raiding culture. <span class='set-note'>(Patch 1.6; Ony/MC Phase 1)</span>"
+    'WD_Viper'=>[
+    'title'=>"Embrace of the Viper",'pieces'=>5,
+    'text'=>"Wailing Caverns low-level set. A stepping stone for <b>Druids</b> and <b>Rogues</b>, 
+             notable as one of WoW’s first ‘mini-sets’."
+			 ],
+  'WD_Cadaverous'=>[
+    'title'=>"Cadaverous Garb",'pieces'=>5,
+    'text'=>"Scholomance leather set for <b>Rogues</b> and <b>Druids</b>. 
+             Boosted agility and stamina, making it an early dungeon BiS."
   ],
-  'T2_25'=>[
-    'title'=>"Tier 2.25",'pieces'=>3,
-    'text'=>"Ruins of Ahn’Qiraj offered a different take: 3-piece class sets earned through reputation with the Cenarion Circle and raid token turn-ins. While not as iconic as Tier 2 or 2.5, these sets filled important gear gaps and allowed raiders to display their dedication to both Cenarion Circle rep and Ahn’Qiraj itself. <span class='set-note'>(Patch 1.9 “The Gates of Ahn’Qiraj”)</span>"
+    'WD_LeatherUndead'=>[
+    'title'=>"Undead Slayer’s Armor",'pieces'=>4,
+    'text'=>"Leather variant of the Scourge Invasion sets. Boosted damage vs undead. 
+             Usable by <b>Rogues</b> and <b>Druids</b>."
   ],
-  'T2_5'=>[
-    'title'=>"Tier 2.5",'pieces'=>5,
-    'text'=>"Temple of Ahn’Qiraj raised the bar with Old God corruption shaping each set. These tokens were turned in for spec-leaning armor sets, giving classes gear that reflected their evolving roles. Warriors claimed the Conqueror’s Battlegear, while Druids earned the Genesis Raiment. The designs embodied Qiraji insectoid aesthetics and eldritch power, making them some of the most alien-looking sets in Classic. <span class='set-note'>(Patch 1.9 “The Gates of Ahn’Qiraj”)</span>"
+  //----------Mail
+    'WD_Scarlet'=>[
+    'title'=>"Chain of the Scarlet Crusade",'pieces'=>6,
+    'text'=>"Dropped in Scarlet Monastery. A stylish thematic mail set worn by 
+             <b>Warriors</b>, <b>Paladins</b>, <b>Hunters</b>, and <b>Shamans</b>."
   ],
-  'T3'=>[
-    'title'=>"Tier 3",'pieces'=>9,
-    'text'=>"Kel’Thuzad’s floating necropolis, Naxxramas, was Classic’s final raid challenge. Tier 3 was its pinnacle: 8 armor slots plus a unique ring, all themed around plague and death. These sets demanded mastery over the hardest raid in the game, one so punishing that very few guilds ever completed it before Burning Crusade. When Naxxramas left with the pre-Wrath patch, Tier 3 became unobtainable—cementing its status as one of the rarest and most prestigious collections in WoW’s history. <span class='set-note'>(Patch 1.11 “Shadow of the Necropolis”)</span>"
+  'WD_MailUndead'=>[
+    'title'=>"Garb of the Undead Slayer",'pieces'=>4,
+    'text'=>"Mail variant of the Scourge Invasion event sets. Boosted damage against undead, 
+             a solid temporary gearing option."
   ],
-  'DS3'=>[
-    'title'=>"Dungeon Set 3",'pieces'=>5,
-    'text'=>"Burning Crusade’s Dungeon Set 3 bridged the gap between leveling gear and Tier 4 raids. Unlike earlier dungeon sets, DS3 came in multiple variants per armor type, catering to casters, healers, melee DPS, and tanks. Players farmed heroic dungeons across Outland for these five-piece sets, earning powerful bonuses and distinct looks. Mana-Etched Regalia empowered spellcasters, Beast Lord Armor defined early hunter identity, and Doomplate Battlegear gave tanks their first taste of Outland survivability. DS3 sets were often a player’s first step into Karazhan attunement and the raid circuit of Outland. <span class='set-note'>(TBC launch / Patch 2.0)</span>"
+  //----------plate
+  'WD_Deathbone'=>[
+    'title'=>"Deathbone Guardian",'pieces'=>5,
+    'text'=>"A tank-oriented Scholomance set. Popular among <b>Warriors</b> and <b>Paladins</b>."
   ],
-  'T4'=>[
-    'title'=>"Tier 4",'pieces'=>5,
-    'text'=>"Tier 4 represented the first raid tier of Burning Crusade, spread across three entry raids: Karazhan, Gruul’s Lair, and Magtheridon’s Lair. Unlike Classic, loot dropped as tokens—Champion, Hero, and Defender—that were redeemed in Shattrath for class sets. These sets split into different versions for each spec (Raiment, Armor, Battlegear, Regalia), marking the beginning of Blizzard’s design philosophy of tailoring raid gear to multiple class roles. <span class='set-note'>(TBC launch)</span>"
+  'WD_PlateUndead'=>[
+    'title'=>"Battlegear of Undead Slaying",'pieces'=>4,
+    'text'=>"Scourge Invasion plate set with strong bonuses vs undead. Used by <b>Warriors</b> and <b>Paladins</b>."
   ],
-  'T5'=>[
-    'title'=>"Tier 5",'pieces'=>5,
-    'text'=>"Tier 5 came from Serpentshrine Cavern and The Eye, where Lady Vashj and Kael’thas guarded the attunement keys to Mount Hyjal and Black Temple. These sets marked a player’s entry into serious raiding progression, and clearing both raids was among the most difficult pre-nerf challenges of WoW. The visuals reflected Outland’s arcane and aquatic motifs, with standout appearances like the Mage’s Tirisfal Regalia and the Priest’s Avatar Raiment. <span class='set-note'>(Available early; retuned in Patch 2.1)</span>"
+
+  // -------- Split weapon/trinket combos --------
+  'WD_DalRend'=>[
+    'title'=>"Dal’Rend’s Arms",'pieces'=>2,
+    'text'=>"A dual-wield sword set dropped in Upper Blackrock Spire. 
+             Widely considered a pre-raid BiS choice for <b>Fury Warriors</b> and <b>Rogues</b> thanks to its 
+             high attack power bonus and accessibility before raids."
   ],
-  'T6'=>[
-    'title'=>"Tier 6",'pieces'=>8,
-    'text'=>"Tier 6 embodied the apex of Burning Crusade raiding. Sets came from Mount Hyjal and Black Temple, with Archimonde and Illidan Stormrage as the ultimate gatekeepers. Later, Sunwell Plateau expanded the tier with additional off-slot pieces—belts, bracers, and boots—that pushed players’ power further. Iconic looks like the Warrior’s Onslaught Battlegear and Warlock’s Malefic Raiment became synonymous with high-end raiding prestige. <span class='set-note'>(Patch 2.1–2.4)</span>"
+  'WD_SpiderKiss'=>[
+    'title'=>"Spider’s Kiss",'pieces'=>2,
+    'text'=>"A dagger + trinket set from Lower Blackrock Spire. 
+             Though niche, it rewarded <b>Rogues</b> and <b>Feral Druids</b> with extra poison synergy and 
+             attack power, making it a flavorful choice in PvP."
   ],
-  'T7'=>[
-    'title'=>"Tier 7",'pieces'=>5,
-    'text'=>"With Wrath of the Lich King, Naxxramas returned as the launch raid, alongside Obsidian Sanctum and Vault of Archavon. Tier 7 was split into Heroes’ and Valorous versions, accessible through both 10- and 25-man raiding. While less prestigious than the original Tier 3, this tier allowed more players than ever to experience Naxxramas’ design and collect its iconic visuals, repurposed for a new age. <span class='set-note'>(Wrath launch, Patch 3.0)</span>"
+  'WD_Shard'=>[
+    'title'=>"Shard of the Gods",'pieces'=>2,
+    'text'=>"A caster-oriented set of trinkets from Molten Core. Highly prized by 
+             <b>Mages</b>, <b>Warlocks</b>, <b>Priests</b>, and other casters for its unique spellpower 
+             bonuses. Owning both was a sign of serious raiding commitment."
   ],
-  'T8'=>[
-    'title'=>"Tier 8",'pieces'=>5,
-    'text'=>"Ulduar delivered one of WoW’s most beloved raids, and its Tier 8 sets matched its grandeur. These sets were themed around Titan constructs and arcane technology, embodying the aesthetics of the Keepers and Yogg-Saron’s creeping corruption. Hard mode bosses dropped upgraded Conqueror’s pieces, pioneering modern raid difficulty splits. <span class='set-note'>(Patch 3.1 “Secrets of Ulduar”)</span>"
+  'WD_Hakkari'=>[
+    'title'=>"The Twin Blades of Hakkari",'pieces'=>2,
+    'text'=>"Iconic weapons from Zul’Gurub, these twin swords symbolized the power of the Gurubashi trolls. 
+             Popular with <b>Rogues</b> and <b>Warriors</b>, they offered solid stats and thematic flair."
   ],
-  'T9'=>[
-    'title'=>"Tier 9",'pieces'=>5,
-    'text'=>"Trial of the Crusader and Grand Crusader offered faction-themed sets: Alliance heroes donned Wrynn’s Regalia, while Horde warriors bore Hellscream’s Battlegear. Unlike other raids, ToC reused the same arena for escalating encounters, but the sets stood out with their factional pride and trophy-based upgrade system. <span class='set-note'>(Patch 3.2 “Call of the Crusade”)</span>"
+  'WD_Primal'=>[
+    'title'=>"Primal Blessing",'pieces'=>2,
+    'text'=>"A Zul’Gurub set that granted a chance to transform into a tiger on hit, boosting attack power. 
+             Loved by <b>Rogues</b>, <b>Hunters</b>, and <b>Feral Druids</b> for its style and strength."
   ],
-  'T10'=>[
-    'title'=>"Tier 10",'pieces'=>5,
-    'text'=>"Icecrown Citadel capped Wrath of the Lich King with the most thematic tier yet. Tier 10 sets were purchased with Emblems of Frost and upgraded with Marks of Sanctification from raid bosses. Their designs embodied the looming dread of the Scourge, from the Warlock’s Dark Coven Regalia to the Warrior’s Ymirjar Lord’s Plate. These sets carried players into the final confrontation with Arthas, the Lich King himself. <span class='set-note'>(Patch 3.3 “Fall of the Lich King”)</span>"
+  'WD_Zanzil'=>[
+    'title'=>"Zanzil’s Concentration",'pieces'=>2,
+    'text'=>"Another Zul’Gurub set, offering powerful caster and healer trinket bonuses. 
+             <b>Mages</b>, <b>Warlocks</b>, <b>Priests</b>, and <b>Shamans</b> often made use of it."
   ],
+  'WD_Overlord'=>[
+    'title'=>"Overlord’s Resolution",'pieces'=>2,
+    'text'=>"A tank-oriented world set, rarely completed, granting bonuses to survivability. 
+             Favored by <b>Warriors</b> and <b>Paladins</b> who specialized in mitigation."
+  ],
+  'WD_Prayer'=>[
+    'title'=>"Prayer of the Primal",'pieces'=>2,
+    'text'=>"A Zul’Gurub set aimed at healers. Provided mana efficiency and throughput boosts for 
+             <b>Priests</b>, <b>Paladins</b>, <b>Shamans</b>, and <b>Druids</b> in early raid healing."
+  ],
+  'WD_Mojo'=>[
+    'title'=>"Major Mojo Infusion",'pieces'=>2,
+    'text'=>"A quirky trinket-based set from Zul’Gurub granting spell crit and utility. 
+             While not core progression gear, it was a fun and flavorful bonus for both casters and hybrids."
+  ],
+  'WD_Eskhandar'=>[
+  'title'=>"Spirit of Eskhandar",'pieces'=>4,
+  'text'=>"A rare four-piece set from Zul’Gurub and world bosses. 
+           It combined <b>Eskhandar’s Right Claw</b>, <b>Eskhandar’s Left Claw</b>, 
+           <b>Eskhandar’s Collar</b>, and <b>Eskhandar’s Pelt</b>. 
+           Favored by <b>Warriors</b>, <b>Rogues</b>, <b>Hunters</b>, and <b>Shamans</b> 
+           for its feral-inspired bonuses."
+],
+
+
 ];
 
 
-/* ---------- ORDER ---------- */
-$order = ['T0','T0_5','T1','T1_5','T2','T2_25','T2_5','T3'];
-if ($maxTier >= 6)  { $order = array_merge($order, ['DS3','T4','T5','T6']); }
-if ($maxTier >= 10) { $order = array_merge($order, ['T7','T8','T9','T10']); }
+/* ---------- display order ---------- */
+$order = [
+  // Cloth
+  'WD_Necropile','WD_Postmaster','WD_UndeadCleansing',
+
+  // Leather
+  'WD_Defias','WD_Viper','WD_Cadaverous','WD_LeatherUndead',
+
+  // Mail
+  'WD_Scarlet','WD_MailUndead',
+
+  // Plate
+  'WD_Deathbone','WD_PlateUndead',
+
+  // Weapons/Trinkets
+  'WD_SpiderKiss','WD_DalRend','WD_Eskhandar','WD_Shard','WD_Hakkari',
+  'WD_Primal','WD_Zanzil','WD_Overlord','WD_Prayer','WD_Mojo'
+];
+
+
 ?>
 
 <!--Helper section-->
@@ -315,26 +477,51 @@ function slot_order($inv) {
       case 11: return 10; // Finger
       case 12: return 11; // Trinket
       case 16: return 12; // Back (cloak)
+
+      case 13: return 13; // Ranged / Thrown / Wand
+      case 21: return 14; // Main Hand
+      case 22: return 15; // Off Hand
+
       default: return 99; // Other/unexpected
     }
 }
 
+
 function icon_url($iconBase) { return '/armory/images/icons/64x64/'.$iconBase.'.png'; }
 
 function find_itemset_id_by_name(string $name): int {
-    $rows = armory_query("SELECT id, name FROM dbc_itemset", 0);
-    if (!is_array($rows) || empty($rows)) return 0;
+    global $DEBUG;
+    $name = trim($name);
+    if ($name === '') return 0;
 
-    $nameNorm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $name));
+    // normalize: lowercase, strip punctuation
+    $norm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $name));
 
+    // fetch all possible matches from DB
+    $rows = armory_query("SELECT id,name FROM dbc_itemset", 0);
     foreach ($rows as $r) {
         $dbNorm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $r['name']));
-        if ($dbNorm === $nameNorm) return (int)$r['id'];
+        if ($dbNorm === $norm) {
+            if ($DEBUG) {
+                echo "<div style='color:lime'>[MATCH exact] '$name' → '{$r['name']}' (id={$r['id']})</div>";
+            }
+            return (int)$r['id'];
+        }
     }
 
+    // fallback: loose contains match
     foreach ($rows as $r) {
         $dbNorm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $r['name']));
-        if (strpos($dbNorm, $nameNorm) !== false) return (int)$r['id'];
+        if (strpos($dbNorm, $norm) !== false) {
+            if ($DEBUG) {
+                echo "<div style='color:orange'>[MATCH loose] '$name' → '{$r['name']}' (id={$r['id']})</div>";
+            }
+            return (int)$r['id'];
+        }
+    }
+
+    if ($DEBUG) {
+        echo "<div style='color:red'>[NO MATCH] '$name' (normalized: $norm)</div>";
     }
 
     return 0;
@@ -492,11 +679,38 @@ function build_placeholder_chips(int $pieces): string {
 }
 
 function item_class_name(int $class, int $sub): string {
-    if ($class == 4) {
-        $armor = [1=>"Cloth",2=>"Leather",3=>"Mail",4=>"Plate"];
-        return $armor[$sub] ?? "Armor";
+    switch ($class) {
+        case 2: // Weapon
+            $weapons = [
+                0=>"Axe (1H)", 1=>"Axe (2H)",
+                2=>"Bow", 3=>"Gun",
+                4=>"Mace (1H)", 5=>"Mace (2H)",
+                6=>"Polearm", 7=>"Sword (1H)", 8=>"Sword (2H)",
+                10=>"Staff", 13=>"Fist Weapon",
+                15=>"Dagger", 16=>"Thrown",
+                18=>"Crossbow", 19=>"Wand",
+                20=>"Fishing Pole"
+            ];
+            return $weapons[$sub] ?? "Weapon";
+
+        case 4: // Armor
+            $armor = [
+                0=>"Misc", 1=>"Cloth", 2=>"Leather",
+                3=>"Mail", 4=>"Plate", 6=>"Shield",
+                7=>"Libram", 8=>"Idol", 9=>"Totem", 10=>"Sigil"
+            ];
+            return $armor[$sub] ?? "Armor";
+
+        case 15: // Misc
+            $misc = [
+                0=>"Junk", 2=>"Pet", 3=>"Holiday", 
+                4=>"Other", 5=>"Mount"
+            ];
+            return $misc[$sub] ?? "Misc";
+
+        default:
+            return "Item";
     }
-    return "Item";
 }
 
 function stat_name(int $id): string {
@@ -512,16 +726,28 @@ function stat_name(int $id): string {
 
 function inventory_type_name(int $id): string {
     $map = [
-        1=>"Head", 2=>"Neck", 3=>"Shoulder",
-        5=>"Chest", 6=>"Waist", 7=>"Legs",
-        8=>"Feet", 9=>"Wrist", 10=>"Hands",
-        11=>"Finger", 12=>"Trinket",
-        16=>"Back",
-        20=>"Chest (Robe)" // robe = chest variant
+        1  => "Head",
+        2  => "Neck",
+        3  => "Shoulder",
+        5  => "Chest",
+        6  => "Waist",
+        7  => "Legs",
+        8  => "Feet",
+        9  => "Wrist",
+        10 => "Hands",
+        11 => "Finger",
+        12 => "Trinket",
+        13 => "One Hand",          
+        14 => "Shield",          // Off-hand shield
+        15 => "Weapon",          // Holdable (books, orbs, off-hand frills)
+        16 => "Back",            // Cloak
+        17 => "Two-Hand",        // 2H weapons
+        21 => "Main Hand",       // Main hand only
+        22 => "Off Hand",        // Off hand only
+        23 => "Held In Off-hand" // Non-weapon, frills
     ];
     return $map[$id] ?? "Slot ".$id;
 }
-
 
 function armor_set_variants($raw) {
   $raw = (string)$raw;
@@ -546,6 +772,70 @@ function armor_set_variants($raw) {
 
 <!-- Main functions -->
 <?php
+
+function render_armor_set($nm, $pieces, $setData, $setId) {
+    global $DEBUG;
+
+    if ($DEBUG) {
+        echo "<div style='color:aqua'>[RENDER] name='".htmlspecialchars(is_array($nm)?json_encode($nm):$nm)."'</div>";
+        echo "<div style='color:yellow'>[RENDER] setId={$setId}, pieces={$pieces}</div>";
+        echo "<div style='color:orange'>[RENDER] items=".count($setData['items'] ?? [])."</div>";
+    }
+
+    if (empty($setData) || empty($setData['items'])) {
+        if ($DEBUG) echo "<div style='color:red'>[RENDER FAIL] No items for setId {$setId}</div>";
+        return;
+    }
+
+    // --- build tooltip with set bonuses ---
+    $bonusTip = '';
+    if (!empty($setData['bonuses'])) {
+        $bonusTip = htmlspecialchars(render_set_bonus_tip_html($setData), ENT_QUOTES);
+    }
+
+    echo "<div class='set-row'>";
+// find highest item quality in this set to colorize the name
+$qualityColors = [
+  0 => '#9d9d9d',  // poor
+  1 => '#ffffff',  // common
+  2 => '#1eff00',  // uncommon
+  3 => '#0070dd',  // rare (blue)
+  4 => '#a335ee',  // epic (purple)
+  5 => '#ff8000',  // legendary (orange)
+  6 => '#e6cc80',  // artifact
+  7 => '#e6cc80'
+];
+
+$maxQ = 0;
+if (!empty($setData['items'])) {
+  foreach ($setData['items'] as $it) {
+    $q = (int)($it['q'] ?? 0);
+    if ($q > $maxQ) $maxQ = $q;
+  }
+}
+$nameColor = $qualityColors[$maxQ] ?? '#ffffff';
+
+echo "<div class='set-name js-set-tip' data-tip-html='{$bonusTip}' style='color:{$nameColor};'>"
+   . htmlspecialchars($nm)
+   . "</div>";
+
+
+    // item icons
+    echo "<div class='set-icons'>";
+    foreach ($setData['items'] as $it) {
+        if ($DEBUG) {
+            echo "<div style='color:lime'>[ITEM ICON] {$it['entry']} - {$it['name']} (slot={$it['slot']}, icon={$it['icon']})</div>";
+        }
+        $icon = icon_url($it['icon']);
+        echo "<a href='".item_href($it['entry'])."' class='js-item-tip' "
+            ."data-tip-html='".htmlspecialchars(render_item_tip_html($it),ENT_QUOTES)."'>"
+            ."<img src='{$icon}' alt='' width='32' height='32'>"
+            ."</a>";
+    }
+    echo "</div>"; // .set-icons
+
+    echo "</div>"; // .set-row
+}
 
 function get_itemset_data(int $setId): array {
     global $DB;
@@ -1067,12 +1357,10 @@ $desc = preg_replace_callback(
 
 <!--Main body of page HTML -->
 
-<?php builddiv_start(1, $lang['pvpsets'],1); ?>
+<?php builddiv_start(1, $lang['worldsets'],1); ?>
 <div class="modern-content">
-  <img src="<?php echo $currtmp; ?>/images/armorsets.jpg" alt="PVP sets" class="banner"/>
+  <img src="<?php echo $currtmp; ?>/images/armorsets.jpg" alt="world sets" class="banner"/>
   
-  
-
 <?php
 /* ---------- class bar ---------- */
 foreach ($classes as $c) {
@@ -1100,7 +1388,6 @@ foreach ($classes as $c) {
 
 echo '</div>';
 
-
 /* If no class, pick one at random */
 if ($selectedClass === '') {
   $rand = $classes[array_rand($classes)];
@@ -1108,66 +1395,31 @@ if ($selectedClass === '') {
 }
 
 
-/* ---------- Render sets ---------- */
-echo '<div class="set-group"><div class="set-title">Dungeon & Tier Sets</div>';
+/* ---------- Render set rows ---------- */
+echo '<div class="set-group"><div class="set-title">World Drop Sets</div>';
 
 foreach ($order as $key) {
-  if (preg_match('/^T(\d+)/',$key,$m) && (int)$m[1] > $maxTier) continue;
+  if (!isset($BLURB[$key])) {
+    echo '<div class="set-desc set-note">No data block found for '.$key.'.</div>';
+    continue;
+  }
 
   $title   = $BLURB[$key]['title'];
   $pieces  = (int)$BLURB[$key]['pieces'];
   $text    = $BLURB[$key]['text'];
-  $pairs   = (!empty($N[$key][$selectedClass])) ? armor_set_variants($N[$key][$selectedClass]) : [];
+  $pairs   = (!empty($N[$key][$selectedClass])) 
+               ? armor_set_variants($N[$key][$selectedClass]) : [];
 
-  if (empty($pairs)) echo "<div class='set-desc set-note'>No itemset variants for $selectedClass at $key.</div>";
+  if (empty($pairs)) continue;
 
-  echo '<div class="set-group"><div class="set-title">'.htmlspecialchars($title).'</div>';
-
-  if (!$pairs) {
-    $nmRaw = $N[$key][$selectedClass] ?? '';
-    if ($nmRaw !== '') $pairs = [['name' => $nmRaw, 'role' => '']];
-  }
-
-  foreach ($pairs as $p) {
-    $nm       = trim($p['name']);
-    $setId    = find_itemset_id_by_name($nm);
-    $tipHtml  = '';
-    $itemsHtml= '';
-
-    if ($setId) {
-      $data    = get_itemset_data($setId);
-      $tipHtml = render_set_bonus_tip_html($data);
-
-      if (!empty($data['items'])) {
-        $icons = [];
-        foreach ($data['items'] as $it) {
-          $tipItemHtml = render_item_tip_html($it);
-          $icons[] =
-            '<a href="' . htmlspecialchars(item_href((int)$it['entry'])) . '" class="js-item-tip" data-item-id="' . (int)$it['entry'] . '" data-tip-html="' . htmlspecialchars($tipItemHtml, ENT_QUOTES) . '">'
-          . '<img src="/armory/images/icons/64x64/' . htmlspecialchars($it['icon']) . '.png" alt="' . htmlspecialchars($it['name']) . '" width="32" height="32"></a>';
-        }
-        $itemsHtml = '<span class="set-icons">' . implode('', $icons) . '</span>';
-      }
-    }
-
-    if ($itemsHtml === '' && $pieces > 0) $itemsHtml = build_placeholder_chips($pieces);
-
-    echo '<div class="set-row">'
-       .   '<span class="set-name">'
-       .     '<b class="js-set-tip" data-tip-html="' . htmlspecialchars($tipHtml, ENT_QUOTES) . '">' . htmlspecialchars($nm) . '</b>'
-       .   '</span>'
-       .   '<span class="set-icons">' . $itemsHtml . '</span>'
-       . '</div>';
-  }
-
-
-/* ---------- clean + colorize class names ---------- */
+  echo "<div class='set-block'>";
+/* ---------- render title + description with class color highlights ---------- */
 echo "<div class='set-title'>".htmlspecialchars($title)."</div>";
 
-// Remove any hard-coded <b> or </b> tags safely
+// 1️⃣ Remove any leftover <b> or </b> tags safely
 $text = str_replace(['<b>', '</b>'], '', $text);
 
-// Map WoW class names to CSS color classes (matches your .is-* scheme)
+// 2️⃣ Map class names to CSS classes (reuse your .is-* colors)
 $classesToCSS = [
   'Warrior'      => 'is-warrior',
   'Paladin'      => 'is-paladin',
@@ -1181,27 +1433,50 @@ $classesToCSS = [
   'Death Knight' => 'is-dk'
 ];
 
-// Automatically wrap class names in <span class="is-class">
+// 3️⃣ Auto-wrap all class names (handles plurals too)
 $text = preg_replace_callback(
-  '/\b(' . implode('|', array_map('preg_quote', array_keys($classesToCSS))) . ')\b/i',
+  '/\b(' . implode('|', array_map('preg_quote', array_keys($classesToCSS))) . ')(s)?\b/i',
   function($m) use ($classesToCSS) {
     $name = ucfirst(strtolower($m[1]));
     $css  = $classesToCSS[$name] ?? '';
-    return "<span class='{$css}'><b>{$name}</b></span>";
+    $suffix = $m[2] ?? ''; // capture plural 's'
+    return "<span class='{$css}'><b>{$name}{$suffix}</b></span>";
   },
   $text
 );
 
 echo "<div class='set-desc'>{$text}</div>";
 
+
+  foreach ($pairs as $nm) {
+    $setName = $nm['name'];
+    $setRole = $nm['role'] ?? '';
+
+    if ($DEBUG) {
+        echo "<div style='color:cyan'>[PAIR] ".htmlspecialchars(print_r($nm,true))."</div>";
+    }
+
+    $setId = find_itemset_id_by_name($setName);
+    if ($DEBUG) {
+        echo "<div style='color:orange'>[LOOKUP] '$setName' → setId=$setId</div>";
+    }
+
+    $items = ($setId) ? get_itemset_data($setId) : [];
+
+    if ($DEBUG) {
+        $count = is_array($items) && !empty($items['items']) ? count($items['items']) : 0;
+        echo "<div style='color:yellow'>[ITEMS] setId=$setId → {$count} items</div>";
+    }
+
+    render_armor_set($setName, $pieces, $items, $setId);
+  }
+
+  echo "</div>";
 }
 ?>
 </div> <!-- closes .modern-content -->
 
 <?php builddiv_end(); ?>
-
-
-
 
 <script>
 // ---------- Armor Sets Tooltip Scripts ----------
