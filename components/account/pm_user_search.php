@@ -9,7 +9,7 @@ if ($q === '') {
 }
 
 // Connect to tbcrealmd for account list
-$REALMD = DbSimple_Generic::connect("mysqli://root:eltnub@192.168.1.13:3310/tbcrealmd");
+$REALMD = DbSimple_Generic::connect("mysqli://root:123456@127.0.0.1:3310/tbcrealmd");
 
 // Query player accounts (excluding bots)
 $names = $REALMD->selectCol("

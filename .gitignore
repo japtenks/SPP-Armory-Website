@@ -18,3 +18,4 @@ config/config.xml
 
 # Local images
 /img/
+armory/configuration/mysql.php

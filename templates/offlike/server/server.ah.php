@@ -237,8 +237,8 @@ switch ($realmId) {
 /* ---------- PDO Connection ---------- */
 try {
     $pdo = new PDO(
-        "mysql:host=192.168.1.13;port=3310;dbname={$db_chars};charset=utf8mb4",
-        'root', 'eltnub',
+        "mysql:host=127.0.0.1;port=3310;dbname={$db_chars};charset=utf8mb4",
+        'root', '123456',
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 } catch (PDOException $e) {

@@ -2,7 +2,7 @@
 /**
  * Modernized Auth class for MangosWeb-Offlike
  * Compatible with CMaNGOS realmd schema (account table)
- * Uses tbcrealmd on 192.168.1.13:3310
+ * Uses tbcrealmd on 127.0.0.1:3310
  */
 
 class Auth
@@ -14,9 +14,9 @@ class Auth
     {
         try {
             $this->pdo = new PDO(
-                'mysql:host=192.168.1.13;port=3310;dbname=tbcrealmd;charset=utf8mb4',
+                'mysql:host=127.0.0.1;port=3310;dbname=tbcrealmd;charset=utf8mb4',
                 'root',
-                'eltnub',
+                '123456',
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
             );
         } catch (PDOException $e) {

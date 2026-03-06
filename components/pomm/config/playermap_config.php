@@ -9,25 +9,25 @@ $db_type       = "MySQL";
 
 // ---------- Realm Database ----------
 $realm_db = [
-  "addr"     => "192.168.1.13:3310",
+  "addr"     => "127.0.0.1:3310",
   "user"     => "root",
-  "pass"     => "eltnub",
+  "pass"     => "123456",
   "name"     => "tbcrealmd",
   "encoding" => "utf8"
 ];
 
 // ---------- World Databases ----------
 $world_db = [
-  1 => ["addr" => "192.168.1.13:3310", "user" => "root", "pass" => "eltnub", "name" => "classicmangos", "encoding" => "utf8"],
-  2 => ["addr" => "192.168.1.13:3310", "user" => "root", "pass" => "eltnub", "name" => "tbcmangos", "encoding" => "utf8"],
-  3 => ["addr" => "192.168.1.13:3310", "user" => "root", "pass" => "eltnub", "name" => "wotlkmangos", "encoding" => "utf8"]
+  1 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "classicmangos", "encoding" => "utf8"],
+  2 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "tbcmangos", "encoding" => "utf8"],
+  3 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "wotlkmangos", "encoding" => "utf8"]
 ];
 
 // ---------- Character Databases ----------
 $characters_db = [
-  1 => ["addr" => "192.168.1.13:3310", "user" => "root", "pass" => "eltnub", "name" => "classiccharacters", "encoding" => "utf8"],
-  2 => ["addr" => "192.168.1.13:3310", "user" => "root", "pass" => "eltnub", "name" => "tbccharacters", "encoding" => "utf8"],
-  3 => ["addr" => "192.168.1.13:3310", "user" => "root", "pass" => "eltnub", "name" => "wotlkcharacters", "encoding" => "utf8"]
+  1 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "classiccharacters", "encoding" => "utf8"],
+  2 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "tbccharacters", "encoding" => "utf8"],
+  3 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "wotlkcharacters", "encoding" => "utf8"]
 ];
 
 // ---------- Server Info ----------

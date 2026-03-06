@@ -19,10 +19,10 @@ $realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 1;
 switch ($realmId) {
     case 1:
         $db = [
-            'host' => '192.168.1.13',
+            'host' => '127.0.0.1',
             'port' => 3310,
             'user' => 'root',
-            'pass' => 'eltnub',
+            'pass' => '123456',
             'chars' => 'classiccharacters',
             'world' => 'classicmangos',
             'armory' => 'classicarmory',
@@ -31,10 +31,10 @@ switch ($realmId) {
         break;
     case 2:
         $db = [
-            'host' => '192.168.1.13',
+            'host' => '127.0.0.1',
             'port' => 3310,
             'user' => 'root',
-            'pass' => 'eltnub',
+            'pass' => '123456',
             'chars' => 'tbccharacters',
             'world' => 'tbcmangos',
             'armory' => 'tbcarmory',
@@ -43,10 +43,10 @@ switch ($realmId) {
         break;
     case 3:
         $db = [
-            'host' => '192.168.1.13',
+            'host' => '127.0.0.1',
             'port' => 3310,
             'user' => 'root',
-            'pass' => 'eltnub',
+            'pass' => '123456',
             'chars' => 'wotlkcharacters',
             'world' => 'wotlkmangos',
             'armory' => 'wotlkarmory',
@@ -55,10 +55,10 @@ switch ($realmId) {
         break;
     default:
         $db = [
-            'host' => '192.168.1.13',
+            'host' => '127.0.0.1',
             'port' => 3310,
             'user' => 'root',
-            'pass' => 'eltnub',
+            'pass' => '123456',
             'chars' => 'classiccharacters',
             'world' => 'classicmangos',
             'armory' => 'classicarmory',

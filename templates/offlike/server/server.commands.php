@@ -1,92 +1,13 @@
-
-<style>
-/* ---------- Search Box ---------- */
-#commandSearch {
-  width: 100%;
-  padding: 10px 12px;
-  margin: 240px 0 16px;
-  border: 1px solid #444;
-  border-radius: 6px;
-  background: #0f0f0f;
-  color: #eee;
-  font-size: 1rem;
-}
-#commandSearch:focus {
-  border-color: #ffcc66;
-  outline: none;
-}
-
-/* ---------- Command Table ---------- */
-#commandTable {
-  width: 100%;
-  border-collapse: collapse;
-  color: #ddd;
-}
-
-#commandTable th {
-  background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
-  color: #ffcc66;
-  font-weight: bold;
-  text-align: left;
-  padding: 8px;
-  border-bottom: 1px solid #333;
-  text-transform: uppercase;
-}
-
-#commandTable td {
-  padding: 10px;
-  border-bottom: 1px solid #222;
-  vertical-align: top;
-}
-
-#commandTable tr:nth-child(even) {
-  background: rgba(255,255,255,0.03);
-}
-
-#commandTable tr:hover {
-  background: rgba(255,204,102,0.08);
-}
-
-/* ---------- Details + Summary ---------- */
-details summary {
-  cursor: pointer;
-  font-weight: bold;
-  color: #7abaff;
-  transition: color 0.3s;
-}
-details summary:hover {
-  color: #ffd97a;
-}
-details p {
-  margin-top: 8px;
-  color: #ccc;
-  line-height: 1.4;
-}
-
-/* ---------- Security Level ---------- */
-td.serverStatus b {
-  color: #aefb6b;
-}
-
-/* ---------- Banner ---------- */
-img.ah-banner {
-  display: block;
-  margin: 0 auto 16px auto;
-  max-width: 100%;
-  border-radius: 6px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.6);
-}
-</style>
 <?php
 
 $realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 1;
 switch ($realmId) {
     case 1:
         $db = [
-            'host' => '192.168.1.13',
+            'host' => '127.0.0.1',
             'port' => 3310,
             'user' => 'root',
-            'pass' => 'eltnub',
+            'pass' => '123456',
             'name' => 'classiccharacters'
         ];
         $world_db  = 'classicmangos';
@@ -96,10 +17,10 @@ switch ($realmId) {
 
     case 2:
         $db = [
-            'host' => '192.168.1.13',
+            'host' => '127.0.0.1',
             'port' => 3310,
             'user' => 'root',
-            'pass' => 'eltnub',
+            'pass' => '123456',
             'name' => 'tbccharacters'
         ];
         $world_db  = 'tbcmangos';
@@ -109,10 +30,10 @@ switch ($realmId) {
 
     case 4:
         $db = [
-            'host' => '192.168.1.13',
+            'host' => '127.0.0.1',
             'port' => 3310,
             'user' => 'root',
-            'pass' => 'eltnub',
+            'pass' => '123456',
             'name' => 'wotlkcharacters'
         ];
         $world_db  = 'wotlkmangos';

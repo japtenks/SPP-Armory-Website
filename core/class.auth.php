@@ -62,7 +62,7 @@ function AUTH($DB,$confs)
     global $MW;
 
     // Force connection to realmd DB (remote host)
-    $this->DB = DbSimple_Generic::connect("mysql://root:eltnub@192.168.1.13:3310/tbcrealmd");
+    $this->DB = DbSimple_Generic::connect("mysql://root:123456@127.0.0.1:3310/tbcrealmd");
     $this->DB->setErrorHandler('databaseErrorHandler'); // keep original error handling if used
 
     // Continue normal flow
@@ -84,9 +84,9 @@ function load_characters_for_user() {
 
     // Define all realm DBs
     $realmDBs = [
-        1 => ["name" => "Classic", "dsn" => "mysql://root:eltnub@192.168.1.13:3310/classiccharacters"],
-        2 => ["name" => "The Burning Crusade", "dsn" => "mysql://root:eltnub@192.168.1.13:3310/tbccharacters"],
-        3 => ["name" => "Wrath of the Lich King", "dsn" => "mysql://root:eltnub@192.168.1.13:3310/wotlkcharacters"]
+        1 => ["name" => "Classic", "dsn" => "mysql://root:123456@127.0.0.1:3310/classiccharacters"],
+        2 => ["name" => "The Burning Crusade", "dsn" => "mysql://root:123456@127.0.0.1:3310/tbccharacters"],
+        3 => ["name" => "Wrath of the Lich King", "dsn" => "mysql://root:123456@127.0.0.1:3310/wotlkcharacters"]
     ];
 
     $GLOBALS['characters'] = [];
