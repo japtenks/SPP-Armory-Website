@@ -28,37 +28,38 @@ if (file_exists("../wotlk.spp"))
     unset($realms["Burning Crusade Realm"]);
     unset($realms["Vanilla Realm"]);
 }
+
+// DB common vars
+$db_host = '127.0.0.1';
+$db_port = '3310';
+$db_user = 'root';
+$db_pass = '123456';
+
 $realmd_DB = array(
-// Connection to realmd DBs
-1 => array("127.0.0.1:3310", "root", "123456", "classicrealmd"),
-2 => array("127.0.0.1:3310", "root", "123456", "tbcrealmd"),
-3 => array("127.0.0.1:3310", "root", "123456", "wotlkrealmd"),
+  1 => array(hp($db_host,$db_port), $db_user, $db_pass, "classicrealmd"),
+  2 => array(hp($db_host,$db_port), $db_user, $db_pass, "tbcrealmd"),
+  3 => array(hp($db_host,$db_port), $db_user, $db_pass, "wotlkrealmd"),
 );
 $characters_DB = array(
-// Connection to characters DBs
-1 => array("127.0.0.1:3310", "root", "123456", "classiccharacters"),
-2 => array("127.0.0.1:3310", "root", "123456", "tbccharacters"),
-3 => array("127.0.0.1:3310", "root", "123456", "wotlkcharacters"),
+  1 => array(hp($db_host,$db_port), $db_user, $db_pass, "classiccharacters"),
+  2 => array(hp($db_host,$db_port), $db_user, $db_pass, "tbccharacters"),
+  3 => array(hp($db_host,$db_port), $db_user, $db_pass, "wotlkcharacters"),
 );
 $mangosd_DB = array(
-// Connection to mangos DBs
-1 => array("127.0.0.1:3310", "root", "123456", "classicmangos"),
-2 => array("127.0.0.1:3310", "root", "123456", "tbcmangos"),
-3 => array("127.0.0.1:3310", "root", "123456", "wotlkmangos"),
+  1 => array(hp($db_host,$db_port), $db_user, $db_pass, "classicmangos"),
+  2 => array(hp($db_host,$db_port), $db_user, $db_pass, "tbcmangos"),
+  3 => array(hp($db_host,$db_port), $db_user, $db_pass, "wotlkmangos"),
 );
 $armory_DB = array(
-// Connection to armory DBs
-1 => array("127.0.0.1:3310", "root", "123456", "classicarmory"),
-2 => array("127.0.0.1:3310", "root", "123456", "tbcarmory"),
-3 => array("127.0.0.1:3310", "root", "123456", "wotlkarmory"),
+  1 => array(hp($db_host,$db_port), $db_user, $db_pass, "classicarmory"),
+  2 => array(hp($db_host,$db_port), $db_user, $db_pass, "tbcarmory"),
+  3 => array(hp($db_host,$db_port), $db_user, $db_pass, "wotlkarmory"),
 );
 $playerbot_DB = array(
-// Connection to bots DBs
-1 => array("127.0.0.1:3310", "root", "123456", "classicplayerbots"),
-2 => array("127.0.0.1:3310", "root", "123456", "tbcplayerbots"),
-3 => array("127.0.0.1:3310", "root", "123456", "wotlkplayerbots"),
-);
-/* Don't touch anything beyond this point. */
+  1 => array(hp($db_host,$db_port), $db_user, $db_pass, "classicplayerbots"),
+  2 => array(hp($db_host,$db_port), $db_user, $db_pass, "tbcplayerbots"),
+  3 => array(hp($db_host,$db_port), $db_user, $db_pass, "wotlkplayerbots"),
+);/* Don't touch anything beyond this point. */
 set_time_limit(0);
 ini_set("default_charset", "UTF-8");
 //set_magic_quotes_runtime(false);
