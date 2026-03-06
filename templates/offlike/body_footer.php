@@ -1,9 +1,8 @@
 <!--footer css-->
 <style>
 /* === STICKY LAYOUT === */
-html, body {
-  height: 100%;
-  margin: 0;
+body {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -15,22 +14,13 @@ main {
 /* === INLINE FOOTER === */
 .site-footer {
   position: relative;
-  bottom: 0;
   width: 100%;
   margin-top: auto;
   text-align: center;
   font-size: 12px;
-  line-height: 1.4;
 
-  background:
-    linear-gradient(rgba(10, 10, 10, 0.82), rgba(5, 5, 5, 0.9)),
-    url('../images/topnav-stone.jpg') repeat-x center #0b0b0b;
-
+  background: linear-gradient(rgba(10,10,10,0.82), rgba(5,5,5,0.9));
   border-top: 1px solid #3a3118;
-  box-shadow: inset 0 1px 0 #3d331b, 0 -2px 8px rgba(0,0,0,0.7);
-  padding: 10px 0;
-  color: #d9c68b;
-  backdrop-filter: blur(3px);
 }
 
 /* Wrap the logo + text inline */
