@@ -1,0 +1,418 @@
+/* ======================================================
+   GLOBAL STYLES
+   ====================================================== */
+body {
+  margin: 0;
+  padding-top: 48px;
+  background: #000;
+  color: #ddd;
+  font-family: Arial, sans-serif;
+}
+
+/* ======================================================
+   NAVIGATION BAR
+   ====================================================== */
+.nav-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background: url('../images/topnav-stone.jpg') repeat-x center top #111;
+  border-bottom: 2px solid #2e2a25;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  padding: 0 12px;
+  z-index: 9999;
+}
+
+/* === Logo === */
+.nav-logo img {
+  height: 32px;
+  width: auto;
+  margin-right: 12px;
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+.nav-logo img:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 6px #ffd700) drop-shadow(0 0 12px #ff9900);
+}
+
+/* === Desktop Menu === */
+.nav-menu {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  list-style: none;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+.nav-menu li { position: relative; }
+
+.nav-menu > li > a {
+  color: #d0a803;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 6px 8px;
+  text-decoration: none;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+.nav-menu > li > a:hover {
+  color: #fff1b0;
+  text-shadow: 0 0 4px #ffd700, 0 0 8px #ff9900;
+}
+
+/* === Submenus === */
+.nav-menu li ul {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #1b1b1b;
+  border: 1px solid #333;
+  border-radius: 4px;
+  min-width: 160px;
+  padding: 4px 0;
+  z-index: 1000;
+}
+.nav-menu li:hover > ul { display: block; }
+
+.nav-menu li ul li,
+.nav-menu li ul li a {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0;
+  padding: 0;
+}
+.nav-menu li ul li::marker { content: none; }
+
+.nav-menu li ul li a {
+  display: block;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #e0c068;
+}
+.nav-menu li ul li a:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+/* === Account Dropdown === */
+.account-dropdown { position: relative; }
+.account-dropdown > a {
+  background: #2c2c2c;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: #ffc600;
+  font-weight: bold;
+  text-decoration: none;
+}
+.account-dropdown > a:hover {
+  background: #444;
+  color: #fff;
+}
+.account-dropdown.open .account-menu { display: block; }
+
+.account-menu {
+  display: none;
+  position: absolute;
+  top: 110%;
+  right: 0;
+  background: #111 url('../images/subnav/bg.gif') repeat-y;
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+  list-style: none;
+  padding: 8px 0;
+  z-index: 9999;
+}
+.account-menu li a {
+  display: block;
+  padding: 8px 15px;
+  color: #ffc600;
+  font-weight: bold;
+  text-decoration: none;
+}
+.account-menu li a:hover {
+  background: #222;
+  color: #fff;
+}
+
+/* === Right Section === */
+.nav-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+/* === Mobile Menu === */
+.mobile-toggle {
+  display: none;
+  font-size: 24px;
+  color: #ffc600;
+  cursor: pointer;
+}
+.mobile-menu {
+  position: fixed;
+  top: 0;
+  left: -280px;
+  width: 260px;
+  height: 100%;
+  background: #111;
+  border-right: 2px solid #444;
+  padding: 20px;
+  overflow-y: auto;
+  transition: left 0.3s ease;
+  z-index: 10000;
+}
+.mobile-menu.open { left: 0; }
+.mobile-menu li { margin: 10px 0; }
+.mobile-menu a {
+  color: #ffc600;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 15px;
+}
+.mobile-menu a:hover { color: #fff; }
+.menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 998;
+}
+.menu-overlay.active { display: block; }
+
+/* === Responsive Breakpoints === */
+@media (max-width: 1024px) {
+  .desktop-menu { display: none; }
+  .mobile-toggle { display: block; }
+  .mobile-menu { display: flex; flex-direction: column; }
+}
+@media (max-width: 768px) {
+  .nav-container { height: 44px; }
+  body { padding-top: 44px; }
+  .nav-menu { gap: 8px; font-size: 13px; }
+}
+
+/* ======================================================
+   HEADER / WRAPPER ELEMENTS
+   ====================================================== */
+img[src*="*.jpg"] {
+  display: block;
+  margin: 0 auto 12px auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.6);
+}
+
+.modern-wrapper {
+  position: relative;
+  overflow: hidden;
+  max-width: 1000px;
+  margin: 30px auto;
+  border: 1px solid #222;
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.7);
+  padding: 24px;
+  font-family: 'Trebuchet MS', sans-serif;
+  color: #ccc;
+  background: url('<?php echo $currtmp; ?>/images/stone-dark.jpg') repeat center;
+}
+.modern-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(13,13,13,0.75);
+  z-index: 0;
+}
+.modern-header {
+  background: linear-gradient(to right, #2a1b05, #111);
+  color: #ffcc66;
+  text-align: center;
+  padding: 12px;
+  font-size: 1.4rem;
+  font-weight: bold;
+  border-bottom: 1px solid #2e2e2e;
+}
+.modern-content,
+.modern-header {
+  position: relative;
+  z-index: 1;
+}
+.modern-desc {
+  color: #ccc;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* ======================================================
+   WOW TABLE STYLES
+   ====================================================== */
+.wow-table {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1000px;
+  margin: 20px auto;
+  border: 1px solid #222;
+  border-radius: 10px;
+  box-sizing: border-box;
+  font-family: 'Trebuchet MS', sans-serif;
+  color: #ccc;
+  background: url('<?php echo $currtmp; ?>/images/stone-dark.jpg') repeat center;
+}
+.wow-table::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(13,13,13,0.80);
+  z-index: 0;
+}
+.wow-table .header,
+.wow-table .row {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-items: center;
+  text-align: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #222;
+}
+.wow-table .header {
+  background: linear-gradient(to bottom, #1a1a1a, #101010);
+  color: #ffcc66;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.wow-table .row:nth-child(even) { background: rgba(255,255,255,0.04); }
+.wow-table .row:hover { background: rgba(255,255,255,0.08); }
+
+/* Links */
+.wow-table a {
+  color: #ccc;
+  text-decoration: none;
+  transition: color .2s, text-shadow .2s;
+}
+.wow-table a:hover {
+  color: #fff3a0;
+  text-shadow: 0 0 8px #ffcc66;
+}
+
+/* Quality Colors */
+a.iqual0 { color:#9e9e9e; }
+a.iqual1 { color:#eee; }
+a.iqual2 { color:#00ff10; }
+a.iqual3 { color:#0070dd; }
+a.iqual4 { color:#a335ee; }
+a.iqual5 { color:#ff8000; }
+a.iqual6 { color:#e60000; }
+a[class^="iqual"]:hover { color:#fff; }
+
+/* Icons */
+.wow-table img.circle,
+.wow-table .class-icon {
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.wow-table img.circle:hover,
+.wow-table .class-icon:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 12px currentColor, 0 0 24px rgba(255,255,255,0.2);
+}
+
+/* Pagination + Filters */
+.wow-table .pagination-controls { text-align:center; margin-top:12px; color:#ccc; }
+.wow-table .filter-bar { text-align:center; margin:10px 0 20px; }
+.wow-table .filter {
+  color:#aaa; text-decoration:none; margin:0 8px; font-weight:bold;
+}
+.wow-table .filter.is-active,
+.wow-table .filter:hover { color:#ffcc66; }
+
+/* Dropdown filter menu */
+.wow-table .has-dropdown { position:relative; cursor:pointer; }
+.wow-table .dropdown {
+  display:none; position:absolute; top:100%; left:0;
+  background:#181818; border:1px solid #333; border-radius:4px;
+  min-width:160px; z-index:20;
+}
+.wow-table .has-dropdown:hover .dropdown { display:block; }
+.wow-table .option {
+  padding:5px 10px; color:#ddd; white-space:nowrap;
+}
+.wow-table .option:hover {
+  background:#333; color:#ffcc66;
+}
+
+/* ======================================================
+   CLASS & FACTION COLORS
+   ====================================================== */
+.class-warrior { --class-color:#C79C6E; }
+.class-mage { --class-color:#69CCF0; }
+.class-priest { --class-color:#FFFFFF; }
+.class-hunter { --class-color:#ABD473; }
+.class-rogue { --class-color:#FFF569; }
+.class-warlock { --class-color:#9482C9; }
+.class-paladin { --class-color:#F58CBA; }
+.class-druid { --class-color:#FF7D0A; }
+.class-shaman { --class-color:#0070DE; }
+.class-deathknight { --class-color:#C41F3B; }
+
+[class*="class-"] .portrait,
+[class*="class-"] .class-icon {
+  color: var(--class-color);
+  border-color: var(--class-color);
+  box-shadow: 0 0 4px var(--class-color, #888);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+[class*="class-"]:hover .portrait,
+[class*="class-"]:hover .class-icon {
+  box-shadow: 0 0 10px var(--class-color, #aaa);
+  filter: brightness(1.1);
+}
+[class*="class-"] a {
+  color: var(--class-color);
+  text-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Faction Icon Borders */
+img.circle[alt="race"][src*="race/1-"],
+img.circle[alt="race"][src*="race/3-"],
+img.circle[alt="race"][src*="race/4-"],
+img.circle[alt="race"][src*="race/7-"],
+img.circle[alt="race"][src*="race/11-"],
+.col img[title="Alliance"] {
+  border: 1px solid #0055ff;
+  box-shadow: 0 0 4px #0055ff;
+  border-radius: 50%;
+}
+img.circle[alt="race"][src*="race/2-"],
+img.circle[alt="race"][src*="race/5-"],
+img.circle[alt="race"][src*="race/6-"],
+img.circle[alt="race"][src*="race/8-"],
+img.circle[alt="race"][src*="race/10-"],
+.col img[title="Horde"] {
+  border: 1px solid #aa0000;
+  box-shadow: 0 0 4px #aa0000;
+  border-radius: 50%;
+}
+
+/* ======================================================
+   RESPONSIVE BEHAVIOR
+   ====================================================== */
+@media (max-width: 750px) {
+  .wow-table .header, .wow-table .row {
+    font-size: 0.9rem;
+  }
+}

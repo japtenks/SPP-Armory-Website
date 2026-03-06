@@ -122,10 +122,50 @@ img[src*="forum_top.png"] {
 }
 
 </style>
-
-
 <?php
-// Always load local self-hosted forum
+// ========================================================
+// Load forum categories + forums
+// ========================================================
+$categories = $DB->select("
+    SELECT cat_id, cat_name
+    FROM tbcrealmd.f_categories
+    ORDER BY cat_disp_position ASC
+");
+
+$items = [];
+
+foreach ($categories as $cat) {
+    $forums = $DB->select("
+        SELECT f.*,
+               t.topic_name,
+               t.last_post,
+               t.last_poster
+        FROM tbcrealmd.f_forums AS f
+        LEFT JOIN tbcrealmd.f_topics AS t ON f.last_topic_id = t.topic_id
+        WHERE f.cat_id = ?d
+        ORDER BY f.disp_position ASC
+    ", $cat['cat_id']);
+
+    if ($forums) {
+        foreach ($forums as &$forum) {
+            $forum['cat_name'] = $cat['cat_name'];
+            $forum['linktothis'] = "index.php?n=forum&sub=viewforum&fid=" . (int)$forum['forum_id'];
+            $forum['linktolastpost'] = !empty($forum['last_topic_id'])
+                ? "index.php?n=forum&sub=viewtopic&tid=" . (int)$forum['last_topic_id']
+                : "#";
+            $forum['topic_name'] = $forum['topic_name'] ?? '';
+            $forum['last_poster'] = $forum['last_poster'] ?? '';
+            $forum['last_post'] = !empty($forum['last_post'])
+                ? date('d-m-Y, H:i', $forum['last_post'])
+                : '';
+        }
+        $items[] = $forums;
+    }
+}
+
+// ========================================================
+// Render Forum Index
+// ========================================================
 if (true):
   builddiv_start(1, $lang['spp_forum']);
 ?>
@@ -133,71 +173,51 @@ if (true):
   <img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="Forums" class="forum-header"/>
 
   <div class="modern-content forum-container">
+    <?php if (empty($items)): ?>
+      <div class="forum-empty">No forums available.</div>
+    <?php endif; ?>
+
     <?php foreach ($items as $catitem): ?>
       <section class="forum-category modern-block">
         <div class="modern-title">
-          <img src="<?php echo $currtmp; ?>/images/nav_m.gif" alt=""/> 
+          <img src="<?php echo $currtmp; ?>/images/nav_m.gif" alt="Potatoes"/> 
           <?php echo htmlspecialchars($catitem[0]['cat_name']); ?>
         </div>
 
         <?php foreach ($catitem as $forumitem): ?>
-          <article class="forum-entry <?php echo $forumitem['isnew'] ? 'is-new' : ''; ?>">
+          <article class="forum-entry">
             <div class="forum-icon">
               <img src="<?php echo $currtmp; ?>/images/<?php
                 echo $forumitem['closed']
                   ? 'lock-icon.gif'
-                  : ($forumitem['isnew']
+                  : ($forumitem['isnew'] ?? false
                     ? 'news-community.gif'
                     : 'no-news-community.gif');
-              ?>" alt=""/>
+              ?>" alt="Lord farquad"/>
             </div>
 
             <div class="forum-details">
               <a class="forum-title" href="<?php echo $forumitem['linktothis']; ?>">
                 <?php echo htmlspecialchars($forumitem['forum_name']); ?>
               </a>
+              <p class="forum-desc"><?php echo htmlspecialchars($forumitem['forum_desc']); ?></p>
 
-              <?php if ($forumitem['hidden']): ?>
-                <span class="hidden"><?php echo $lang['hidden']; ?></span>
-              <?php endif; ?>
-
-              <?php if ($forumitem['isnew']): ?>
-                <span class="newmessages"><?php echo $lang['newmessages']; ?></span>
-              <?php endif; ?>
-
-              <p class="forum-desc">
-                <?php echo htmlspecialchars($forumitem['forum_desc']); ?>
-              </p>
-
-              <?php if ($forumitem['num_posts'] > 0): ?>
+              <?php if (!empty($forumitem['topic_name'])): ?>
                 <div class="lastreply">
                   <?php echo $lang['lastreplyin']; ?> 
                   <a href="<?php echo $forumitem['linktolastpost']; ?>">
                     <?php echo htmlspecialchars($forumitem['topic_name']); ?>
-                  </a>
-                  <br/>
+                  </a><br/>
                   <?php echo $lang['from']; ?> 
-                  <a href="<?php echo $forumitem['linktoprofile']; ?>">
-                    <?php echo htmlspecialchars($forumitem['last_poster']); ?>
-                  </a> 
+                  <span><?php echo htmlspecialchars($forumitem['last_poster']); ?></span> 
                   <?php echo $forumitem['last_post']; ?>
                 </div>
               <?php endif; ?>
             </div>
 
             <div class="forum-stats">
-              <div>
-                <?php echo $forumitem['num_topics']; ?>
-                <?php echo declension($forumitem['num_topics'], [
-                  $lang['l_theme1'], $lang['l_theme2'], $lang['l_theme3']
-                ]); ?>
-              </div>
-              <div>
-                <?php echo $forumitem['num_posts']; ?>
-                <?php echo declension($forumitem['num_posts'], [
-                  $lang['l_post1'], $lang['l_post2'], $lang['l_post3']
-                ]); ?>
-              </div>
+              <div><?php echo (int)$forumitem['num_topics']; ?> <?php echo $lang['l_theme2']; ?></div>
+              <div><?php echo (int)$forumitem['num_posts']; ?> <?php echo $lang['l_post2']; ?></div>
             </div>
           </article>
         <?php endforeach; ?>
@@ -205,18 +225,9 @@ if (true):
     <?php endforeach; ?>
 
     <div class="forum-legend">
-      <div>
-        <img src="<?php echo $currtmp; ?>/images/news-community.gif" alt=""/> 
-        <?php echo $lang['newpost']; ?>
-      </div>
-      <div>
-        <img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt=""/> 
-        <?php echo $lang['nonewpost']; ?>
-      </div>
-      <div>
-        <img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt=""/> 
-        <?php echo $lang['postclose']; ?>
-      </div>
+      <div><img src="<?php echo $currtmp; ?>/images/news-community.gif" alt=""/> <?php echo $lang['newpost']; ?></div>
+      <div><img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt=""/> <?php echo $lang['nonewpost']; ?></div>
+      <div><img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt=""/> <?php echo $lang['postclose']; ?></div>
     </div>
   </div>
 </div>

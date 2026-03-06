@@ -843,5 +843,7 @@ $lang = array (
   'menuCommunity' => 'Community',
   'menuSupport' => 'Support',
   'menuArmory' => 'Armory',
+  'arm_' => 'Armory',
+  'arm_talent' => 'Talents',
 );
 ?>

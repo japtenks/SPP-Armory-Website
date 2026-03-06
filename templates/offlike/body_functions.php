@@ -178,118 +178,82 @@ function build_serverinfo_menu($asList = true) {
 function build_account_menu($asList = true) {
     global $user, $auth, $languages;
 
-    // Pick display name: current char if available, else "Account"
+    // --- Load characters once the user is authenticated ---
+    if (isset($auth) && method_exists($auth, 'load_characters_for_user')) {
+        if (empty($GLOBALS['characters'])) {
+            $auth->load_characters_for_user();
+        }
+    }
+
+    // --- Pick display name: selected character or "Account" ---
     $charName = "Account";
-    if (!empty($GLOBALS['characters']) && !empty($user["character_id"])) {
+    if (!empty($GLOBALS['characters']) && !empty($_COOKIE["cur_selected_character"])) {
         foreach ($GLOBALS['characters'] as $character) {
-            if ($character["guid"] == $user["character_id"]) {
+            if ($character["guid"] == $_COOKIE["cur_selected_character"]) {
                 $charName = htmlspecialchars($character["name"]);
                 break;
             }
         }
     }
 
-if ($asList) {
-    echo '<li class="has-sub account-dropdown">';
-    echo '<a href="#">';
-    echo '<span class="account-icon">👤</span>';
-    echo '<span class="account-name">'.$charName.' ▼</span>';
-    echo '</a>';
-    echo '<ul>';
-}
+    if ($asList) {
+        echo '<li class="has-sub account-dropdown">';
+        echo '<a href="#">';
+        echo '<span class="account-name">'.$charName.' ▼</span>';
+        echo '</a>';
+        echo '<ul>';
+    }
 
-
+    // --- Guest (not logged in) ---
     if ($user['id'] <= 0) {
         echo '<li><a href="index.php?n=account&sub=login">Login</a></li>';
         echo '<li><a href="index.php?n=account&sub=register">Register</a></li>';
     } else {
-
-        // Messages + Userlist
-        if ($user["g_use_pm"]) {
+        // --- Messages ---
+        if (!empty($user["g_use_pm"])) {
             $userpm_num = $auth->check_pm();
             $label = ($userpm_num > 0) ? "Messages ($userpm_num)" : "Messages";
             echo '<li><a href="' . mw_url('account','pms') . '">' . $label . '</a></li>';
             echo '<li><a href="index.php?n=account&sub=userlist">Userlist</a></li>';
         }
 
-        // Admin Panel (GM only)
+        // --- Admin panel ---
         if (!empty($user['gmlevel']) && $user['gmlevel'] > 0) {
             echo '<li><a href="index.php?n=admin">Admin Panel</a></li>';
         }
 
-        // Characters list
-        if (!empty($GLOBALS['characters'])) {
-            foreach ($GLOBALS['characters'] as $character) {
-                $isActive = ($user["character_id"] == $character["guid"]);
-                $activeMark = $isActive ? "&gt; " : "";
-                $class = $isActive ? "char-item active-char" : "char-item";
+        // --- Characters grouped by realm ---
+        if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
+            $grouped = [];
+            foreach ($GLOBALS['characters'] as $char) {
+                $grouped[$char['realm_name']][] = $char;
+            }
 
-                echo '<li class="'.$class.'"><a href="index.php" 
-                      onclick="document.cookie=\'cur_selected_character='.$character['guid'].'; path=/\';">'
-                      .$activeMark.htmlspecialchars($character['name']).'</a></li>';
+            foreach ($grouped as $realmName => $chars) {
+                echo '<li class="menu-realm-label"><strong>'.$realmName.'</strong></li>';
+                foreach ($chars as $character) {
+                    $isActive = (!empty($_COOKIE['cur_selected_character']) && $_COOKIE['cur_selected_character'] == $character["guid"]);
+                    $class = $isActive ? "char-item active-char" : "char-item";
+                    $mark  = $isActive ? "&gt; " : "";
+
+			echo '<li class="' . $class . ' class-' . $character['class'] . '" 
+      			onclick="document.cookie=\'cur_selected_character=' . $character['guid'] . '; path=/\';
+               		document.cookie=\'cur_selected_realm=' . $character['realm_id'] . '; path=/\'; 
+               		location.reload();">'
+      			. $mark . htmlspecialchars($character['name']) .
+      			' <span class="level">(Lvl ' . $character['level'] . ')</span></li>';
+                }
             }
             echo '<li class="menu-spacer"></li>';
         }
 
-        // Logout
+        // --- Logout ---
         echo '<li><a href="?n=account&sub=login&action=logout">Logout</a></li>';
     }
 
-
-
-    if ($asList) {
-        echo '</ul></li>';
-    }
+    if ($asList) echo '</ul></li>';
 }
 
-// ------------------ RIGHT MENU ------------------
-function build_right_menu($wrap = true) {
-    global $user, $languages, $DB, $MW;
-    if ($wrap) echo "<ul class='right-menu accordion-menu'>";
-
-    if ($user['id'] > 0 && !empty($GLOBALS['characters'])) {
-        echo '<li class="has-sub"><a href="#">'.lang('character_menu',false).'</a><ul>';
-        foreach ($GLOBALS['characters'] as $character) {
-            $active = ($user["character_id"] == $character["guid"]) ? "&gt; " : "";
-            echo '<li><a href="javascript:setcookie(\'cur_selected_character\', \''.$character['guid'].'\'); window.location.reload();">'
-                 .$active.htmlspecialchars($character['name']).'</a></li>';
-        }
-        echo '</ul></li>';
-    }
-
-    if (!empty($GLOBALS['context_menu'])) {
-        echo '<li class="has-sub"><a href="#">'.lang('context_menu',false).'</a><ul>';
-        foreach ($GLOBALS['context_menu'] as $cmenuitem) {
-            echo '<li><a href="'.$cmenuitem['link'].'">'.htmlspecialchars($cmenuitem['title']).'</a></li>';
-        }
-        echo '</ul></li>';
-    }
-
-    if (!empty($languages)) {
-        echo '<li class="has-sub"><a href="#">'.lang('choose_lang',false).'</a><ul>';
-        foreach ($languages as $lang_s => $lang_name) {
-            $active = ($GLOBALS['user_cur_lang'] == $lang_s) ? "&gt; " : "";
-            echo '<li><a href="javascript:setcookie(\'Language\', \''.$lang_s.'\'); window.location.reload();">'
-                 .$active.htmlspecialchars($lang_name).'</a></li>';
-        }
-        echo '</ul></li>';
-    }
-
-    if ((int)$MW->getConfig->generic_values->realm_info->multirealm) {
-        $realms = $DB->select("SELECT `id`,`name` FROM `realmlist` ORDER by id DESC");
-        if (!empty($realms)) {
-            echo '<li class="has-sub"><a href="#">'.lang('realm_menu',false).'</a><ul>';
-            foreach ($realms as $realm) {
-                $active = ($user['cur_selected_realmd'] == $realm['id']) ? "&gt; " : "";
-                echo '<li><a href="javascript:setcookie(\'cur_selected_realmd\', \''.$realm['id'].'\'); window.location.reload();">'
-                     .$active.htmlspecialchars($realm['name']).'</a></li>';
-            }
-            echo '</ul></li>';
-        }
-    }
-
-    if ($wrap) echo "</ul>";
-}
 
 function build_language_menu($asList = true) {
     global $languages;
@@ -297,21 +261,21 @@ function build_language_menu($asList = true) {
     if (empty($languages)) return;
 
     if ($asList) {
-        echo '<li class="has-sub"><a href="#">🌐 Languages</a><ul>';
+        echo '<li class="has-sub"><a href="#">&#127760 Languages</a><ul>';
         foreach ($languages as $lang_s => $lang_name) {
             $active = ($GLOBALS['user_cur_lang'] == $lang_s) ? "&gt; " : "";
-            echo '<li><a href="javascript:setcookie(\'Language\', \''.$lang_s.'\'); window.location.reload();">'
-                 .$active.htmlspecialchars($lang_name).'</a></li>';
+            echo '<li><a href="javascript:changeLanguage(\'' . $lang_s . '\')">'
+                . $active . htmlspecialchars($lang_name) . '</a></li>';
         }
         echo '</ul></li>';
     } else {
         echo '<div class="menu-block has-sub">';
-        echo '<a href="#">🌐 Languages</a>';
+        echo '<a href="#">&#127760 Languages</a>';
         echo '<div class="menu-sub">';
         foreach ($languages as $lang_s => $lang_name) {
             $active = ($GLOBALS['user_cur_lang'] == $lang_s) ? "&gt; " : "";
-            echo '<div class="menu-item"><a href="javascript:setcookie(\'Language\', \''.$lang_s.'\'); window.location.reload();">'
-                 .$active.htmlspecialchars($lang_name).'</a></div>';
+            echo '<div class="menu-item"><a href="javascript:changeLanguage(\'' . $lang_s . '\')">'
+                . $active . htmlspecialchars($lang_name) . '</a></div>';
         }
         echo '</div></div>';
     }
@@ -505,17 +469,121 @@ function paginate($num_pages, $cur_page, $link_to){
   return str_replace('//','/',$pp);
 }
 
-function builddiv_start($type = 0, $title = "No title set") {
-  echo '<div class="modern-wrapper">';
-  if ($title !== "No title set") {
-    echo '<div class="modern-header">'.$title.'</div>';
-  }
-  echo '<div class="modern-content">';
+function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumnav = false, $forumId = 0, $forumClosed = false)
+{    echo '<div class="modern-wrapper">';
+
+    // === HEADER BAR ===
+    echo '<div class="modern-header" style="display:flex;align-items:center;justify-content:space-between;">';
+    echo '<div class="header-title">' . htmlspecialchars($title) . '</div>';
+
+    // === Optional Realm Selector ===
+    if ($realm == 1) {
+        $realmId = (int)($_GET['realm'] ?? 1);
+
+        echo '<form method="get" action="" class="realm-select-form" style="margin:0;">';
+
+        // preserve query params like n=statistic
+        foreach ($_GET as $key => $value) {
+            if ($key !== 'realm') {
+                echo '<input type="hidden" name="' . htmlspecialchars($key) . '" value="' . htmlspecialchars($value) . '" />';
+            }
+        }
+
+        echo '<label for="realm" style="font-weight:bold;color:#ffcc00;margin-right:6px;">Select Realm:</label>';
+        echo '<select id="realm" name="realm" onchange="this.form.submit()" style="padding:3px 6px;border-radius:4px;background:#111;border:1px solid #333;color:#fff;">';
+        echo '<option value="1"' . ($realmId == 1 ? ' selected' : '') . '>Classic</option>';
+        echo '<option value="2"' . ($realmId == 2 ? ' selected' : '') . '>The Burning Crusade</option>';
+        echo '<option value="3"' . ($realmId == 3 ? ' selected' : '') . '>Wrath of the Lich King</option>';
+        echo '</select>';
+
+        echo '</form>';
+    }
+
+// === Optional Forum Navigation Buttons ===
+if ($forumnav === true) {
+    echo '<div class="forum-actions" style="display:flex;gap:8px;">';
+
+    $sub = $_GET['sub'] ?? '';
+    $fid = (int)($_GET['fid'] ?? 0);
+    $tid = (int)($_GET['tid'] ?? 0);
+
+    if ($fid == 0 && $tid > 0) {
+        $topic = get_topic_byid($tid);
+        if (!empty($topic['forum_id'])) $fid = (int)$topic['forum_id'];
+    }
+
+    if ($sub === 'viewforum' && !$forumClosed) {
+        echo '<a href="index.php?n=forum&sub=post&action=newtopic&fid=' . $fid . '" class="btn primary">New Topic</a>';
+    } elseif ($sub === 'viewtopic' && !$forumClosed) {
+        echo '<a href="index.php?n=forum&sub=post&action=donewpost&t=' . $tid . '&fid=' . $fid . '" class="btn primary">Reply</a>';
+    } elseif ($sub === 'post') {
+        // already on post form, toggle button text
+        $label = isset($_GET['action']) && str_starts_with($_GET['action'], 'donewpost') ? 'Submit Reply' : 'Submit Topic';
+        echo '<button type="submit" form="forum-post-form" class="btn primary">' . $label . '</button>';
+    }
+
+    echo '<a href="index.php?n=forum" class="btn secondary">Back to Forums</a>';
+    echo '</div>';
+}
+
+    echo '</div>'; // close modern-header
+
+    // === MAIN CONTENT ===
+    echo '<div class="modern-content">';
 }
 
 function builddiv_end() {
   echo '</div></div>';
 }
+
+function get_realm_info()
+{
+    $realmId = (int)($_GET['realm'] ?? 1);
+
+    switch ($realmId) {
+        case 1:
+            return [
+                'id'   => 1,
+                'db'   => 'classiccharacters',
+                'world'=> 'classicmangos',
+                'bots' => 'classicplayerbots',
+                'logs' => 'classiclogs',
+                'name' => 'Classic',
+                'exp'  => 0
+            ];
+        case 2:
+            return [
+                'id'   => 2,
+                'db'   => 'tbccharacters',
+                'world'=> 'tbcmangos',
+                'bots' => 'tbcplayerbots',
+                'logs' => 'tbclogs',
+                'name' => 'The Burning Crusade',
+                'exp'  => 1
+            ];
+        case 3:
+            return [
+                'id'   => 3,
+                'db'   => 'wotlkcharacters',
+                'world'=> 'wotlkmangos',
+                'bots' => 'wotlkplayerbots',
+                'logs' => 'wotlklogs',
+                'name' => 'Wrath of the Lich King',
+                'exp'  => 2
+            ];
+        default:
+            return [
+                'id'   => 1,
+                'db'   => 'classiccharacters',
+                'world'=> 'classicmangos',
+                'bots' => 'classicplayerbots',
+                'logs' => 'classiclogs',
+                'name' => 'Classic',
+                'exp'  => 0
+            ];
+    }
+}
+
 
 ?>
 
@@ -591,4 +659,44 @@ function render_page_size_form($items_per_page, $extra_params = [], $show_bots =
     echo '</form>';
 }
 
+?>
+
+<?php
+function render_character_pagination($p, $pnum, $items_per_page, $realmId, $includeBots, $urlBase = 'index.php?n=server&sub=chars') {
+    $urlstring = $urlBase
+      . '&realm=' . $realmId
+      . '&per_page=' . $items_per_page
+      . '&show_bots=' . ($includeBots ? '1' : '0');
+    ?>
+    <div class="pagination-controls">
+      <div class="page-links">
+        <?php echo compact_paginate($p, $pnum, htmlspecialchars($urlstring)); ?>
+      </div>
+      <div class="page-size-form">
+        <form method="get" class="page-size-form">
+          <input type="hidden" name="n" value="server">
+          <input type="hidden" name="sub" value="chars">
+          <input type="hidden" name="realm" value="<?php echo $realmId; ?>">
+          <input type="hidden" name="p" value="<?php echo $p; ?>">
+
+          <label for="per_page">Show:</label>
+          <select id="per_page" name="per_page" onchange="this.form.submit()">
+            <?php foreach ([10,25,50,100] as $opt): ?>
+              <option value="<?php echo $opt; ?>" <?php if ($items_per_page == $opt) echo 'selected'; ?>>
+                <?php echo $opt; ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+          <span>per page</span>
+
+          <label style="margin-left:10px;">
+            <input type="checkbox" name="show_bots" value="1"
+                   onchange="this.form.submit()" <?php echo $includeBots ? 'checked' : ''; ?>>
+            Include bots
+          </label>
+        </form>
+      </div>
+    </div>
+    <?php
+}
 ?>

@@ -6,56 +6,123 @@ class AUTH {
      'username'  => 'Guest',
      'g_id' => 1
     );
+function check()
+{
+    global $MW;
+    if(isset($_COOKIE[((string)$MW->getConfig->generic->site_cookie)])){
+        list($cookie['user_id'], $cookie['account_key']) = @unserialize(stripslashes($_COOKIE[((string)$MW->getConfig->generic->site_cookie)]));
+        if($cookie['user_id'] < 1) return false;
 
-    function AUTH($DB,$confs)
-    {
-        global $MW;
-        $this->DB = $DB;
-        $this->check();
-        $this->user['ip'] = $_SERVER['REMOTE_ADDR'];
-        if((int)$MW->getConfig->generic->onlinelist_on){
-            if($this->user['id']<1)$this->onlinelist_addguest();
-            else $this->onlinelist_add();
-            $this->onlinelist_update();
+        $res = $this->DB->selectRow("
+            SELECT * FROM account
+            LEFT JOIN website_accounts ON account.id=website_accounts.account_id
+            LEFT JOIN website_account_groups ON website_accounts.g_id=website_account_groups.g_id
+            WHERE id = ?d", $cookie['user_id']);
+
+        if(get_banned($res['id'], 1)== TRUE){
+            $this->setgroup();
+            $this->logout();
+            output_message('alert','Your account is currently banned');
+            return false;
         }
-        //$this->lastvisit_update($this->user);
+
+        if($res['activation_code'] != null){
+            $this->setgroup();
+            output_message('alert','Your account is not active');
+            return false;
+        }
+
+	if (matchAccountKey($cookie['user_id'], $cookie['account_key'])){
+    unset($res['sha_pass_hash']);
+    $this->user = $res;
+
+    // Always load characters once the user is authenticated
+    $this->load_characters_for_user();
+
+    // Ensure global array exists early for header/menu use
+    if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
+        $GLOBALS['has_characters'] = true;
     }
 
-    function check()
-    {
-        global $MW;
-        if(isset($_COOKIE[((string)$MW->getConfig->generic->site_cookie)])){
-            list($cookie['user_id'], $cookie['account_key']) = @unserialize(stripslashes($_COOKIE[((string)$MW->getConfig->generic->site_cookie)]));
-            if($cookie['user_id'] < 1)return false;
-            $res = $this->DB->selectRow("
-                SELECT * FROM account
-                LEFT JOIN website_accounts ON account.id=website_accounts.account_id
-                LEFT JOIN website_account_groups ON website_accounts.g_id=website_account_groups.g_id
-                WHERE id = ?d", $cookie['user_id']);
-            if(get_banned($res['id'], 1)== TRUE){
-                $this->setgroup();
-                $this->logout();
-                output_message('alert','Your account is currently banned');
-                return false;
-            }
-            if($res['activation_code'] != null){
-                $this->setgroup();
-                output_message('alert','Your account is not active');
-                return false;
-            }
-            if(matchAccountKey($cookie['user_id'], $cookie['account_key'])){
-                unset($res['sha_pass_hash']);
-                $this->user = $res;
-                return true;
-            }else{
-                $this->setgroup();
-                return false;
-            }
-        }else{
+    return true;
+}
+ else {
             $this->setgroup();
             return false;
         }
+    } else {
+        $this->setgroup();
+        return false;
     }
+}
+
+
+function AUTH($DB,$confs)
+{
+    global $MW;
+
+    // Force connection to realmd DB (remote host)
+    $this->DB = DbSimple_Generic::connect("mysql://root:eltnub@192.168.1.13:3310/tbcrealmd");
+    $this->DB->setErrorHandler('databaseErrorHandler'); // keep original error handling if used
+
+    // Continue normal flow
+    $this->check();
+    $this->user['ip'] = $_SERVER['REMOTE_ADDR'];
+    if((int)$MW->getConfig->generic->onlinelist_on){
+        if($this->user['id']<1)$this->onlinelist_addguest();
+        else $this->onlinelist_add();
+        $this->onlinelist_update();
+    }
+}
+// === Load Characters for Logged-in User (All Realms) ===
+
+function load_characters_for_user() {
+    if (empty($this->user['id'])) {
+        $GLOBALS['characters'] = [];
+        return;
+    }
+
+    // Define all realm DBs
+    $realmDBs = [
+        1 => ["name" => "Classic", "dsn" => "mysql://root:eltnub@192.168.1.13:3310/classiccharacters"],
+        2 => ["name" => "The Burning Crusade", "dsn" => "mysql://root:eltnub@192.168.1.13:3310/tbccharacters"],
+        3 => ["name" => "Wrath of the Lich King", "dsn" => "mysql://root:eltnub@192.168.1.13:3310/wotlkcharacters"]
+    ];
+
+    $GLOBALS['characters'] = [];
+
+    foreach ($realmDBs as $id => $info) {
+        try {
+            $CHDB = DbSimple_Generic::connect($info['dsn']);
+            $CHDB->setErrorHandler('databaseErrorHandler');
+
+            $chars = $CHDB->select("
+                SELECT guid, name, race, class, level
+                FROM characters
+                WHERE account = ?d
+                ORDER BY level DESC
+            ", $this->user['id']);
+
+            if (!is_array($chars) || empty($chars)) {
+                error_log("[AUTH] No characters found in {$info['name']} for account {$this->user['id']}");
+                continue;
+            }
+
+            foreach ($chars as &$char) {
+                $char['realm_id']   = $id;
+                $char['realm_name'] = $info['name'];
+            }
+
+            $GLOBALS['characters'] = array_merge($GLOBALS['characters'], $chars);
+            error_log("[AUTH] Added ".count($chars)." from {$info['name']}");
+
+        } catch (Exception $e) {
+            error_log("[AUTH] Failed loading characters for realm {$info['name']}: " . $e->getMessage());
+        }
+    }
+
+    error_log("[AUTH] Loaded " . count($GLOBALS['characters']) . " total characters for " . $this->user['username']);
+}
 
     function setgroup($gid=1) // 1 - guest, 5- banned
     {
@@ -77,9 +144,17 @@ class AUTH {
             $success = 0;
         }
         $res = $this->DB->selectRow("
-            SELECT `id`,`username`,`s`,`v`,`locked` FROM `account`
-            WHERE `username` = ?", strtoupper($params['username']));
-		$res2 = $this->DB->selectCell("SELECT gmlevel WHERE id= ?", $res['id']);
+    SELECT `id`,`username`,`s`,`v`,`locked` FROM `account`
+    WHERE `username` = ?", strtoupper($params['username']));
+
+// Debug
+if (!$res) {
+    echo "<pre style='color:red'>No account found for username: " . strtoupper($params['username']) . "</pre>";
+    $test = $this->DB->select("SELECT id, username FROM account LIMIT 5");
+    echo "<pre style='color:yellow'>First 5 accounts:\n" . print_r($test, true) . "</pre>";
+    return false;
+}
+
         if($res['id'] < 1){$success = 0;output_message('alert','Bad username');}
         if(get_banned($res[id], 1)== TRUE){
             output_message('alert','Your account is currently banned');
@@ -90,28 +165,39 @@ class AUTH {
             $success = 0;
         }
         if($success!=1) return false;
-        if(verifySRP6($params['username'], $params['password'], $res['s'], $res['v'])){
-            $this->user['id'] = $res['id'];
-            $this->user['name'] = $res['username'];
-            $this->user['level'] = $res2;
-            $generated_key = $this->generate_key();
-            addOrUpdateAccountKeys($res['id'],$generated_key);
-            $uservars_hash = serialize(array($res['id'], $generated_key));
-            $cookie_expire_time = intval($MW->getConfig->generic->account_key_retain_length);
-            if(!$cookie_expire_time) {
-                $cookie_expire_time = (60*60*24*365);   //default is 1 year
-            }
-            (string)$cookie_name = $MW->getConfig->generic->site_cookie;
-            (string)$cookie_href = $MW->getConfig->temp->site_href;
-            (int)$cookie_delay = (time()+$cookie_expire_time);
-            setcookie($cookie_name, $uservars_hash, $cookie_delay,$cookie_href);
-            if((int)$MW->getConfig->generic->onlinelist_on)$this->onlinelist_delguest(); // !!
-            return true;
-        }else{
-            output_message('alert','Your password is incorrect');
-            return false;
-        }
+        if (verifySRP6($params['username'], $params['password'], $res['s'], $res['v'])) {
+    $this->user['id']    = $res['id'];
+    $this->user['name']  = $res['username'];
+    $this->user['level'] = $res2;
+
+    // Load all realm characters for this account
+    $this->load_characters_for_user();
+
+    $generated_key = $this->generate_key();
+    addOrUpdateAccountKeys($res['id'], $generated_key);
+
+    $uservars_hash = serialize([$res['id'], $generated_key]);
+    $cookie_expire_time = intval($MW->getConfig->generic->account_key_retain_length);
+    if (!$cookie_expire_time) {
+        $cookie_expire_time = 60 * 60 * 24 * 365; // default 1 year
     }
+
+    $cookie_name  = (string)$MW->getConfig->generic->site_cookie;
+    $cookie_href  = (string)$MW->getConfig->temp->site_href;
+    $cookie_delay = time() + $cookie_expire_time;
+
+    setcookie($cookie_name, $uservars_hash, $cookie_delay, $cookie_href);
+
+    if ((int)$MW->getConfig->generic->onlinelist_on) {
+        $this->onlinelist_delguest();
+    }
+
+    return true;
+
+} else {
+    output_message('alert', 'Your password is incorrect');
+    return false;
+}}
 
     function logout()
     {
@@ -215,7 +301,7 @@ class AUTH {
                     //$account_extend['theme'] = $params['expansion'];
                     //$this->DB->query("INSERT INTO website_accounts SET ?a", $account_extend);
                     $this->DB->query("INSERT INTO website_accounts SET account_id=?d, registration_ip=?, activation_code=?",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
-//                    $this->DB->query("INSERT INTO account_extend SET account_id=?d, registration_ip=?, activation_code=?, secretq1='".$account_extend['secretq1']."',secreta1='".$account_extend['secreta1']."',secretq2='".$account_extend['secretq2']."',secreta2='".$account_extend['secreta2']."'",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
+		    //$this->DB->query("INSERT INTO account_extend SET account_id=?d, registration_ip=?, activation_code=?, secretq1='".$account_extend['secretq1']."',secreta1='".$account_extend['secreta1']."',secretq2='".$account_extend['secretq2']."',secreta2='".$account_extend['secreta2']."'",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
                     //$this->DB->query("INSERT INTO account_extend SET account_id=?d, registration_ip=?, activation_code=?, secretq1=?s, secreta1=?s, secretq2=?s, secreta2=?s",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key,$account_extend['secretq1'], $account_extend['secreta1'], $account_extend['secretq2'], $account_extend['secreta2']);
                 }
                 if((int)$MW->getConfig->generic->use_purepass_table)

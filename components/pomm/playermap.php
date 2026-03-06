@@ -201,7 +201,13 @@ body {
     text-align: left;
     padding: 0px;
 }
--->
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+
 </style>
 </HEAD>
 <script TYPE="text/javascript" src="libs/js/JsHttpRequest/Js.js"></script>
@@ -911,7 +917,9 @@ function start()
   }
 }
 </SCRIPT>
+
 <BODY onload=start()>
+
 
 <div onMouseDown="showNextStatusText();" id="serverstatus">
     <table align="center" border="0" cellspacing="0" cellpadding="0" width="156px" height="36px">
@@ -936,6 +944,7 @@ function start()
 </div>
 <div ID="info_bottom">
     <center>
+
     <table border="0" cellspacing="0" cellpadding="0" height="20" width="100%">
         <tr><td align="center" valign="top" id="server_info"></td></tr>
     </table>

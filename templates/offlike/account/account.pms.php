@@ -1,241 +1,415 @@
 <style>
+/* =========================================================
+   MODERN PERSONAL MESSAGES — STYLING
+   ========================================================= */
+.modern-content.pm-container {
+  max-width: 900px;
+  margin: 0 auto;
+  background: rgba(10,10,10,0.92);
+  border: 1px solid #6a4a00;
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.7);
+  padding: 20px 28px;
+  color: #ddd;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+/* --- Tabs --- */
 .pm-nav {
   display: flex;
   gap: 12px;
-  border-bottom: 2px solid #333;
-  padding-bottom: 6px;
-  margin-bottom: 12px;
+  background: linear-gradient(to bottom, rgba(60,40,0,0.9), rgba(20,10,0,0.9));
+  border: 1px solid #654321;
+  border-radius: 6px;
+  padding: 6px;
+  margin-bottom: 14px;
 }
 .pm-nav a {
+  flex: 1;
   color: #ccc;
   text-decoration: none;
   padding: 6px 10px;
   border-radius: 4px;
-  background: #1a1a1a;
+  background: rgba(25,25,25,0.8);
+  border: 1px solid #3a2a00;
+  text-align: center;
   transition: 0.2s;
 }
-.pm-nav a:hover { background: #2c2c2c; color: #fff; }
-.pm-nav a.active { background: #444; color: #fff; font-weight: bold; }
+.pm-nav a:hover { background:#2c2c2c; color:#fff; }
+.pm-nav a.active {
+  background:linear-gradient(to bottom,#c08a00,#7a5100);
+  border:1px solid #cda400;
+  box-shadow:0 0 8px rgba(255,204,0,0.4);
+  color:#fff;
+  font-weight:bold;
+}
 
-.pm-controls {
+/* --- Message List --- */
+.pm-view-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pm-card {
+  background: rgba(20,20,20,0.9);
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 10px 12px;
+  transition: background 0.2s;
+}
+.pm-card:hover { background: rgba(35,35,35,0.95); }
+.pm-card.unread { border-color: #bba100; }
+.pm-row-header {
   display: flex;
   justify-content: space-between;
-  flex-wrap: wrap;
-  background: #151515;
-  border: 1px solid #333;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: #bbb;
-  margin-bottom: 10px;
+  font-size: 0.9rem;
+  color: #ccc;
+  margin-bottom: 4px;
 }
-.pm-controls a { color: #9cf; text-decoration: none; }
-.pm-controls a:hover { text-decoration: underline; }
+.pm-subject {
+  color: #ffcc00;
+  font-weight: bold;
+  text-decoration: none;
+}
+.pm-subject:hover { text-decoration: underline; }
 
-.modern-table.pm-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.pm-table th, .pm-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #2c2c2c;
-  text-align: left;
-  color: #ddd;
-}
-.pm-table tr.read { background: rgba(0,255,0,0.03); }
-.pm-table tr.unread { background: rgba(255,255,0,0.05); }
-.pm-table tr:hover { background: rgba(255,255,255,0.08); }
-
-.pm-view {
-  background: #1a1a1a;
+/* --- View PM --- */
+.pm-view-card {
+  background: rgba(20,20,20,0.9);
   border: 1px solid #333;
   border-radius: 8px;
   padding: 12px;
 }
-.pm-header {
+.pm-view-header {
+  display: flex;
+  justify-content: space-between;
   border-bottom: 1px solid #333;
   padding-bottom: 6px;
-  margin-bottom: 12px;
-  font-size: 0.95rem;
-  color: #ccc;
-}
-.pm-body {
-  display: flex;
-  gap: 16px;
-}
-.pm-avatar img {
-  width: 80px;
-  border-radius: 6px;
-  border: 1px solid #444;
-}
-.pm-message {
-  background: #111;
-  padding: 10px;
-  border-radius: 6px;
-  flex: 1;
-  white-space: pre-wrap;
-}
-.pm-footer {
-  text-align: right;
-  margin-top: 10px;
-}
-.btn-reply {
-  padding: 6px 12px;
-  background: #444;
-  color: #fff;
-  border-radius: 4px;
-  text-decoration: none;
-}
-.btn-reply:hover { background: #666; }
-
-.pm-compose input[type=text],
-.pm-compose textarea {
-  width: 100%;
-  background: #111;
-  color: #ddd;
-  border: 1px solid #333;
-  padding: 6px;
-  border-radius: 4px;
   margin-bottom: 10px;
 }
+.pm-view-fromto div { color: #ccc; font-size: 0.9rem; }
+.pm-label { color: #ffcc66; font-weight: 600; }
+.pm-view-subject {
+  font-weight: bold;
+  color: #ffcc00;
+  margin-bottom: 8px;
+}
+.pm-view-body {
+  background: #111;
+  border-radius: 4px;
+  padding: 10px;
+  color: #eee;
+  white-space: pre-wrap;
+  min-height: 100px;
+}
+.pm-view-footer {
+  text-align: right;
+  margin-top: 12px;
+}
+.pm-reply-btn {
+  background: #b58300;
+  border: 1px solid #ffcc33;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+}
+.pm-reply-btn:hover {
+  background: #dca800;
+  box-shadow: 0 0 6px #ffcc00;
+}
+
+/* --- Compose --- */
+.pm-compose label {
+  display:block;
+  margin:6px 0 4px 2px;
+  color:#ffcc66;
+  font-weight:600;
+}
+.pm-compose input[type=text],
+.pm-compose textarea {
+  width:100%;
+  background:rgba(20,20,20,0.95);
+  border:1px solid #444;
+  color:#f0f0f0;
+  border-radius:4px;
+  padding:8px 10px;
+  margin-bottom:10px;
+}
+.pm-compose textarea {
+  min-height:200px;
+  resize:vertical;
+}
 .pm-buttons {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
 }
 .btn-primary {
-  background: #2c6ac8;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 14px;
-  cursor: pointer;
+  background:#2c6ac8;
+  color:#fff;
+  border:none;
+  border-radius:4px;
+  padding:6px 14px;
+  cursor:pointer;
 }
-.btn-primary:hover { background: #3d7cff; }
+.btn-primary:hover { background:#3d7cff; }
+
+/* --- BBCode Toolbar --- */
+.editor-tools {
+  background:rgba(15,15,15,0.98);
+  border:1px solid rgba(255,200,80,0.25);
+  border-radius:6px;
+  padding:8px 10px 10px;
+  margin-bottom:12px;
+  box-shadow:inset 0 0 6px rgba(255,204,0,0.05);
+}
+.bbcode-toolbar {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:6px;
+}
+.bbcode-toolbar button {
+  background:#1a1a1a;
+  border:1px solid #444;
+  color:#ffcc66;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:4px;
+  cursor:pointer;
+  transition:0.15s;
+}
+.bbcode-toolbar button:hover {
+  background:#333;
+  color:#fff;
+  box-shadow:0 0 5px #ffcc00;
+}
+
+.suggestion-box {
+  position: absolute;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid #654321;
+  border-radius: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  width: 100%;
+  z-index: 999;
+  margin-top: 2px;
+}
+
+.suggestion-item {
+  padding: 6px 8px;
+  color: #ffc;
+  cursor: pointer;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+.suggestion-item:hover {
+  background: #2c2c2c;
+  color: #fff;
+}
 
 </style>
 
+<script>
+function insertBBCode(tagStart, tagEnd){
+  const t=document.getElementById('input_comment');
+  if(!t)return;
+  const s=t.selectionStart,e=t.selectionEnd;
+  const v=t.value;
+  t.value=v.substring(0,s)+tagStart+v.substring(s,e)+tagEnd+v.substring(e);
+  t.focus();
+  t.selectionStart=s+tagStart.length;
+  t.selectionEnd=e+tagStart.length;
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.querySelector("input[name='owner']");
+  if (!input) return;
+
+  const suggestions = document.createElement("div");
+  suggestions.className = "suggestion-box";
+  input.parentNode.insertBefore(suggestions, input.nextSibling);
+
+  let timeout = null;
+
+  input.addEventListener("input", () => {
+    clearTimeout(timeout);
+    const query = input.value.trim();
+    if (query.length < 2) {
+      suggestions.innerHTML = "";
+      return;
+    }
+    timeout = setTimeout(() => {
+      fetch(`modules/account/pm_user_search.php?q=${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(names => {
+          suggestions.innerHTML = names
+            .map(n => `<div class='suggestion-item'>${n}</div>`)
+            .join("");
+          suggestions.querySelectorAll(".suggestion-item").forEach(el => {
+            el.addEventListener("click", () => {
+              input.value = el.textContent;
+              suggestions.innerHTML = "";
+            });
+          });
+        });
+    }, 300);
+  });
+});
+
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.querySelector("input[name='owner']");
+  if (!input) return;
+
+  const box = document.createElement("div");
+  box.className = "suggestion-box";
+  input.parentNode.style.position = "relative";
+  input.after(box);
+
+  let timer = null;
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    const val = input.value.trim();
+    if (val.length < 2) { box.innerHTML = ""; return; }
+
+    timer = setTimeout(() => {
+      fetch(`modules/account/pm_user_search.php?q=${encodeURIComponent(val)}`)
+        .then(r => r.json())
+        .then(names => {
+          box.innerHTML = names.map(n =>
+            `<div class="suggestion-item">${n}</div>`).join("");
+
+          box.querySelectorAll(".suggestion-item").forEach(el => {
+            el.onclick = () => { input.value = el.textContent; box.innerHTML = ""; };
+          });
+        })
+        .catch(() => box.innerHTML = "");
+    }, 250);
+  });
+
+  document.addEventListener("click", e => {
+    if (!box.contains(e.target) && e.target !== input) box.innerHTML = "";
+  });
+});
+</script>
 
 
-<?php builddiv_start(1, $lang['personal_messages']); ?>
 
-<?php if ($user['id'] > 0): ?>
-<div class="modern-content">
 
-  <!-- === PM Navigation Tabs === -->
+<?php builddiv_start(1,$lang['personal_messages']); ?>
+
+<?php if($user['id']>0): ?>
+<div class="modern-content pm-container">
+
+  <!-- Navigation Tabs -->
   <nav class="pm-nav">
-    <a href="index.php?n=account&sub=pms&action=add" class="<?php echo ($_GET['action']=='add'?'active':''); ?>"><?php echo $lang['write'];?></a>
-    <a href="index.php?n=account&sub=pms&action=view&dir=in" class="<?php echo ($_GET['action']=='view' && $_GET['dir']=='in'?'active':''); ?>"><?php echo $lang['inbox'];?></a>
-    <a href="index.php?n=account&sub=pms&action=view&dir=out" class="<?php echo ($_GET['action']=='view' && $_GET['dir']=='out'?'active':''); ?>"><?php echo $lang['outbox'];?></a>
+    <a href="index.php?n=account&sub=pms&action=add"
+       class="<?php echo ($_GET['action']=='add'?'active':''); ?>">
+       <?php echo $lang['write']; ?>
+    </a>
+    <a href="index.php?n=account&sub=pms&action=view&dir=in"
+       class="<?php echo ($_GET['dir']=='in'?'active':''); ?>">
+       <?php echo $lang['inbox']; ?>
+    </a>
+    <a href="index.php?n=account&sub=pms&action=view&dir=out"
+       class="<?php echo ($_GET['dir']=='out'?'active':''); ?>">
+       <?php echo $lang['outbox']; ?>
+    </a>
   </nav>
 
-  <?php if ($_GET['action']=='view'): ?>
-    <script>
-    function Check(type) {
-      const fm = document.mutliact;
-      for (const e of fm.elements) {
-        if (e.name === 'allbox' || e.type !== 'checkbox' || e.disabled) continue;
-        e.checked = (
-          type === 'all' ||
-          (type === 'read' && e.classList.contains('read')) ||
-          (type === 'unread' && e.classList.contains('unread'))
-        );
-        if (type === 'none') e.checked = false;
-      }
-      return false;
-    }
-    </script>
+  <!-- COMPOSE NEW MESSAGE -->
+  <?php if($_GET['action']=='add'): ?>
+  <div class="pm-compose">
+    <form method="post" action="index.php?n=account&sub=pms&action=add" onsubmit="return this.owner.value.trim() && this.title.value.trim() && this.message.value.trim();">
+      <label><?php echo $lang['post_for']; ?>:</label>
+      <input type="text" name="owner" value="<?php echo htmlspecialchars($content['sender']); ?>" maxlength="80" required>
 
-    <form method="post" action="index.php?n=account&sub=pms&action=delete&dir=<?php echo $_GET['dir']; ?>" name="mutliact">
-      <input type="hidden" name="deletem" value="deletem">
+      <label><?php echo $lang['post_subj']; ?>:</label>
+      <input type="text" name="title" value="<?php echo htmlspecialchars($content['subject']); ?>" maxlength="80" required>
 
-      <div class="pm-controls">
-        <span><?php echo $lang['mark']; ?>:</span>
-        <a href="#" onclick="return Check('all');"><?php echo $lang['post_all'];?>(<?php echo count($items); ?>)</a> |
-        <a href="#" onclick="return Check('none');"><?php echo $lang['post_none'];?></a> |
-        <a href="#" onclick="return Check('read');"><?php echo $lang['post_read'];?></a> |
-        <a href="#" onclick="return Check('unread');"><?php echo $lang['post_unread'];?></a>
-        <span class="spacer">|</span>
-        <a href="#" onclick="document.forms.mutliact.submit();return false;">[<?php echo $lang['delete_marked'];?>]</a>
-        <span class="pages"><b><?php echo $lang['post_pages'];?>:</b> <?php echo $pages_str = paginate($pnum, $p, 'index.php?n=account&sub=pms'); ?></span>
+      <div class="editor-tools">
+        <div class="bbcode-toolbar">
+          <button type="button" onclick="insertBBCode('[b]','[/b]')">Bold</button>
+          <button type="button" onclick="insertBBCode('[i]','[/i]')">Italic</button>
+          <button type="button" onclick="insertBBCode('[u]','[/u]')">Underline</button>
+          <button type="button" onclick="insertBBCode('[url]','[/url]')">Link</button>
+          <button type="button" onclick="insertBBCode('[img]','[/img]')">Image</button>
+          <button type="button" onclick="insertBBCode('[quote]','[/quote]')">Quote</button>
+          <button type="button" onclick="insertBBCode('[color=red]','[/color]')">Red</button>
+          <button type="button" onclick="insertBBCode('[color=green]','[/color]')">Green</button>
+          <button type="button" onclick="insertBBCode('[color=blue]','[/color]')">Blue</button>
+        </div>
       </div>
 
-      <table class="modern-table pm-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th><?php echo ($_GET['dir']=='in') ? $lang['post_from'] : $lang['post_for']; ?></th>
-            <th><?php echo $lang['post_subj']; ?></th>
-            <th><?php echo $lang['time']; ?></th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php foreach($items as $item): ?>
-          <tr class="<?php echo ($item['showed']=='1'?'read':'unread'); ?>">
-            <td><input type="checkbox" name="checkpm[]" value="<?php echo $item['id']; ?>" class="<?php echo ($item['showed']=='1'?'read':'unread'); ?>"></td>
-            <td>
-              <?php if ($_GET['dir'] == 'in'): ?>
-                <a href="index.php?n=account&sub=view&action=find&name=<?php echo $item['sender']; ?>"><?php echo $item['sender']; ?></a>
-              <?php else: ?>
-                <a href="index.php?n=account&sub=view&action=find&name=<?php echo $item['for']; ?>"><?php echo $item['for']; ?></a>
-              <?php endif; ?>
-            </td>
-            <td>
-              <a href="index.php?n=account&sub=pms&action=viewpm&dir=<?php echo $_GET['dir']; ?>&iid=<?php echo $item['id']; ?>">
-                <?php echo htmlspecialchars($item['subject']); ?>
-              </a>
-            </td>
-            <td><?php echo date('d-m-Y, H:i',$item['posted']);?></td>
-          </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
+      <textarea name="message" id="input_comment" required><?php echo htmlspecialchars($content['message']); ?></textarea>
+
+      <div class="pm-buttons">
+        <button type="submit" class="btn-primary"><?php echo $lang['editor_send']; ?></button>
+        <button type="reset"><?php echo $lang['editor_clear']; ?></button>
+      </div>
     </form>
+  </div>
+  <?php endif; ?>
 
-  <?php elseif($_GET['action']=='viewpm' && $_GET['iid']): ?>
-    <div class="pm-view">
-      <div class="pm-header">
-        <strong><?php echo $lang['post_from']; ?>:</strong>
-        <a href="index.php?n=account&sub=view&action=find&name=<?php echo $senderinfo['username'];?>"><?php echo $senderinfo['username'];?></a>
-        <span>â†’</span>
-        <strong><?php echo $lang['post_for']; ?>:</strong> <?php echo $user['username']; ?>
-      </div>
 
-      <div class="pm-body">
-        <div class="pm-avatar">
-          <img src="<?php echo (string)$MW->getConfig->generic->avatar_path.$senderinfo['avatar'];?>" alt="avatar"/>
-          <div class="pm-meta">
-            <b><?php echo $senderinfo['g_title'];?></b><br/>
-            <small><?php echo date('d F Y, H:i',$item['posted']);?></small>
+  <!-- INBOX / OUTBOX VIEW -->
+  <?php if($_GET['action']=='view'): ?>
+  <div class="pm-view-list">
+    <?php if (!empty($items)): ?>
+      <?php foreach ($items as $item): ?>
+      <div class="pm-card <?php echo ($item['showed'] ? 'read' : 'unread'); ?>">
+        <div class="pm-row-header">
+          <div>
+            <?php if ($_GET['dir']=='in'): ?>
+              <span class="pm-label"><?php echo $lang['post_from']; ?>:</span>
+              <?php echo htmlspecialchars($item['sender']); ?>
+            <?php else: ?>
+              <span class="pm-label"><?php echo $lang['post_for']; ?>:</span>
+              <?php echo htmlspecialchars($item['for']); ?>
+            <?php endif; ?>
           </div>
+          <div class="pm-time"><?php echo date('d-m-Y, H:i', $item['posted']); ?></div>
         </div>
-        <div class="pm-message">
-          <?php echo $item['message']; ?>
-        </div>
+        <a class="pm-subject" href="index.php?n=account&sub=pms&action=viewpm&dir=<?php echo $_GET['dir']; ?>&iid=<?php echo $item['id']; ?>">
+          <?php echo htmlspecialchars($item['subject']); ?>
+        </a>
       </div>
-
-      <div class="pm-footer">
-        <a href="index.php?n=account&sub=pms&action=add&reply=<?php echo $item['id']; ?>" class="btn-reply"><?php echo $lang['post_reply'];?></a>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <div class="pm-card">
+        <em><?php echo $lang['no_messages']; ?></em>
       </div>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
+
+
+  <!-- VIEW SINGLE MESSAGE -->
+  <?php if($_GET['action']=='viewpm' && isset($item)): ?>
+  <div class="pm-view-card">
+<div class="pm-view-header">
+  <div class="pm-view-fromto">
+    <div><span class="pm-label"><?php echo $lang['post_from']; ?>:</span> <?php echo htmlspecialchars($item['sender']); ?></div>
+    <div><span class="pm-label"><?php echo $lang['post_for']; ?>:</span> <?php echo htmlspecialchars($item['receiver']); ?></div>
+  </div>
+  <div class="pm-view-time"><?php echo date('d-m-Y, H:i', $item['posted']); ?></div>
+</div>
+
+    <div class="pm-view-subject"><?php echo htmlspecialchars($item['subject']); ?></div>
+
+    <div class="pm-view-body"><?php echo nl2br($item['message']); ?></div>
+
+    <div class="pm-view-footer">
+      <a href="index.php?n=account&sub=pms&action=add&reply=<?php echo $item['id']; ?>" class="pm-reply-btn">
+        <?php echo $lang['post_reply']; ?>
+      </a>
     </div>
-
-  <?php elseif($_GET['action']=='add'): ?>
-    <div class="pm-compose">
-      <form method="post" action="index.php?n=account&sub=pms&action=add" name="mutliact" onsubmit="return this.owner.value && this.title.value;">
-        <label><?php echo $lang['post_for'];?>:</label>
-        <input type="text" name="owner" id="owner" value="<?php echo $content['sender'];?>" maxlength="80"/>
-
-        <label><?php echo $lang['post_subj'];?>:</label>
-        <input type="text" name="title" id="title" value="<?php echo $content['subject'];?>" maxlength="80"/>
-
-        <?php write_form_tool(); ?>
-
-        <textarea name="message" id="input_comment"><?php echo $content['message'];?></textarea>
-        <div class="pm-buttons">
-          <input type="submit" value="<?php echo $lang['editor_send'];?>" class="btn-primary" />
-          <input type="reset" value="<?php echo $lang['editor_clear'];?>" />
-        </div>
-      </form>
-    </div>
+  </div>
   <?php endif; ?>
 
 </div>

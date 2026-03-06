@@ -21,6 +21,7 @@
   border-radius: 6px;
   font-weight: bold;
   text-decoration: none;
+  font-size: .7em;
   display: inline-block;
 }
 .btn.primary { background: #ffcc66; color: #111; }
@@ -106,82 +107,130 @@ img[src*="forum_top.png"] {
   border-radius: 6px;
   box-shadow: 0 0 10px rgba(0,0,0,0.6);
 }
+
+.forum-header {
+  background: linear-gradient(to bottom, rgba(50,30,0,0.9), rgba(15,10,0,0.85));
+  border: 1px solid #5a4000;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 12px 0;
+}
+.forum-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.forum-header-inner h1 {
+  font-size: 1.2rem;
+  color: #ffcc66;
+  margin: 0;
+}
+.forum-actions.right {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 </style>
 
+<?php
+if (INCLUDED !== true) exit;
 
-<?php builddiv_start(1, $lang['spp_forum']); ?>
-<div class="modern-content">
-  <img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="<?php echo $lang['forums'] ?? ''; ?>" class="forum-header"/>
+// ========================================================
+// Validate and fetch forum info
+// ========================================================
+$forumId = isset($_GET['fid']) ? (int)$_GET['fid'] : 0;
+if ($forumId <= 0) {
+    output_message('alert', 'Invalid forum.');
+    return;
+}
 
-  <section class="forum-section">
-    <header class="forum-header">
-      <h1><?php echo htmlspecialchars($this_forum['forum_name']); ?></h1>
+$forum = $DB->selectRow("
+    SELECT f.forum_id, f.forum_name, f.forum_desc, f.closed, f.hidden, c.cat_name
+    FROM tbcrealmd.f_forums AS f
+    LEFT JOIN tbcrealmd.f_categories AS c ON f.cat_id = c.cat_id
+    WHERE f.forum_id = ?d AND f.hidden = 0
+    LIMIT 1
+", $forumId);
 
-      <?php if($user['id']>0): ?>
-        <div class="forum-actions">
-          <?php if(($user['g_post_new_topics']==1 && $this_forum['closed']!=1) || $user['g_forum_moderate']==1): ?>
-            <a href="<?php echo $this_forum['linktonewtopic'];?>" class="btn primary"><?php echo $lang['newtopic'];?></a>
-          <?php endif; ?>
-          <a href="<?php echo $this_forum['linktomarkread'];?>" class="btn secondary"><?php echo $lang['markread'];?></a>
-        </div>
-      <?php endif; ?>
+if (!$forum) {
+    output_message('alert', 'Invalid forum.');
+    return;
+}
 
-      <div class="pagination">
-        <?php echo paginate($this_forum['pnum'],$p,"index.php?n=forum&sub=viewforum&fid=".$this_forum['forum_id']); ?>
-      </div>
-    </header>
+// Pathway
+$pathway_info[] = ['title' => $lang['forum'], 'link' => 'index.php?n=forum'];
+$pathway_info[] = ['title' => $forum['forum_name'], 'link' => ''];
 
-    <div class="forum-list">
-      <div class="forum-list-head">
-        <span class="col-status">⚑</span>
-        <span class="col-subject"><?php echo $lang['subject'];?></span>
-        <span class="col-author"><?php echo $lang['author'];?></span>
-        <span class="col-replies"><?php echo $lang['replies'];?></span>
-        <span class="col-views"><?php echo $lang['views'];?></span>
-        <span class="col-last"><?php echo $lang['lastpost'];?></span>
-      </div>
+// ========================================================
+// Fetch topics
+// ========================================================
+$topics = $DB->select("
+    SELECT 
+        t.topic_id, t.topic_name, t.topic_poster, t.num_replies, t.num_views,
+        t.last_post, t.last_post_id, t.last_poster, t.closed,
+        p.posted AS last_posted_time
+    FROM tbcrealmd.f_topics AS t
+    LEFT JOIN tbcrealmd.f_posts AS p ON p.post_id = t.last_post_id
+    WHERE t.forum_id = ?d
+    ORDER BY t.sticky DESC, t.last_post DESC
+", $forumId);
+?>
 
-      <?php foreach($topics as $topic): ?>
-        <div class="forum-row">
-          <span class="col-status">
-            <?php if($topic['sticky']==1): ?><img src="<?php echo $currtmp; ?>/images/sticky.gif" alt="<?php echo $lang['sticky'];?>"/><?php endif; ?>
-            <?php if($topic['closed']==1): ?><img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt="<?php echo $lang['postclose'];?>"/><?php endif; ?>
-          </span>
+<?php builddiv_start(1, $forum['forum_name'], 0, true, $forumId, $forum['closed']); ?>
 
-          <span class="col-subject">
-            <a href="<?php echo $topic['linktothis']; ?>"><?php echo htmlspecialchars($topic['topic_name']); ?></a>
-            <?php if($topic['isnew']): ?><span class="new-tag"><?php echo $lang['newmessages']; ?></span><?php endif; ?>
-            <?php if($topic['pnum']>1): ?><small class="pages">[<?php echo $lang['post_pages']; ?>: <?php echo $topic['pages_str']; ?>]</small><?php endif; ?>
-          </span>
 
-          <span class="col-author"><?php echo htmlspecialchars($topic['topic_poster']); ?></span>
-          <span class="col-replies"><?php echo $topic['num_replies']; ?></span>
-          <span class="col-views"><?php echo $topic['num_views']; ?></span>
-          <span class="col-last">
-            <a href="<?php echo $topic['linktolastpost']; ?>">
-              <?php echo htmlspecialchars($topic['last_poster']); ?> – <?php echo $topic['last_post']; ?>
-            </a>
-          </span>
-        </div>
-      <?php endforeach; ?>
+ <img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="Forums" class="forum-header"/>
+
+<div class="modern-content forum-view">
+
+  <div class="forum-list-head">
+    <div></div>
+    <div>Subject</div>
+    <div>Author</div>
+    <div>Replies</div>
+    <div>Views</div>
+    <div>Last Reply</div>
+  </div>
+
+  <?php if (empty($topics)): ?>
+    <div class="forum-row">
+      <div class="col-subject" style="grid-column: span 6;">No topics found.</div>
     </div>
-
-    <footer class="forum-footer">
-      <div class="pagination">
-        <?php echo paginate($this_forum['pnum'],$p,"index.php?n=forum&sub=viewforum&fid=".$this_forum['forum_id']); ?>
+  <?php else: ?>
+    <?php foreach ($topics as $t): ?>
+      <div class="forum-row">
+        <div><img src="<?php echo $currtmp; ?>/images/<?= $t['closed'] ? 'news-community.gif' : 'no-news-community.gif'; ?>" alt="bean status"></div>
+        <div class="col-subject">
+          <a href="index.php?n=forum&sub=viewtopic&tid=<?= $t['topic_id'] ?>">
+            <?= htmlspecialchars($t['topic_name']); ?>
+          </a>
+          <?php if ($t['closed']): ?><span class="new-tag">Closed</span><?php endif; ?>
+        </div>
+        <div><?= htmlspecialchars($t['topic_poster']); ?></div>
+        <div><?= (int)$t['num_replies']; ?></div>
+        <div><?= (int)$t['num_views']; ?></div>
+        <div>
+          <?= htmlspecialchars($t['last_poster']); ?><br>
+          <?= $t['last_posted_time'] ? date('d-m-Y, H:i', $t['last_posted_time']) : ''; ?>
+        </div>
       </div>
+    <?php endforeach; ?>
+  <?php endif; ?>
 
-      <div class="forum-legend">
-        <span><img src="<?php echo $currtmp; ?>/images/square-new.gif"/> <?php echo $lang['newsubject']; ?></span>
-        <span><img src="<?php echo $currtmp; ?>/images/square.gif"/> <?php echo $lang['readsubject']; ?></span>
-        <span><img src="<?php echo $currtmp; ?>/images/square-grey.gif"/> <?php echo $lang['notreadsubject']; ?></span>
+    <div class="forum-legend">
+      <div>
+        <img src="<?php echo $currtmp; ?>/images/news-community.gif" alt="New Posts"/> 
+        <?php echo $lang['newpost']; ?>
       </div>
-    </footer>
-  </section>
-</div>
+      <div>
+        <img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt="No New Posts"/> 
+        <?php echo $lang['nonewpost']; ?>
+      </div>
+      <div>
+        <img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt="Fourm Closed"/> 
+        <?php echo $lang['postclose']; ?>
+      </div>
+    </div>
 <?php builddiv_end(); ?>
-
-
-<script>
-// Optional: Future table sorting or interactivity
-</script>

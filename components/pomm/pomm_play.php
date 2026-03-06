@@ -5,6 +5,13 @@ require_once("pomm_conf.php");
 require_once("func.php");
 require_once("map_english.php");
 
+if (isset($_GET['realm'])) {
+    $realm_id = (int)$_GET['realm'];
+} elseif (!isset($realm_id)) {
+    $realm_id = 1; // fallback
+}
+
+
 $_RESULT = null;
 
 $maps_count = count($lang_defs['maps_names']);
@@ -26,11 +33,8 @@ $realm_db->query("SET NAMES $database_encoding");
 
 $gm_online = 0;
 $gm_accounts = array();
-if ($server_type == 1) { // if Trinity
-    $query = $realm_db->query("SELECT GROUP_CONCAT(`id` SEPARATOR ' ') FROM `account_access` WHERE `gmlevel`>'0'");
-} else {
     $query = $realm_db->query("SELECT GROUP_CONCAT(`id` SEPARATOR ' ') FROM `account` WHERE `gmlevel`>'0'");
-}
+
 
 if ($query) {
     if ($result = $realm_db->fetch_row($query)) {
@@ -129,19 +133,29 @@ if (!count($arr) && !test_realm()) {
     $res['online'] = $arr;
 }
 
+echo "<div style='color:yellow;font-weight:bold;'>PLAY FILE REALMID: {$realm_id}</div>";
+
 if ($show_status) {
-    $query = $realm_db->query("SELECT UNIX_TIMESTAMP(),`starttime`,`maxplayers` FROM `uptime` WHERE `starttime`=(SELECT MAX(`starttime`) FROM `uptime`)");
+$query = $realm_db->query("
+        SELECT UNIX_TIMESTAMP(), `starttime`, `maxplayers`
+        FROM `uptime`
+        WHERE `realmid` = {$realm_id}
+        ORDER BY `starttime` DESC
+        LIMIT 1
+    ");
+
     if ($result = $realm_db->fetch_row($query)) {
-        $status['online'] = test_realm() ? 1 : 0;
-        $status['uptime'] = $result[0] - $result[1];
-        $status['maxplayers'] = $result[2];
-        $status['gmonline'] = $gm_online;
+        $status['online']    = test_realm() ? 1 : 0;
+        $status['uptime']    = $result[0] - $result[1];
+        $status['maxplayers']= $result[2];
+        $status['gmonline']  = $gm_online;
     } else {
         $status = null;
     }
 } else {
     $status = null;
 }
+
 
 $realm_db->close();
 unset($realm_db);

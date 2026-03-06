@@ -1,6 +1,33 @@
 <?php
+// === Language Cookie Handling ===
+// (runs before anything else outputs HTML)
+
+if (isset($_COOKIE['Language'])) {
+    $user_cur_lang = preg_replace('/[^a-zA-Z]/', '', $_COOKIE['Language']);
+    // normalize some possible short codes to file name stems
+    switch (strtolower($user_cur_lang)) {
+        case 'en': $user_cur_lang = 'en.English'; break;
+        case 'fr': $user_cur_lang = 'fr.French'; break;
+        case 'de': $user_cur_lang = 'de.Deutsch'; break;
+        case 'it': $user_cur_lang = 'it.Italian'; break;
+        case 'ko': $user_cur_lang = 'ko.Korean'; break;
+        case 'sp':
+        case 'es': $user_cur_lang = 'sp.Spanish'; break;
+        default:   $user_cur_lang = 'en.English';
+    }
+
+    // store override so MW uses it
+    $_SESSION['selected_lang'] = $user_cur_lang;
+}
+
+// --- Ensure MW config picks it up once initialized ---
+if (isset($MW) && isset($_SESSION['selected_lang'])) {
+    $MW->getConfig->site->language = $_SESSION['selected_lang'];
+}
+?>
 
 
+<?php
 
 /****************************************************************************/
 /*    < MangosWeb is a Web-Fonted for Mangos (mangosproject.org) >          */
@@ -46,8 +73,7 @@ error_reporting( E_ERROR | E_PARSE | E_WARNING ) ;
 ini_set('log_errors',TRUE);
 ini_set('html_errors',FALSE);
 ini_set('error_log','core/logs/error_log.txt');
-ini_set( 'display_errors', '1' ) ;
-error_reporting(E_ALL);
+ini_set( 'display_errors', '0' ) ;
 // Define INCLUDED so that we can check other pages if they are included by this file
 define( 'INCLUDED', true ) ;
 
@@ -286,22 +312,19 @@ if ( $CHDB )
 
 
 //Load characters list
-if ( isset( $user['id'] ) && $user['id'] > 0 )
-{
-	$characters = $CHDB->select( 'SELECT guid,name FROM `characters` WHERE account=?d',
-		$user['id'] ) ;
-	if ( isset( $_COOKIE['cur_selected_character'] ) )
-	{
-		foreach ( $characters as $character )
-		{
-			if ( $character['guid'] == $_COOKIE['cur_selected_character'] )
-			{
-				$DB->query( 'UPDATE website_accounts SET character_id=?d,character_name=? WHERE account_id=?d',
-					$character['guid'], $character['name'], $user['id'] ) ;
-			}
-		}
-	}
-} else
+if (!empty($characters) && is_array($characters)) {
+    foreach ($characters as $character) {
+        if ($character['guid'] == ($_COOKIE['cur_selected_character'] ?? 0)) {
+            $DB->query(
+                'UPDATE website_accounts SET character_id=?d,character_name=? WHERE account_id=?d',
+                $character['guid'],
+                $character['name'],
+                $user['id']
+            );
+        }
+    }
+}
+ else
 {
 	$characters = array() ;
 }
@@ -310,11 +333,13 @@ if ( empty( $_GET['p'] ) or $_GET['p'] < 1 )
 	$p = 1 ;
 else
 	$p = $_GET['p'] ;
-$ext = ( isset( $_REQUEST['n'] ) ? $_REQUEST['n'] : ( string )$MW->getConfig->generic->default_component ) ;
-if ( strpos( $ext, '/' ) !== false )
-	list( $ext, $sub ) = explode( '/', $ext ) ;
-else
-	$sub = ( isset( $_REQUEST['sub'] ) ? $_REQUEST['sub'] : 'index' ) ;
+$ext = isset($_REQUEST['n']) ? $_REQUEST['n'] : (string)$MW->getConfig->generic->default_component;
+$sub = isset($_REQUEST['sub']) && $_REQUEST['sub'] !== '' ? $_REQUEST['sub'] : 'index';
+
+// prevent realm ID or other query vars from being mistaken as a subpage
+if (!preg_match('/^[a-zA-Z0-9_-]+$/', $sub) || is_numeric($sub)) {
+    $sub = 'index';
+}
 $req_tpl = false ;
 
 // Handle character switch from ?setchar=ID
@@ -478,7 +503,7 @@ if ( in_array( $ext, $allowed_ext ) )
 	}
 } else
 {
-	echo '<h2>Forbidden</h2><meta http-equiv=refresh content="3;url=\'./\'">' ;
+	echo '<h2>Forbidden Sushi: Call (901) 867-5309</h2><meta http-equiv=refresh content="3;url=\'./\'">' ;
 }
 
 ?>

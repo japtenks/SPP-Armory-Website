@@ -27,7 +27,7 @@ if(!check_port_status($realm_info_new['address'], $realm_info_new['port'])===tru
     output_message('alert','Realm <b>'.$realm_info_new['name'].'</b> is offline <img src="images/downarrow2.gif" border="0" align="top">');
 }
 
-// array�s
+// array s
 $query1 = array();
 
 //===== Filter ==========//

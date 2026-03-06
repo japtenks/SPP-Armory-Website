@@ -16,7 +16,7 @@ foreach($items as $i => $result)
     //$dbinfo_mangos = explode(';', $result['dbinfo']);  // username;password;port;host;DBName
     if ($result['id'] == 1)
     {
-        $dbinfo_mangos = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $result['id'] ) ;
+        $dbinfo_mangos = $DB->selectRow( "SELECT * FROM `realm_settings` WHERE id_realm=?d", $result['id'] ) ;
         if((int)$MW->getConfig->generic->use_archaeic_dbinfo_format) {
             //alternate config - for users upgrading from Modded MaNGOS Web
             //DBinfo column:  host;port;username;password;WorldDBname;CharDBname
@@ -63,7 +63,7 @@ foreach($items as $i => $result)
 	$realm_num = $result['id'];
     if($result['realmflags'] != 1 && ($result['realmflags'] & 2) != 2)
     {
-        $res_img = './templates/WotLK/images/uparrow2.gif';
+        $res_img = './templates/tbc/images/uparrow2.gif';
         if ($realm_num == 1)
             $population = $CHDB->selectCell("SELECT count(*) FROM `characters` WHERE online=1");
         else {
@@ -82,7 +82,7 @@ foreach($items as $i => $result)
     }
     else
     {
-        $res_img = './templates/WotLK/images/downarrow2.gif';
+        $res_img = './templates/tbc/images/downarrow2.gif';
         $population_str = 'n/a';
         $uptime = 0;
     }

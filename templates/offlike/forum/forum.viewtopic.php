@@ -122,62 +122,63 @@ img[src*="forum_top.png"] {
 </style>
 
 
-<?php builddiv_start(1, $lang['spp_forum']); ?>
+<?php
+builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_forum['forum_id'], $this_forum['closed']);
+?>
+
 <div class="modern-content">
   <img src="<?php echo $currtmp; ?>/images/forum_top.png"
-       alt="<?php echo $lang['forums'] ?? ''; ?>"
+       alt="Forum Banner"
        class="forum-header" />
 
+  <!-- Topic Header -->
   <header class="topic-header">
     <h1><?php echo htmlspecialchars($this_topic['topic_name']); ?></h1>
     <p class="meta">
-      <?php echo $lang['topic']; ?> Â·
-      <?php echo date('d/m/Y, H:i:s', $this_topic['topic_posted']); ?>
+      Started by <strong><?php echo htmlspecialchars($this_topic['topic_poster']); ?></strong> ·
+      <?php echo date('M d, Y H:i', $this_topic['topic_posted']); ?>
     </p>
-    <div class="topic-controls">
-      <?php if (($user['g_post_new_topics'] == 1 && $this_forum['closed'] != 1) || $user['g_forum_moderate'] == 1): ?>
-        <a href="<?php echo $this_forum['linktonewtopic']; ?>"
-           class="btn primary"><?php echo $lang['newtopic']; ?></a>
-      <?php endif; ?>
-      <a href="<?php echo $this_forum['linktothis']; ?>"
-         class="btn secondary"><?php echo $lang['forum_index']; ?></a>
-    </div>
   </header>
 
-  <div class="topic-posts">
-    <?php foreach ($posts as $post): ?>
-      <article class="post <?php echo $post['bg'] ? 'alt' : ''; ?>">
-        <div class="post-avatar">
-          <img src="<?php echo $dtmp . "/images/portraits/wow/" . $post['avatar']; ?>"
-               alt="avatar" />
-          <div class="post-user">
-            <h3><?php echo htmlspecialchars($post['poster']); ?></h3>
-            <p class="level">Lvl <?php echo (int)$post['level']; ?></p>
+  <!-- Topic Posts -->
+  <section class="topic-posts">
+    <?php if (!empty($posts)): ?>
+      <?php foreach ($posts as $post): ?>
+        <article class="post">
+          <div class="post-avatar">
+            <img src="<?php echo $dtmp . '/images/portraits/wow/' . $post['avatar']; ?>" alt="avatar" />
+            <div class="post-user">
+              <h3><?php echo htmlspecialchars($post['poster']); ?></h3>
+              <p class="level">Lvl <?php echo (int)$post['level']; ?></p>
+            </div>
           </div>
-        </div>
 
-        <div class="post-body">
-          <header class="post-meta">
-            <span>#<?php echo $post['pos_num']; ?></span> â€¢
-            <span><?php echo $post['posted']; ?></span>
-          </header>
-          <div class="post-message"><?php echo $post['message']; ?></div>
-          <?php if ($post['edited']): ?>
-            <footer class="post-edit-note">
-              <?php
-                echo $lang['post_editted_by'] . ' ' .
-                     $post['edited_by'] . ' (' .
-                     date('d-m-Y H:i:s', $post['edited']) . ')';
-              ?>
-            </footer>
-          <?php endif; ?>
-        </div>
-      </article>
-    <?php endforeach; ?>
-  </div>
+          <div class="post-body">
+            <header class="post-meta">
+              <span>#<?php echo $post['pos_num']; ?></span> ·
+              <span><?php echo date('M d, Y H:i', $post['posted']); ?></span>
+            </header>
 
-  <div class="topic-pagination bottom">
+            <div class="post-message"><?php echo $post['message']; ?></div>
+
+            <?php if ($post['edited']): ?>
+              <footer class="post-edit-note">
+                Edited by <?php echo htmlspecialchars($post['edited_by']); ?> on
+                <?php echo date('M d, Y H:i', $post['edited']); ?>
+              </footer>
+            <?php endif; ?>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <p style="text-align:center;color:#888;">No posts yet.</p>
+    <?php endif; ?>
+  </section>
+
+  <!-- Pagination -->
+  <div class="topic-pagination">
     <?php echo $pages_str; ?>
   </div>
 </div>
+
 <?php builddiv_end(); ?>

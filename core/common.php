@@ -929,6 +929,7 @@ function RemoveXSS($val) {
    return $val;
 }
 
+
 function get_realm_byid($id){
     global $DB, $MW;
     $search_q = $DB->selectRow("SELECT * FROM `realmlist` WHERE `id`=?d",$id);

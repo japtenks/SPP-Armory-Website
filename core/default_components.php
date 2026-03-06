@@ -74,10 +74,54 @@ $mainnav_links = array(
 
 /* ------------------ ALLOWED EXTENSIONS ------------------ */
 $allowed_ext = array(
-  'account', 'admin', 'ajax', 'forum', 'frontpage',
-  'html', 'server', 'whoisonline', 'community', 'media', 'armory', 'gameguide'
+    'account',
+    'forum',
+    'server',
+    'community',
+    'whoisonline',
+    'frontpage',
+    'gameguide',
+    'media',
+    'statistic',  
+    'armory',     
+    'admin'       
 );
+$com_content = array(
+    'account' => array(
+        'index'      => array('', 'Account', 'index.php?n=account', 1, 1),
+        'login'      => array('', 'Login', 'index.php?n=account&sub=login', 1, 1),
+        'register'   => array('', 'Register', 'index.php?n=account&sub=register', 1, 1),
+        'pms'        => array('g_use_pm', 'Messages', 'index.php?n=account&sub=pms', 1, 1),
+        'userlist'   => array('g_use_pm', 'User List', 'index.php?n=account&sub=userlist', 1, 1),
+    ),
 
+    'server' => array(
+        'index'         => array('', 'Server Info', 'index.php?n=server', 1, 1),
+        'playersonline' => array('', 'Players Online', 'index.php?n=server&sub=playersonline', 1, 1),
+        'realms'        => array('', 'Realms', 'index.php?n=server&sub=realms', 1, 1),
+    ),
+
+    'community' => array(
+        'index' => array('', 'Community', 'index.php?n=community', 1, 1),
+        'who'   => array('', 'Who’s Online', 'index.php?n=community&sub=who', 1, 1),
+    ),
+
+    'statistic' => array(
+        'index' => array('', 'Statistics', 'index.php?n=statistic', 1, 1),
+    ),
+
+    'armory' => array(
+        'index' => array('', 'Armory', 'index.php?n=armory', 1, 1),
+    ),
+
+    'frontpage' => array(
+        'index' => array('', 'Frontpage', 'index.php?n=frontpage', 1, 1),
+    ),
+
+    'admin' => array(
+        'index' => array('g_is_admin', 'Admin Panel', 'index.php?n=admin', 1, 1),
+    ),
+);
 /* ------------------ DYNAMIC TALENTS LINK ------------------ */
 $talentMenuIndex = 3;
 if (isset($mainnav_links['7-menuArmory'][$talentMenuIndex])) {

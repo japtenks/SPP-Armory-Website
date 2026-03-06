@@ -1,90 +1,215 @@
 <?php
-if(INCLUDED!==true)exit;
-// ==================== //
-$pathway_info[] = array('title'=>$lang['personal_messages'],'link'=>'index.php?n=account&sub=pms');
-// ==================== //
-if($user['id']<=0){
-    redirect('index.php?n=account&sub=login',1);
-}else{
+if (INCLUDED !== true) exit;
 
-    if(!$_GET['action']){
-        $_GET['action']='view';
-        $_GET['dir']='in';
+// ========================================================
+// Pathway setup
+// ========================================================
+$pathway_info[] = array(
+    'title' => $lang['personal_messages'],
+    'link'  => 'index.php?n=account&sub=pms'
+);
+
+// ========================================================
+// Require login
+// ========================================================
+if ($user['id'] <= 0) {
+    redirect('index.php?n=account&sub=login', 1);
+    exit;
+}
+
+// ========================================================
+// Default action setup
+// ========================================================
+if (empty($_GET['action'])) {
+    $_GET['action'] = 'view';
+    $_GET['dir']    = 'in';
+}
+
+$items          = array();
+$items_per_page = 16;
+$page           = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
+$limit_start    = ($page - 1) * $items_per_page;
+
+// ========================================================
+// VIEW INBOX / OUTBOX
+// ========================================================
+if ($_GET['action'] == 'view') {
+
+    if ($_GET['dir'] == 'in') {
+        // --- INBOX ---
+        $pathway_info[] = array('title' => $lang['inbox'], 'link' => '');
+
+
+        $itemnum = $DB->selectCell("
+            SELECT COUNT(1)
+            FROM tbcrealmd.website_pms
+            WHERE owner_id = ?d
+        ", $user['id']);
+        $pnum = ceil($itemnum / $items_per_page);
+
+        $items = $DB->select("
+            SELECT pms.*, s.username AS sender
+            FROM tbcrealmd.website_pms AS pms
+            LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
+            WHERE pms.owner_id = ?d
+            ORDER BY posted DESC
+            LIMIT ?d, ?d
+        ", $user['id'], $limit_start, $items_per_page);
+
+    } elseif ($_GET['dir'] == 'out') {
+        // --- OUTBOX ---
+        $pathway_info[] = array('title' => $lang['outbox'], 'link' => '');
+
+        $itemnum = $DB->selectCell("
+            SELECT COUNT(1)
+            FROM tbcrealmd.website_pms
+            WHERE sender_id = ?d
+        ", $user['id']);
+        $pnum = ceil($itemnum / $items_per_page);
+
+        $items = $DB->select("
+            SELECT pms.*, r.username AS `for`
+            FROM tbcrealmd.website_pms AS pms
+            LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+            WHERE pms.sender_id = ?d
+            ORDER BY posted DESC
+            LIMIT ?d, ?d
+        ", $user['id'], $limit_start, $items_per_page);
+    }
+}
+
+// ========================================================
+// DELETE MESSAGES
+// ========================================================
+elseif (
+    $_GET['action'] == 'delete'
+    && in_array($_GET['dir'], array('in', 'out'))
+    && isset($_POST['deletem'])
+    && is_array($_POST['checkpm'])
+) {
+    if ($_GET['dir'] == 'in') {
+        // Delete messages RECEIVED
+        $DB->query("
+            DELETE FROM tbcrealmd.website_pms
+            WHERE owner_id = ?d AND id IN (?a)
+        ", $user['id'], $_POST['checkpm']);
+    } else {
+        // Delete messages SENT
+        $DB->query("
+            DELETE FROM tbcrealmd.website_pms
+            WHERE sender_id = ?d AND id IN (?a)
+        ", $user['id'], $_POST['checkpm']);
     }
 
-    $items = array();
+    redirect('index.php?n=account&sub=pms&action=view&dir=' . $_GET['dir'], 1);
+    exit;
+}
 
-    if($_GET['action']=='view'){
-        //===== Calc pages =====//
-        $items_per_pages = 16;
-        if ($_GET['dir'] == 'in'){
-            $pathway_info[] = array('title'=>$lang['inbox'],'link'=>'');
-            $itemnum = $DB->selectCell("SELECT count(1) FROM pms WHERE owner_id=?d",$user['id']);
-            $pnum = ceil($itemnum/$items_per_pages);
-            $limit_start = ($p-1)*$items_per_pages;
-            $items = $DB->select("SELECT pms.*, account.username AS sender FROM pms LEFT JOIN account ON pms.sender_id=account.id WHERE owner_id=?d               ORDER BY posted DESC LIMIT ?d, ?d",$user['id'],$limit_start,$items_per_pages);
-        }elseif ($_GET['dir'] == 'out'){
-            $pathway_info[] = array('title'=>$lang['outbox'],'link'=>'');
-            $itemnum = $DB->selectCell("SELECT count(1) FROM pms WHERE sender_id=?d AND showed=0",$user['id']);
-            $pnum = ceil($itemnum/$items_per_pages);
-            $limit_start = ($p-1)*$items_per_pages;
-            $items = $DB->select("SELECT pms.*, account.username AS 'for'  FROM pms LEFT JOIN account ON pms.owner_id=account.id  WHERE sender_id=?d AND showed=0 ORDER BY posted DESC LIMIT ?d, ?d",$user['id'],$limit_start,$items_per_pages);
-        }
+// ========================================================
+// VIEW SINGLE MESSAGE
+// ========================================================
+elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
 
-    }elseif($_GET['action']=='delete' && in_array($_GET['dir'], array('in', 'out')) &&
-            $_POST['deletem']=='deletem' && is_array($_POST['checkpm'])){
-        if($_GET['dir'] == 'in'){
-            $DB->query("DELETE FROM pms WHERE owner_id=? AND id IN (?a)",$user['id'],$_POST['checkpm']);
-        }elseif ($_GET['dir'] == 'out'){
-            $DB->query("DELETE FROM pms WHERE sender_id=? AND showed=0 AND id IN (?a)",$user['id'],$_POST['checkpm']);
-        }
-        redirect('index.php?n=account&sub=pms&action=view&dir='.$_GET['dir'],1);
+    if ($_GET['dir'] == 'in') {
+        // --- Viewing a received message ---
+        $pathway_info[] = array('title' => $lang['inbox'], 'link' => 'index.php?n=account&sub=pms&action=view&dir=in');
+ 
 
-    }elseif($_GET['action']=='viewpm' && $_GET['iid']){
-        if ($_GET['dir'] == 'in'){
-            $pathway_info[] = array('title'=>$lang['inbox'],'link'=>'index.php?n=account&sub=pms&action=view&dir=in');
-            $item = $DB->selectRow("SELECT * FROM pms WHERE owner_id=?d AND id=?d LIMIT 1",$user['id'],$_GET['iid']);
-            if($item['id']>0 && $item['showed']!=1){
-                $DB->query("UPDATE pms SET showed=1 WHERE id=?",$item['id']);
-            }
-        }elseif ($_GET['dir'] == 'out'){
-            $pathway_info[] = array('title'=>$lang['outbox'],'link'=>'index.php?n=account&sub=pms&action=view&dir=out');
-            $item = $DB->selectRow("SELECT * FROM pms WHERE sender_id=?d AND showed=0 AND id=?d LIMIT 1",$user['id'],$_GET['iid']);
-        }
-        $pathway_info[] = array('title'=>$lang['post_view'],'link'=>'');
-        if(isset($item['sender_id'])){
-            $senderinfo = $auth->getprofile($item['sender_id']);
+        $item = $DB->selectRow("
+            SELECT pms.*, s.username AS sender, r.username AS receiver
+            FROM tbcrealmd.website_pms AS pms
+            LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
+            LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+            WHERE pms.owner_id = ?d AND pms.id = ?d
+            LIMIT 1
+        ", $user['id'], $_GET['iid']);
+
+        // Mark as read
+        if ($item && empty($item['showed'])) {
+            $DB->query("UPDATE tbcrealmd.website_pms SET showed = 1 WHERE id = ?d", $item['id']);
         }
 
-    }elseif($_GET['action']=='add'){
-        $content['message'] = '';
-        $content['subject'] = '';
-        $content['sender'] = '';
-        if($_POST['owner'] && $_POST['title'] && $_POST['message']){
-            $title = trim($_POST['title']);
-            $message = my_preview($_POST['message']);
-            $sender_id = $user['id'];
-            $sender_ip = $user['ip'];
-            $owner_id = $auth->getid($_POST['owner']);
-            if($owner_id > 0){
-                $DB->query("INSERT INTO `pms` (`owner_id`,`subject`,`message`,`sender_id`,`posted`,`sender_ip`)
-                    VALUES (?d,?,?,?d,?d,?)",$owner_id,$title,$message,$sender_id,time(),$sender_ip);
-                redirect('index.php?n=account&sub=pms',1);
-            }else{
-                output_message('alert',$lang['no_such_addr']);
-            }
-        }
-        if($_GET['reply']){
-            $content = $DB->selectRow("SELECT pms.*, account.username AS sender FROM pms LEFT JOIN account ON pms.sender_id=account.id WHERE owner_id=?d AND pms.id=?d",$user['id'],$_GET['reply']);
-            $content['message'] = '[blockquote="'.$content['sender'].' | '.date('d-m-Y, H:i:s',$content['posted']).'"] '.my_previewreverse($content['message']).'[/blockquote]';
-            $pathway_info[] = array('title'=>$lang['post_reply_to'].'"'.$content['subject'].'"','link'=>'');
-            $content['subject'] = '[re:] '.$content['subject'];
-        }else{
-            $pathway_info[] = array('title'=>$lang['newmessage'],'link'=>'');
-            if($_GETVARS['to'])$content['sender'] = RemoveXSS($_GETVARS['to']);
-            if($_GETVARS['topic'])$content['subject'] = RemoveXSS($_GETVARS['topic']);
+    } elseif ($_GET['dir'] == 'out') {
+        // --- Viewing a sent message ---
+        $pathway_info[] = array('title' => $lang['outbox'], 'link' => 'index.php?n=account&sub=pms&action=view&dir=out');
+
+        $item = $DB->selectRow("
+            SELECT pms.*, s.username AS sender, r.username AS receiver
+            FROM tbcrealmd.website_pms AS pms
+            LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
+            LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+            WHERE pms.sender_id = ?d AND pms.id = ?d
+            LIMIT 1
+        ", $user['id'], $_GET['iid']);
+    }
+
+    $pathway_info[] = array('title' => $lang['post_view'], 'link' => '');
+}
+
+// ========================================================
+// ADD / SEND / REPLY
+// ========================================================
+elseif ($_GET['action'] == 'add') {
+
+    $content = array('message' => '', 'subject' => '', 'sender' => '');
+
+    if (!empty($_POST['owner']) && !empty($_POST['title']) && !empty($_POST['message'])) {
+
+        $title     = trim($_POST['title']);
+        $message   = my_preview($_POST['message']);
+        $sender_id = $user['id'];
+        $sender_ip = $_SERVER['REMOTE_ADDR'];
+
+        // Lookup recipient from account table
+        $owner_id = $DB->selectCell("
+            SELECT id
+            FROM tbcrealmd.account
+            WHERE username = ?
+            LIMIT 1
+        ", $_POST['owner']);
+
+        if ($owner_id > 0) {
+            $DB->query("
+                INSERT INTO tbcrealmd.website_pms
+                    (owner_id, subject, message, sender_id, posted, sender_ip, showed)
+                VALUES
+                    (?d, ?, ?, ?d, ?d, ?, 0)
+            ", $owner_id, $title, $message, $sender_id, time(), $sender_ip);
+
+            output_message('notice', $lang['post_sent']);
+            redirect('index.php?n=account&sub=pms&action=view&dir=out', 1);
+            exit;
+
+        } else {
+            output_message('alert', $lang['no_such_addr']);
         }
     }
 
+    // --- Reply logic ---
+if (!empty($_GET['reply'])) {
+    $content = $DB->selectRow("
+        SELECT pms.*, s.username AS sender, r.username AS receiver
+        FROM tbcrealmd.website_pms AS pms
+        LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
+        LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+        WHERE pms.id = ?d
+        LIMIT 1
+    ", $_GET['reply']);
+
+    if ($content) {
+        // reply always goes to original sender
+        $content['sender'] = $content['sender'];
+        $content['subject'] = '[re:] ' . $content['subject'];
+        $content['message'] =
+          '[blockquote="' . $content['sender'] . ' | ' .
+          date('d-m-Y, H:i:s', $content['posted']) . '"] ' .
+          my_previewreverse($content['message']) . '[/blockquote]';
+    }
+}
+else {
+        $pathway_info[] = array('title' => $lang['newmessage'], 'link' => '');
+        if (!empty($_GETVARS['to'])) $content['sender'] = RemoveXSS($_GETVARS['to']);
+        if (!empty($_GETVARS['topic'])) $content['subject'] = RemoveXSS($_GETVARS['topic']);
+    }
 }
 ?>
