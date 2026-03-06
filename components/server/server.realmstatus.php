@@ -16,7 +16,7 @@ foreach($items as $i => $result)
     //$dbinfo_mangos = explode(';', $result['dbinfo']);  // username;password;port;host;DBName
     if ($result['id'] == 1)
     {
-        $dbinfo_mangos = $DB->selectRow( "SELECT * FROM `realm_settings` WHERE id_realm=?d", $result['id'] ) ;
+        $dbinfo_mangos = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $result['id'] ) ;
         if((int)$MW->getConfig->generic->use_archaeic_dbinfo_format) {
             //alternate config - for users upgrading from Modded MaNGOS Web
             //DBinfo column:  host;port;username;password;WorldDBname;CharDBname

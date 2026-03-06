@@ -1,23 +1,4 @@
-<style>
 
-
-.status.up{color:#9f6;}
-.status.down{color:#f66;}
-.realm-list{display:flex;flex-direction:column;gap:16px;}
-.realm-card{
-  background:#111;border:1px solid #333;border-radius:8px;padding:14px;
-  box-shadow:0 1px 4px rgba(0,0,0,.5);transition:background .25s;
-}
-.realm-card.online:hover{background:rgba(0,255,100,.05);}
-.realm-card.offline:hover{background:rgba(255,60,60,.05);}
-.realm-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.realm-icon{width:20px;height:20px;}
-.realm-name{font-weight:bold;color:#ffcc66;font-size:1.1rem;}
-.realm-body{color:#ccc;line-height:1.4;}
-.realm-body strong{color:#ffcc66;}
-
-
-</style>
 
 <?php
 

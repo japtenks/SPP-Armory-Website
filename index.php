@@ -1,5 +1,7 @@
 <?php
 
+
+
 /****************************************************************************/
 /*    < MangosWeb is a Web-Fonted for Mangos (mangosproject.org) >          */
 /*    Copyright (C) <2007>  <Sasha,TGM,Peec,Nafe>                           */
@@ -44,7 +46,8 @@ error_reporting( E_ERROR | E_PARSE | E_WARNING ) ;
 ini_set('log_errors',TRUE);
 ini_set('html_errors',FALSE);
 ini_set('error_log','core/logs/error_log.txt');
-ini_set( 'display_errors', '0' ) ;
+ini_set( 'display_errors', '1' ) ;
+error_reporting(E_ALL);
 // Define INCLUDED so that we can check other pages if they are included by this file
 define( 'INCLUDED', true ) ;
 
