@@ -1,8 +1,8 @@
 <?php
 $realmId = (int)($_GET['realm'] ?? 1);
 $realms = [
-    1 => ['tbccharacters','tbcmangos','tbc','The Burning Crusade'],
-    2 => ['classiccharacters','classicmangos','classic','Classic'],
+    2 => ['tbccharacters','tbcmangos','tbc','The Burning Crusade'],
+    1 => ['classiccharacters','classicmangos','classic','Classic'],
     3 => ['wotlkcharacters','wotlkmangos','wotlk','Wrath of the Lich King']
 ];
 if (!isset($realms[$realmId])) {
