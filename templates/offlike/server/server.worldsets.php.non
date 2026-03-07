@@ -1,0 +1,92 @@
+<?php
+if (!defined('INCLUDED')) exit;
+
+$realmInfo = get_realm_info();
+$realmId   = $realmInfo['id'];
+$realmName = $realmInfo['name'];
+
+// Determine selected character (from ?guid= or cookie)
+$guid = isset($_GET['guid']) ? intval($_GET['guid']) : 0;
+
+if ($guid <= 0 && isset($_COOKIE['cur_selected_character'])) {
+    $guid = intval($_COOKIE['cur_selected_character']);
+}
+if (!isset($_GET['realm']) && isset($_COOKIE['cur_selected_realm'])) {
+    $_GET['realm'] = intval($_COOKIE['cur_selected_realm']);
+}
+
+
+// If still none, show warning
+if ($guid <= 0) {
+    builddiv_start(1, $lang['arm_talents'], 1);
+    echo "<div class='modern-content'><p>No character selected.</p></div>";
+    builddiv_end();
+    return;
+}
+
+global $DB, $CHDB, $currtmp, $lang;
+
+// Fetch character info
+$char = $CHDB->selectRow("SELECT name, class, level FROM `characters` WHERE guid=?d", $guid);
+if (!$char) {
+    echo "<div class='modern-content'><p>Character not found.</p></div>";
+    return;
+}
+
+// Fetch talents
+$talents = $CHDB->select("
+    SELECT spell, rank FROM `character_talent`
+    WHERE guid=?d ORDER BY spell
+", $guid);
+
+// Group by tree
+$trees = [];
+foreach ($talents as $t) {
+    $spell = $DB->selectRow("
+        SELECT SpellName, TalentTab, RankID
+        FROM `talent`
+        WHERE SpellID=?d
+    ", $t['spell']);
+
+    if ($spell) {
+        $tree = $spell['TalentTab'];
+        $trees[$tree][] = [
+            'name' => $spell['SpellName'],
+            'rank' => $t['rank'],
+        ];
+    }
+}
+
+// Output
+builddiv_start(1, $lang['arm_talent'], 1);
+?>
+<p>hi</p>
+<div class="modern-content talents-modern">
+  <div class="char-header">
+    <h2><?php echo htmlspecialchars($char['name']); ?> — Level <?php echo $char['level']; ?></h2>
+    <span class="char-class"><?php echo class_name($char['class']); ?> @ <?php echo $realmName; ?></span>
+  </div>
+
+  <?php if (empty($trees)) : ?>
+    <p class="no-talents"><?php echo $lang['no_talent_tabs_found']; ?></p>
+  <?php else : ?>
+    <div class="talent-tree-grid">
+      <?php foreach ($trees as $treeName => $spells) : ?>
+        <div class="talent-tree">
+          <div class="tree-header"><?php echo htmlspecialchars($treeName); ?></div>
+          <div class="tree-body">
+            <?php foreach ($spells as $s) : ?>
+              <div class="talent-node" title="<?php echo htmlspecialchars($s['name']); ?>">
+                <div class="talent-rank"><?php echo $s['rank']; ?></div>
+                <div class="talent-name"><?php echo htmlspecialchars($s['name']); ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
+
+<?php builddiv_end(); ?>
+
