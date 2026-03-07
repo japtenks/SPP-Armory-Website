@@ -11,7 +11,6 @@ $bgImages = glob($bgDir . '*.{webp,jpg,jpeg,png,gif}', GLOB_BRACE);
 $randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/images/modern/bkgd/19.jpg';
 ?>
 
-
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
