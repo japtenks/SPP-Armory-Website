@@ -2,8 +2,8 @@
 
 function loadCommands($pdo,$world_db,$type){
 
-  /* $armory_db = str_replace('mangos','armory',$world_db); */
-  $armory_db=tbcarmory;
+  $armory_db = str_replace('mangos','armory',$world_db);
+
 
   if($type == 'bot'){
     $sql = "SELECT name,category,subcategory,security,help
