@@ -1,6 +1,7 @@
 <?php
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/bootstrap.php');
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/page_header.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
 
 ?>
 
@@ -8,23 +9,7 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/page_header.php');
 
 /* ---------- Max Tier by expansion ---------- */
 $maxTier = ($expansion === 2) ? 10 : (($expansion === 1) ? 6 : 3);
-$selectedClass = isset($_GET['class']) ? trim($_GET['class']) : '';
-$iconBase   = './armory/shared/icons/';
-$iconPref   = 'class_';
-$iconExt    = '.jpg';
 
-$classes = [
-  ['name'=>'Warrior','slug'=>'warrior','css'=>'is-warrior'],
-  ['name'=>'Paladin','slug'=>'paladin','css'=>'is-paladin'],
-  ['name'=>'Hunter','slug'=>'hunter','css'=>'is-hunter'],
-  ['name'=>'Rogue','slug'=>'rogue','css'=>'is-rogue'],
-  ['name'=>'Priest','slug'=>'priest','css'=>'is-priest'],
-  ['name'=>'Shaman','slug'=>'shaman','css'=>'is-shaman'],
-  ['name'=>'Mage','slug'=>'mage','css'=>'is-mage'],
-  ['name'=>'Warlock','slug'=>'warlock','css'=>'is-warlock'],
-  ['name'=>'Druid','slug'=>'druid','css'=>'is-druid'],
-];
-if ($expansion >= 2) { $classes[] = ['name'=>'Death Knight','slug'=>'deathknight','css'=>'is-dk']; }
 
 /* ---------- CLASS SET NAMES (unchanged lists) ---------- */
 // ... (keep your $N[...] blocks exactly as you sent)
@@ -133,260 +118,6 @@ $BLURB = [
 $order = ['T0','T0_5','T1','T1_5','T2','T2_25','T2_5','T3'];
 if ($maxTier >= 6)  { $order = array_merge($order, ['DS3','T4','T5','T6']); }
 if ($maxTier >= 10) { $order = array_merge($order, ['T7','T8','T9','T10']); }
-?>
-
-<!--Helper section-->
-<?php
-
-/* ---------- helpers ---------- */
-function _cache($key, callable $fn) {
-    static $C = [];
-    if (isset($C[$key])) return $C[$key];
-    $C[$key] = $fn();
-    return $C[$key];
-}
-
-function slot_order($inv) {
-    switch ((int)$inv) {
-      case 1:  return 1;  // Head
-      case 2:  return 2;  // Neck
-      case 3:  return 3;  // Shoulder
-      case 5:  return 4;  // Chest
-      case 6:  return 5;  // Waist
-      case 7:  return 6;  // Legs
-      case 8:  return 7;  // Feet
-      case 9:  return 8;  // Wrist
-      case 10: return 9;  // Hands
-      case 11: return 10; // Finger
-      case 12: return 11; // Trinket
-      case 16: return 12; // Back (cloak)
-      default: return 99; // Other/unexpected
-    }
-}
-
-function icon_url($iconBase) { return '/armory/images/icons/64x64/'.$iconBase.'.png'; }
-
-function find_itemset_id_by_name(string $name): int {
-    $rows = armory_query("SELECT id, name FROM dbc_itemset", 0);
-    if (!is_array($rows) || empty($rows)) return 0;
-
-    $nameNorm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $name));
-
-    foreach ($rows as $r) {
-        $dbNorm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $r['name']));
-        if ($dbNorm === $nameNorm) return (int)$r['id'];
-    }
-
-    foreach ($rows as $r) {
-        $dbNorm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $r['name']));
-        if (strpos($dbNorm, $nameNorm) !== false) return (int)$r['id'];
-    }
-
-    return 0;
-}
-
-function icon_from_displayid(int $displayId): string {
-    if ($displayId <= 0) return 'inv_misc_questionmark';
-
-    // Use the 'name' column instead of 'inventoryIcon'
-    $row = armory_query("SELECT name FROM dbc_itemdisplayinfo WHERE id={$displayId} LIMIT 1", 1);
-
-    if ($row && !empty($row['name'])) {
-        // Drop file extension and lowercase
-        return strtolower(pathinfo($row['name'], PATHINFO_FILENAME));
-    }
-
-    return 'inv_misc_key_02';
-}
-
-function get_spell_row(int $id): ?array {
-  if ($id <= 0) return null;
-  return armory_query("SELECT * FROM dbc_spell WHERE id={$id} LIMIT 1", 1) ?: null;
-}
-
-function get_die_sides_n(int $spellId, int $n): int {
-  if ($spellId <= 0 || $n < 1 || $n > 3) return 0;
-  $col = "effect_die_sides_{$n}";
-  $row = armory_query("SELECT {$col} FROM dbc_spell WHERE id={$spellId} LIMIT 1", 1);
-  return $row ? (int)$row[$col] : 0;
-}
-
-function get_spell_duration_id(int $spellId): int {
-  if ($spellId <= 0) return 0;
-  $row = armory_query("SELECT ref_spellduration FROM dbc_spell WHERE id={$spellId} LIMIT 1", 1);
-  return $row ? (int)$row['ref_spellduration'] : 0;
-}
-
-function duration_secs_from_id(int $durId): int {
-  if ($durId <= 0) return 0;
-  $row = armory_query("SELECT duration1,duration2 FROM dbc_spellduration WHERE id={$durId} LIMIT 1", 1);
-  if (!$row) return 0;
-  $min = (int)$row['duration1']; $max = (int)$row['duration2'];
-  return max($min,$max) / 1000;
-}
-
-function fmt_secs(int $secs): string {
-  if ($secs >= 60) {
-    $m = floor($secs / 60); $s = $secs % 60;
-    return $m.' min'.($s>0?' '.$s.' sec':'');
-  }
-  return $secs.' sec';
-}
-
-function getRadiusYdsForSpellRow(array $sp): float {
-  $rid = (int)($sp['effect_radius_index_1'] ?? 0);
-  if ($rid <= 0) return 0;
-  $row = armory_query("SELECT radius1 FROM dbc_spellradius WHERE id={$rid} LIMIT 1", 1);
-  return $row ? (float)$row['radius1'] : 0;
-}
-
-function get_spell_o_row(int $id): ?array {
-  if ($id <= 0) return null;
-  return armory_query("SELECT * FROM dbc_spell WHERE id={$id} LIMIT 1", 1) ?: null;
-}
-
-function get_spell_proc_charges(int $id): int {
-  if ($id <= 0) return 0;
-  $row = armory_query("SELECT proc_charges FROM dbc_spell WHERE id={$id} LIMIT 1", 1);
-  return $row ? (int)$row['proc_charges'] : 0;
-}
-
-function _stack_amount_for_spell(int $id): int {
-  if ($id <= 0) return 0;
-  $row = armory_query("SELECT stack_amount FROM dbc_spell WHERE id={$id} LIMIT 1", 1);
-  return $row ? (int)$row['stack_amount'] : 0;
-}
-
-function num_trim($v): string {
-  $s = number_format((float)$v,1,'.','');
-  return rtrim(rtrim($s,'0'),'.');
-}
-
-function _trigger_col_base(): string {
-  return "effect_trigger_spell_id_";
-}
-
-function fmt_value($v) {
-    return number_format($v, 0, '', ''); // simple no-commas
-  }
-
-function spell_duration(int $durId): string {
-    if (!$durId) return '';
-    $r = armory_query("SELECT * FROM dbc_spellduration WHERE id={$durId} LIMIT 1", 1);
-    if (!$r) return '';
-    $min = (int)$r['duration1']; 
-    $max = (int)$r['duration2'];
-    if ($min === $max) return ($min/1000).' sec';
-    return ($min/1000).'–'.($max/1000).' sec';
-  }
-
-function spell_radius(int $radId): string {
-    if (!$radId) return '';
-    $r = armory_query("SELECT * FROM dbc_spellradius WHERE id={$radId} LIMIT 1", 1);
-    if (!$r) return '';
-    return (float)$r['radius1'].' yd';
-  }
-
-function class_mask_to_names(int $mask): array {
-    $map = [
-        1   => 'Warrior',
-        2   => 'Paladin',
-        4   => 'Hunter',
-        8   => 'Rogue',
-        16  => 'Priest',
-        64  => 'Shaman',
-        128 => 'Mage',
-        256 => 'Warlock',
-        1024=> 'Druid',
-        32  => 'Death Knight', // adjust for WotLK
-    ];
-    $names = [];
-    foreach ($map as $bit => $name) {
-        if ($mask & $bit) $names[] = $name;
-    }
-    return $names ?: ['All'];
-}
-
-function item_href(int $entry): string { return 'armory/index.php?searchType=iteminfo&item='.$entry; }
-
-function default_slot_names(int $pieces): array {
-  if ($pieces >= 9) return ['H','S','C','W','L','F','W','H','R'];
-  if ($pieces >= 8) return ['H','S','C','W','L','F','W','H'];
-  return ['H','S','C','L','H'];
-}
-
-function icon_base_from_icon_id(int $iconId): string {
-    if ($iconId <= 0) return 'inv_misc_key_02';
-    $r = armory_query("SELECT `name` FROM `dbc_spellicon` WHERE `id`={$iconId} LIMIT 1", 1);
-    if ($r && !empty($r['name'])) {
-      return strtolower(preg_replace('/[^a-z0-9_]/i', '', $r['name']));
-    }
-    return 'inv_misc_key_01';
-  }
-
-function build_placeholder_chips(int $pieces): string {
-  $icon  = icon_url('inv_misc_key_07');
-  $chips = [];
-  foreach (default_slot_names($pieces) as $slot) {
-    $chips[] = '<span class="set-item ghost">'
-             . '<img src="'.htmlspecialchars($icon).'" alt="" width="14" height="14"> '
-             . htmlspecialchars($slot)
-             . '</span>';
-  }
-  return ' <span class="set-items">— '.implode('', $chips).'</span>';
-}
-
-function item_class_name(int $class, int $sub): string {
-    if ($class == 4) {
-        $armor = [1=>"Cloth",2=>"Leather",3=>"Mail",4=>"Plate"];
-        return $armor[$sub] ?? "Armor";
-    }
-    return "Item";
-}
-
-function stat_name(int $id): string {
-    static $map = [
-      3 => 'Agility',
-      4 => 'Strength',
-      5 => 'Intellect',
-      6 => 'Spirit',
-      7 => 'Stamina',
-    ];
-    return $map[$id] ?? '';
-}
-
-function inventory_type_name(int $id): string {
-    $map = [
-        1=>"Head", 2=>"Neck", 3=>"Shoulder",
-        5=>"Chest", 6=>"Waist", 7=>"Legs",
-        8=>"Feet", 9=>"Wrist", 10=>"Hands",
-        11=>"Finger", 12=>"Trinket",
-        16=>"Back",
-        20=>"Chest (Robe)" // robe = chest variant
-    ];
-    return $map[$id] ?? "Slot ".$id;
-}
-
-
-function armor_set_variants($raw) {
-  $raw = (string)$raw;
-  if ($raw === '') return [];
-  $namesPart = $raw; $rolesPart = '';
-  if (preg_match('/^(.*?)(?:\(([^()]*)\))\s*$/', $raw, $m)) {
-    $namesPart = trim($m[1]); $rolesPart = trim($m[2]);
-  }
-  $names = array_map('trim', preg_split('/\s*\/\s*/', $namesPart));
-  $roles = $rolesPart !== '' ? array_map('trim', preg_split('/\s*\/\s*/', $rolesPart)) : [];
-  $generics = array('Armor','Battlegear','Regalia','Raiment','Harness','Garb','Plate');
-  $firstWord = explode(' ', $names[0], 2)[0];
-  $out = [];
-  foreach ($names as $i => $n) {
-    if (strpos($n, ' ') === false && in_array($n, $generics, true)) $n = $firstWord.' '.$n;
-    $out[] = ['name'=>$n, 'role'=>$roles[$i] ?? ''];
-  }
-  return $out;
-}
-
 ?>
 
 <!-- Main functions -->
@@ -653,13 +384,6 @@ function render_item_tip_html(array $item): string {
     return $h;
 }
 
-/**
- * Replace Blizzard-style tooltip tokens.
- * Requires helpers already in your file:
- *   _cache(), get_spell_row(), get_die_sides_n(), get_spell_duration_id(),
- *   duration_secs_from_id(), fmt_secs(), getRadiusYdsForSpellRow(),
- *   get_spell_proc_charges(), _stack_amount_for_spell().
- */
 function replace_spell_tokens(string $desc, array $sp): string {
   /* ---------- tiny formatters ---------- */
   $fmt = static function($v): string {
@@ -905,8 +629,6 @@ $desc = preg_replace_callback(
 
   return $desc;
 }
-
-
 
 ?>
 
