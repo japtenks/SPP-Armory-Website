@@ -28,12 +28,6 @@ function _cache($key, callable $fn) {
     return $C[$key];
 }
 
-/* ---------- tiny cache ---------- */
-/* if (!function_exists('_cache')) {
-  function _cache($k, $fn) { static $C=[]; return $C[$k] ?? ($C[$k]=$fn()); }
-} */
-
-
 function render_rank_bonus_snippet(array $setData, string $rankKey): string {
     if (empty($setData['bonuses'])) return '';
 
@@ -80,7 +74,6 @@ function slot_order($inv) {
       default: return 99; // Other/unexpected
     }
 }
-
 
 function icon_url($iconBase) { return '/armory/images/icons/64x64/'.$iconBase.'.png'; }
 
@@ -362,3 +355,44 @@ function armor_set_variants($raw) {
   }
   return $out;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

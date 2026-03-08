@@ -2,13 +2,14 @@
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/bootstrap.php');
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/page_header.php');
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
+/* require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/armor_desc.php');
 
 ?>
 
 <?php
-
+/* ===========PVP SECTION ESCRIPTIONS ============ */
 /* ---------- Classic PvP Honor Ranks ---------- */
-{ $BLURB = [
+{ $PVP_BLURB = [
   // R1 – Tabard only
   'PvP_R1' => [
     'title'=>"Rank 1 — Private / Scout",'pieces'=>1,
@@ -106,7 +107,7 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
 ];
 }
 
-/* $BLURB['PvP_R14'] = [
+/* $PVP_BLURB['PvP_R14'] = [
   'title'=>"Rank 14 — Grand Marshal / High Warlord",'pieces'=>10,
   'text'=>"The ultimate reward of the Classic Honor grind — <b>epic PvP weapons</b>, unlocked at Rank 14. 
            These were the most prestigious items in Classic WoW, with unique Alliance (Grand Marshal’s) 
@@ -125,7 +126,7 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
 ]; */
 
 
-{ $N['PvP_R1'] = [
+{ $N_PVP['PvP_R1'] = [
   'Warrior' => "Private's Tabard / Scout's Tabard",
   'Paladin' => "Private's Tabard / Scout's Tabard",
   'Hunter'  => "Private's Tabard / Scout's Tabard",
@@ -136,7 +137,7 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
   'Warlock' => "Private's Tabard / Scout's Tabard",
   'Druid'   => "Private's Tabard / Scout's Tabard"
 ];
-$N['PvP_R2'] = [
+$N_PVP['PvP_R2'] = [
   'Warrior' => "Insignia of the Alliance / Insignia of the Horde",
   'Paladin' => "Insignia of the Alliance / Insignia of the Horde",
   'Hunter'  => "Insignia of the Alliance / Insignia of the Horde",
@@ -147,7 +148,7 @@ $N['PvP_R2'] = [
   'Warlock' => "Insignia of the Alliance / Insignia of the Horde",
   'Druid'   => "Insignia of the Alliance / Insignia of the Horde"
 ];
-$N['PvP_R3'] = [
+$N_PVP['PvP_R3'] = [
   'Warrior' => "Sergeant's Cape / Sergeant's Cloak",
   'Paladin' => "Sergeant's Cape / Sergeant's Cloak",
   'Hunter'  => "Sergeant's Cape / Sergeant's Cloak",
@@ -158,7 +159,7 @@ $N['PvP_R3'] = [
   'Warlock' => "Sergeant's Cape / Sergeant's Cloak",
   'Druid'   => "Sergeant's Cape / Sergeant's Cloak"
 ];
-$N['PvP_R4'] = [
+$N_PVP['PvP_R4'] = [
   'Warrior' => "Master Sergeant’s Insignia / Senior Sergeant’s Insignia",
   'Paladin' => "Master Sergeant’s Insignia / Senior Sergeant’s Insignia",
   'Hunter'  => "Master Sergeant’s Insignia / Senior Sergeant’s Insignia",
@@ -170,7 +171,7 @@ $N['PvP_R4'] = [
   'Druid'   => "Master Sergeant’s Insignia / Senior Sergeant’s Insignia"
 ];
 
-$N['PvP_R5'] = [
+$N_PVP['PvP_R5'] = [
   'Warrior' => "Sergeant Major’s Plate Bracers / First Sergeant’s Plate Bracers",
   'Paladin' => "Sergeant Major’s Plate Bracers / First Sergeant’s Plate Bracers",
   'Hunter'  => "Sergeant Major’s Chain Bracers / First Sergeant’s Chain Bracers",
@@ -182,7 +183,7 @@ $N['PvP_R5'] = [
   'Druid'   => "Sergeant Major’s Leather Bracers / First Sergeant’s Leather Bracers"
 ];
 
-$N['PvP_R6'] = [
+$N_PVP['PvP_R6'] = [
   'Warrior' => "Knight’s Colors / Stone Guard’s Herald",
   'Paladin' => "Knight’s Colors / Stone Guard’s Herald",
   'Hunter'  => "Knight’s Colors / Stone Guard’s Herald",
@@ -194,7 +195,7 @@ $N['PvP_R6'] = [
   'Druid'   => "Knight’s Colors / Stone Guard’s Herald"
 ];
 //2 piece Knight-Lieutenant / Blood Guard
-$N['PvP_R7'] = [
+$N_PVP['PvP_R7'] = [
   'Warrior' => "Knight-Lieutenant’s Battlearmor / Blood Guard’s Battlearmor",
   'Paladin' => "Knight-Lieutenant’s Redoubt / Blood Guard’s Redoubt",
   'Hunter'  => "Knight-Lieutenant’s Pursuit / Blood Guard’s Pursuit",
@@ -206,7 +207,7 @@ $N['PvP_R7'] = [
   'Druid'   => "Knight-Lieutenant’s Sanctuary / Blood Guard’s Sanctuary"
 ];
 //4 piece
-$N['PvP_R8'] = [
+$N_PVP['PvP_R8'] = [
   'Warrior' => "Knight-Captain’s Battlearmor / Legionnaire’s Battlearmor",
   'Paladin' => "Knight-Captain’s Redoubt / Legionnaire’s Redoubt",
   'Hunter'  => "Knight-Captain’s Pursuit / Legionnaire’s Pursuit",
@@ -218,7 +219,7 @@ $N['PvP_R8'] = [
   'Druid'   => "Knight-Captain’s Sanctuary / Legionnaire’s Sanctuary"
 ]
 //6 piece
-;$N['PvP_R10'] = [
+;$N_PVP['PvP_R10'] = [
   'Warrior' => "Lieutenant Commander’s Battlearmor / Champion’s Battlearmor",
   'Paladin' => "Lieutenant Commander’s Redoubt / Champion’s Redoubt",
   'Hunter'  => "Lieutenant Commander’s Pursuit / Champion’s Pursuit",
@@ -229,7 +230,7 @@ $N['PvP_R8'] = [
   'Warlock' => "Lieutenant Commander’s Threads / Champion’s Threads",
   'Druid'   => "Lieutenant Commander’s Sanctuary / Champion’s Sanctuary"
 ];
-$N['PvP_R12'] = [
+$N_PVP['PvP_R12'] = [
   'Warrior' => "Marshaal’sal’s Battlegear / General’s Battlegear",
   'Paladin' => "Marsahal’shal’s Aegis / General’s Aegis",
   'Hunter'  => "Marshasl’sl’s Pursuit / General’s Pursuit",
@@ -240,7 +241,7 @@ $N['PvP_R12'] = [
   'Warlock' => "Marshaql’s Threads / General’s Threads",
   'Druid'   => "Marshal’s Sanctuary / General’s Sanctuary"
 ];
-$N['PvP_R13'] = [
+$N_PVP['PvP_R13'] = [
   'Warrior' => "Field Marshal’s Battlegear / Warlord’s Battlegear",
   'Paladin' => "Field Marshal’s Aegis / Warlord’s Aegis",
   'Hunter'  => "Field Marshal’s Pursuit / Warlord’s Pursuit",
@@ -251,7 +252,7 @@ $N['PvP_R13'] = [
   'Warlock' => "Field Marshal’s Threads / Warlord’s Threads",
   'Druid'   => "Field Marshal’s Sanctuary / Warlord’s Sanctuary"
 ];
-$N['PvP_R14'] = [
+$N_PVP['PvP_R14'] = [
   'Warrior' => "
     Grand Marshal's Claymore / High Warlord's Greatsword,
     Grand Marshal's Battle Hammer / High Warlord's Battle Mace,
@@ -333,7 +334,7 @@ $N['PvP_R14'] = [
 }
 
 /* ---------- PvP display order ---------- */
-$order = [
+$pvporder = [
   'PvP_R1',   // Tabards
   'PvP_R2',   // Trinkets
   'PvP_R3',   // Cloaks
@@ -685,6 +686,13 @@ function render_item_tip_html(array $item): string {
     return $h;
 }
 
+/**
+ * Replace Blizzard-style tooltip tokens.
+ * Requires helpers already in your file:
+ *   _cache(), get_spell_row(), get_die_sides_n(), get_spell_duration_id(),
+ *   duration_secs_from_id(), fmt_secs(), getRadiusYdsForSpellRow(),
+ *   get_spell_proc_charges(), _stack_amount_for_spell().
+ */
 function replace_spell_tokens(string $desc, array $sp): string {
   /* ---------- tiny formatters ---------- */
   $fmt = static function($v): string {
@@ -978,17 +986,17 @@ if ($selectedClass === '') {
 /* ---------- Render sets ---------- */
 echo '<div class="set-group"><div class="set-title">PvP Rank Sets</div>';
 
-foreach ($order as $key) {
-  if (!isset($BLURB[$key])) {
+foreach ($pvporder as $key) {
+  if (!isset($PVP_BLURB[$key])) {
     echo '<div class="set-desc set-note">No data block found for '.$key.'.</div>';
     continue;
   }
 
-  $title   = $BLURB[$key]['title'];
-  $pieces  = (int)$BLURB[$key]['pieces'];
-  $text    = $BLURB[$key]['text'];
-  $pairs   = (!empty($N[$key][$selectedClass])) 
-               ? armor_set_variants($N[$key][$selectedClass]) : [];
+  $title   = $PVP_BLURB[$key]['title'];
+  $pieces  = (int)$PVP_BLURB[$key]['pieces'];
+  $text    = $PVP_BLURB[$key]['text'];
+  $pairs   = (!empty($N_PVP[$key][$selectedClass])) 
+               ? armor_set_variants($N_PVP[$key][$selectedClass]) : [];
 
   if (empty($pairs)) continue;
 

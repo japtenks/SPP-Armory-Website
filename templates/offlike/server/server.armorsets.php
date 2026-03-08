@@ -12,23 +12,23 @@ $maxTier = ($expansion === 2) ? 10 : (($expansion === 1) ? 6 : 3);
 
 
 /* ---------- CLASS SET NAMES (unchanged lists) ---------- */
-// ... (keep your $N[...] blocks exactly as you sent)
-$N['T0']=['Warrior'=>"Battlegear of Valor",'Paladin'=>"Lightforge Armor",'Hunter'=>"Beaststalker Armor",'Rogue'=>"Shadowcraft Armor",'Priest'=>"Vestments of the Devout",'Shaman'=>"The Elements",'Mage'=>"Magister's Regalia",'Warlock'=>"Dreadmist Raiment",'Druid'=>"Wildheart Raiment"];
-$N['T0_5']=['Warrior'=>"Battlegear of Heroism",'Paladin'=>"Soulforge Armor",'Hunter'=>"Beastmaster Armor",'Rogue'=>"Darkmantle Armor",'Priest'=>"Vestments of the Virtuous",'Shaman'=>"The Five Thunders",'Mage'=>"Sorcerer's Regalia",'Warlock'=>"Deathmist Raiment",'Druid'=>"Feralheart Raiment"];
-$N['T1']=['Warrior'=>"Battlegear of Might",'Paladin'=>"Lawbringer Armor",'Hunter'=>"Giantstalker Armor",'Rogue'=>"Nightslayer Armor",'Priest'=>"Vestments of Prophecy",'Shaman'=>"The Earthfury",'Mage'=>"Arcanist Regalia",'Warlock'=>"Felheart Raiment",'Druid'=>"Cenarion Raiment"];
-$N['T1_5']=['Warrior'=>"Vindicator's Battlegear",'Paladin'=>"Freethinker's Armor",'Hunter'=>"Predator's Armor",'Rogue'=>"Madcap's Outfit",'Priest'=>"Confessor's Raiment",'Shaman'=>"Augur's Regalia",'Mage'=>"Illusionist's Attire",'Warlock'=>"Demoniac's Threads",'Druid'=>"Haruspex's Garb"];
-$N['T2']=['Warrior'=>"Battlegear of Wrath",'Paladin'=>"Judgement Armor",'Hunter'=>"Dragonstalker Armor",'Rogue'=>"Bloodfang Armor",'Priest'=>"Vestments of Transcendence",'Shaman'=>"The Ten Storms",'Mage'=>"Netherwind Regalia",'Warlock'=>"Nemesis Raiment",'Druid'=>"Stormrage Raiment"];
-$N['T2_25']=['Warrior'=>"Battlegear of Unyielding Strength",'Paladin'=>"Battlegear of Eternal Justice",'Hunter'=>"Trappings of the Unseen Path",'Rogue'=>"Emblems of Veiled Shadows",'Priest'=>"Finery of Infinite Wisdom",'Shaman'=>"Gift of the Gathering Storm",'Mage'=>"Trappings of Vaulted Secrets",'Warlock'=>"Implements of Unspoken Names",'Druid'=>"Symbols of Unending Life"];
-$N['T2_5']=['Warrior'=>"Conqueror's Battlegear",'Paladin'=>"Avenger's Battlegear",'Hunter'=>"Striker's Garb",'Rogue'=>"Deathdealer's Embrace",'Priest'=>"Garments of the Oracle",'Shaman'=>"Stormcaller's Garb",'Mage'=>"Enigma Vestments",'Warlock'=>"Doomcaller's Attire",'Druid'=>"Genesis Raiment"];
-$N['T3']=['Warrior'=>"Dreadnaught's Battlegear",'Paladin'=>"Redemption Armor",'Hunter'=>"Cryptstalker Armor",'Rogue'=>"Bonescythe Armor",'Priest'=>"Vestments of Faith",'Shaman'=>"The Earthshatterer",'Mage'=>"Frostfire Regalia",'Warlock'=>"Plagueheart Raiment",'Druid'=>"Dreamwalker Raiment"];
-$N['T4']=['Druid'=>"Malorne Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Demon Stalker Armor",'Mage'=>"Aldor Regalia",'Paladin'=>"Justicar Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Incarnate Raiment / Regalia (Holy/Disc / Shadow)",'Rogue'=>"Netherblade",'Shaman'=>"Cyclone Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Voidheart Raiment",'Warrior'=>"Warbringer Battlegear / Armor (Arms/Fury / Protection)"];
-$N['T5']=['Druid'=>"Nordrassil Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Rift Stalker Armor",'Mage'=>"Tirisfal Regalia",'Paladin'=>"Crystalforge Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Avatar Raiment / Regalia (Holy/Disc / Shadow)",'Rogue'=>"Deathmantle",'Shaman'=>"Cataclysm Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Corruptor Raiment",'Warrior'=>"Destroyer Battlegear / Armor (Arms/Fury / Protection)"];
-$N['T6']=['Druid'=>"Thunderheart Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Gronnstalker's Armor",'Mage'=>"Tempest Regalia",'Paladin'=>"Lightbringer Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Vestments of Absolution / Absolution Regalia (Holy/Disc / Shadow)",'Rogue'=>"Slayer's Armor",'Shaman'=>"Skyshatter Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Malefic Raiment",'Warrior'=>"Onslaught Battlegear / Armor (Arms/Fury / Protection)"];
-$N['T7']=['Death Knight'=>"Scourgeborne Battlegear / Scourgeborne Plate (DPS / Tank)",'Druid'=>"Dreamwalker Regalia / Dreamwalker Battlegear / Dreamwalker Garb (Balance / Feral / Restoration)",'Hunter'=>"Cryptstalker Battlegear",'Mage'=>"Frostfire Regalia",'Paladin'=>"Redemption Regalia / Redemption Armor / Redemption Battlegear (Holy / Protection / Retribution)",'Priest'=>"Regalia of Faith / Garb of Faith (Shadow / Holy–Discipline)",'Rogue'=>"Bonescythe Battlegear",'Shaman'=>"Earthshatter Regalia / Earthshatter Battlegear / Earthshatter Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Plagueheart Garb",'Warrior'=>"Dreadnaught Battlegear / Dreadnaught Plate (Arms/Fury / Protection)"];
-$N['T8']=['Death Knight'=>"Darkruned Battlegear / Darkruned Plate (DPS / Tank)",'Druid'=>"Nightsong Regalia / Nightsong Battlegear / Nightsong Garb (Balance / Feral / Restoration)",'Hunter'=>"Scourgestalker Battlegear",'Mage'=>"Kirin Tor Garb",'Paladin'=>"Aegis Regalia / Aegis Armor / Aegis Battlegear (Holy / Protection / Retribution)",'Priest'=>"Sanctification Regalia / Sanctification Garb (Shadow / Holy–Discipline)",'Rogue'=>"Terrorblade Battlegear",'Shaman'=>"Worldbreaker Regalia / Worldbreaker Battlegear / Worldbreaker Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Deathbringer Garb",'Warrior'=>"Siegebreaker Battlegear / Siegebreaker Plate (Arms/Fury / Protection)"];
-$N['T9']=['Death Knight'=>"Thassarian's / Koltira's Battlegear / Plate (A / H)",'Druid'=>"Malfurion's / Runetotem's Regalia / Battlegear / Garb (A / H)",'Hunter'=>"Windrunner's Battlegear (Alliance / Horde)",'Mage'=>"Khadgar's / Sunstrider's Regalia (A / H)",'Paladin'=>"Turalyon's / Liadrin's Regalia / Armor / Battlegear (A / H)",'Priest'=>"Velen's / Zabra's Regalia / Garb (A / H)",'Rogue'=>"VanCleef's / Garona's Battlegear (A / H)",'Shaman'=>"Nobundo's / Thrall's Regalia / Battlegear / Garb (A / H)",'Warlock'=>"Kel'Thuzad's / Gul'dan's Regalia (A / H)",'Warrior'=>"Wrynn's / Hellscream's Battlegear / Plate (A / H)"];
-$N['T10']=['Death Knight'=>"Scourgelord's Battlegear / Scourgelord's Plate (DPS / Tank)",'Druid'=>"Lasherweave Regalia / Lasherweave Battlegear / Lasherweave Garb (Balance / Feral / Restoration)",'Hunter'=>"Ahn'Kahar Blood Hunter's Battlegear",'Mage'=>"Bloodmage's Regalia",'Paladin'=>"Lightsworn Regalia / Lightsworn Armor / Lightsworn Battlegear (Holy / Protection / Retribution)",'Priest'=>"Crimson Acolyte's Regalia / Crimson Acolyte's Garb (Shadow / Holy–Discipline)",'Rogue'=>"Shadowblade's Battlegear",'Shaman'=>"Frost Witch's Regalia / Frost Witch's Battlegear / Frost Witch's Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Dark Coven's Regalia",'Warrior'=>"Ymirjar Lord's Battlegear / Ymirjar Lord's Plate (Arms/Fury / Protection)"];
-$N['DS3'] = [
+// ... (keep your $tier_N[...] blocks exactly as you sent)
+$tier_N['T0']=['Warrior'=>"Battlegear of Valor",'Paladin'=>"Lightforge Armor",'Hunter'=>"Beaststalker Armor",'Rogue'=>"Shadowcraft Armor",'Priest'=>"Vestments of the Devout",'Shaman'=>"The Elements",'Mage'=>"Magister's Regalia",'Warlock'=>"Dreadmist Raiment",'Druid'=>"Wildheart Raiment"];
+$tier_N['T0_5']=['Warrior'=>"Battlegear of Heroism",'Paladin'=>"Soulforge Armor",'Hunter'=>"Beastmaster Armor",'Rogue'=>"Darkmantle Armor",'Priest'=>"Vestments of the Virtuous",'Shaman'=>"The Five Thunders",'Mage'=>"Sorcerer's Regalia",'Warlock'=>"Deathmist Raiment",'Druid'=>"Feralheart Raiment"];
+$tier_N['T1']=['Warrior'=>"Battlegear of Might",'Paladin'=>"Lawbringer Armor",'Hunter'=>"Giantstalker Armor",'Rogue'=>"Nightslayer Armor",'Priest'=>"Vestments of Prophecy",'Shaman'=>"The Earthfury",'Mage'=>"Arcanist Regalia",'Warlock'=>"Felheart Raiment",'Druid'=>"Cenarion Raiment"];
+$tier_N['T1_5']=['Warrior'=>"Vindicator's Battlegear",'Paladin'=>"Freethinker's Armor",'Hunter'=>"Predator's Armor",'Rogue'=>"Madcap's Outfit",'Priest'=>"Confessor's Raiment",'Shaman'=>"Augur's Regalia",'Mage'=>"Illusionist's Attire",'Warlock'=>"Demoniac's Threads",'Druid'=>"Haruspex's Garb"];
+$tier_N['T2']=['Warrior'=>"Battlegear of Wrath",'Paladin'=>"Judgement Armor",'Hunter'=>"Dragonstalker Armor",'Rogue'=>"Bloodfang Armor",'Priest'=>"Vestments of Transcendence",'Shaman'=>"The Ten Storms",'Mage'=>"Netherwind Regalia",'Warlock'=>"Nemesis Raiment",'Druid'=>"Stormrage Raiment"];
+$tier_N['T2_25']=['Warrior'=>"Battlegear of Unyielding Strength",'Paladin'=>"Battlegear of Eternal Justice",'Hunter'=>"Trappings of the Unseen Path",'Rogue'=>"Emblems of Veiled Shadows",'Priest'=>"Finery of Infinite Wisdom",'Shaman'=>"Gift of the Gathering Storm",'Mage'=>"Trappings of Vaulted Secrets",'Warlock'=>"Implements of Unspoken Names",'Druid'=>"Symbols of Unending Life"];
+$tier_N['T2_5']=['Warrior'=>"Conqueror's Battlegear",'Paladin'=>"Avenger's Battlegear",'Hunter'=>"Striker's Garb",'Rogue'=>"Deathdealer's Embrace",'Priest'=>"Garments of the Oracle",'Shaman'=>"Stormcaller's Garb",'Mage'=>"Enigma Vestments",'Warlock'=>"Doomcaller's Attire",'Druid'=>"Genesis Raiment"];
+$tier_N['T3']=['Warrior'=>"Dreadnaught's Battlegear",'Paladin'=>"Redemption Armor",'Hunter'=>"Cryptstalker Armor",'Rogue'=>"Bonescythe Armor",'Priest'=>"Vestments of Faith",'Shaman'=>"The Earthshatterer",'Mage'=>"Frostfire Regalia",'Warlock'=>"Plagueheart Raiment",'Druid'=>"Dreamwalker Raiment"];
+$tier_N['T4']=['Druid'=>"Malorne Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Demon Stalker Armor",'Mage'=>"Aldor Regalia",'Paladin'=>"Justicar Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Incarnate Raiment / Regalia (Holy/Disc / Shadow)",'Rogue'=>"Netherblade",'Shaman'=>"Cyclone Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Voidheart Raiment",'Warrior'=>"Warbringer Battlegear / Armor (Arms/Fury / Protection)"];
+$tier_N['T5']=['Druid'=>"Nordrassil Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Rift Stalker Armor",'Mage'=>"Tirisfal Regalia",'Paladin'=>"Crystalforge Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Avatar Raiment / Regalia (Holy/Disc / Shadow)",'Rogue'=>"Deathmantle",'Shaman'=>"Cataclysm Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Corruptor Raiment",'Warrior'=>"Destroyer Battlegear / Armor (Arms/Fury / Protection)"];
+$tier_N['T6']=['Druid'=>"Thunderheart Regalia / Harness / Raiment (Balance / Feral / Restoration)",'Hunter'=>"Gronnstalker's Armor",'Mage'=>"Tempest Regalia",'Paladin'=>"Lightbringer Raiment / Armor / Battlegear (Holy / Protection / Retribution)",'Priest'=>"Vestments of Absolution / Absolution Regalia (Holy/Disc / Shadow)",'Rogue'=>"Slayer's Armor",'Shaman'=>"Skyshatter Regalia / Harness / Raiment (Elemental / Enhancement / Restoration)",'Warlock'=>"Malefic Raiment",'Warrior'=>"Onslaught Battlegear / Armor (Arms/Fury / Protection)"];
+$tier_N['T7']=['Death Knight'=>"Scourgeborne Battlegear / Scourgeborne Plate (DPS / Tank)",'Druid'=>"Dreamwalker Regalia / Dreamwalker Battlegear / Dreamwalker Garb (Balance / Feral / Restoration)",'Hunter'=>"Cryptstalker Battlegear",'Mage'=>"Frostfire Regalia",'Paladin'=>"Redemption Regalia / Redemption Armor / Redemption Battlegear (Holy / Protection / Retribution)",'Priest'=>"Regalia of Faith / Garb of Faith (Shadow / Holy–Discipline)",'Rogue'=>"Bonescythe Battlegear",'Shaman'=>"Earthshatter Regalia / Earthshatter Battlegear / Earthshatter Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Plagueheart Garb",'Warrior'=>"Dreadnaught Battlegear / Dreadnaught Plate (Arms/Fury / Protection)"];
+$tier_N['T8']=['Death Knight'=>"Darkruned Battlegear / Darkruned Plate (DPS / Tank)",'Druid'=>"Nightsong Regalia / Nightsong Battlegear / Nightsong Garb (Balance / Feral / Restoration)",'Hunter'=>"Scourgestalker Battlegear",'Mage'=>"Kirin Tor Garb",'Paladin'=>"Aegis Regalia / Aegis Armor / Aegis Battlegear (Holy / Protection / Retribution)",'Priest'=>"Sanctification Regalia / Sanctification Garb (Shadow / Holy–Discipline)",'Rogue'=>"Terrorblade Battlegear",'Shaman'=>"Worldbreaker Regalia / Worldbreaker Battlegear / Worldbreaker Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Deathbringer Garb",'Warrior'=>"Siegebreaker Battlegear / Siegebreaker Plate (Arms/Fury / Protection)"];
+$tier_N['T9']=['Death Knight'=>"Thassarian's / Koltira's Battlegear / Plate (A / H)",'Druid'=>"Malfurion's / Runetotem's Regalia / Battlegear / Garb (A / H)",'Hunter'=>"Windrunner's Battlegear (Alliance / Horde)",'Mage'=>"Khadgar's / Sunstrider's Regalia (A / H)",'Paladin'=>"Turalyon's / Liadrin's Regalia / Armor / Battlegear (A / H)",'Priest'=>"Velen's / Zabra's Regalia / Garb (A / H)",'Rogue'=>"VanCleef's / Garona's Battlegear (A / H)",'Shaman'=>"Nobundo's / Thrall's Regalia / Battlegear / Garb (A / H)",'Warlock'=>"Kel'Thuzad's / Gul'dan's Regalia (A / H)",'Warrior'=>"Wrynn's / Hellscream's Battlegear / Plate (A / H)"];
+$tier_N['T10']=['Death Knight'=>"Scourgelord's Battlegear / Scourgelord's Plate (DPS / Tank)",'Druid'=>"Lasherweave Regalia / Lasherweave Battlegear / Lasherweave Garb (Balance / Feral / Restoration)",'Hunter'=>"Ahn'Kahar Blood Hunter's Battlegear",'Mage'=>"Bloodmage's Regalia",'Paladin'=>"Lightsworn Regalia / Lightsworn Armor / Lightsworn Battlegear (Holy / Protection / Retribution)",'Priest'=>"Crimson Acolyte's Regalia / Crimson Acolyte's Garb (Shadow / Holy–Discipline)",'Rogue'=>"Shadowblade's Battlegear",'Shaman'=>"Frost Witch's Regalia / Frost Witch's Battlegear / Frost Witch's Garb (Elemental / Enhancement / Restoration)",'Warlock'=>"Dark Coven's Regalia",'Warrior'=>"Ymirjar Lord's Battlegear / Ymirjar Lord's Plate (Arms/Fury / Protection)"];
+$tier_N['DS3'] = [
   'Mage'    => "Incanter's Regalia / Mana-Etched Regalia (Caster / DPS)",
   'Priest'  => "Hallowed Raiment /Mana-Etched Regalia",
   'Warlock' => "Oblivion Raiment / Mana-Etched Regalia (Caster / DPS)",
@@ -46,7 +46,7 @@ $N['DS3'] = [
 
 
 /* ---------- blurbs ---------- */
-$BLURB = [
+$TIER_BLURB = [
   'T0'=>[
     'title'=>"Tier 0 (Dungeon Set 1)",'pieces'=>8,
     'text'=>"Tier 0 marked the dawn of class sets in World of Warcraft. Forged through drops in the most difficult dungeons of Classic—Stratholme, Scholomance, and Blackrock Spire—these blue-quality sets gave players their first taste of coordinated gearing. While they lacked raid-level stats, their 8-piece bonuses hinted at the specialization that future raid sets would embody. Collecting these pieces was the natural bridge from leveling dungeons into endgame raiding, and many raiders proudly wore them into Molten Core. <span class='set-note'>(Patch 1.05)</span>"
@@ -115,10 +115,11 @@ $BLURB = [
 
 
 /* ---------- ORDER ---------- */
-$order = ['T0','T0_5','T1','T1_5','T2','T2_25','T2_5','T3'];
-if ($maxTier >= 6)  { $order = array_merge($order, ['DS3','T4','T5','T6']); }
-if ($maxTier >= 10) { $order = array_merge($order, ['T7','T8','T9','T10']); }
+$tierOrder = ['T0','T0_5','T1','T1_5','T2','T2_25','T2_5','T3'];
+if ($maxTier >= 6)  { $tierOrder = array_merge($tierOrder, ['DS3','T4','T5','T6']); }
+if ($maxTier >= 10) { $tierOrder = array_merge($tierOrder, ['T7','T8','T9','T10']); }
 ?>
+
 
 <!-- Main functions -->
 <?php
@@ -384,6 +385,13 @@ function render_item_tip_html(array $item): string {
     return $h;
 }
 
+/**
+ * Replace Blizzard-style tooltip tokens.
+ * Requires helpers already in your file:
+ *   _cache(), get_spell_row(), get_die_sides_n(), get_spell_duration_id(),
+ *   duration_secs_from_id(), fmt_secs(), getRadiusYdsForSpellRow(),
+ *   get_spell_proc_charges(), _stack_amount_for_spell().
+ */
 function replace_spell_tokens(string $desc, array $sp): string {
   /* ---------- tiny formatters ---------- */
   $fmt = static function($v): string {
@@ -630,6 +638,8 @@ $desc = preg_replace_callback(
   return $desc;
 }
 
+
+
 ?>
 
 <!--Main body of page HTML -->
@@ -678,20 +688,20 @@ if ($selectedClass === '') {
 /* ---------- Render sets ---------- */
 echo '<div class="set-group"><div class="set-title">Dungeon & Tier Sets</div>';
 
-foreach ($order as $key) {
+foreach ($tierOrder as $key) {
   if (preg_match('/^T(\d+)/',$key,$m) && (int)$m[1] > $maxTier) continue;
 
-  $title   = $BLURB[$key]['title'];
-  $pieces  = (int)$BLURB[$key]['pieces'];
-  $text    = $BLURB[$key]['text'];
-  $pairs   = (!empty($N[$key][$selectedClass])) ? armor_set_variants($N[$key][$selectedClass]) : [];
+  $title   = $TIER_BLURB[$key]['title'];
+  $pieces  = (int)$TIER_BLURB[$key]['pieces'];
+  $text    = $TIER_BLURB[$key]['text'];
+  $pairs   = (!empty($tier_N[$key][$selectedClass])) ? armor_set_variants($tier_N[$key][$selectedClass]) : [];
 
   if (empty($pairs)) echo "<div class='set-desc set-note'>No itemset variants for $selectedClass at $key.</div>";
 
   echo '<div class="set-group"><div class="set-title">'.htmlspecialchars($title).'</div>';
 
   if (!$pairs) {
-    $nmRaw = $N[$key][$selectedClass] ?? '';
+    $nmRaw = $tier_N[$key][$selectedClass] ?? '';
     if ($nmRaw !== '') $pairs = [['name' => $nmRaw, 'role' => '']];
   }
 

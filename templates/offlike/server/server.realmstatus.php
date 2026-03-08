@@ -88,7 +88,11 @@ foreach($realms as $r){
   $realm_id=(int)$r['id'];
   $realm_name=$r['name'];
   $realm_type=$realm_flags_def[$r['realmflags']&0x0F]??"Normal";
-  $is_online=($r['realmflags']!=1&&($r['realmflags']&2)!=2);
+  /* $is_online=($r['realmflags']!=1&&($r['realmflags']&2)!=2); */
+  
+  $last=$DB->selectRow("SELECT starttime,uptime FROM uptime WHERE realmid=?d ORDER BY starttime DESC LIMIT 1",$realm_id);
+$is_online=($last && ($last['starttime']+$last['uptime'])>=time()-60);
+
   $res_color=($is_online?1:0);
   $build_ver=trim($r['realmbuilds']);
 

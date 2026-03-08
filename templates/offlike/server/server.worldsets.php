@@ -9,6 +9,24 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
 
 <?php
 
+
+$selectedClass = isset($_GET['class']) ? trim($_GET['class']) : '';
+$iconBase   = './armory/shared/icons/';
+$iconPref   = 'class_';
+$iconExt    = '.jpg';
+
+$classes = [
+  ['name'=>'Warrior','slug'=>'warrior','css'=>'is-warrior'],
+  ['name'=>'Paladin','slug'=>'paladin','css'=>'is-paladin'],
+  ['name'=>'Hunter','slug'=>'hunter','css'=>'is-hunter'],
+  ['name'=>'Rogue','slug'=>'rogue','css'=>'is-rogue'],
+  ['name'=>'Priest','slug'=>'priest','css'=>'is-priest'],
+  ['name'=>'Shaman','slug'=>'shaman','css'=>'is-shaman'],
+  ['name'=>'Mage','slug'=>'mage','css'=>'is-mage'],
+  ['name'=>'Warlock','slug'=>'warlock','css'=>'is-warlock'],
+  ['name'=>'Druid','slug'=>'druid','css'=>'is-druid'],
+];
+if ($expansion >= 2) { $classes[] = ['name'=>'Death Knight','slug'=>'deathknight','css'=>'is-dk']; }
 //cloth
 $N['WD_Necropile'] = [
 	'Mage'=>"Necropile Raiment",
@@ -613,6 +631,13 @@ function render_item_tip_html(array $item): string {
     return $h;
 }
 
+/**
+ * Replace Blizzard-style tooltip tokens.
+ * Requires helpers already in your file:
+ *   _cache(), get_spell_row(), get_die_sides_n(), get_spell_duration_id(),
+ *   duration_secs_from_id(), fmt_secs(), getRadiusYdsForSpellRow(),
+ *   get_spell_proc_charges(), _stack_amount_for_spell().
+ */
 function replace_spell_tokens(string $desc, array $sp): string {
   /* ---------- tiny formatters ---------- */
   $fmt = static function($v): string {
@@ -922,10 +947,10 @@ foreach ($order as $key) {
 /* ---------- render title + description with class color highlights ---------- */
 echo "<div class='set-title'>".htmlspecialchars($title)."</div>";
 
-// 1️⃣ Remove any leftover <b> or </b> tags safely
+
 $text = str_replace(['<b>', '</b>'], '', $text);
 
-// 2️⃣ Map class names to CSS classes (reuse your .is-* colors)
+
 $classesToCSS = [
   'Warrior'      => 'is-warrior',
   'Paladin'      => 'is-paladin',
@@ -939,7 +964,6 @@ $classesToCSS = [
   'Death Knight' => 'is-dk'
 ];
 
-// 3️⃣ Auto-wrap all class names (handles plurals too)
 $text = preg_replace_callback(
   '/\b(' . implode('|', array_map('preg_quote', array_keys($classesToCSS))) . ')(s)?\b/i',
   function($m) use ($classesToCSS) {
