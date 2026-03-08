@@ -93,7 +93,8 @@ foreach($realms as $r){
   $last=$DB->selectRow("SELECT starttime,uptime FROM uptime WHERE realmid=?d ORDER BY starttime DESC LIMIT 1",$realm_id);
 $is_online=($last && ($last['starttime']+$last['uptime'])>=time()-60);
 
-  $res_color=($is_online?1:0);
+/*   $res_color=($is_online?1:0); */
+$res_color = $is_online ? 1 : 0;
   $build_ver=trim($r['realmbuilds']);
 
   // Determine expansion by build version
