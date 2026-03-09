@@ -90,13 +90,19 @@ while ($result = $characters_db->fetch_assoc($query)) {
         }
     }
 
-    if ($gm_player == false || ($gm_player == true && $gm_include_online == 1)) {
+/*     if ($gm_player == false || ($gm_player == true && $gm_include_online == 1)) {
         if ((Horde_races & (0x1 << ($result['race']-1))) || $result['race'] == 9) {
             $Count[$Extention][1]++;
         } elseif (($Alliance_races & (0x1 << ($result['race']-1))) || $result['race'] == 10) {
             $Count[$Extention][0]++;
         }
-    }
+    } */
+	
+	if (in_array($result['race'], [2,5,6,8,10])) {
+    $Count[$Extention][1]++; // Horde
+} elseif (in_array($result['race'], [1,3,4,7,11])) {
+    $Count[$Extention][0]++; // Alliance
+}
 
     if (($gm_player && $show_player) || ($gm_player && !$show_player && $status_gm_include_all)) {
         $gm_online++;

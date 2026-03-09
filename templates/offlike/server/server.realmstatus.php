@@ -1,61 +1,3 @@
-<style>
-.status.up{color:#9f6;}
-.status.down{color:#f66;}
-.realm-list{display:flex;flex-direction:column;gap:16px;}
-.realm-card{
-  background:#111;
-  border:1px solid #333;
-  border-radius:8px;
-  padding:14px;
-  box-shadow:0 1px 4px rgba(0,0,0,.5);
-  transition:background .25s;
-}
-.realm-card.online:hover{background:rgba(0,255,100,.05);}
-.realm-card.offline:hover{background:rgba(255,60,60,.05);}
-.realm-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
-.realm-icon{width:20px;height:20px;}
-.realm-name{font-weight:bold;color:#ffcc66;font-size:1.1rem;}
-.realm-body{color:#ccc;line-height:1.4;}
-.realm-body strong{color:#ffcc66;}
-
-.faction-labels {
-  display:flex;
-  justify-content:space-between;
-  font-size:0.9rem;
-  margin:3px 0 2px 0;
-  font-weight:bold;
-}
-.faction-labels .alliance{color:#2b5eff;}
-.faction-labels .horde{color:#c11b1b;}
-
-.faction-bar {
-  display:flex;
-  height:8px;
-  border-radius:4px;
-  overflow:hidden;
-  margin-bottom:4px;
-}
-.faction-bar .alliance{background:#2b5eff;}
-.faction-bar .horde{background:#c11b1b;}
-
-.faction-balance {
-  text-align:center;
-  font-size:0.85rem;
-  margin-top:2px;
-  font-weight:bold;
-}
-.faction-balance.alliance{color:#2b5eff;}
-.faction-balance.horde{color:#c11b1b;}
-.faction-balance.balanced{color:#aaa;}
-
-.progression{margin-top:6px;font-size:.9rem;}
-.progression span{margin-right:8px;}
-.progression .cleared{color:#9f6;}
-.progression .partial{color:#ffcc66;}
-.progression .uncleared{color:#f66;}
-.legend{font-size:.9rem;color:#aaa;margin-bottom:6px;}
-.legend span{margin-right:10px;}
-</style>
 
 <?php
 if (INCLUDED !== true) exit;
@@ -88,13 +30,9 @@ foreach($realms as $r){
   $realm_id=(int)$r['id'];
   $realm_name=$r['name'];
   $realm_type=$realm_flags_def[$r['realmflags']&0x0F]??"Normal";
-  /* $is_online=($r['realmflags']!=1&&($r['realmflags']&2)!=2); */
+  $is_online=($r['realmflags']!=1&&($r['realmflags']&2)!=2);
   
-  $last=$DB->selectRow("SELECT starttime,uptime FROM uptime WHERE realmid=?d ORDER BY starttime DESC LIMIT 1",$realm_id);
-$is_online=($last && ($last['starttime']+$last['uptime'])>=time()-60);
-
-/*   $res_color=($is_online?1:0); */
-$res_color = $is_online ? 1 : 0;
+  $res_color = $is_online ? 1 : 0;
   $build_ver=trim($r['realmbuilds']);
 
   // Determine expansion by build version
@@ -111,13 +49,18 @@ $res_color = $is_online ? 1 : 0;
     $restart_count=$DB->selectCell("SELECT COUNT(*) FROM uptime WHERE realmid=?d AND starttime>=UNIX_TIMESTAMP(CURDATE())",$realm_id);
     if($restart_count==0 && $is_online)$restart_count=1; // current session counts as one
   }
+	else
+ 	 $avg_uptime=$DB->selectCell("SELECT ROUND(AVG(uptime)/3600,2) FROM uptime WHERE realmid=?d AND starttime>UNIX_TIMESTAMP(DATE_SUB(NOW(),INTERVAL 7 DAY))",$realm_id);
+     $restart_count=$DB->selectCell("SELECT COUNT(*) FROM uptime WHERE realmid=?d AND starttime>=UNIX_TIMESTAMP(CURDATE())",$realm_id);
+ 		
+ 
 
   // player/faction/progression
   $pop=0;$alli=0;$horde=0;$avg_lvl=0;$max_lvl=0;
   $progress=['MC','Ony','BWL','ZG','AQ','Naxx','Kara','SSC','TK','BT','SWP','Naxx25','Ulduar','ICC'];
   foreach($progress as $p)$state[$p]='uncleared';
 
-  if($is_online){
+ 
     if($realm_id==1)$charDB="classiccharacters";
     elseif($realm_id==2)$charDB="tbccharacters";
     elseif($realm_id==3)$charDB="wotlkcharacters";
@@ -152,7 +95,7 @@ $res_color = $is_online ? 1 : 0;
         $state['ICC']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (51155,51156,51157,51158,51159)")>3?'partial':'uncleared';
       }
     }
-  }
+  
 
   $items[]=[
     'id'=>$realm_id,'name'=>$realm_name,'type'=>$realm_type,'build'=>$build_ver,
