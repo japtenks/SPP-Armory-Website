@@ -1,13 +1,15 @@
+
 <?php
-$DB_HOST="127.0.0.1";
-$DB_PORT=3310;
-$DB_USER="root";
-$DB_PASS="123456";
+//cat /var/www/html/components/pomm/config/playermap_config.php
+require_once(__DIR__ . '/../../../config/config-protected.php');
 
-$WORLD_NAMES=[1=>"classicmangos",2=>"tbcmangos",3=>"wotlkmangos"];
-$CHAR_NAMES=[1=>"classiccharacters",2=>"tbccharacters",3=>"wotlkcharacters"];
+$DB_HOST = $db['host'];
+$DB_PORT = $db['port'];
+$DB_USER = $db['user'];
+$DB_PASS = $db['pass'];
 
-$language="en";
+$WORLD_NAMES = array_map(fn($r) => $r['world'], $realmDbMap);
+$CHAR_NAMES  = array_map(fn($r) => $r['chars'], $realmDbMap);
 $site_encoding="utf-8";
 $db_type="MySQL";
 //add realm info inf you want status window info
