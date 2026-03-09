@@ -1,59 +1,75 @@
 <?php
-// -------------------------
-// Player Map Configuration
-// -------------------------
+$DB_HOST="127.0.0.1";
+$DB_PORT=3310;
+$DB_USER="root";
+$DB_PASS="123456";
 
-$language      = "en";
-$site_encoding = "utf-8";
-$db_type       = "MySQL";
+$WORLD_NAMES=[1=>"classicmangos",2=>"tbcmangos",3=>"wotlkmangos"];
+$CHAR_NAMES=[1=>"classiccharacters",2=>"tbccharacters",3=>"wotlkcharacters"];
 
-// ---------- Realm Database ----------
-$realm_db = [
-  "addr"     => "127.0.0.1:3310",
-  "user"     => "root",
-  "pass"     => "123456",
-  "name"     => "tbcrealmd",
-  "encoding" => "utf8"
-];
+$language="en";
+$site_encoding="utf-8";
+$db_type="MySQL";
+//add realm info inf you want status window info
 
-// ---------- World Databases ----------
-$world_db = [
-  1 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "classicmangos", "encoding" => "utf8"],
-  2 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "tbcmangos", "encoding" => "utf8"],
-  3 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "wotlkmangos", "encoding" => "utf8"]
-];
+foreach($WORLD_NAMES as $id=>$name){
+ $world_db[$id]['addr']=$DB_HOST.":".$DB_PORT;
+ $world_db[$id]['user']=$DB_USER;
+ $world_db[$id]['pass']=$DB_PASS;
+ $world_db[$id]['name']=$name;
+ $world_db[$id]['encoding']="utf8";
+}
 
-// ---------- Character Databases ----------
-$characters_db = [
-  1 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "classiccharacters", "encoding" => "utf8"],
-  2 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "tbccharacters", "encoding" => "utf8"],
-  3 => ["addr" => "127.0.0.1:3310", "user" => "root", "pass" => "123456", "name" => "wotlkcharacters", "encoding" => "utf8"]
-];
+foreach($CHAR_NAMES as $id=>$name){
+ $characters_db[$id]['addr']=$DB_HOST.":".$DB_PORT;
+ $characters_db[$id]['user']=$DB_USER;
+ $characters_db[$id]['pass']=$DB_PASS;
+ $characters_db[$id]['name']=$name;
+ $characters_db[$id]['encoding']="utf8";
+}
 
-// ---------- Server Info ----------
-$server = [
-  1 => ["addr" => "192.168.1.22", "addr_wan" => "192.168.1.22", "game_port" => 8085],
-  2 => ["addr" => "192.168.1.21", "addr_wan" => "192.168.1.21", "game_port" => 8085],
-  3 => ["addr" => "192.168.1.23", "addr_wan" => "192.168.1.23", "game_port" => 8085]
-];
+$gm_online=true;
+$gm_online_count=100;
+$map_gm_show_online_only_gmoff=1;
+$map_gm_show_online_only_gmvisible=1;
+$map_gm_add_suffix=1;
+$map_status_gm_include_all=0;
 
-// ---------- GM & Display Options ----------
-$gm_online                         = false;
-$gm_online_count                   = false;
-$map_gm_show_online_only_gmoff     = false;
-$map_gm_show_online_only_gmvisible = false;
-$map_gm_add_suffix                 = false;
-$map_status_gm_include_all         = false;
+$map_show_status=0;
+$map_show_time=1;
+$map_time=10;
 
-// ---------- Status Display ----------
-$map_show_status        = true;
-$map_show_time          = true;
-$map_time               = 10;
-$map_time_to_show_uptime    = 5000;
-$map_time_to_show_maxonline = 5000;
-$map_time_to_show_gmonline  = 5000;
+$map_time_to_show_uptime=5000;
+$map_time_to_show_maxonline=5000;
+$map_time_to_show_gmonline=5000;
 
-// ---------- Misc ----------
-$developer_test_mode = false;
-$multi_realm_mode    = true;
+$developer_test_mode=false;
+$multi_realm_mode=true;
+
+// === Player Map configuration === //
+
+// GM online options
+$gm_online                         = true;
+$gm_online_count                   = 100;
+
+$map_gm_show_online_only_gmoff     = 1; // show GM point only if in '.gm off' [1/0]
+$map_gm_show_online_only_gmvisible = 1; // show GM point only if in '.gm visible on' [1/0]
+$map_gm_add_suffix                 = 1; // add '{GM}' to name [1/0]
+$map_status_gm_include_all         = 0; // include 'all GMs in game'/'who on map' [1/0]
+
+// status window options:
+$map_show_status =  0;                  // show server status window [1/0]
+$map_show_time   =  0;                  // Show autoupdate timer 1 - on, 0 - off
+$map_time        =  0;                  // Map autoupdate time (seconds), 0 - not update.
+
+// all times set in msec (do not set time < 1500 for show), 0 to disable.
+$map_time_to_show_uptime    = 5000;     // time to show uptime string
+$map_time_to_show_maxonline = 5000;     // time to show max online
+$map_time_to_show_gmonline  = 5000;     // time to show GM online
+
+$developer_test_mode =  false;
+
+$multi_realm_mode    =  true;
+
+
 ?>
