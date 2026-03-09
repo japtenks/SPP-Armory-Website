@@ -129,7 +129,12 @@ $rc = [];
 $num_chars = 0;
 
 try {
-  $charData = $DB->select("SELECT race, COUNT(*) AS total FROM {$realmDB}.characters GROUP BY race");
+$charData = $DB->select("
+    SELECT race, COUNT(*) AS total
+    FROM {$realmDB}.characters
+    WHERE NOT (level = 1 AND xp = 0)
+    GROUP BY race
+");
   foreach ($charData as $row) {
       $rc[$row['race']] = $row['total'];
       $num_chars += $row['total'];
