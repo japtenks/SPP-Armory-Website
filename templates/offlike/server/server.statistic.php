@@ -169,8 +169,13 @@ foreach ($rc as $race => $count) {
 <?php else: ?>
 
   <?php
-  $allianceMap = [1=>'human',3=>'dwarf',4=>'nightelf',7=>'gnome',11=>'dranei'];
-  $hordeMap    = [2=>'orc',5=>'undead',6=>'tauren',8=>'troll',10=>'be'];
+$allianceMap = [1=>'human',3=>'dwarf',4=>'nightelf',7=>'gnome'];
+$hordeMap    = [2=>'orc',5=>'undead',6=>'tauren',8=>'troll'];
+
+if ($realmId >= 2) {  // TBC or higher
+    $allianceMap[11] = 'draenei';
+    $hordeMap[10]    = 'be';
+}
   $allianceRaces=[]; $hordeRaces=[];
 
   foreach ($allianceMap as $id=>$key)
