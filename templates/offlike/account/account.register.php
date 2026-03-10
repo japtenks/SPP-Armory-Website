@@ -7,46 +7,47 @@ if (INCLUDED !== true) exit;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     global $DB, $auth, $MW;
 
-    $username = strtoupper(trim($_POST['username']));
-    $password = strtoupper(trim($_POST['password']));
-    $verify   = strtoupper(trim($_POST['verify']));
+    $rawUsername = trim($_POST['username']);
+    $username = strtoupper($rawUsername);
+    $password = trim($_POST['password']);
+    $verify   = trim($_POST['verify']);
 
     if ($password !== $verify) {
-        $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>⚠ Passwords do not match.</div>";
+        $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Password fields do not match.</div>";
     } elseif (strlen($username) < 3 || strlen($password) < 3) {
-        $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>⚠ Username and password must be at least 3 characters long.</div>";
+        $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username and password must be at least 3 characters long.</div>";
     } else {
-        // --- check if username already exists ---
         $exists = $DB->selectCell("SELECT id FROM account WHERE LOWER(username)=LOWER(?)", $username);
+
         if ($exists) {
-            $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>⚠ Username already exists. Please choose another.</div>";
+            $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username already exists. Please choose another.</div>";
         } else {
-            // --- attempt to register using the core AUTH class (SRP6 handled internally) ---
             $result = $auth->register(
                 array(
-                    'username'      => strtoupper($username),
-                    'sha_pass_hash' => sha_password($username, $password),
-                    'expansion'     => 2,
-                    'password'      => $password
+                    'username'  => $username,
+                    'password'  => $password,
+                    'expansion' => 0
                 ),
-                array()
+                false
             );
 
             if ($result === true) {
-                // Auto-login if activation not required
                 if ((int)$MW->getConfig->generic->req_reg_act == 0) {
                     $auth->login(array('username' => $username, 'password' => $password));
                 }
 
-                $message = "<div style='color:lime;font-weight:bold;margin-bottom:8px;'>✅ Account <b>$username</b> created successfully!</div>";
+                $message = "<div style='color:lime;font-weight:bold;margin-bottom:8px;'>Account <b>" . htmlspecialchars($username) . "</b> created successfully.</div>";
             } else {
-                // $auth->register() may return false or an array with error info
-                $errorDetail = is_array($result) ? implode('<br>', array_map('htmlspecialchars', $result)) : 'Unknown error';
-                $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>⚠ Account creation failed.<br><small>$errorDetail</small></div>";
+                $errorDetail = is_array($result)
+                    ? implode('<br>', array_map('htmlspecialchars', $result))
+                    : 'Unknown error';
+
+                $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Account creation failed.<br><small>{$errorDetail}</small></div>";
             }
         }
     }
 }
+
 
 /* -----------------------------
    HEADER IMAGE
@@ -131,7 +132,7 @@ function header_image_account() {
 <div class="form-flex">
   <img src="templates/tbc/images/orc2.jpg" alt="Orc Warrior">
   <form method="post" action="index.php?n=account&sub=register" class="register-form">
-    <input type="hidden" name="step" value="5">
+
 
     <div class="form-group">
       <label for="username">Username:</label>

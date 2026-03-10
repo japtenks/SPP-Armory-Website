@@ -26,11 +26,7 @@ function check()
             return false;
         }
 
-        if($res['activation_code'] != null){
-            $this->setgroup();
-            output_message('alert','Your account is not active');
-            return false;
-        }
+
 
 	if (matchAccountKey($cookie['user_id'], $cookie['account_key'])){
     unset($res['sha_pass_hash']);
@@ -56,16 +52,23 @@ function check()
     }
 }
 
-
 function AUTH($DB,$confs)
 {
     global $MW;
 
-    // Force connection to realmd DB (remote host)
-    $this->DB = DbSimple_Generic::connect("mysql://root:123456@127.0.0.1:3310/tbcrealmd");
-    $this->DB->setErrorHandler('databaseErrorHandler'); // keep original error handling if used
+    $realmd = $MW->getDbInfo;
 
-    // Continue normal flow
+    $this->DB = DbSimple_Generic::connect(
+        $realmd['db_type'] . '://' .
+        $realmd['db_username'] . ':' .
+        $realmd['db_password'] . '@' .
+        $realmd['db_host'] . ':' .
+        $realmd['db_port'] . '/' .
+        $realmd['db_name']
+    );
+
+    $this->DB->setErrorHandler('databaseErrorHandler');
+
     $this->check();
     $this->user['ip'] = $_SERVER['REMOTE_ADDR'];
     if((int)$MW->getConfig->generic->onlinelist_on){
@@ -74,7 +77,10 @@ function AUTH($DB,$confs)
         $this->onlinelist_update();
     }
 }
+
 // === Load Characters for Logged-in User (All Realms) ===
+
+
 
 function load_characters_for_user() {
     if (empty($this->user['id'])) {
@@ -82,18 +88,26 @@ function load_characters_for_user() {
         return;
     }
 
-    // Define all realm DBs
-    $realmDBs = [
-        1 => ["name" => "Classic", "dsn" => "mysql://root:123456@127.0.0.1:3310/classiccharacters"],
-        2 => ["name" => "The Burning Crusade", "dsn" => "mysql://root:123456@127.0.0.1:3310/tbccharacters"],
-        3 => ["name" => "Wrath of the Lich King", "dsn" => "mysql://root:123456@127.0.0.1:3310/wotlkcharacters"]
-    ];
+    $db = $GLOBALS['db'] ?? null;
+    $realmDbMap = $GLOBALS['realmDbMap'] ?? [];
+
+    if (!is_array($db) || !is_array($realmDbMap) || empty($realmDbMap)) {
+        $GLOBALS['characters'] = [];
+        return;
+    }
 
     $GLOBALS['characters'] = [];
 
-    foreach ($realmDBs as $id => $info) {
+    foreach ($realmDbMap as $id => $realmInfo) {
         try {
-            $CHDB = DbSimple_Generic::connect($info['dsn']);
+            $dsn = 'mysql://' .
+                $db['user'] . ':' .
+                $db['pass'] . '@' .
+                $db['host'] . ':' .
+                $db['port'] . '/' .
+                $realmInfo['chars'];
+
+            $CHDB = DbSimple_Generic::connect($dsn);
             $CHDB->setErrorHandler('databaseErrorHandler');
 
             $chars = $CHDB->select("
@@ -104,25 +118,26 @@ function load_characters_for_user() {
             ", $this->user['id']);
 
             if (!is_array($chars) || empty($chars)) {
-                error_log("[AUTH] No characters found in {$info['name']} for account {$this->user['id']}");
+                error_log("[AUTH] No characters found in {$realmInfo['label']} for account {$this->user['id']}");
                 continue;
             }
 
             foreach ($chars as &$char) {
                 $char['realm_id']   = $id;
-                $char['realm_name'] = $info['name'];
+                $char['realm_name'] = $realmInfo['label'];
             }
 
             $GLOBALS['characters'] = array_merge($GLOBALS['characters'], $chars);
-            error_log("[AUTH] Added ".count($chars)." from {$info['name']}");
+            error_log("[AUTH] Added " . count($chars) . " from {$realmInfo['label']}");
 
         } catch (Exception $e) {
-            error_log("[AUTH] Failed loading characters for realm {$info['name']}: " . $e->getMessage());
+            error_log("[AUTH] Failed loading characters for realm {$realmInfo['label']}: " . $e->getMessage());
         }
     }
 
     error_log("[AUTH] Loaded " . count($GLOBALS['characters']) . " total characters for " . $this->user['username']);
 }
+
 
     function setgroup($gid=1) // 1 - guest, 5- banned
     {
@@ -147,29 +162,22 @@ function load_characters_for_user() {
     SELECT `id`,`username`,`s`,`v`,`locked` FROM `account`
     WHERE `username` = ?", strtoupper($params['username']));
 
-// Debug
-if (!$res) {
-    echo "<pre style='color:red'>No account found for username: " . strtoupper($params['username']) . "</pre>";
-    $test = $this->DB->select("SELECT id, username FROM account LIMIT 5");
-    echo "<pre style='color:yellow'>First 5 accounts:\n" . print_r($test, true) . "</pre>";
-    return false;
-}
+        if (!$res) {
+            return false;
+        }
 
         if($res['id'] < 1){$success = 0;output_message('alert','Bad username');}
         if(get_banned($res[id], 1)== TRUE){
             output_message('alert','Your account is currently banned');
             $success = 0;
         }
-        if($res['activation_code'] != null){
-            output_message('alert','Your account is not active');
-            $success = 0;
-        }
         if($success!=1) return false;
-        if (verifySRP6($params['username'], $params['password'], $res['s'], $res['v'])) {
-    $this->user['id']    = $res['id'];
-    $this->user['name']  = $res['username'];
-    $this->user['level'] = $res2;
+        if (verifySRP6(strtoupper($params['username']), $params['password'], $res['s'], $res['v'])) {
+    $this->user['id'] = $res['id'];
+    $this->user['username'] = $res['username'];
+    $this->user['name'] = $res['username'];
 
+    
     // Load all realm characters for this account
     $this->load_characters_for_user();
 
@@ -424,17 +432,16 @@ if (!$res) {
     function onlinelist_add() // Add or update list with new user
     {
         global $user;
-        global $__SERVER;
 
         $cur_time = time();
         $result = $this->DB->selectCell("SELECT count(*) FROM `website_online` WHERE `user_id`=?",$this->user['id']);
         if($result>0)
         {
-            $this->DB->query("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`=? LIMIT 1",$this->user['ip'],$cur_time,$__SERVER['REQUEST_URI'],$this->user['id']);
+            $this->DB->query("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`=? LIMIT 1",$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI'],$this->user['id']);
         }
         else
         {
-            $this->DB->query("INSERT INTO `website_online` (`user_id`,`user_name`,`user_ip`,`logged`,`currenturl`) VALUES (?,?,?,?,?)",$this->user['id'],$this->user['username'],$this->user['ip'],$cur_time,$__SERVER['REQUEST_URI']);
+            $this->DB->query("INSERT INTO `website_online` (`user_id`,`user_name`,`user_ip`,`logged`,`currenturl`) VALUES (?,?,?,?,?)",$this->user['id'],$this->user['username'],$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI']);
         }
     }
 
@@ -447,17 +454,16 @@ if (!$res) {
     function onlinelist_addguest() // Add or update list with new guest
     {
         global $user;
-        global $__SERVER;
 
         $cur_time = time();
         $result = $this->DB->selectCell("SELECT  count(*) FROM `website_online` WHERE `user_id`='0' AND `user_ip`=?",$this->user['ip']);
         if($result>0)
         {
-            $this->DB->query("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`='0' AND `user_ip`=? LIMIT 1",$this->user['ip'],$cur_time,$__SERVER['REQUEST_URI'],$this->user['ip']);
+            $this->DB->query("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`='0' AND `user_ip`=? LIMIT 1",$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI'],$this->user['ip']);
         }
         else
         {
-            $this->DB->query("INSERT INTO `website_online` (`user_ip`,`logged`,`currenturl`) VALUES (?,?,?)",$this->user['ip'],$cur_time,$__SERVER['REQUEST_URI']);
+            $this->DB->query("INSERT INTO `website_online` (`user_ip`,`logged`,`currenturl`) VALUES (?,?,?)",$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI']);
         }
     }
 
@@ -468,3 +474,6 @@ if (!$res) {
     }
 }
 ?>
+
+
+
