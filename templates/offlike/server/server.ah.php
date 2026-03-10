@@ -1,249 +1,53 @@
-<style>
-/* ===============================
-   AUCTION HOUSE TABLE
-   =============================== */
-.ah-table { composes: wow-table; }
-.ah-table .header,
-.ah-table .row {
-  grid-template-columns: 130px 250px 70px 120px 100px 120px 120px 120px;
-}
-.ah-table .gold-cell { text-align: right; padding-right: 10px; }
-
-/* ===============================
-   AUCTION HOUSE FILTER BUTTONS
-   =============================== */
-.ah-filter-bar {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.pagination-controls {
-  margin-top: 200px;
-}
-.ah-filter {
-  color: #ffcc66;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 4px 10px;
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 0.95rem;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-}
-.ah-filter:hover {
-  background: rgba(255,204,102,0.1);
-  box-shadow: 0 0 6px rgba(255,204,102,0.5);
-}
-.ah-filter.is-active {
-  background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
-  border-color: #ffcc66;
-  color: #fff3a0;
-  box-shadow: 0 0 8px rgba(255,204,102,0.4);
-}
-
-/* ===============================
-   FACTION COLOR THEMES
-   =============================== */
-.ah-filter.faction-alliance {
-  color: #79a9ff;
-  border-color: #3366ff;
-  text-shadow: 0 0 6px rgba(120,160,255,0.4);
-}
-.ah-filter.faction-alliance:hover,
-.ah-filter.faction-alliance.is-active {
-  background: rgba(60,100,255,0.15);
-  box-shadow: 0 0 8px rgba(120,160,255,0.6);
-  color: #bcd8ff;
-}
-
-.ah-filter.faction-horde {
-  color: #ff5c5c;
-  border-color: #b30000;
-  text-shadow: 0 0 6px rgba(255,60,60,0.4);
-}
-.ah-filter.faction-horde:hover,
-.ah-filter.faction-horde.is-active {
-  background: rgba(180,0,0,0.15);
-  box-shadow: 0 0 8px rgba(255,60,60,0.6);
-  color: #ffc0c0;
-}
-
-.ah-filter.faction-blackwater {
-  color: #ffcc66;
-  border-color: #8b6a2a;
-  text-shadow: 0 0 6px rgba(255,204,102,0.4);
-}
-.ah-filter.faction-blackwater:hover,
-.ah-filter.faction-blackwater.is-active {
-  background: rgba(255,204,102,0.1);
-  box-shadow: 0 0 8px rgba(255,204,102,0.6);
-  color: #fff3a0;
-}
-
-.ah-filter.faction-neutral {
-  color: #ccc;
-  border-color: #555;
-  text-shadow: 0 0 4px rgba(255,255,255,0.2);
-}
-.ah-filter.faction-neutral:hover,
-.ah-filter.faction-neutral.is-active {
-  background: rgba(200,200,200,0.1);
-  box-shadow: 0 0 8px rgba(255,255,255,0.4);
-  color: #fff;
-}
-
-/* === GOLD DISPLAY FIX === */
-.gold-cell {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.gold-inline {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 2px;
-  white-space: nowrap;
-}
-.gold-inline img {
-  height: 14px;
-  width: auto;
-  vertical-align: middle;
-  margin: 0 1px -1px 1px;
-}
-.ah-table .col.gold-cell {
-  padding-right: 8px;
-}
-.ah-table .header,
-.ah-table .row {
-  grid-template-columns:
-    130px   /* Type */
-    280px   /* Item name */
-    70px    /* Qty */
-    120px   /* Time Left */
-    minmax(140px, 1fr)  /* Current Bid */
-    minmax(160px, 1fr); /* Buyout */
-}
-
-/* keep coin sections aligned and readable */
-.gold-cell {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  min-width: 140px;
-  gap: 2px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.95rem;
-}
-.gold-inline img {
-  height: 14px;
-  width: auto;
-  vertical-align: middle;
-  margin: 0 1px -1px 1px;
-}
-/* === Base Grid === */
-.ah-table .header,
-.ah-table .row {
-  display: grid;
-  grid-template-columns:
-    130px  /* Type */
-    280px  /* Item */
-    70px   /* Qty */
-    120px  /* Time Left */
-    minmax(140px, 1fr)  /* Current Bid */
-    minmax(160px, 1fr); /* Buyout */
-  align-items: center;
-}
-.ah-table .col a {
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
-  display: inline-block;
-  max-width: 100%;
-}
-
-
-/* === Responsive Compression === */
-
-/* Medium screens — hide less relevant info */
-@media (max-width: 1100px) {
-  .ah-table .header .col:nth-child(1),
-  .ah-table .row .col:nth-child(1), /* Type */
-  .ah-table .header .col:nth-child(3),
-  .ah-table .row .col:nth-child(3), /* Qty */
-  .ah-table .header .col:nth-child(4),
-  .ah-table .row .col:nth-child(4)  /* Time Left */
-  { display: none; }
-
-  .ah-table .header,
-  .ah-table .row {
-    grid-template-columns:
-      300px  /* Item */
-      minmax(160px, 1fr) /* Current Bid */
-      minmax(160px, 1fr); /* Buyout */
-  }
-}
-
-/* Small screens — show only Item + Buyout */
-@media (max-width: 700px) {
-  .ah-table .header .col:nth-child(5),
-  .ah-table .row .col:nth-child(5) /* Hide Bid */ 
-  { display: none; }
-
-  .ah-table .header,
-  .ah-table .row {
-    grid-template-columns:
-      1fr   /* Item */
-      160px /* Buyout */;
-  }
-}
-
-/* Keep gold layout tight and clean */
-.gold-cell {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  min-width: 140px;
-  gap: 2px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.95rem;
-}
-
-</style>
 
 <?php
-/* =========================================================
-   Auction House Standalone - verified for TBC layout
-   ========================================================= */
+
+require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 
 $currtmp = '/armory';
 $use_itemsite_url = '/armory/index.php?searchType=iteminfo&item=';
 
 /* ---------- Realm Selection ---------- */
-$realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 2;
+$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
+$db = $db ?? ($GLOBALS['db'] ?? null);
+
+if (!is_array($realmMap) || !is_array($db)) {
+    die("Realm DB map not loaded");
+}
+
+$realmId = spp_resolve_realm_id($realmMap);
+
 switch ($realmId) {
-    case 1: $db_chars = 'classiccharacters'; $db_world = 'classicmangos'; $realmName = 'Classic'; break;
-    case 2: $db_chars = 'tbccharacters';     $db_world = 'tbcmangos';     $realmName = 'The Burning Crusade'; break;
-    case 3: $db_chars = 'wotlkcharacters';   $db_world = 'wotlkmangos';   $realmName = 'Wrath of the Lich King'; break;
-    default: die("Invalid realm ID");
+    case 1:
+        $db_chars = 'classiccharacters';
+        $db_world = 'classicmangos';
+        $realmName = 'Classic';
+        break;
+    case 2:
+        $db_chars = 'tbccharacters';
+        $db_world = 'tbcmangos';
+        $realmName = 'The Burning Crusade';
+        break;
+    case 3:
+        $db_chars = 'wotlkcharacters';
+        $db_world = 'wotlkmangos';
+        $realmName = 'Wrath of the Lich King';
+        break;
+    default:
+        die("Invalid realm ID");
 }
 
 /* ---------- PDO Connection ---------- */
 try {
     $pdo = new PDO(
-        "mysql:host=127.0.0.1;port=3310;dbname={$db_chars};charset=utf8mb4",
-        'root', '123456',
+        "mysql:host={$db['host']};port={$db['port']};dbname={$db_chars};charset=utf8mb4",
+        $db['user'],
+        $db['pass'],
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 } catch (PDOException $e) {
     die("DB connection failed: " . $e->getMessage());
 }
+
 
 /* ---------- Lang ---------- */
 $lang = [

@@ -1,6 +1,6 @@
 <?php
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/bootstrap.php');
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/page_header.php');
+//require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/page_header.php');
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
 /* require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/armor_desc.php');
 

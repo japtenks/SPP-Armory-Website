@@ -4,6 +4,36 @@
 // =============================================================
 // MASTER CONFIG - edit credentials here only
 // =============================================================
+
+if (!function_exists('spp_default_realm_id')) {
+    function spp_default_realm_id(array $realmDbMap) {
+/*         if (file_exists(__DIR__ . '/../wotlk.spp') && isset($realmDbMap[3])) return 3;
+        if (file_exists(__DIR__ . '/../tbc.spp') && isset($realmDbMap[2])) return 2;
+        if (file_exists(__DIR__ . '/../vanilla.spp') && isset($realmDbMap[1])) return 1; */
+        return 1;
+    }
+}
+
+if (!function_exists('spp_resolve_realm_id')) {
+    function spp_resolve_realm_id(array $realmDbMap, $fallback = null) {
+        $candidates = [
+            $_GET['realm'] ?? null,
+            $_COOKIE['cur_selected_realm'] ?? null,
+            $GLOBALS['user']['cur_selected_realmd'] ?? null,
+            $fallback,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $realmId = (int)$candidate;
+            if ($realmId > 0 && isset($realmDbMap[$realmId])) {
+                return $realmId;
+            }
+        }
+
+        return spp_default_realm_id($realmDbMap);
+    }
+}
+
 $db = [
     'host' => '127.0.0.1',
     'port' => 3310,
@@ -38,41 +68,16 @@ $realmDbMap = [
     ],
 ];
 
-// =============================================================
-// AUTO-DETECT ACTIVE REALM
-// =============================================================
-$activeRealm = null;
-foreach ($realmDbMap as $id => $dbs) {
-    try {
-        $pdo = new PDO(
-            "mysql:host={$db['host']};port={$db['port']};dbname={$dbs['realmd']};charset=utf8",
-            $db['user'], $db['pass'],
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
-        $row = $pdo->query("SELECT `name` FROM `realmlist` LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $activeRealm = ['id' => $id, 'dbs' => $dbs, 'name' => $row['name']];
-            break;
-        }
-    } catch (PDOException $e) {
-        // DB not available, try next
-    }
-}
+$activeRealmId = spp_default_realm_id($realmDbMap);
+$activeRealm = $realmDbMap[$activeRealmId];
 
-if (!$activeRealm) {
-    die("No realms could be loaded. Check DB connections.");
-}
-
-// =============================================================
-// LEGACY COMPAT - $realmd, $worlddb, $DB arrays
-// =============================================================
 $realmd = [
     'db_type'        => 'mysql',
     'db_host'        => $db['host'],
     'db_port'        => $db['port'],
     'db_username'    => $db['user'],
     'db_password'    => $db['pass'],
-    'db_name'        => $activeRealm['dbs']['realmd'],
+    'db_name'        => $activeRealm['realmd'],
     'db_encoding'    => 'utf8',
     'req_reg_invite' => 0,
 ];
@@ -83,7 +88,7 @@ $worlddb = [
     'db_port'     => $db['port'],
     'db_username' => $db['user'],
     'db_password' => $db['pass'],
-    'db_name'     => $activeRealm['dbs']['world'],
+    'db_name'     => $activeRealm['world'],
     'db_encoding' => 'utf8',
 ];
 
@@ -93,6 +98,13 @@ $DB = [
     'db_port'     => $db['port'],
     'db_username' => $db['user'],
     'db_password' => $db['pass'],
-    'db_name'     => $activeRealm['dbs']['world'],
+    'db_name'     => $activeRealm['world'],
     'db_encoding' => 'utf8',
 ];
+$GLOBALS['db'] = $db;
+$GLOBALS['realmDbMap'] = $realmDbMap;
+$GLOBALS['activeRealmId'] = $activeRealmId;
+$GLOBALS['activeRealm'] = $activeRealm;
+$GLOBALS['realmd'] = $realmd;
+$GLOBALS['worlddb'] = $worlddb;
+$GLOBALS['DB'] = $DB;

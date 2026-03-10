@@ -1,26 +1,13 @@
 <?php
+//cat /var/www/html/componets/pomm/pomm_config.php
 require_once("func.php");
 require_once("config/playermap_config.php");
 require_once("libs/data_lib.php");
 
-// --- Realm detection with override ---
-$realm_id = (int)($_GET['realm'] ?? 0);
 
-if ($realm_id === 0) {
-    if (file_exists("../../vanilla.spp")) {
-        $realm_id = 1;
-    } elseif (file_exists("../../tbc.spp")) {
-        $realm_id = 2;
-    } elseif (file_exists("../../wotlk.spp")) {
-        $realm_id = 3;
-    } elseif (file_exists("../../vmangos.spp")) {
-        $realm_id = 4;
-    }
-}
+require_once(__DIR__ . '/../../config/config-protected.php');
+$realm_id = spp_resolve_realm_id($realmDbMap);
 
-if ($realm_id === 0) {
-    $realm_id = 1; // fallback
-}
 
 // --- Language setup ---
 if (isset($_COOKIE["lang"])) {
@@ -113,13 +100,3 @@ if ($DB_world->connect_error) {
     die("World DB connection failed: " . $DB_world->connect_error);
 }
 
-// --- Show current realm name ---
-//echo "<div style='text-align:center;
-//                color:#FFD700;
-//                font-family:Georgia;
-//                font-size:16px;
-//                margin:10px 0;
-//                text-shadow:1px 1px 3px #000;'>
-//        Realm: <b>{$realm_name}</b>
-//      </div>";
-?>
