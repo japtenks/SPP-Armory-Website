@@ -50,9 +50,16 @@
 <?php
 builddiv_start(1, $lang['characters'], 1);
 
-$realmId = (int)($_GET['realm'] ?? 1);
-$realms = [1 => 'classiccharacters', 2 => 'tbccharacters', 3 => 'wotlkcharacters'];
-$realmDB = $realms[$realmId] ?? 'classiccharacters';
+require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
+
+$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
+if (!is_array($realmMap) || empty($realmMap)) {
+    die("Realm DB map not loaded");
+}
+
+$realmId = spp_resolve_realm_id($realmMap);
+$realmDB = $realmMap[$realmId]['chars'];
+
 
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $items_per_page = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;
@@ -68,7 +75,8 @@ if ($p > $pnum && $pnum > 0) $p = $pnum;
 if ($p < 1) $p = 1;
 $offset = ($p - 1) * $items_per_page;
 
-$urlstring = '?n=characters&realm=' . $realmId . ($includeBots ? '&show_bots=1' : '');
+$urlstring = '?n=server&sub=chars&realm=' . $realmId . ($includeBots ? '&show_bots=1' : '');
+
 
 $characters = $DB->select("
   SELECT guid, account, name, race, class, gender, level, zone
@@ -104,22 +112,13 @@ $raceNames = [
 <?php 
 if ($characters):
   foreach ($characters as $item): 
-    $portraitDir = "templates/offlike/images/portraits/wow-70/";
-    $cacheDir = "templates/offlike/cache/portraits/";
+     $portrait = get_character_portrait_path(
+        $item['guid'],
+        $item['gender'],
+        $item['race'],
+        $item['class']
+    );
 
-    if (!is_dir($cacheDir)) mkdir($cacheDir, 0777, true);
-
-    $pattern = sprintf("%s%d-%d-%d*.gif", $portraitDir, $item['gender'], $item['race'], $item['class']);
-    $matches = glob($pattern);
-
-    if ($matches) {
-      $selected = $matches[array_rand($matches)];
-      $cacheFile = $cacheDir . "portrait_{$item['guid']}.gif";
-      if (!file_exists($cacheFile)) copy($selected, $cacheFile);
-      $portrait = $cacheFile;
-    } else {
-      $portrait = sprintf("%s%d-%d-0.gif", $portraitDir, $item['gender'], $item['race']);
-    }
 
     $faction = in_array($item['race'], [1,3,4,7,11,22,25,29]) ? 'alliance' : 'horde';
 

@@ -1,4 +1,6 @@
 <?php
+
+
 function get_forum_byid($id){
   global $DB;
   $result = $DB->selectRow("SELECT * FROM f_forums WHERE forum_id=?d",$id);
@@ -70,5 +72,33 @@ function isValidChar($user)
                                          $user['character_id'], $user['character_name'], $user['id']) == 1);
 }
 
+function get_character_portrait_path($guid, $gender, $race, $class)
+{
+    $portraitDir = "templates/offlike/images/portraits/wow-70/";
+    $cacheDir = "templates/offlike/cache/portraits/";
+    $cacheFile = $cacheDir . "portrait_{$guid}.gif";
+
+    if (file_exists($cacheFile)) {
+        return $cacheFile;
+    }
+
+    if (!is_dir($cacheDir)) {
+        mkdir($cacheDir, 0777, true);
+    }
+
+    $pattern = sprintf("%s%d-%d-%d*.gif", $portraitDir, $gender, $race, $class);
+    $matches = glob($pattern);
+
+    if (!empty($matches)) {
+        sort($matches);
+        copy($matches[0], $cacheFile);
+        return $cacheFile;
+    }
+
+    return sprintf("%s%d-%d-0.gif", $portraitDir, $gender, $race);
+}
+
+
 $yesterday_ts = mktime(0, 0, 0, date("m")  , date("d")-1, date("Y"));
+
 ?>

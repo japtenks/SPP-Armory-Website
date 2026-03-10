@@ -1,5 +1,14 @@
 <?php
 include('forum.func.php');
+require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
+
+$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
+if (!is_array($realmMap) || empty($realmMap)) {
+    die("Realm DB map not loaded");
+}
+
+$realmId = spp_resolve_realm_id($realmMap);
+
 
 $this_topic = get_topic_byid($_GET['tid']);
 $this_forum = get_forum_byid($this_topic['forum_id']);
@@ -108,8 +117,25 @@ foreach($result as $cur_post)
     $cur_post['linktoedit'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=editpost&post='.$cur_post['post_id'];
     $cur_post['linktodelete'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletepost&post='.$cur_post['post_id'];
     // ================================================= //
-    $charinfo = $CHDB->selectRow("SELECT c.race,c.class,c.level,c.gender,g.name as guild FROM characters c LEFT JOIN guild_member gm ON c.guid=gm.guid LEFT JOIN guild g ON gm.guildid=g.guildid WHERE c.guid=?d", $cur_post["poster_character_id"]);
-    $cur_post['avatar'] = "$charinfo[gender]-$charinfo[race]-$charinfo[class].gif";//gender race class
+	
+    $charDbName = $realmMap[$realmId]['chars'];
+
+$charinfo = $DB->selectRow("
+    SELECT c.race, c.class, c.level, c.gender, g.name as guild
+    FROM {$charDbName}.characters c
+    LEFT JOIN {$charDbName}.guild_member gm ON c.guid = gm.guid
+    LEFT JOIN {$charDbName}.guild g ON gm.guildid = g.guildid
+    WHERE c.guid = ?d
+", $cur_post["poster_character_id"]);
+
+  
+	$cur_post['avatar'] = get_character_portrait_path(
+    $cur_post["poster_character_id"],
+    $charinfo['gender'],
+    $charinfo['race'],
+    $charinfo['class']
+);
+//gender race class
 	$cur_post['mini_race'] = "$charinfo[race]-$charinfo[gender].gif";
 	$cur_post['mini_class'] = "$charinfo[class].gif";
     $cur_post['level'] = $charinfo['level'];

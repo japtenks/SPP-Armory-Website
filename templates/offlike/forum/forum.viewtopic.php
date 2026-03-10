@@ -146,7 +146,7 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
       <?php foreach ($posts as $post): ?>
         <article class="post">
           <div class="post-avatar">
-            <img src="<?php echo $dtmp . '/images/portraits/wow/' . $post['avatar']; ?>" alt="avatar" />
+            <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
             <div class="post-user">
               <h3><?php echo htmlspecialchars($post['poster']); ?></h3>
               <p class="level">Lvl <?php echo (int)$post['level']; ?></p>
