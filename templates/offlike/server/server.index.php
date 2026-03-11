@@ -30,6 +30,10 @@ switch ($sub) {
         include('chars.php');
         break;
 
+    case 'talents':
+        include('server.talents.php');
+        break;
+
     case 'sets':
         include('server.sets.php');
         break;
@@ -46,6 +50,7 @@ switch ($sub) {
         break;
 }
 ?>
+
 
 
 

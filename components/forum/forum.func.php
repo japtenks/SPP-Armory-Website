@@ -93,9 +93,10 @@ function get_character_portrait_path($guid, $gender, $race, $class)
         return $cacheFile;
     }
 
-    return "templates/offlike/images/icons/race/" . $race . '-' . $gender . ".gif";
+    return "/templates/offlike/images/icons/race/" . $race . '-' . $gender . ".gif";
 }
 
 $yesterday_ts = mktime(0, 0, 0, date("m")  , date("d")-1, date("Y"));
 
 ?>
+

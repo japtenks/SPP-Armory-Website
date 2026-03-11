@@ -554,7 +554,7 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
               else                              $cellClass .= ' empty';
 
               printf(
-                '<div class="%s" style="--icon:url(\'%s\')" '.
+                '<div class="%s" style="background-image:url(\'%s\')" '.
                 'data-tt-title="%s" data-tt-desc="%s"%s '.
                 'data-talent-id="%d" data-prereq-id="%d" data-prereq-rank="%d" '.
                 'data-row="%d" data-col="%d" data-current="%d" data-max="%d">'.
@@ -711,3 +711,5 @@ window.tcClassId = <?= (int)$charClassId ?>;
   }
 })();
 </script>
+
+

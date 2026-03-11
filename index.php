@@ -333,7 +333,41 @@ if ( empty( $_GET['p'] ) or $_GET['p'] < 1 )
 	$p = 1 ;
 else
 	$p = $_GET['p'] ;
-$ext = isset($_REQUEST['n']) ? $_REQUEST['n'] : (string)$MW->getConfig->generic->default_component;
+
+if (
+    isset($_GET['searchType'], $_GET['charPage']) &&
+    $_GET['searchType'] === 'profile' &&
+    $_GET['charPage'] === 'talentcalc'
+) {
+    $legacyRealm = trim($_GET['realm'] ?? '');
+    $realmId = 1;
+    $realmMap = $GLOBALS['realmDbMap'] ?? null;
+
+    if (ctype_digit($legacyRealm)) {
+        $realmId = (int)$legacyRealm;
+    } elseif (is_array($realmMap)) {
+        $normalizedLegacyRealm = strtolower(preg_replace('/[^a-z0-9]+/', '', $legacyRealm));
+
+        foreach ($realmMap as $candidateRealmId => $realmInfo) {
+            $label = strtolower(preg_replace('/[^a-z0-9]+/', '', $realmInfo['label'] ?? ''));
+            if ($normalizedLegacyRealm === $label || $normalizedLegacyRealm === 'spp' . $label) {
+                $realmId = (int)$candidateRealmId;
+                break;
+            }
+        }
+    }
+
+    $redirectUrl = 'index.php?n=server&sub=talents&realm=' . $realmId;
+    if (!empty($_GET['character'])) {
+        $redirectUrl .= '&character=' . rawurlencode($_GET['character']);
+    }
+    if (!empty($_GET['class'])) {
+        $redirectUrl .= '&class=' . rawurlencode($_GET['class']);
+    }
+
+    header('Location: ' . $redirectUrl);
+    exit;
+}$ext = isset($_REQUEST['n']) ? $_REQUEST['n'] : (string)$MW->getConfig->generic->default_component;
 $sub = isset($_REQUEST['sub']) && $_REQUEST['sub'] !== '' ? $_REQUEST['sub'] : 'index';
 
 // prevent realm ID or other query vars from being mistaken as a subpage
@@ -507,3 +541,4 @@ if ( in_array( $ext, $allowed_ext ) )
 }
 
 ?>
+

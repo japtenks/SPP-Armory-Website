@@ -1505,18 +1505,7 @@ img.circle[alt="race"][src*="race/10-"],
 }
 
 
-/* ---------- Search Box ---------- */
-#commandSearch {
-  width: 100%;
-  padding: 10px 12px;
-  margin-bottom: 16px;
-  border: 1px solid #444;
-  border-radius: 6px;
-  background: #0f0f0f;
-  color: #eee;
-  font-size: 1rem;
-  margin-top: 0;
-}
+
 #commandSearch:focus {
   border-color: #ffcc66;
   outline: none;
@@ -1588,7 +1577,7 @@ img.ah-banner {
 
 /* ---------- Search Box ---------- */
 #commandSearch {
-  width: 100%;
+  width: 97.5%;
   padding: 10px 12px;
   margin-bottom: 16px;
   border: 1px solid #444;

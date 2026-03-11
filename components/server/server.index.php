@@ -30,6 +30,9 @@ switch ($sub) {
     case 'chars':
         include('chars.php');
         break;
+    case 'talents':
+        include('server.talents.php');
+        break;
     case 'sets':
         include('server.sets.php');
         break;
@@ -45,6 +48,7 @@ echo "<div style='color:red;text-align:center;padding:10px;'>Unknown or missing 
         break;
 }
 ?>
+
 
 
 

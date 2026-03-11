@@ -58,8 +58,8 @@ $mainnav_links = array(
   '7-menuArmory' => array(
     0 => array('honor',             '/armory/index.php?searchType=honor', ''),
     1 => array('armory',            '/armory/',                           ''),
-    2 => array('talent_calculator', '/armory/index.php#0-0-0',            ''),
-    3 => array('talents',           '#',                                  ''),
+    2 => array('talent_calculator', 'index.php?n=server&sub=talents',     ''),
+   // 3 => array('talents',           '#',                                  ''),
     4 => array('chars',             'index.php?n=server&sub=chars',       ''),
     5 => array('guilds',            'index.php?n=server&sub=guilds',      ''),
 
@@ -101,6 +101,7 @@ $com_content = array(
         'playersonline' => array('', 'Players Online', 'index.php?n=server&sub=playersonline', 1, 1),
         'realms'        => array('', 'Realms', 'index.php?n=server&sub=realms', 1, 1),
         'sets'          => array('', 'Armor Sets', 'index.php?n=server&sub=sets', 1, 1),
+        'talents'       => array('', 'Talents', 'index.php?n=server&sub=talents', 1, 1),
     ),
 
     'community' => array(
@@ -128,23 +129,14 @@ $com_content = array(
 $talentMenuIndex = 3;
 if (isset($mainnav_links['7-menuArmory'][$talentMenuIndex])) {
     $talentCharacter = isset($user['character_name']) ? trim($user['character_name']) : '';
+    $talentLink = 'index.php?n=server&sub=talents';
     if ($talentCharacter !== '') {
-        $talentRealmName = '';
-        if (!empty($user['cur_selected_realmd'])) {
-            $selectedRealm = get_realm_byid($user['cur_selected_realmd']);
-            if (!empty($selectedRealm['name'])) $talentRealmName = $selectedRealm['name'];
-        }
-        if ($talentRealmName === '' && isset($MW->getConfig->generic_values->realm_info->default_realm_id)) {
-            $defaultRealmId = (int)$MW->getConfig->generic_values->realm_info->default_realm_id;
-            if ($defaultRealmId > 0) {
-                $defaultRealm = get_realm_byid($defaultRealmId);
-                if (!empty($defaultRealm['name'])) $talentRealmName = $defaultRealm['name'];
-            }
-        }
-        $talentLink = '/armory/index.php?searchType=profile&charPage=talents&character=' . rawurlencode($talentCharacter);
-        if ($talentRealmName !== '') $talentLink .= '&realm=' . rawurlencode($talentRealmName);
-        $mainnav_links['7-menuArmory'][$talentMenuIndex][1] = $talentLink;
+        $talentLink .= '&character=' . rawurlencode($talentCharacter);
     }
+    if (!empty($user['cur_selected_realmd'])) {
+        $talentLink .= '&realm=' . (int)$user['cur_selected_realmd'];
+    }
+    $mainnav_links['7-menuArmory'][$talentMenuIndex][1] = $talentLink;
 }
 
 /* ------------------ BUG TRACKER / EXTERNAL FORUM ------------------ */
@@ -218,6 +210,8 @@ if ((int)$MW->getConfig->components->left_section->botcommands == 1)         uns
 
 
 ?>
+
+
 
 
 
