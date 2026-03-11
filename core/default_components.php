@@ -56,13 +56,11 @@ $mainnav_links = array(
 
   /* ------------------ 7. ARMORY ------------------ */
   '7-menuArmory' => array(
-    0 => array('honor',             '/armory/index.php?searchType=honor', ''),
-    1 => array('armory',            '/armory/',                           ''),
-    2 => array('talent_calculator', 'index.php?n=server&sub=talents',     ''),
-   // 3 => array('talents',           '#',                                  ''),
-    4 => array('chars',             'index.php?n=server&sub=chars',       ''),
-    5 => array('guilds',            'index.php?n=server&sub=guilds',      ''),
-
+  //1 => array('armory',            '/armory/',                      ''),
+    0 => array('chars',             'index.php?n=server&sub=chars',   ''),
+    1 => array('guilds',            'index.php?n=server&sub=guilds',  ''),
+    2 => array('honor',             'index.php?n=server&sub=honor',   ''),
+	3 => array('talent_calculator', 'index.php?n=server&sub=talents', ''),
   ),
 
   /* ------------------ 8. SUPPORT ------------------ */
@@ -100,6 +98,9 @@ $com_content = array(
         'index'         => array('', 'Server Info', 'index.php?n=server', 1, 1),
         'playersonline' => array('', 'Players Online', 'index.php?n=server&sub=playersonline', 1, 1),
         'realms'        => array('', 'Realms', 'index.php?n=server&sub=realms', 1, 1),
+        'honor'         => array('', 'Honor', 'index.php?n=server&sub=honor', 1, 1),
+        'chars'         => array('', 'Characters', 'index.php?n=server&sub=chars', 1, 1),
+        'guilds'        => array('', 'Guilds', 'index.php?n=server&sub=guilds', 1, 1),
         'sets'          => array('', 'Armor Sets', 'index.php?n=server&sub=sets', 1, 1),
         'talents'       => array('', 'Talents', 'index.php?n=server&sub=talents', 1, 1),
     ),
@@ -126,7 +127,7 @@ $com_content = array(
     ),
 );
 /* ------------------ DYNAMIC TALENTS LINK ------------------ */
-$talentMenuIndex = 3;
+$talentMenuIndex = 2;
 if (isset($mainnav_links['7-menuArmory'][$talentMenuIndex])) {
     $talentCharacter = isset($user['character_name']) ? trim($user['character_name']) : '';
     $talentLink = 'index.php?n=server&sub=talents';
@@ -210,6 +211,7 @@ if ((int)$MW->getConfig->components->left_section->botcommands == 1)         uns
 
 
 ?>
+
 
 
 

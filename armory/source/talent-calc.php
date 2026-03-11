@@ -713,3 +713,4 @@ window.tcClassId = <?= (int)$charClassId ?>;
 </script>
 
 
+

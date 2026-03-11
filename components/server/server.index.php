@@ -10,10 +10,9 @@ switch ($sub) {
         include('commands.php');
         break;
 
-	case 'botcommands':
-		include('botcommands.php');
-		break;
-
+    case 'botcommands':
+        include('botcommands.php');
+        break;
 
     case 'playermap':
         include('playermap.php');
@@ -30,12 +29,19 @@ switch ($sub) {
     case 'chars':
         include('chars.php');
         break;
+
+    case 'honor':
+        include('server.honor.php');
+        break;
+
     case 'talents':
         include('server.talents.php');
         break;
+
     case 'sets':
         include('server.sets.php');
         break;
+
     case 'guilds':
         include('server.guilds.php');
         break;
@@ -44,15 +50,7 @@ switch ($sub) {
         break;
 
     default:
-echo "<div style='color:red;text-align:center;padding:10px;'>Unknown or missing server page.</div>";
+        echo "<div style='color:red;text-align:center;padding:10px;'>Unknown or missing server page.</div>";
         break;
 }
 ?>
-
-
-
-
-
-
-
-

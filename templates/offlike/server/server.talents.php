@@ -21,11 +21,34 @@ if (!is_array($realmMap) || empty($realmMap)) {
     die('Realm DB map not loaded');
 }
 
-$realmId = spp_resolve_realm_id($realmMap);
-$armoryRealmName = defined('DefaultRealmName') ? DefaultRealmName : null;
+$requestedRealm = $_GET['realm'] ?? null;
+$realmId = null;
 
+if (is_string($requestedRealm) && $requestedRealm !== '' && !ctype_digit($requestedRealm)) {
+    foreach ($realmMap as $mappedRealmId => $mappedRealmInfo) {
+        if (strcasecmp($requestedRealm, $mappedRealmInfo['label']) === 0) {
+            $realmId = (int)$mappedRealmId;
+            break;
+        }
+    }
+
+    if ($realmId === null) {
+        foreach ($realms as $realmName => $realmInfo) {
+            if (strcasecmp($requestedRealm, $realmName) === 0) {
+                $realmId = (int)$realmInfo[0];
+                break;
+            }
+        }
+    }
+}
+
+if ($realmId === null) {
+    $realmId = spp_resolve_realm_id($realmMap);
+}
+
+$armoryRealmName = defined('DefaultRealmName') ? DefaultRealmName : null;
 foreach ($realms as $realmName => $realmInfo) {
-    if ((int)$realmInfo[0] === $realmId) {
+    if ((int)$realmInfo[0] === (int)$realmId) {
         $armoryRealmName = $realmName;
         break;
     }
@@ -116,8 +139,18 @@ $GLOBALS['talent_calc_base_url'] = 'index.php?n=server&sub=talents';
 ?>
 <link rel="stylesheet" href="/armory/css/talents-calc.css?v=modern-server">
 <script defer src="/armory/js/talents-calc.js?v=modern-server"></script>
+<style>
+.server-talents-shell {
+  padding: 12px 10px 16px;
+}
+.server-talents-shell .tc-container {
+  max-width: none;
+  margin: 0;
+}
+</style>
 <?php
+builddiv_start(1, 'Talent Calculator', 1);
+echo '<div class="server-talents-shell">';
 include($siteRoot . '/armory/source/talent-calc.php');
-
-
-
+echo '</div>';
+builddiv_end();
