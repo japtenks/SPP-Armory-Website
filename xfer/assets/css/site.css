@@ -1515,7 +1515,7 @@ img.circle[alt="race"][src*="race/10-"],
   background: #0f0f0f;
   color: #eee;
   font-size: 1rem;
-  margin-top: 240px; /*modify to liking*/
+  margin-top: 0;
 }
 #commandSearch:focus {
   border-color: #ffcc66;
@@ -1596,7 +1596,7 @@ img.ah-banner {
   background: #0f0f0f;
   color: #eee;
   font-size: 1rem;
-  margin-top: 240px; /*modify to liking*/
+  margin-top: 0;
 }
 #commandSearch:focus {
   border-color: #ffcc66;
@@ -2138,7 +2138,7 @@ tr.sub-behavior td:nth-child(3)       { color: #ffaaee; }
   gap: 8px;
 }
 .pagination-controls {
-  margin-top: 200px;
+  margin-top: 20px;
 }
 .ah-filter {
   color: #ffcc66;
@@ -2333,4 +2333,5 @@ tr.sub-behavior td:nth-child(3)       { color: #ffaaee; }
   font-variant-numeric: tabular-nums;
   font-size: 0.95rem;
 }
+
 

@@ -662,22 +662,24 @@ function render_page_size_form($items_per_page, $extra_params = [], $show_bots =
 ?>
 
 <?php
-function render_character_pagination($p, $pnum, $items_per_page, $realmId, $includeBots, $urlBase = 'index.php?n=server&sub=chars') {
+function render_character_pagination($p, $pnum, $items_per_page, $realmId, $includeBots, $search = '', $urlBase = 'index.php?n=server&sub=chars') {
     $urlstring = $urlBase
       . '&realm=' . $realmId
       . '&per_page=' . $items_per_page
-      . '&show_bots=' . ($includeBots ? '1' : '0');
+      . '&show_bots=' . ($includeBots ? '1' : '0')
+      . ($search !== '' ? '&search=' . urlencode($search) : '');
     ?>
     <div class="pagination-controls">
       <div class="page-links">
         <?php echo compact_paginate($p, $pnum, htmlspecialchars($urlstring)); ?>
       </div>
       <div class="page-size-form">
-        <form method="get" class="page-size-form">
+        <form method="get" class="page-size-form js-char-controls-form">
           <input type="hidden" name="n" value="server">
           <input type="hidden" name="sub" value="chars">
           <input type="hidden" name="realm" value="<?php echo $realmId; ?>">
-          <input type="hidden" name="p" value="<?php echo $p; ?>">
+          <input type="hidden" name="p" value="1">
+          <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
 
           <label for="per_page">Show:</label>
           <select id="per_page" name="per_page" onchange="this.form.submit()">
