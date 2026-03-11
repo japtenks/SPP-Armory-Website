@@ -345,6 +345,7 @@ if ($maxReqLevel !== null) $baseUrl .= '&max_level=' . $maxReqLevel;
       name="search"
       value="<?php echo htmlspecialchars($search); ?>"
       placeholder="Search auction items..."
+
       style="margin-bottom:0;"
     >
   </div>

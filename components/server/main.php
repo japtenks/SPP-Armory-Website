@@ -148,6 +148,13 @@ $com_content['server'] = array(
         '4-menuGameGuide',
         0
     ),
+    'sets' => array(
+        '', 
+        'Armor Sets', 
+        mw_url('server', 'sets'),
+        '3-menuGameGuide',
+        0
+    ),
     'armorsets' => array(
         '', 
         'armorsets', 
@@ -155,20 +162,20 @@ $com_content['server'] = array(
         '3-menuGameGuide',
         0
     ),
-	'worldsets' => array(
-    '', 
-    'worldsets', 
-    mw_url('server', 'worldsets'),
-    '3-menuGameGuide',
-    0
-),
-	'pvpsets' => array(
-    '', 
-    'pvpsets', 
-    mw_url('server', 'worldsets'),
-    '3-menuGameGuide',
-    0
-),
+    'worldsets' => array(
+        '', 
+        'worldsets', 
+        mw_url('server', 'worldsets'),
+        '3-menuGameGuide',
+        0
+    ),
+    'pvpsets' => array(
+        '', 
+        'pvpsets', 
+        mw_url('server', 'pvpsets'),
+        '3-menuGameGuide',
+        0
+    ),
 
     'rules' => array(
         '', 
@@ -186,6 +193,8 @@ $com_content['server'] = array(
     ),
 );
 ?>
+
+
 
 
 

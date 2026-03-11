@@ -36,9 +36,7 @@ $mainnav_links = array(
     2 => array('playermap',     mw_url('server', 'playermap'),    ''),
     3 => array('statistic',     mw_url('server', 'statistic'),    ''),
     4 => array('module_ah',     mw_url('server', 'ah'),           ''),
-    5 => array('armorsets',     'index.php?n=server&sub=armorsets',''),
-    6 => array('worldsets',     'index.php?n=server&sub=worldsets',''),
-    7 => array('pvpsets',       'index.php?n=server&sub=pvpsets', ''),
+    5 => array('armorsets',     'index.php?n=server&sub=sets',    ''),
     8 => array('addons',        'index.php?n=server&sub=addons',  ''), // new addons page
   ),
 
@@ -102,6 +100,7 @@ $com_content = array(
         'index'         => array('', 'Server Info', 'index.php?n=server', 1, 1),
         'playersonline' => array('', 'Players Online', 'index.php?n=server&sub=playersonline', 1, 1),
         'realms'        => array('', 'Realms', 'index.php?n=server&sub=realms', 1, 1),
+        'sets'          => array('', 'Armor Sets', 'index.php?n=server&sub=sets', 1, 1),
     ),
 
     'community' => array(
@@ -219,4 +218,7 @@ if ((int)$MW->getConfig->components->left_section->botcommands == 1)         uns
 
 
 ?>
+
+
+
 
