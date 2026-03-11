@@ -1,0 +1,514 @@
+<?php
+require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
+require_once($_SERVER['DOCUMENT_ROOT'] . '/components/forum/forum.func.php');
+
+$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
+if (!is_array($realmMap) || empty($realmMap)) {
+    die("Realm DB map not loaded");
+}
+
+$realmId = spp_resolve_realm_id($realmMap);
+if (!isset($realmMap[$realmId])) {
+    die("Invalid realm ID");
+}
+
+$realmDB = $realmMap[$realmId]['chars'];
+$armoryRealm = $realmMap[$realmId]['label'];
+$currtmp = '/armory';
+
+$guildId = isset($_GET['guildid']) ? (int)$_GET['guildid'] : 0;
+if ($guildId < 1) {
+    echo "<div style='padding:24px;color:#f5c46b;'>No guild selected.</div>";
+    return;
+}
+
+$classNames = [
+  1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest',
+  6 => 'Death Knight', 7 => 'Shaman', 8 => 'Mage', 9 => 'Warlock', 11 => 'Druid'
+];
+$raceNames = [
+  1 => 'Human', 2 => 'Orc', 3 => 'Dwarf', 4 => 'Night Elf', 5 => 'Undead',
+  6 => 'Tauren', 7 => 'Gnome', 8 => 'Troll', 10 => 'Blood Elf', 11 => 'Draenei'
+];
+$allianceRaces = [1, 3, 4, 7, 11, 22, 25, 29];
+
+$guild = $DB->selectRow("SELECT guildid, name, leaderguid, motd FROM {$realmDB}.guild WHERE guildid=?d", $guildId);
+if (!$guild) {
+    echo "<div style='padding:24px;color:#f5c46b;'>Guild not found.</div>";
+    return;
+}
+
+$leader = $DB->selectRow("SELECT guid, name, race, class, level, gender FROM {$realmDB}.characters WHERE guid=?d", (int)$guild['leaderguid']);
+$members = $DB->select("
+    SELECT
+      c.guid,
+      c.name,
+      c.race,
+      c.class,
+      c.level,
+      c.gender,
+      gm.rank,
+      gr.rname AS rank_name
+    FROM {$realmDB}.guild_member gm
+    LEFT JOIN {$realmDB}.characters c ON gm.guid = c.guid
+    LEFT JOIN {$realmDB}.guild_rank gr ON gr.guildid = gm.guildid AND gr.rid = gm.rank
+    WHERE gm.guildid=?d
+    ORDER BY gm.rank ASC, c.level DESC, c.name ASC
+", $guildId);
+
+if (!is_array($members)) {
+    $members = [];
+}
+
+$guildMembers = count($members);
+$avgLevel = 0;
+$maxLevel = 0;
+$classBreakdown = [];
+$rankOptions = [];
+
+foreach ($members as $member) {
+    $level = (int)($member['level'] ?? 0);
+    $avgLevel += $level;
+    if ($level > $maxLevel) $maxLevel = $level;
+
+    $classId = (int)($member['class'] ?? 0);
+    if (!isset($classBreakdown[$classId])) $classBreakdown[$classId] = 0;
+    $classBreakdown[$classId]++;
+
+    $rankId = (int)($member['rank'] ?? 0);
+    if (!isset($rankOptions[$rankId])) {
+        $rankOptions[$rankId] = !empty($member['rank_name']) ? $member['rank_name'] : ('Rank ' . $rankId);
+    }
+}
+
+$avgLevel = $guildMembers > 0 ? round($avgLevel / $guildMembers, 1) : 0;
+$factionName = ($leader && in_array((int)$leader['race'], $allianceRaces, true)) ? 'Alliance' : 'Horde';
+$factionSlug = strtolower($factionName);
+$crest = 'templates/offlike/images/modern/logo-' . $factionSlug . '.png';
+$heroBg = 'templates/offlike/images/modern/' . $factionSlug . '_guild.jpg';
+$pageBg = $heroBg;
+$motd = trim((string)$guild['motd']) !== '' ? $guild['motd'] : 'No message set.';
+
+$selectedName = trim($_GET['name'] ?? '');
+$selectedClass = isset($_GET['class']) ? (int)$_GET['class'] : -1;
+$selectedRank = isset($_GET['rank']) ? (int)$_GET['rank'] : -1;
+$selectedMax = isset($_GET['maxonly']) ? 1 : 0;
+$p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
+$itemsPerPage = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;
+
+$filteredMembers = [];
+foreach ($members as $member) {
+    if ($selectedName !== '' && stripos((string)$member['name'], $selectedName) === false) continue;
+    if ($selectedClass > 0 && (int)$member['class'] !== $selectedClass) continue;
+    if ($selectedRank >= 0 && (int)$member['rank'] !== $selectedRank) continue;
+    if ($selectedMax && (int)$member['level'] < $maxLevel) continue;
+    $filteredMembers[] = $member;
+}
+
+$totalMembers = count($filteredMembers);
+$pageCount = max(1, (int)ceil($totalMembers / $itemsPerPage));
+if ($p > $pageCount) $p = $pageCount;
+$offset = ($p - 1) * $itemsPerPage;
+$membersPage = array_slice($filteredMembers, $offset, $itemsPerPage);
+$resultStart = $totalMembers > 0 ? $offset + 1 : 0;
+$resultEnd = min($offset + $itemsPerPage, $totalMembers);
+
+$baseUrl = 'index.php?n=server&sub=guild&realm=' . $realmId . '&guildid=' . $guildId . '&per_page=' . $itemsPerPage;
+if ($selectedName !== '') $baseUrl .= '&name=' . urlencode($selectedName);
+if ($selectedClass > 0) $baseUrl .= '&class=' . $selectedClass;
+if ($selectedRank >= 0) $baseUrl .= '&rank=' . $selectedRank;
+if ($selectedMax) $baseUrl .= '&maxonly=1';
+?>
+<style>
+
+
+
+.guild-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+  gap: 24px;
+  padding: 28px 30px 22px;
+    background: linear-gradient(180deg, rgba(2, 4, 12, 0.92), rgba(1, 2, 8, 0.98));
+  border: 1px solid rgba(255, 196, 0, 0.22);
+  border: 1px solid rgba(255, 196, 0, 0.22);
+  border-radius: 18px 18px 0 0;
+}
+.guild-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.guild-crest {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(255, 193, 7, 0.22));
+}
+.guild-title {
+  margin: 0 0 8px;
+  font-size: 3rem;
+  line-height: 0.98;
+  color: #fff4c9;
+}
+.guild-subtitle {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #d9c99a;
+}
+.guild-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  align-content: start;
+}
+.guild-meta-card {
+  min-width: 0;
+}
+.guild-meta-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c4b27c;
+}
+.guild-meta-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #ffd65e;
+}
+.guild-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(340px, 0.95fr);
+  gap: 18px;
+  align-items: stretch;
+  padding: 26px 24px 30px;
+
+  border-top: 0;
+  border-radius: 0 0 18px 18px;
+}
+.guild-side-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.guild-section {
+  padding: 22px 24px 18px;
+  background: rgba(4, 8, 18, 0.34);
+  border: 1px solid rgba(255, 204, 72, 0.18);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.guild-roster-panel {
+  min-height: 100%;
+}
+.guild-motd-panel {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  padding-bottom: 20px;
+}
+.guild-insights-panel {
+  flex: 1 1 auto;
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.guild-panel-title,
+.guild-side-title {
+  margin: 0 0 16px;
+  font-size: 1.9rem;
+  color: #fff7d1;
+}
+.guild-side-title {
+  font-size: 1.55rem;
+}
+.guild-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.7fr) 180px 180px auto;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.guild-input,
+.guild-select {
+  width: 90%;
+  height: 46px;
+  padding: 0 14px;
+  color: #f8f1d4;
+  background: rgba(4, 6, 16, 0.94);
+  border: 1px solid rgba(255, 196, 0, 0.75);
+}
+.guild-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #f4d05c;
+  font-weight: 700;
+}
+.guild-summary {
+  margin: 4px 0 14px;
+  color: #ffcc66;
+  font-weight: 700;
+}
+.guild-roster {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(10, 10, 18, 0.72);
+}
+.guild-roster thead th {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 0.95rem;
+  color: #ffc21c;
+  border-bottom: 1px solid rgba(255, 204, 72, 0.28);
+}
+.guild-roster tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 204, 72, 0.14);
+  vertical-align: middle;
+}
+.guild-roster tbody tr:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.03);
+}
+.guild-member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.guild-portrait,
+.guild-class-icon,
+.guild-race-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 198, 0, 0.45);
+  object-fit: cover;
+  background: #050505;
+}
+.guild-rank {
+  color: #d6bc7e;
+}
+.guild-side-copy {
+  margin: 0;
+  line-height: 1.55;
+  color: #d9c99a;
+}
+.guild-divider {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 204, 72, 0.16);
+}
+.guild-breakdown {
+  display: grid;
+  gap: 10px;
+}
+.guild-breakdown-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 34px;
+  gap: 12px;
+  align-items: center;
+}
+.guild-breakdown-label {
+  color: #e5d4a0;
+}
+.guild-breakdown-bar {
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.guild-breakdown-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.class-warrior { --class-color:#C79C6E; }
+.class-mage { --class-color:#69CCF0; }
+.class-priest { --class-color:#FFFFFF; }
+.class-hunter { --class-color:#ABD473; }
+.class-rogue { --class-color:#FFF569; }
+.class-warlock { --class-color:#9482C9; }
+.class-paladin { --class-color:#F58CBA; }
+.class-druid { --class-color:#FF7D0A; }
+.class-shaman { --class-color:#0070DE; }
+.class-deathknight { --class-color:#C41F3B; }
+[class*="class-"] a {
+  color: var(--class-color);
+  text-decoration: none;
+  font-weight: 700;
+}
+@media (max-width: 1080px) {
+  .guild-hero,
+  .guild-shell {
+    grid-template-columns: 1fr;
+  }
+  .guild-side-stack {
+    min-height: auto;
+  }
+  .guild-motd-panel {
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    padding-bottom: 18px;
+  }
+  .guild-insights-panel {
+    border-top: 1px solid rgba(255, 204, 72, 0.18);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    margin-top: 18px;
+  }
+}
+@media (max-width: 760px) {
+  .guild-filter-grid {
+    grid-template-columns: 1fr;
+  }
+  .guild-title {
+    font-size: 2.2rem;
+  }
+  .guild-meta {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+</style>
+
+<?php $maxBreakdown = $classBreakdown ? max($classBreakdown) : 1; ?>
+<div class="guild-page">
+<div class="guild-detail">
+  <div class="guild-hero">
+    <div class="guild-hero-main">
+      <img class="guild-crest" src="<?php echo $crest; ?>" alt="<?php echo htmlspecialchars($factionName); ?>">
+      <div>
+        <h1 class="guild-title"><?php echo htmlspecialchars($guild['name']); ?></h1>
+        <p class="guild-subtitle"><?php echo htmlspecialchars($armoryRealm); ?></p>
+      </div>
+    </div>
+    <div class="guild-meta">
+      <div class="guild-meta-card">
+        <span class="guild-meta-label">Faction</span>
+        <span class="guild-meta-value"><?php echo htmlspecialchars($factionName); ?></span>
+      </div>
+      <div class="guild-meta-card">
+        <span class="guild-meta-label">Members</span>
+        <span class="guild-meta-value"><?php echo $guildMembers; ?></span>
+      </div>
+      <div class="guild-meta-card">
+        <span class="guild-meta-label">Average Level</span>
+        <span class="guild-meta-value"><?php echo $avgLevel; ?></span>
+      </div>
+      <div class="guild-meta-card">
+        <span class="guild-meta-label">Guild Master</span>
+        <span class="guild-meta-value"><?php echo $leader ? htmlspecialchars($leader['name']) : 'Unknown'; ?></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="guild-shell">
+    <section class="guild-section guild-roster-panel">
+      <h2 class="guild-panel-title">Guild Roster</h2>
+      <form method="get" class="guild-filter-grid">
+        <input type="hidden" name="n" value="server">
+        <input type="hidden" name="sub" value="guild">
+        <input type="hidden" name="realm" value="<?php echo $realmId; ?>">
+        <input type="hidden" name="guildid" value="<?php echo $guildId; ?>">
+        <input type="hidden" name="p" value="1">
+        <input type="hidden" name="per_page" value="<?php echo $itemsPerPage; ?>">
+
+        <input class="guild-input" type="text" name="name" value="<?php echo htmlspecialchars($selectedName); ?>" placeholder="Search member name...">
+        <select class="guild-select" name="class">
+          <option value="-1">All Classes</option>
+          <?php foreach($classNames as $classId => $className): ?>
+            <option value="<?php echo $classId; ?>"<?php echo $selectedClass === $classId ? ' selected' : ''; ?>><?php echo htmlspecialchars($className); ?></option>
+          <?php endforeach; ?>
+        </select>
+        <select class="guild-select" name="rank">
+          <option value="-1">All Ranks</option>
+          <?php foreach($rankOptions as $rankId => $rankName): ?>
+            <option value="<?php echo (int)$rankId; ?>"<?php echo $selectedRank === (int)$rankId ? ' selected' : ''; ?>><?php echo htmlspecialchars($rankName); ?></option>
+          <?php endforeach; ?>
+        </select>
+        <label class="guild-check"><input type="checkbox" name="maxonly" value="1"<?php echo $selectedMax ? ' checked' : ''; ?>> Max Level Only</label>
+      </form>
+
+      <div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo $totalMembers; ?> members</div>
+
+
+
+      <table class="guild-roster">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Race</th>
+            <th>Class</th>
+            <th>Level</th>
+            <th>Guild Rank</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (count($membersPage)): ?>
+            <?php foreach($membersPage as $member): ?>
+              <?php
+                $memberClassName = $classNames[(int)$member['class']] ?? 'Unknown';
+                $memberClassSlug = strtolower(str_replace(' ', '', $memberClassName));
+                $memberRaceName = $raceNames[(int)$member['race']] ?? 'Unknown';
+                $portrait = get_character_portrait_path($member['guid'], $member['gender'], $member['race'], $member['class']);
+              ?>
+              <tr>
+                <td>
+                  <div class="guild-member class-<?php echo $memberClassSlug; ?>">
+                    <img class="guild-portrait" src="<?php echo $portrait; ?>" alt="<?php echo htmlspecialchars($member['name']); ?>">
+                    <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($member['name']); ?>&realm=<?php echo urlencode($armoryRealm); ?>"><?php echo htmlspecialchars($member['name']); ?></a>
+                  </div>
+                </td>
+                <td><img class="guild-race-icon" src="/templates/offlike/images/icons/race/<?php echo $member['race'].'-'.$member['gender']; ?>.gif" alt="<?php echo htmlspecialchars($memberRaceName); ?>" title="<?php echo htmlspecialchars($memberRaceName); ?>"></td>
+                <td><img class="guild-class-icon" src="/templates/offlike/images/icons/class/<?php echo $member['class']; ?>.jpg" alt="<?php echo htmlspecialchars($memberClassName); ?>" title="<?php echo htmlspecialchars($memberClassName); ?>"></td>
+                <td><?php echo (int)$member['level']; ?></td>
+                <td class="guild-rank"><?php echo htmlspecialchars(!empty($member['rank_name']) ? $member['rank_name'] : ('Rank ' . (int)$member['rank'])); ?></td>
+              </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr><td colspan="5">No roster members matched the current filter.</td></tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
+
+      <?php if ($pageCount > 1): ?>
+        <div class="pagination-controls"><div class="page-links"><?php echo compact_paginate($p, $pageCount, $baseUrl); ?></div></div>
+      <?php endif; ?>
+    </section>
+
+    <div class="guild-side-stack">
+      <section class="guild-section guild-motd-panel">
+        <h3 class="guild-side-title">Message Of The Day</h3>
+        <p class="guild-side-copy"><?php echo htmlspecialchars($motd); ?></p>
+      </section>
+
+      <section class="guild-section guild-insights-panel">
+        <h3 class="guild-side-title">Roster Overview</h3>
+        <p class="guild-side-copy"><?php echo $guildMembers; ?> members, average level <?php echo $avgLevel; ?>, max level <?php echo $maxLevel; ?>.</p>
+
+        <div class="guild-divider">
+          <h3 class="guild-side-title">Class Breakdown</h3>
+          <div class="guild-breakdown">
+            <?php foreach($classBreakdown as $classId => $classCount): ?>
+              <?php
+                $breakClassName = $classNames[$classId] ?? ('Class ' . $classId);
+                $breakClassSlug = strtolower(str_replace(' ', '', $breakClassName));
+                $breakWidth = $maxBreakdown > 0 ? round(($classCount / $maxBreakdown) * 100, 1) : 0;
+              ?>
+              <div class="guild-breakdown-row class-<?php echo $breakClassSlug; ?>">
+                <div class="guild-breakdown-label"><?php echo htmlspecialchars($breakClassName); ?></div>
+                <div class="guild-breakdown-bar"><div class="guild-breakdown-fill" style="width: <?php echo $breakWidth; ?>%; background: var(--class-color);"></div></div>
+                <div><?php echo (int)$classCount; ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+
+
+
+

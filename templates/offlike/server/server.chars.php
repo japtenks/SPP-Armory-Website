@@ -129,6 +129,7 @@ if (!is_array($realmMap) || empty($realmMap)) {
 
 $realmId = spp_resolve_realm_id($realmMap);
 $realmDB = $realmMap[$realmId]['chars'];
+$armoryRealm = $realmMap[$realmId]['label'];
 
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $items_per_page = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;
@@ -253,19 +254,19 @@ $characters = array_slice($filteredCharacters, $offset, $items_per_page);
     ?>
     <div class="row">
       <div class="col name class-<?php echo strtolower($classNames[$item['class']] ?? 'unknown'); ?>">
-        <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($item['name']); ?>&realm=<?php echo $realmId; ?>">
+        <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($item['name']); ?>&realm=<?php echo urlencode($armoryRealm); ?>">
           <img src="<?php echo $portrait; ?>" class="circle portrait" alt="">
           <?php echo htmlspecialchars($item['name']); ?>
         </a>
       </div>
-      <div class="col"><?php if (!empty($item['guild_id']) && !empty($item['guild_name'])): ?><a href="armory/index.php?searchType=guildinfo&guildid=<?php echo (int)$item['guild_id']; ?>&realm=<?php echo $realmId; ?>"><?php echo htmlspecialchars($item['guild_name']); ?></a><?php else: ?>-<?php endif; ?></div>
+      <div class="col"><?php if (!empty($item['guild_id']) && !empty($item['guild_name'])): ?><a href="index.php?n=server&sub=guild&guildid=<?php echo (int)$item['guild_id']; ?>&realm=<?php echo $realmId; ?>"><?php echo htmlspecialchars($item['guild_name']); ?></a><?php else: ?>-<?php endif; ?></div>
       <div class="col">
-        <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $item['race'].'-'.$item['gender']; ?>.jpg"
+        <img src="/templates/offlike/images/icons/race/<?php echo $item['race'].'-'.$item['gender']; ?>.gif"
              class="circle"
              title="<?php echo $raceNames[$item['race']] ?? 'Unknown'; ?>">
       </div>
       <div class="col">
-        <img src="<?php echo $currtmp; ?>/images/icon/class/<?php echo $item['class']; ?>.jpg"
+        <img src="/templates/offlike/images/icons/class/<?php echo $item['class']; ?>.jpg"
              class="circle"
              title="<?php echo $classNames[$item['class']] ?? 'Unknown'; ?>">
       </div>
@@ -358,6 +359,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
+
+
+
+
+
 
 
 

@@ -33,11 +33,15 @@ switch ($sub) {
     case 'guilds':
         include('server.guilds.php');
         break;
+    case 'guild':
+        include('server.guild.php');
+        break;
 
     default:
         echo "<div style='color:red;text-align:center;padding:10px;'>Unknown or missing server page.</div>";
         break;
 }
 ?>
+
 
 

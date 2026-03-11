@@ -86,17 +86,15 @@ function get_character_portrait_path($guid, $gender, $race, $class)
         mkdir($cacheDir, 0777, true);
     }
 
-    $basePortrait = sprintf("%s%d-%d-0.gif", $portraitDir, $gender, $race);
-
-    if (file_exists($basePortrait)) {
-        copy($basePortrait, $cacheFile);
+    $matches = glob(sprintf("%s%d-%d-%d*.gif", $portraitDir, $gender, $race, $class));
+    if (!empty($matches)) {
+        sort($matches, SORT_NATURAL);
+        copy($matches[0], $cacheFile);
         return $cacheFile;
     }
 
-    return $basePortrait;
+    return "templates/offlike/images/icons/race/" . $race . '-' . $gender . ".gif";
 }
-
-
 
 $yesterday_ts = mktime(0, 0, 0, date("m")  , date("d")-1, date("Y"));
 

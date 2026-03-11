@@ -25,6 +25,7 @@ $PagesArray = array(
 "creature" => "npc.php",
 "guilds" => "guildlist.php",
 "guildinfo" => "guild-info.php",
+"guildmodern" => "guild-modern.php",
 "items" => "itemlist.php",
 "upgrades" => "itemlist.php",
 "iteminfo" => "item-info.php",
@@ -521,7 +522,7 @@ else
 <div id="replaceMain">
 <div id="dataElement">
 <?php
-if(REQUESTED_ACTION <> "profile" && REQUESTED_ACTION <> "guildinfo")
+if(REQUESTED_ACTION <> "profile" && REQUESTED_ACTION <> "guildinfo" && REQUESTED_ACTION <> "guildmodern")
 {
 ?>
 <div class="parchment-top">
@@ -687,3 +688,4 @@ if ($list) {
 
 </body>
 </html>
+

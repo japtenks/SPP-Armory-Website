@@ -77,6 +77,7 @@ if (!is_array($realmMap) || empty($realmMap)) {
 
 $realmId = spp_resolve_realm_id($realmMap);
 $realmDB = $realmMap[$realmId]['chars'];
+$armoryRealm = $realmMap[$realmId]['label'];
 
 $classNames = [
   1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest',
@@ -187,7 +188,7 @@ if ($search !== '') $baseUrl .= '&search=' . urlencode($search);
       ?>
       <div class="row">
         <div class="col guild-name">
-          <a href="armory/index.php?searchType=guildinfo&guildid=<?php echo (int)$guild['guildid']; ?>&realm=<?php echo $realmId; ?>">
+          <a href="index.php?n=server&sub=guild&guildid=<?php echo (int)$guild['guildid']; ?>&realm=<?php echo $realmId; ?>">
             <?php echo htmlspecialchars($guild['name']); ?>
           </a>
         </div>
@@ -196,7 +197,7 @@ if ($search !== '') $baseUrl .= '&search=' . urlencode($search);
         </div>
         <div class="col leader class-<?php echo $leaderClassSlug; ?>">
           <?php if (!empty($guild['leader_name'])): ?>
-            <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($guild['leader_name']); ?>&realm=<?php echo $realmId; ?>">
+            <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($guild['leader_name']); ?>&realm=<?php echo urlencode($armoryRealm); ?>">
               <?php echo htmlspecialchars($guild['leader_name']); ?>
             </a>
           <?php else: ?>
@@ -225,3 +226,6 @@ if ($search !== '') $baseUrl .= '&search=' . urlencode($search);
 <?php endif; ?>
 
 <?php builddiv_end(); ?>
+
+
+
