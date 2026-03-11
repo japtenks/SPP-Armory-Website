@@ -51,6 +51,8 @@
 builddiv_start(1, $lang['characters'], 1);
 
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
+require_once($_SERVER['DOCUMENT_ROOT'] . '/components/forum/forum.func.php');
+
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 if (!is_array($realmMap) || empty($realmMap)) {

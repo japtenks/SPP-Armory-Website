@@ -86,17 +86,16 @@ function get_character_portrait_path($guid, $gender, $race, $class)
         mkdir($cacheDir, 0777, true);
     }
 
-    $pattern = sprintf("%s%d-%d-%d*.gif", $portraitDir, $gender, $race, $class);
-    $matches = glob($pattern);
+    $basePortrait = sprintf("%s%d-%d-0.gif", $portraitDir, $gender, $race);
 
-    if (!empty($matches)) {
-        sort($matches);
-        copy($matches[0], $cacheFile);
+    if (file_exists($basePortrait)) {
+        copy($basePortrait, $cacheFile);
         return $cacheFile;
     }
 
-    return sprintf("%s%d-%d-0.gif", $portraitDir, $gender, $race);
+    return $basePortrait;
 }
+
 
 
 $yesterday_ts = mktime(0, 0, 0, date("m")  , date("d")-1, date("Y"));
