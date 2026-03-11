@@ -533,10 +533,9 @@ function refreshShareUI(){
   const token = encodeWowheadLike();
 
   // Address bar (no history spam)
-  const url = new URL(location.href);
-  url.search = '';
-  url.hash   = token;
-  history.replaceState(null, '', url);
+  const current = new URL(location.href);
+  const baseUrl = window.tcBaseUrl || (current.pathname + current.search);
+  history.replaceState(null, '', baseUrl + '#' + token);
 
   // Token box
   const box = document.getElementById('tcTokenBox');
@@ -575,10 +574,9 @@ if (whisper) whisper.textContent = `/w ${window.tcBotName || 'Botname'} talents 
 
     if (!tok) {
       const def = '0-0-0';
-      const u = new URL(location.href);
-      u.search = '';
-      u.hash = def;
-      history.replaceState(null,'',u);
+      const current = new URL(location.href);
+      const baseUrl = window.tcBaseUrl || (current.pathname + current.search);
+      history.replaceState(null, '', baseUrl + '#' + def);
       refreshShareUI(); // also updates whisper
       booted = true;
       return;
@@ -650,3 +648,6 @@ document.getElementById('tcOpenBuild')?.addEventListener('click', (e)=>{
    Class links should be plain URLs without a hash; the destination loads
    and this boot script initializes to #0-0-0 unless a build token is provided.
 */
+
+
+

@@ -136,6 +136,11 @@ if ($selectedCharacter !== '') {
 $_GET['class'] = $selectedClassId;
 $_GET['realm'] = REALM_NAME;
 $GLOBALS['talent_calc_base_url'] = 'index.php?n=server&sub=talents';
+$talentBaseParams = 'index.php?n=server&sub=talents&realm=' . rawurlencode((string) REALM_NAME);
+if ($selectedCharacter !== '') {
+    $talentBaseParams .= '&character=' . rawurlencode($selectedCharacter);
+}
+echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script>';
 ?>
 <link rel="stylesheet" href="/armory/css/talents-calc.css?v=modern-server">
 <script defer src="/armory/js/talents-calc.js?v=modern-server"></script>
@@ -154,3 +159,6 @@ echo '<div class="server-talents-shell">';
 include($siteRoot . '/armory/source/talent-calc.php');
 echo '</div>';
 builddiv_end();
+
+
+

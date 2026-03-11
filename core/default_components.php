@@ -37,7 +37,7 @@ $mainnav_links = array(
     3 => array('statistic',     mw_url('server', 'statistic'),    ''),
     4 => array('module_ah',     mw_url('server', 'ah'),           ''),
     5 => array('armorsets',     'index.php?n=server&sub=sets',    ''),
-    8 => array('addons',        'index.php?n=server&sub=addons',  ''), // new addons page
+    8 => array('downloads',     'index.php?n=server&sub=downloads',''),
   ),
 
   /* ------------------ 5. MEDIA ------------------ */
@@ -103,6 +103,7 @@ $com_content = array(
         'guilds'        => array('', 'Guilds', 'index.php?n=server&sub=guilds', 1, 1),
         'sets'          => array('', 'Armor Sets', 'index.php?n=server&sub=sets', 1, 1),
         'talents'       => array('', 'Talents', 'index.php?n=server&sub=talents', 1, 1),
+        'downloads'     => array('', 'Downloads', 'index.php?n=server&sub=downloads', 1, 1),
     ),
 
     'community' => array(
@@ -127,7 +128,7 @@ $com_content = array(
     ),
 );
 /* ------------------ DYNAMIC TALENTS LINK ------------------ */
-$talentMenuIndex = 2;
+$talentMenuIndex = 3;
 if (isset($mainnav_links['7-menuArmory'][$talentMenuIndex])) {
     $talentCharacter = isset($user['character_name']) ? trim($user['character_name']) : '';
     $talentLink = 'index.php?n=server&sub=talents';
@@ -211,6 +212,8 @@ if ((int)$MW->getConfig->components->left_section->botcommands == 1)         uns
 
 
 ?>
+
+
 
 
 

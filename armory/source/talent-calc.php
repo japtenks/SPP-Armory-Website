@@ -409,10 +409,13 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
     <div class="tc-classgrid"><!--the icons-->
       <?php foreach ($CLASS_NAMES as $cid => $cname): ?>
         <?php
-          $href = "index.php?searchType=profile&charPage=talentcalc"
-                . "&character=" . rawurlencode($stat['name'])
-                . "&realm="     . rawurlencode(REALM_NAME)
-                . "&class="     . $cid;
+          $hrefBase = $GLOBALS['talent_calc_base_url'] ?? 'index.php?n=server&sub=talents';
+          $href = $hrefBase
+                . '&realm='     . rawurlencode(REALM_NAME)
+                . '&class='     . $cid;
+          if (!empty($stat['name'])) {
+              $href .= '&character=' . rawurlencode($stat['name']);
+          }
 
           $ico   = class_icon_for($cid);
           $slug  = $CLASS_SLUGS[$cid] ?? 'warrior';
@@ -711,6 +714,8 @@ window.tcClassId = <?= (int)$charClassId ?>;
   }
 })();
 </script>
+
+
 
 
 

@@ -143,6 +143,13 @@ $com_content['server'] = array(
         '3-menuGameGuide',
         0
     ),
+    'downloads' => array(
+        '',
+        'Downloads',
+        mw_url('server', 'downloads'),
+        '4-menuWorkshop',
+        0
+    ),
     'armorsets' => array(
         '', 
         'armorsets', 
@@ -181,6 +188,8 @@ $com_content['server'] = array(
     ),
 );
 ?>
+
+
 
 
 

@@ -42,6 +42,10 @@ switch ($sub) {
         include('server.sets.php');
         break;
 
+    case 'downloads':
+        include('server.downloads.php');
+        break;
+
     case 'guilds':
         include('server.guilds.php');
         break;
@@ -54,3 +58,6 @@ switch ($sub) {
         break;
 }
 ?>
+
+
+

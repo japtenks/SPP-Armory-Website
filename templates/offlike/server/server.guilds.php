@@ -160,13 +160,6 @@ if ($search !== '') $baseUrl .= '&search=' . urlencode($search);
 
 <div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo (int)$count; ?> guilds</div>
 
-<?php if ($pnum > 1): ?>
-  <div class="pagination-controls">
-    <div class="page-links">
-      <?php echo compact_paginate($p, $pnum, $baseUrl); ?>
-    </div>
-  </div>
-<?php endif; ?>
 
 <div class="wow-table guild-table">
   <div class="header">
