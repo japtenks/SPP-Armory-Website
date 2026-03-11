@@ -32,7 +32,7 @@ $mainnav_links = array(
   /* ------------------ 4. WORKSHOP ------------------ */
   '4-menuWorkshop' => array(
     0 => array('realms_status', mw_url('server', 'realmstatus'), ''),
-    1 => array('chars',         mw_url('server', 'chars'),        ''),
+    //1 => array('chars',         mw_url('server', 'chars'),        ''),
     2 => array('playermap',     mw_url('server', 'playermap'),    ''),
     3 => array('statistic',     mw_url('server', 'statistic'),    ''),
     4 => array('module_ah',     mw_url('server', 'ah'),           ''),
@@ -62,6 +62,9 @@ $mainnav_links = array(
     1 => array('armory',            '/armory/',                           ''),
     2 => array('talent_calculator', '/armory/index.php#0-0-0',            ''),
     3 => array('talents',           '#',                                  ''),
+    4 => array('chars',             'index.php?n=server&sub=chars',       ''),
+    5 => array('guilds',            'index.php?n=server&sub=guilds',      ''),
+
   ),
 
   /* ------------------ 8. SUPPORT ------------------ */
@@ -103,7 +106,7 @@ $com_content = array(
 
     'community' => array(
         'index' => array('', 'Community', 'index.php?n=community', 1, 1),
-        'who'   => array('', 'Who’s Online', 'index.php?n=community&sub=who', 1, 1),
+        'who'   => array('', 'Who s Online', 'index.php?n=community&sub=who', 1, 1),
     ),
 
     'statistic' => array(
@@ -216,3 +219,4 @@ if ((int)$MW->getConfig->components->left_section->botcommands == 1)         uns
 
 
 ?>
+

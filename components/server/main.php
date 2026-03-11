@@ -57,6 +57,13 @@ $com_content['server'] = array(
         '4-menuInteractive',
         0
     ),
+    'guilds' => array(
+        '',
+        'Guilds on the server',
+        mw_url('server', 'guilds'),
+        '4-menuInteractive',
+        0
+    ),
     'realmstatus' => array(
         '', 
         'realms_status', 
@@ -172,3 +179,5 @@ $com_content['server'] = array(
     ),
 );
 ?>
+
+
