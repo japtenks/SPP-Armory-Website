@@ -150,6 +150,11 @@ textarea.editor {
   color: #111;
   border-color: #b88a30;
 }
+.reply-actions .btn.primary:disabled {
+  background: #55451c;
+  color: #8d8d8d;
+  cursor: not-allowed;
+}
 .reply-actions .btn.secondary {
   background: #222;
   color: #ccc;
@@ -209,7 +214,7 @@ $formAction = $is_newtopic
           <?php endif; ?>
         </div>
         <div class="reply-post-body">
-          <div class="reply-post-meta">#<?php echo (int)$post['pos_num']; ?> · <?php echo date('M d, Y H:i', $post['posted']); ?></div>
+          <div class="reply-post-meta">#<?php echo (int)$post['pos_num']; ?> Â· <?php echo date('M d, Y H:i', $post['posted']); ?></div>
           <div class="reply-post-message"><?php echo $post['message']; ?></div>
         </div>
       </article>
@@ -220,10 +225,15 @@ $formAction = $is_newtopic
 
 <section class="reply-panel">
   <h2><?php echo $is_newtopic ? 'Start a New Discussion' : 'Write Your Reply'; ?></h2>
+  <?php if (!empty($posting_block_reason)): ?>
+    <div style="margin-bottom: 14px; padding: 12px 14px; border: 1px solid #7a2f2f; border-radius: 8px; background: rgba(122, 47, 47, 0.2); color: #ffb3b3;">
+      <?php echo htmlspecialchars($posting_block_reason); ?>
+    </div>
+  <?php endif; ?>
   <form method="post" action="<?php echo $formAction; ?>" enctype="multipart/form-data">
     <?php if ($is_newtopic): ?>
       <label for="subject">Subject:</label>
-      <input type="text" id="subject" name="subject" maxlength="80" placeholder="Enter your topic title..." class="subject-input" />
+      <input type="text" id="subject" name="subject" maxlength="80" placeholder="Enter your topic title..." class="subject-input" <?php echo !$canPost ? 'disabled' : ''; ?> />
     <?php endif; ?>
 
     <label for="message">Message:</label>
@@ -238,15 +248,15 @@ $formAction = $is_newtopic
       <button type="button" onclick="insertTag('color=red')">Color</button>
     </div>
 
-    <textarea id="message" name="text" class="editor" placeholder="Write your message..."></textarea>
+    <textarea id="message" name="text" class="editor" placeholder="Write your message..." <?php echo !$canPost ? 'disabled' : ''; ?>></textarea>
 
     <div class="subscribe-row">
-      <input type="checkbox" id="subscribe" name="subscribe" />
+      <input type="checkbox" id="subscribe" name="subscribe" <?php echo !$canPost ? 'disabled' : ''; ?> />
       <label for="subscribe">Subscribe to this topic</label>
     </div>
 
     <div class="reply-actions">
-      <button type="submit" class="btn primary"><?php echo $is_newtopic ? 'Post Topic' : 'Add Reply'; ?></button>
+      <button type="submit" class="btn primary" <?php echo !$canPost ? 'disabled' : ''; ?>><?php echo $is_newtopic ? 'Post Topic' : 'Add Reply'; ?></button>
       <button type="reset" class="btn secondary">Clear</button>
     </div>
   </form>
@@ -257,6 +267,9 @@ $formAction = $is_newtopic
 <script>
 function insertTag(tag) {
   const textarea = document.getElementById('message');
+  if (!textarea || textarea.disabled) {
+    return;
+  }
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const selected = textarea.value.substring(start, end);

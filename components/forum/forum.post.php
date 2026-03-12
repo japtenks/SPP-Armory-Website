@@ -9,6 +9,8 @@ $this_post = [];
 $this_topic = [];
 $this_forum = [];
 $posts = [];
+$canPost = true;
+$posting_block_reason = '';
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 if (!is_array($realmMap) || empty($realmMap)) {
@@ -37,15 +39,16 @@ if (!empty($_GET['f'])) {
     $this_forum = get_forum_byid($_GET['f']);
 }
 
-if (!isValidChar($user)) {
-    output_message('alert', 'You must select a character before posting');
-    return;
-}
 if ($user['id'] <= 0) {
-    return;
+    $canPost = false;
+    $posting_block_reason = 'You must be logged in to post.';
+} elseif (!isValidChar($user)) {
+    $canPost = false;
+    $posting_block_reason = 'You must select a valid character before posting. This account currently has no available character loaded for the selected realm.';
+    output_message('alert', $posting_block_reason);
 }
 
-if ($action === 'donewtopic' && !empty($this_forum['forum_id'])) {
+if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
     if (($user['g_post_new_topics'] == 1 && !$this_forum['closed']) || $user['g_forum_moderate'] == 1) {
         if (!empty($_POST['subject']) && !empty($_POST['text'])) {
             $message = my_preview($_POST['text']);
@@ -122,7 +125,7 @@ if ($action === 'donewtopic' && !empty($this_forum['forum_id'])) {
             }
         }
     }
-} elseif ($action === 'donewpost' && !empty($this_forum['forum_id']) && !empty($this_topic['topic_id'])) {
+} elseif ($canPost && $action === 'donewpost' && !empty($this_forum['forum_id']) && !empty($this_topic['topic_id'])) {
     if (!$user['g_reply_other_topics']) {
         output_message('alert', 'You are not authorized to reply to this topic.');
         return;
