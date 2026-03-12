@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 if (!function_exists('spp_item_tooltip_item_class_name')) {
     function spp_item_tooltip_item_class_name($class, $subclass) {
         $class = (int)$class;
@@ -41,6 +41,33 @@ if (!function_exists('spp_item_tooltip_inventory_type_name')) {
     }
 }
 
+if (!function_exists('spp_item_tooltip_render_rating_lines')) {
+    function spp_item_tooltip_render_rating_lines(array $row) {
+        $ratingMap = [
+            12 => 'Defense Rating', 13 => 'Dodge Rating', 14 => 'Parry Rating',
+            15 => 'Block Rating', 16 => 'Hit Rating (Melee)', 17 => 'Hit Rating (Ranged)',
+            18 => 'Hit Rating (Spell)', 19 => 'Crit Rating (Melee)', 20 => 'Crit Rating (Ranged)',
+            21 => 'Crit Rating (Spell)', 25 => 'Resilience Rating', 28 => 'Haste Rating (Melee)',
+            29 => 'Haste Rating (Ranged)', 30 => 'Haste Rating (Spell)', 31 => 'Hit Rating',
+            32 => 'Crit Rating', 35 => 'Resilience Rating', 36 => 'Haste Rating',
+            37 => 'Expertise Rating', 38 => 'Attack Power', 39 => 'Ranged Attack Power',
+            40 => 'Feral Attack Power', 41 => 'Spell Healing', 42 => 'Spell Damage',
+            43 => 'Mana Regeneration', 44 => 'Armor Penetration Rating', 45 => 'Spell Power',
+            46 => 'Health per 5 sec', 47 => 'Spell Penetration', 48 => 'Block Value'
+        ];
+
+        $html = '';
+        for ($i = 1; $i <= 10; $i++) {
+            $type = (int)($row['stat_type' . $i] ?? 0);
+            $value = (int)($row['stat_value' . $i] ?? 0);
+            if ($type && $value && isset($ratingMap[$type])) {
+                $html .= '<div style="color:#1eff00">Equip: Improves ' . htmlspecialchars($ratingMap[$type]) . ' by ' . $value . '.</div>';
+            }
+        }
+        return $html;
+    }
+}
+
 if (!function_exists('spp_item_tooltip_render_spell_effect')) {
     function spp_item_tooltip_render_spell_effect($spellId, $trigger, array $row = []) {
         $spellId = (int)$spellId;
@@ -67,6 +94,108 @@ if (!function_exists('spp_item_tooltip_render_spell_effect')) {
     }
 }
 
+if (!function_exists('spp_item_tooltip_set_data')) {
+    function spp_item_tooltip_set_data($setId) {
+        $setId = (int)$setId;
+        if ($setId <= 0) {
+            return null;
+        }
+
+        $row = armory_query("SELECT * FROM dbc_itemset WHERE id={$setId} LIMIT 1", 1);
+        if (!$row) {
+            return null;
+        }
+
+        $items = [];
+        for ($i = 1; $i <= 10; $i++) {
+            $itemId = (int)($row['item_' . $i] ?? 0);
+            if ($itemId <= 0) {
+                continue;
+            }
+            $item = world_query("SELECT entry, name, InventoryType, displayid, Quality FROM item_template WHERE entry={$itemId} LIMIT 1", 1);
+            if (!$item) {
+                continue;
+            }
+            $items[] = [
+                'entry' => (int)$item['entry'],
+                'slot' => (int)$item['InventoryType'],
+                'name' => (string)$item['name'],
+                'q' => (int)$item['Quality'],
+            ];
+        }
+
+        usort($items, function ($a, $b) {
+            return slot_order((int)$a['slot']) <=> slot_order((int)$b['slot']);
+        });
+
+        $bonuses = [];
+        for ($b = 1; $b <= 8; $b++) {
+            $bonusId = (int)($row['bonus_' . $b] ?? 0);
+            $pieces = (int)($row['pieces_' . $b] ?? 0);
+            if ($bonusId <= 0 || $pieces <= 0) {
+                continue;
+            }
+            $spell = armory_query("SELECT * FROM dbc_spell WHERE id={$bonusId} LIMIT 1", 1);
+            if (!$spell) {
+                continue;
+            }
+            $bonuses[] = [
+                'pieces' => $pieces,
+                'desc' => (string)($spell['description'] ?? ''),
+                'spell' => $spell,
+            ];
+        }
+
+        return [
+            'name' => (string)($row['name'] ?? 'Unknown Set'),
+            'items' => $items,
+            'bonuses' => $bonuses,
+        ];
+    }
+}
+
+if (!function_exists('spp_item_tooltip_render_set_lines')) {
+    function spp_item_tooltip_render_set_lines(array $setData, $entry) {
+        $entry = (int)$entry;
+        $html = '';
+        $setName = trim((string)($setData['name'] ?? ''));
+        if ($setName === '') {
+            return $html;
+        }
+
+        $itemCount = is_array($setData['items'] ?? null) ? count($setData['items']) : 0;
+        $html .= '<div style="margin-top:12px;color:#ffd100">' . htmlspecialchars($setName) . ' (0/' . $itemCount . ')</div>';
+
+        if (!empty($setData['items']) && is_array($setData['items'])) {
+            foreach ($setData['items'] as $setItem) {
+                $isCurrent = ((int)($setItem['entry'] ?? 0) === $entry);
+                $lineColor = $isCurrent ? '#c4c4c4' : '#707070';
+                $html .= '<div style="color:' . $lineColor . '">' . htmlspecialchars((string)($setItem['name'] ?? '')) . '</div>';
+            }
+        }
+
+        if (!empty($setData['bonuses']) && is_array($setData['bonuses'])) {
+            usort($setData['bonuses'], function ($a, $b) {
+                return ((int)$a['pieces']) <=> ((int)$b['pieces']);
+            });
+            $html .= '<div style="margin-top:12px"></div>';
+            foreach ($setData['bonuses'] as $bonus) {
+                $pieces = (int)($bonus['pieces'] ?? 0);
+                $description = (string)($bonus['desc'] ?? '');
+                if ($description !== '' && isset($bonus['spell']) && is_array($bonus['spell'])) {
+                    $description = spp_item_tooltip_replace_spell_tokens($description, $bonus['spell']);
+                }
+                if ($description === '') {
+                    continue;
+                }
+                $html .= '<div><span style="color:#c4c4c4">(' . $pieces . ') Set:</span> <span style="color:#1eff00">' . htmlspecialchars($description) . '</span></div>';
+            }
+        }
+
+        return $html;
+    }
+}
+
 if (!function_exists('spp_render_item_tooltip_html')) {
     function spp_render_item_tooltip_html(array $item) {
         $entry = (int)($item['entry'] ?? 0);
@@ -76,7 +205,7 @@ if (!function_exists('spp_render_item_tooltip_html')) {
 
         $sql = "
             SELECT Quality, ItemLevel, InventoryType, class, subclass,
-                   RequiredLevel, Armor, MaxDurability, AllowableClass,
+                   RequiredLevel, Armor, MaxDurability, AllowableClass, itemset,
                    stat_type1, stat_value1,
                    stat_type2, stat_value2,
                    stat_type3, stat_value3,
@@ -104,9 +233,7 @@ if (!function_exists('spp_render_item_tooltip_html')) {
             return '';
         }
 
-        $qualityColors = [
-            0 => '#9d9d9d', 1 => '#ffffff', 2 => '#1eff00', 3 => '#0070dd', 4 => '#a335ee', 5 => '#ff8000'
-        ];
+        $qualityColors = [0 => '#9d9d9d', 1 => '#ffffff', 2 => '#1eff00', 3 => '#0070dd', 4 => '#a335ee', 5 => '#ff8000'];
         $qualityColor = $qualityColors[(int)$row['Quality']] ?? '#ffffff';
 
         $slotName = spp_item_tooltip_inventory_type_name((int)$row['InventoryType']);
@@ -135,6 +262,8 @@ if (!function_exists('spp_render_item_tooltip_html')) {
             }
         }
 
+        $html .= spp_item_tooltip_render_rating_lines($row);
+
         $resistances = [
             'holy_res' => 'Holy Resistance',
             'fire_res' => 'Fire Resistance',
@@ -160,6 +289,11 @@ if (!function_exists('spp_render_item_tooltip_html')) {
 
         if ((int)$row['RequiredLevel'] > 0) {
             $html .= '<div>Requires Level ' . (int)$row['RequiredLevel'] . '</div>';
+        }
+
+        $setData = spp_item_tooltip_set_data((int)($row['itemset'] ?? 0));
+        if ($setData) {
+            $html .= spp_item_tooltip_render_set_lines($setData, $entry);
         }
 
         $html .= '</div>';

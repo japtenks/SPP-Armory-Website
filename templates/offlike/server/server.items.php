@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $siteDatabaseHandle = $GLOBALS['DB'] ?? null;
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/settings.php');
@@ -592,10 +592,12 @@ function modernHideTooltip() {
 
       <?php foreach ($pageResults as $row): ?>
         <?php
-          $legacyItemUrl = '/armory/index.php?searchType=iteminfo&item=' . (int)$row['id'];
-          if ($legacyRealmName !== '') {
-              $legacyItemUrl .= '&realm=' . rawurlencode($legacyRealmName);
+          $legacyItemUrl = 'index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$row['id'];
+          if ($search !== '') {
+              $legacyItemUrl .= '&search=' . urlencode($search);
           }
+          $legacyItemUrl .= '&p=' . (int)$p . '&per_page=' . (int)$itemsPerPage;
+          $legacyItemUrl .= '&sort=' . rawurlencode($orderBy) . '&dir=' . rawurlencode($orderDir);
           $qualityColor = spp_modern_item_quality_color($row['quality']);
           $itemId = (int)$row['id'];
         ?>
@@ -637,6 +639,7 @@ function modernHideTooltip() {
 </div>
 
 <?php builddiv_end(); ?>
+
 
 
 

@@ -237,7 +237,13 @@ function class_mask_to_names(int $mask): array {
     return $names ?: ['All'];
 }
 
-function item_href(int $entry): string { return 'armory/index.php?searchType=iteminfo&item='.$entry; }
+function item_href(int $entry): string {
+    $href = 'index.php?n=server&sub=item&item=' . $entry;
+    if (isset($_GET['realm']) && ctype_digit((string)$_GET['realm'])) {
+        $href .= '&realm=' . (int)$_GET['realm'];
+    }
+    return $href;
+}
 
 function default_slot_names(int $pieces): array {
   if ($pieces >= 9) return ['H','S','C','W','L','F','W','H','R'];
@@ -355,6 +361,7 @@ function armor_set_variants($raw) {
   }
   return $out;
 }
+
 
 
 

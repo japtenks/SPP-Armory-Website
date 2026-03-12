@@ -108,6 +108,13 @@ $com_content['server'] = array(
         '7-menuArmory',
         0
     ),
+    'item' => array(
+        '',
+        'item',
+        mw_url('server', 'item'),
+        '',
+        0
+    ),
     'gms' => array(
         '', 
         'gmlist', 
@@ -195,6 +202,7 @@ $com_content['server'] = array(
     ),
 );
 ?>
+
 
 
 
