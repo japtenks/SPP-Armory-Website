@@ -170,6 +170,7 @@ $raceNames = [1 => 'Human', 2 => 'Orc', 3 => 'Dwarf', 4 => 'Night Elf', 5 => 'Un
 $allianceRaces = [1, 3, 4, 7, 11, 22, 25, 29];
 
 $item = null;
+$itemSet = null;
 $owners = [];
 $pageError = '';
 $legacyRealmName = '';
@@ -220,62 +221,74 @@ if ($itemId <= 0) {
             $quality = (int)($itemRow['Quality'] ?? 0);
             $flags = (int)($itemRow['Flags'] ?? 0);
 
-             = [
-                'id' => ,
-                'name' => ,
-                'description' => ,
-                'quality' => ,
-                'quality_label' => spp_modern_item_quality_label(),
-                'quality_color' => spp_modern_item_quality_color(),
-                'icon' => spp_modern_item_icon_url(),
-                'level' => (int)(['ItemLevel'] ?? 0),
-                'required_level' => (int)(['RequiredLevel'] ?? 0),
-                'required_skill' => (int)(['RequiredDisenchantSkill'] ?? 0),
-                'buy_price' => (int)(['BuyPrice'] ?? 0),
-                'sell_price' => (int)(['SellPrice'] ?? 0),
-                'max_durability' => (int)(['MaxDurability'] ?? 0),
-                'slot_name' => spp_modern_item_inventory_type_name((int)(['InventoryType'] ?? 0)),
-                'class_name' => spp_modern_item_class_name((int)(['class'] ?? 0), (int)(['subclass'] ?? 0)),
-                'source' => spp_modern_item_cache_source(, , , (( & 32768) === 32768)),
+            $item = [
+                'id' => $itemId,
+                'name' => $itemName,
+                'description' => $itemDescription,
+                'quality' => $quality,
+                'quality_label' => spp_modern_item_quality_label($quality),
+                'quality_color' => spp_modern_item_quality_color($quality),
+                'icon' => spp_modern_item_icon_url($iconName),
+                'level' => (int)($itemRow['ItemLevel'] ?? 0),
+                'required_level' => (int)($itemRow['RequiredLevel'] ?? 0),
+                'required_skill' => (int)($itemRow['RequiredDisenchantSkill'] ?? 0),
+                'buy_price' => (int)($itemRow['BuyPrice'] ?? 0),
+                'sell_price' => (int)($itemRow['SellPrice'] ?? 0),
+                'max_durability' => (int)($itemRow['MaxDurability'] ?? 0),
+                'slot_name' => spp_modern_item_inventory_type_name((int)($itemRow['InventoryType'] ?? 0)),
+                'class_name' => spp_modern_item_class_name((int)($itemRow['class'] ?? 0), (int)($itemRow['subclass'] ?? 0)),
+                'source' => spp_modern_item_cache_source($worldPdo, $armoryPdo, $itemId, (($flags & 32768) === 32768)),
             ];
 
-             = (int)(['itemset'] ?? 0);
-            if ( > 0) {
-                 = ->prepare('SELECT * FROM dbc_itemset WHERE id = ? LIMIT 1');
-                ->execute([]);
-                 = ->fetch(PDO::FETCH_ASSOC);
-                if () {
-                     = ['name' => (string)(['name'] ?? 'Item Set'), 'pieces' => [], 'bonuses' => []];
-                    for ( = 1;  <= 10; ++) {
-                         = (int)(['item_' . ] ?? 0);
-                        if ( <= 0) {
+            $itemSetId = (int)($itemRow['itemset'] ?? 0);
+            if ($itemSetId > 0) {
+                $setStmt = $armoryPdo->prepare('SELECT * FROM `dbc_itemset` WHERE `id` = ? LIMIT 1');
+                $setStmt->execute([$itemSetId]);
+                $setRow = $setStmt->fetch(PDO::FETCH_ASSOC);
+                if ($setRow) {
+                    $itemSet = [
+                        'name' => (string)($setRow['name'] ?? 'Item Set'),
+                        'pieces' => [],
+                        'bonuses' => [],
+                    ];
+
+                    for ($setIndex = 1; $setIndex <= 10; $setIndex++) {
+                        $setItemId = (int)($setRow['item_' . $setIndex] ?? 0);
+                        if ($setItemId <= 0) {
                             continue;
                         }
-                         = ->prepare('SELECT entry, 
-ame FROM item_template WHERE entry = ? LIMIT 1');
-                        ->execute([]);
-                         = ->fetch(PDO::FETCH_ASSOC);
-                        if () {
-                            ['pieces'][] = ['entry' => (int)['entry'], 'name' => (string)['name'], 'active' => ((int)['entry'] === )];
+                        $setItemStmt = $worldPdo->prepare('SELECT `entry`, `name` FROM `item_template` WHERE `entry` = ? LIMIT 1');
+                        $setItemStmt->execute([$setItemId]);
+                        $setItemRow = $setItemStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($setItemRow) {
+                            $itemSet['pieces'][] = [
+                                'entry' => (int)$setItemRow['entry'],
+                                'name' => (string)$setItemRow['name'],
+                                'active' => ((int)$setItemRow['entry'] === $itemId),
+                            ];
                         }
                     }
-                    for ( = 1;  <= 8; ++) {
-                         = (int)(['bonus_' . ] ?? 0);
-                         = (int)(['pieces_' . ] ?? 0);
-                        if ( <= 0 ||  <= 0) {
+
+                    for ($bonusIndex = 1; $bonusIndex <= 8; $bonusIndex++) {
+                        $bonusSpellId = (int)($setRow['bonus_' . $bonusIndex] ?? 0);
+                        $bonusPieces = (int)($setRow['pieces_' . $bonusIndex] ?? 0);
+                        if ($bonusSpellId <= 0 || $bonusPieces <= 0) {
                             continue;
                         }
-                         = ->prepare('SELECT description FROM dbc_spell WHERE id = ? LIMIT 1');
-                        ->execute([]);
-                         = trim((string)->fetchColumn());
-                        if ( !== '') {
-                            ['bonuses'][] = ['pieces' => , 'description' => ];
+                        $bonusStmt = $armoryPdo->prepare('SELECT `description` FROM `dbc_spell` WHERE `id` = ? LIMIT 1');
+                        $bonusStmt->execute([$bonusSpellId]);
+                        $bonusDescription = trim((string)$bonusStmt->fetchColumn());
+                        if ($bonusDescription !== '') {
+                            $itemSet['bonuses'][] = [
+                                'pieces' => $bonusPieces,
+                                'description' => $bonusDescription,
+                            ];
                         }
                     }
                 }
             }
 
-             = $charsPdo->prepare('SELECT DISTINCT c.`guid`, c.`name`, c.`level`, c.`race`, c.`class`, c.`gender`, gm.`guildid`, g.`name` AS `guild_name` FROM `character_inventory` ci INNER JOIN `characters` c ON c.`guid` = ci.`guid` LEFT JOIN `guild_member` gm ON gm.`guid` = c.`guid` LEFT JOIN `guild` g ON g.`guildid` = gm.`guildid` WHERE ci.`item_template` = ? ORDER BY c.`level` DESC, c.`name` ASC LIMIT 100');
+            $ownerStmt = $charsPdo->prepare('SELECT DISTINCT c.`guid`, c.`name`, c.`level`, c.`race`, c.`class`, c.`gender`, gm.`guildid`, g.`name` AS `guild_name` FROM `character_inventory` ci INNER JOIN `characters` c ON c.`guid` = ci.`guid` LEFT JOIN `guild_member` gm ON gm.`guid` = c.`guid` LEFT JOIN `guild` g ON g.`guildid` = gm.`guildid` WHERE ci.`item_template` = ? ORDER BY c.`level` DESC, c.`name` ASC LIMIT 100');
             $ownerStmt->execute([$itemId]);
             foreach ($ownerStmt->fetchAll(PDO::FETCH_ASSOC) as $owner) {
                 $raceId = (int)($owner['race'] ?? 0);
@@ -338,13 +351,6 @@ builddiv_start(1, 'Item Detail', 1);
 .item-detail-fact:last-child { padding-bottom: 0; border-bottom: 0; }
 .item-detail-fact span { color: #bda877; font-size: 0.83rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .item-detail-fact strong { color: #f7edd0; font-size: 1.08rem; }
-.item-set-block { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255, 204, 72, 0.16); }
-.item-set-name { color: #ffd56c; font-weight: 700; margin-bottom: 10px; }
-.item-set-piece { color: #8f8f8f; margin: 4px 0; }
-.item-set-piece.active { color: #d9d9d9; }
-.item-set-bonus { margin: 8px 0; }
-.item-set-bonus span { color: #d0d0d0; }
-.item-set-bonus strong { color: #1eff00; font-size: 1rem; }
 .item-detail-tooltip-shell { min-height: 320px; }
 .item-detail-tooltip-shell .talent-tt, .item-detail-tooltip-shell .tt-item { max-width: none; }
 .item-detail-tooltip-loading { padding: 16px 18px; border-radius: 12px; border: 1px solid rgba(255, 196, 0, 0.24); background: rgba(1, 4, 10, 0.8); color: #f8e8af; }
@@ -419,25 +425,14 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="item-detail-panel">
         <h2 class="item-detail-panel-title">Quick Facts</h2>
         <div class="item-detail-facts">
-          <div class="item-detail-fact"><span>Source</span><strong><?php echo htmlspecialchars(['source']); ?></strong></div>
-          <div class="item-detail-fact"><span>Slot</span><strong><?php echo htmlspecialchars(['slot_name']); ?></strong></div>
-          <div class="item-detail-fact"><span>Type</span><strong><?php echo htmlspecialchars(['class_name']); ?></strong></div>
-          <div class="item-detail-fact"><span>Buy Price</span><strong><?php echo htmlspecialchars(spp_modern_item_format_money(['buy_price'])); ?></strong></div>
-          <div class="item-detail-fact"><span>Sell Price</span><strong><?php echo htmlspecialchars(spp_modern_item_format_money(['sell_price'])); ?></strong></div>
-          <?php if (['max_durability'] > 0): ?><div class="item-detail-fact"><span>Durability</span><strong><?php echo (int)['max_durability']; ?></strong></div><?php endif; ?>
-          <?php if (['required_skill'] > 0): ?><div class="item-detail-fact"><span>Disenchant Skill</span><strong><?php echo (int)['required_skill']; ?></strong></div><?php endif; ?>
+          <div class="item-detail-fact"><span>Source</span><strong><?php echo htmlspecialchars($item['source']); ?></strong></div>
+          <div class="item-detail-fact"><span>Slot</span><strong><?php echo htmlspecialchars($item['slot_name']); ?></strong></div>
+          <div class="item-detail-fact"><span>Type</span><strong><?php echo htmlspecialchars($item['class_name']); ?></strong></div>
+          <div class="item-detail-fact"><span>Buy Price</span><strong><?php echo htmlspecialchars(spp_modern_item_format_money($item['buy_price'])); ?></strong></div>
+          <div class="item-detail-fact"><span>Sell Price</span><strong><?php echo htmlspecialchars(spp_modern_item_format_money($item['sell_price'])); ?></strong></div>
+          <?php if ($item['max_durability'] > 0): ?><div class="item-detail-fact"><span>Durability</span><strong><?php echo (int)$item['max_durability']; ?></strong></div><?php endif; ?>
+          <?php if ($item['required_skill'] > 0): ?><div class="item-detail-fact"><span>Disenchant Skill</span><strong><?php echo (int)$item['required_skill']; ?></strong></div><?php endif; ?>
         </div>
-        <?php if (!empty()): ?>
-          <div class="item-set-block">
-            <div class="item-set-name"><?php echo htmlspecialchars(['name']); ?> (0/<?php echo count(['pieces']); ?>)</div>
-            <?php foreach (['pieces'] as ): ?>
-              <div class="item-set-piece<?php echo !empty(['active']) ? ' active' : ''; ?>"><?php echo htmlspecialchars(['name']); ?></div>
-            <?php endforeach; ?>
-            <?php foreach (['bonuses'] as ): ?>
-              <div class="item-set-bonus"><span>(<?php echo (int)['pieces']; ?>) Set:</span> <strong><?php echo htmlspecialchars(['description']); ?></strong></div>
-            <?php endforeach; ?>
-          </div>
-        <?php endif; ?>
       </div>
 
       <div class="item-detail-panel item-detail-tooltip-shell">
@@ -479,10 +474,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <?php builddiv_end(); ?>
-
-
-
-
 
 
 
