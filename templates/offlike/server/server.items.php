@@ -1,10 +1,11 @@
 ﻿<?php
+$siteDatabaseHandle = $GLOBALS['DB'] ?? null;
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/settings.php');
-require_once($_SERVER['DOCUMENT_ROOT'] . '/core/dbsimple/Generic.php');
-require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/mysql.php');
-require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/functions.php');
-
+if ($siteDatabaseHandle !== null) {
+    $GLOBALS['DB'] = $siteDatabaseHandle;
+    $DB = $siteDatabaseHandle;
+}
 if (!function_exists('spp_modern_item_search_compare')) {
     function spp_modern_item_search_compare(array $left, array $right, $orderBy, $orderDir) {
         $direction = strtoupper($orderDir) === 'ASC' ? 1 : -1;
@@ -458,6 +459,7 @@ function modernTooltipEnsure() {
   if (!modernTooltipNode) {
     modernTooltipNode = document.createElement('div');
     modernTooltipNode.id = 'modern-item-tooltip';
+    modernTooltipNode.className = 'talent-tt';
     document.body.appendChild(modernTooltipNode);
   }
   return modernTooltipNode;
@@ -635,6 +637,8 @@ function modernHideTooltip() {
 </div>
 
 <?php builddiv_end(); ?>
+
+
 
 
 

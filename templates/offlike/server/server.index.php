@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 if (INCLUDED !== true) exit;
 
 switch ($sub) {
@@ -38,6 +38,10 @@ switch ($sub) {
         include('server.talents.php');
         break;
 
+    case 'items':
+        include('server.items.php');
+        break;
+
     case 'sets':
         include('server.sets.php');
         break;
@@ -58,6 +62,8 @@ switch ($sub) {
         break;
 }
 ?>
+
+
 
 
 
