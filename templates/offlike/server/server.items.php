@@ -1,6 +1,9 @@
-<?php
+﻿<?php
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/settings.php');
+require_once($_SERVER['DOCUMENT_ROOT'] . '/core/dbsimple/Generic.php');
+require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/mysql.php');
+require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/functions.php');
 
 if (!function_exists('spp_modern_item_search_compare')) {
     function spp_modern_item_search_compare(array $left, array $right, $orderBy, $orderDir) {
@@ -44,10 +47,49 @@ if (!function_exists('spp_modern_item_search_normalize')) {
     function spp_modern_item_search_normalize($search) {
         $search = trim((string)$search);
         $search = preg_replace('/\s\s+/', ' ', $search);
-        if (preg_match('/[^[:alnum:]\\s]/u', $search)) {
+        if (preg_match('/[^[:alnum:]\s]/u', $search)) {
             return '';
         }
         return $search;
+    }
+}
+
+if (!function_exists('spp_modern_item_quality_color')) {
+    function spp_modern_item_quality_color($quality) {
+        switch ((int)$quality) {
+            case 0: return '#9d9d9d';
+            case 1: return '#ffffff';
+            case 2: return '#1eff00';
+            case 3: return '#0070dd';
+            case 4: return '#a335ee';
+            case 5: return '#ff8000';
+            default: return '#e6cc80';
+        }
+    }
+}
+
+if (!function_exists('spp_modern_item_icon_url')) {
+    function spp_modern_item_icon_url($iconName) {
+        $iconName = trim((string)$iconName);
+        if ($iconName === '') {
+            return '/armory/images/icons/64x64/404.png';
+        }
+        if (preg_match('#^https?://#i', $iconName) || strpos($iconName, '//') === 0) {
+            return $iconName;
+        }
+        if ($iconName[0] === '/') {
+            return $iconName;
+        }
+        if (strpos($iconName, 'images/') === 0) {
+            return '/armory/' . $iconName;
+        }
+        if (strpos($iconName, 'armory/') === 0) {
+            return '/' . $iconName;
+        }
+        if (substr($iconName, -4) !== '.png') {
+            $iconName .= '.png';
+        }
+        return '/armory/images/icons/64x64/' . strtolower($iconName);
     }
 }
 
@@ -56,14 +98,13 @@ if (!function_exists('spp_modern_item_cache_source')) {
         $itemId = (int)$itemId;
 
         $checks = [
-            ['SELECT `entry` FROM `quest_template` WHERE `SrcItemId` = ? LIMIT 1', 'Quest Item', 'world'],
-            ['SELECT `entry` FROM `npc_vendor` WHERE `item` = ? LIMIT 1', $isPvpReward ? 'PvP Reward (Vendor)' : 'Vendor', 'world'],
-            ['SELECT `entry` FROM `npc_vendor_template` WHERE `item` = ? LIMIT 1', $isPvpReward ? 'PvP Reward (Vendor)' : 'Vendor', 'world'],
+            ['SELECT `entry` FROM `quest_template` WHERE `SrcItemId` = ? LIMIT 1', 'Quest Item'],
+            ['SELECT `entry` FROM `npc_vendor` WHERE `item` = ? LIMIT 1', $isPvpReward ? 'PvP Reward (Vendor)' : 'Vendor'],
+            ['SELECT `entry` FROM `npc_vendor_template` WHERE `item` = ? LIMIT 1', $isPvpReward ? 'PvP Reward (Vendor)' : 'Vendor'],
         ];
 
         foreach ($checks as $check) {
-            $pdo = $check[2] === 'armory' ? $armoryPdo : $worldPdo;
-            $stmt = $pdo->prepare($check[0]);
+            $stmt = $worldPdo->prepare($check[0]);
             $stmt->execute([$itemId]);
             if ($stmt->fetchColumn()) {
                 return $check[1];
@@ -108,36 +149,6 @@ if (!function_exists('spp_modern_item_cache_source')) {
             return 'Drop';
         }
 
-        $refStmt = $worldPdo->prepare('SELECT `entry`, `groupid` FROM `reference_loot_template` WHERE `item` = ?');
-        $refStmt->execute([$itemId]);
-        $refLoot = $refStmt->fetchAll(PDO::FETCH_ASSOC);
-        if ($refLoot) {
-            if (count($refLoot) > 1) {
-                return 'World Drop';
-            }
-
-            $bossStmt = $worldPdo->prepare('SELECT `entry` FROM `creature_loot_template` WHERE `mincountOrRef` = ?');
-            $bossStmt->execute([-((int)$refLoot[0]['entry'])]);
-            $bossIds = $bossStmt->fetchAll(PDO::FETCH_COLUMN);
-            if ($bossIds && (count($bossIds) === 1 || count($bossIds) === 2)) {
-                $bossId = (int)$bossIds[0];
-                $instanceStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_data` WHERE (`id` = ? OR `lootid_1` = ? OR `lootid_2` = ? OR `lootid_3` = ? OR `lootid_4` = ? OR `name_id` = ?) AND `type` = \'npc\' LIMIT 1');
-                $instanceStmt->execute([$bossId, $bossId, $bossId, $bossId, $bossId, $bossId]);
-                $instanceLoot = $instanceStmt->fetch(PDO::FETCH_ASSOC);
-                if ($instanceLoot) {
-                    $templateStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_template` WHERE `id` = ? LIMIT 1');
-                    $templateStmt->execute([(int)$instanceLoot['instance_id']]);
-                    $instanceInfo = $templateStmt->fetch(PDO::FETCH_ASSOC);
-                    if ($instanceInfo) {
-                        $suffix = (((int)$instanceInfo['expansion'] < 2) || !(int)$instanceInfo['raid']) ? '' : ((int)$instanceInfo['is_heroic'] ? ' (H)' : '');
-                        return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
-                    }
-                }
-            }
-
-            return 'World Drop';
-        }
-
         $questRewardStmt = $worldPdo->prepare('SELECT `entry` FROM `quest_template` WHERE `RewItemId1` = ? OR `RewItemId2` = ? OR `RewItemId3` = ? OR `RewItemId4` = ? LIMIT 1');
         $questRewardStmt->execute([$itemId, $itemId, $itemId, $itemId]);
         if ($questRewardStmt->fetchColumn()) {
@@ -148,40 +159,10 @@ if (!function_exists('spp_modern_item_cache_source')) {
     }
 }
 
-if (!function_exists('spp_modern_item_backfill_search_cache')) {
-    function spp_modern_item_backfill_search_cache(PDO $worldPdo, PDO $armoryPdo, $realmDbKey, array $worldRow, $localeField = null) {
-        $itemId = (int)$worldRow['entry'];
-        $itemName = (string)$worldRow['name'];
-        if ($localeField && !empty($worldRow[$localeField])) {
-            $itemName = (string)$worldRow[$localeField];
-        }
-
-        $quality = (int)$worldRow['Quality'];
-        $level = (int)$worldRow['ItemLevel'];
-        $flags = (int)$worldRow['Flags'];
-        $source = spp_modern_item_cache_source($worldPdo, $armoryPdo, $itemId, (($flags & 32768) === 32768));
-        $relevance = ($quality * 25) + $level;
-
-        $insert = $armoryPdo->prepare(
-            'INSERT INTO `cache_item_search` (`item_id`, `mangosdbkey`, `item_name`, `item_level`, `item_source`, `item_relevance`) VALUES (?, ?, ?, ?, ?, ?)'
-        );
-        $insert->execute([$itemId, (int)$realmDbKey, $itemName, $level, $source, $relevance]);
-
-        return [
-            'id' => $itemId,
-            'name' => $itemName,
-            'level' => $level,
-            'source' => $source,
-            'relevance' => $relevance,
-            'quality' => $quality,
-        ];
-    }
-}
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $realmLabel = $realmMap[$realmId]['label'] ?? 'Realm';
-$realmDbKey = $realmId;
 
 $search = trim($_GET['search'] ?? '');
 $orderBy = strtolower(trim($_GET['sort'] ?? 'relevance'));
@@ -201,27 +182,20 @@ $minSearchLength = isset($config['min_items_search']) ? (int)$config['min_items_
 $searchError = '';
 $validatedSearch = '';
 $results = [];
-$visibleDetails = [];
 $legacyRealmName = '';
+
+if (!empty($realms) && is_array($realms)) {
+    foreach ($realms as $name => $keys) {
+        if ((int)($keys[2] ?? 0) === (int)$realmId) {
+            $legacyRealmName = (string)$name;
+            break;
+        }
+    }
+}
+
 
 $bootstrapOk = is_array($realmMap) && isset($realmMap[$realmId]);
 $bootstrapError = $bootstrapOk ? '' : 'The requested realm could not be loaded.';
-
-try {
-    require_once($_SERVER['DOCUMENT_ROOT'] . '/core/dbsimple/Generic.php');
-    require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/mysql.php');
-    $legacyRealmName = '';
-    if (!empty($realms) && is_array($realms)) {
-        foreach ($realms as $name => $keys) {
-            if ((int)($keys[2] ?? 0) === (int)$realmDbKey) {
-                $legacyRealmName = (string)$name;
-                break;
-            }
-        }
-    }
-} catch (Throwable $e) {
-    $legacyRealmName = '';
-}
 
 if ($bootstrapOk && $search !== '') {
     $validatedSearch = spp_modern_item_search_normalize($search);
@@ -235,57 +209,54 @@ if ($bootstrapOk && $search !== '') {
             $localeId = isset($config['locales']) ? (int)$config['locales'] : 0;
             $localeField = $localeId > 0 ? 'name_loc' . $localeId : null;
 
-            $cacheStmt = $armoryPdo->prepare(
-                'SELECT `item_id`, `item_name`, `item_level`, `item_source`, `item_relevance` FROM `cache_item_search` WHERE `item_name` LIKE :term AND `mangosdbkey` = :realmdbkey'
-            );
-            $cacheStmt->execute([
-                'term' => $searchLike,
-                'realmdbkey' => (int)$realmDbKey,
-            ]);
-
-            $resultMap = [];
-            foreach ($cacheStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $itemId = (int)$row['item_id'];
-                $resultMap[$itemId] = [
-                    'id' => $itemId,
-                    'name' => (string)$row['item_name'],
-                    'level' => (int)$row['item_level'],
-                    'source' => (string)$row['item_source'],
-                    'relevance' => (int)$row['item_relevance'],
-                    'quality' => null,
-                ];
-            }
-
             if ($localeField) {
-                $worldStmt = $worldPdo->prepare(
-                    'SELECT `item_template`.`entry`, `item_template`.`name`, `item_template`.`ItemLevel`, `item_template`.`Quality`, `item_template`.`Flags`, `locales_item`.`' . $localeField . '` FROM `item_template` LEFT JOIN `locales_item` ON `item_template`.`entry` = `locales_item`.`entry` WHERE `locales_item`.`' . $localeField . '` LIKE :term'
+                $stmt = $worldPdo->prepare(
+                    'SELECT `item_template`.`entry`, `item_template`.`name`, `item_template`.`ItemLevel`, `item_template`.`Quality`, `item_template`.`Flags`, `item_template`.`displayid`, `item_template`.`description`, `locales_item`.`' . $localeField . '` AS `localized_name`, `locales_item`.`description_loc' . $localeId . '` AS `localized_description` FROM `item_template` LEFT JOIN `locales_item` ON `item_template`.`entry` = `locales_item`.`entry` WHERE `locales_item`.`' . $localeField . '` LIKE :term OR `item_template`.`name` LIKE :term'
                 );
             } else {
-                $worldStmt = $worldPdo->prepare(
-                    'SELECT `entry`, `name`, `ItemLevel`, `Quality`, `Flags` FROM `item_template` WHERE `name` LIKE :term'
+                $stmt = $worldPdo->prepare(
+                    'SELECT `entry`, `name`, `ItemLevel`, `Quality`, `Flags`, `displayid`, `description` FROM `item_template` WHERE `name` LIKE :term'
                 );
             }
-            $worldStmt->execute(['term' => $searchLike]);
+            $stmt->execute(['term' => $searchLike]);
+            $rawRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            foreach ($worldStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $itemId = (int)$row['entry'];
-                if (isset($resultMap[$itemId])) {
-                    if ($resultMap[$itemId]['quality'] === null && isset($row['Quality'])) {
-                        $resultMap[$itemId]['quality'] = (int)$row['Quality'];
-                    }
-                    continue;
+            $iconMap = [];
+            $displayIds = [];
+            foreach ($rawRows as $row) {
+                if (!empty($row['displayid'])) {
+                    $displayIds[(int)$row['displayid']] = (int)$row['displayid'];
                 }
-
-                $resultMap[$itemId] = spp_modern_item_backfill_search_cache(
-                    $worldPdo,
-                    $armoryPdo,
-                    $realmDbKey,
-                    $row,
-                    $localeField
-                );
+            }
+            if ($displayIds) {
+                $displayPlaceholders = implode(',', array_fill(0, count($displayIds), '?'));
+                $iconStmt = $armoryPdo->prepare('SELECT `id`, `name` FROM `dbc_itemdisplayinfo` WHERE `id` IN (' . $displayPlaceholders . ')');
+                $iconStmt->execute(array_values($displayIds));
+                foreach ($iconStmt->fetchAll(PDO::FETCH_ASSOC) as $iconRow) {
+                    $iconMap[(int)$iconRow['id']] = (string)$iconRow['name'];
+                }
             }
 
-            $results = array_values($resultMap);
+            foreach ($rawRows as $row) {
+                $itemId = (int)$row['entry'];
+                $displayId = (int)($row['displayid'] ?? 0);
+                $quality = (int)$row['Quality'];
+                $level = (int)$row['ItemLevel'];
+                $flags = (int)$row['Flags'];
+                $name = $localeField && !empty($row['localized_name']) ? (string)$row['localized_name'] : (string)$row['name'];
+                $description = $localeField && !empty($row['localized_description']) ? (string)$row['localized_description'] : (string)($row['description'] ?? '');
+
+                $results[] = [
+                    'id' => $itemId,
+                    'name' => $name,
+                    'level' => $level,
+                    'source' => spp_modern_item_cache_source($worldPdo, $armoryPdo, $itemId, (($flags & 32768) === 32768)),
+                    'relevance' => ($quality * 25) + $level,
+                    'quality' => $quality,
+                    'icon' => spp_modern_item_icon_url($iconMap[$displayId] ?? ''),
+                    'description' => $description,
+                ];
+            }
         } catch (Throwable $e) {
             $searchError = 'Item search failed to query the realm databases.';
         }
@@ -308,70 +279,9 @@ $pageResults = array_slice($results, $offset, $itemsPerPage);
 $resultStart = $totalResults > 0 ? $offset + 1 : 0;
 $resultEnd = min($offset + $itemsPerPage, $totalResults);
 
-if ($bootstrapOk && $pageResults) {
-    try {
-        $armoryPdo = spp_get_pdo('armory', $realmId);
-        $itemIds = array_map(static function ($row) {
-            return (int)$row['id'];
-        }, $pageResults);
-        $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
-        $detailStmt = $armoryPdo->prepare(
-            'SELECT `item_id`, `item_quality`, `item_icon` FROM `cache_item` WHERE `item_id` IN (' . $placeholders . ') AND `mangosdbkey` = ?'
-        );
-        $detailStmt->execute(array_merge($itemIds, [(int)$realmDbKey]));
-        foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $visibleDetails[(int)$row['item_id']] = $row;
-        }
-
-        if (count($visibleDetails) < count($pageResults)) {
-            $worldPdo = spp_get_pdo('world', $realmId);
-            $missingIds = [];
-            foreach ($pageResults as $row) {
-                if (!isset($visibleDetails[(int)$row['id']])) {
-                    $missingIds[] = (int)$row['id'];
-                }
-            }
-
-            if ($missingIds) {
-                $worldPlaceholders = implode(',', array_fill(0, count($missingIds), '?'));
-                $worldStmt = $worldPdo->prepare('SELECT `entry`, `name`, `Quality`, `displayid` FROM `item_template` WHERE `entry` IN (' . $worldPlaceholders . ')');
-                $worldStmt->execute($missingIds);
-                $worldRows = [];
-                foreach ($worldStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    $worldRows[(int)$row['entry']] = $row;
-                }
-
-                $insertStmt = $armoryPdo->prepare('INSERT INTO `cache_item` (`item_id`, `mangosdbkey`, `item_name`, `item_quality`, `item_icon`) VALUES (?, ?, ?, ?, ?)');
-                foreach ($missingIds as $itemId) {
-                    if (!isset($worldRows[$itemId])) {
-                        continue;
-                    }
-                    $worldRow = $worldRows[$itemId];
-                    $icon = 'armory/images/icons/64x64/404.png';
-                    if (!empty($worldRow['displayid'])) {
-                        $iconStmt = $worldPdo->prepare('SELECT `icon1` FROM `itemdisplayinfo` WHERE `displayid` = ? LIMIT 1');
-                        $iconStmt->execute([(int)$worldRow['displayid']]);
-                        $iconName = $iconStmt->fetchColumn();
-                        if ($iconName) {
-                            $icon = 'armory/images/icons/64x64/' . strtolower((string)$iconName) . '.png';
-                        }
-                    }
-                    $insertStmt->execute([$itemId, (int)$realmDbKey, (string)$worldRow['name'], (int)$worldRow['Quality'], $icon]);
-                    $visibleDetails[$itemId] = [
-                        'item_id' => $itemId,
-                        'item_quality' => (int)$worldRow['Quality'],
-                        'item_icon' => $icon,
-                    ];
-                }
-            }
-        }
-    } catch (Throwable $e) {
-        $visibleDetails = [];
-    }
-}
-
 builddiv_start(1, 'Item Search', 1);
 ?>
+<link rel="stylesheet" type="text/css" href="/armory/css/armory-tooltips.css" />
 <style>
 .item-search-shell {
   display: grid;
@@ -404,18 +314,10 @@ builddiv_start(1, 'Item Search', 1);
   gap: 12px;
   align-items: center;
 }
-.item-search-form input[type="text"] {
-  width: 100%;
-  min-height: 50px;
-  padding: 0 16px;
-  color: #f9f1d8;
-  background: rgba(4, 6, 16, 0.9);
-  border: 1px solid rgba(255, 196, 0, 0.72);
-  border-radius: 12px;
-}
+.item-search-form input[type="text"],
 .item-search-form select {
   min-height: 50px;
-  padding: 0 14px;
+  padding: 0 16px;
   color: #f9f1d8;
   background: rgba(4, 6, 16, 0.9);
   border: 1px solid rgba(255, 196, 0, 0.45);
@@ -454,7 +356,7 @@ builddiv_start(1, 'Item Search', 1);
 }
 .item-search-table .header,
 .item-search-table .row {
-  grid-template-columns: 72px minmax(260px, 2.2fr) 110px minmax(220px, 1.7fr) 120px;
+  grid-template-columns: 84px minmax(260px, 2.2fr) 120px minmax(220px, 1.7fr) 120px;
 }
 .item-search-table .col.icon,
 .item-search-table .col.level,
@@ -487,34 +389,43 @@ builddiv_start(1, 'Item Search', 1);
   text-decoration: none;
   font-weight: 700;
 }
-.quality-0 { color: #9d9d9d; }
-.quality-1 { color: #ffffff; }
-.quality-2 { color: #1eff00; }
-.quality-3 { color: #0070dd; }
-.quality-4 { color: #a335ee; }
-.quality-5 { color: #ff8000; }
-.quality-6, .quality-7 { color: #e6cc80; }
-.item-search-sorting {
-  color: #c7b17e;
-  font-size: 0.92rem;
-}
-.item-search-sorting a {
+.item-search-header-link {
   color: inherit;
-  margin-right: 14px;
   text-decoration: none;
+  font-weight: 700;
 }
-.item-search-sorting a.active {
+.item-search-header-link.active {
   color: #ffd56c;
+}
+.item-search-header-link:hover {
+  color: #ffe39a;
 }
 .item-search-helper {
   margin: 0;
   color: #a99a76;
   font-size: 0.92rem;
 }
+.modern-item-tooltip {
+  min-width: 220px;
+}
+.modern-item-tooltip-loading {
+  padding: 14px 16px;
+  color: #f5e6b2;
+  border: 1px solid rgba(255, 196, 0, 0.35);
+  border-radius: 10px;
+  background: rgba(5, 8, 18, 0.96);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
+}
+#modern-item-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  display: none;
+}
 @media (max-width: 980px) {
   .item-search-table .header,
   .item-search-table .row {
-    grid-template-columns: 72px minmax(220px, 2fr) 100px minmax(180px, 1.4fr);
+    grid-template-columns: 84px minmax(220px, 2fr) 100px minmax(180px, 1.4fr);
   }
   .item-search-table .header .col:nth-child(5),
   .item-search-table .row .col:nth-child(5) {
@@ -530,7 +441,7 @@ builddiv_start(1, 'Item Search', 1);
   }
   .item-search-table .header,
   .item-search-table .row {
-    grid-template-columns: 64px minmax(180px, 1.8fr) 96px;
+    grid-template-columns: 72px minmax(180px, 1.8fr) 96px;
   }
   .item-search-table .header .col:nth-child(4),
   .item-search-table .row .col:nth-child(4) {
@@ -538,12 +449,104 @@ builddiv_start(1, 'Item Search', 1);
   }
 }
 </style>
+<script>
+let modernTooltipNode = null;
+const modernTooltipCache = new Map();
+let modernTooltipRequestToken = 0;
+
+function modernTooltipEnsure() {
+  if (!modernTooltipNode) {
+    modernTooltipNode = document.createElement('div');
+    modernTooltipNode.id = 'modern-item-tooltip';
+    document.body.appendChild(modernTooltipNode);
+  }
+  return modernTooltipNode;
+}
+
+function modernShowTooltip(event, html) {
+  const tip = modernTooltipEnsure();
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  modernMoveTooltip(event);
+}
+
+function modernTooltipLoadingHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Loading item tooltip...</div>';
+}
+
+function modernTooltipErrorHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Unable to load item tooltip.</div>';
+}
+
+function modernRequestTooltip(event, itemId, realmId) {
+  const cacheKey = realmId + ':' + itemId;
+  if (modernTooltipCache.has(cacheKey)) {
+    modernShowTooltip(event, modernTooltipCache.get(cacheKey));
+    return;
+  }
+
+  modernShowTooltip(event, modernTooltipLoadingHtml());
+  modernTooltipRequestToken += 1;
+  const token = modernTooltipRequestToken;
+  const url = 'modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
+
+  fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+    .then(function (response) {
+      if (!response.ok) {
+        throw new Error('tooltip request failed');
+      }
+      return response.text();
+    })
+    .then(function (html) {
+      const safeHtml = html && html.trim() !== '' ? html : modernTooltipErrorHtml();
+      modernTooltipCache.set(cacheKey, safeHtml);
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, safeHtml);
+      }
+    })
+    .catch(function () {
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, modernTooltipErrorHtml());
+      }
+    });
+}
+
+function modernMoveTooltip(event) {
+  const tip = modernTooltipEnsure();
+  if (tip.style.display === 'none') {
+    return;
+  }
+  const offset = 18;
+  let left = event.clientX + offset;
+  let top = event.clientY + offset;
+  const rect = tip.getBoundingClientRect();
+  if (left + rect.width > window.innerWidth - 12) {
+    left = event.clientX - rect.width - offset;
+  }
+  if (top + rect.height > window.innerHeight - 12) {
+    top = event.clientY - rect.height - offset;
+  }
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
+function modernHideTooltip() {
+  if (modernTooltipNode) {
+    modernTooltipNode.style.display = 'none';
+  }
+}
+</script>
 
 <div class="item-search-shell">
   <section class="item-search-intro">
     <div>
       <h1 class="item-search-title">Modern Armory Item Search</h1>
-      <p class="item-search-copy">This page now follows the original armory search flow more closely by reading the per-realm armory cache first, then filling missing matches from the realm world database.</p>
+      <p class="item-search-copy">This version reads the visible item data directly from the live realm databases and loads the full item tooltip on demand when you hover an item.</p>
     </div>
 
     <form method="get" class="item-search-form">
@@ -551,23 +554,12 @@ builddiv_start(1, 'Item Search', 1);
       <input type="hidden" name="sub" value="items">
       <input type="hidden" name="realm" value="<?php echo (int)$realmId; ?>">
       <input type="hidden" name="p" value="1">
-      <input type="hidden" name="sort" value="<?php echo htmlspecialchars($orderBy); ?>">
-      <input type="hidden" name="dir" value="<?php echo htmlspecialchars($orderDir); ?>">
-
-      <input
-        type="text"
-        name="search"
-        value="<?php echo htmlspecialchars($search); ?>"
-        placeholder="Search for an item name..."
-        autocomplete="off"
-      >
-
+      <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search for an item name..." autocomplete="off">
       <select name="per_page" onchange="this.form.submit()">
         <?php foreach ([10, 25, 50, 100] as $opt): ?>
           <option value="<?php echo $opt; ?>"<?php echo $itemsPerPage === $opt ? ' selected' : ''; ?>><?php echo $opt; ?> per page</option>
         <?php endforeach; ?>
       </select>
-
       <button type="submit" class="item-search-button">Search</button>
     </form>
 
@@ -587,43 +579,32 @@ builddiv_start(1, 'Item Search', 1);
   <?php endif; ?>
 
   <?php if ($search !== '' && !$searchError && $pageResults): ?>
-    <div class="item-search-sorting">
-      Sort:
-      <?php foreach (['name' => 'Name', 'level' => 'Item Level', 'source' => 'Source', 'relevance' => 'Relevance'] as $sortKey => $sortLabel): ?>
-        <a
-          href="<?php echo htmlspecialchars(spp_modern_item_search_sort_url($realmId, $search, $itemsPerPage, $sortKey, $orderBy, $orderDir)); ?>"
-          class="<?php echo $orderBy === $sortKey ? 'active' : ''; ?>"
-        >
-          <?php echo $sortLabel; ?><?php echo $orderBy === $sortKey ? ($orderDir === 'ASC' ? ' ?' : ' ?') : ''; ?>
-        </a>
-      <?php endforeach; ?>
-    </div>
-
     <div class="wow-table item-search-table">
       <div class="header">
         <div class="col icon">Icon</div>
-        <div class="col name">Name</div>
-        <div class="col level">Item Level</div>
-        <div class="col source">Source</div>
-        <div class="col relevance">Relevance</div>
+        <div class="col name"><a class="item-search-header-link <?php echo $orderBy === 'name' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(spp_modern_item_search_sort_url($realmId, $search, $itemsPerPage, 'name', $orderBy, $orderDir)); ?>">Name<?php echo $orderBy === 'name' ? ($orderDir === 'ASC' ? ' ?' : ' ?') : ''; ?></a></div>
+        <div class="col level"><a class="item-search-header-link <?php echo $orderBy === 'level' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(spp_modern_item_search_sort_url($realmId, $search, $itemsPerPage, 'level', $orderBy, $orderDir)); ?>">Item Level<?php echo $orderBy === 'level' ? ($orderDir === 'ASC' ? ' ?' : ' ?') : ''; ?></a></div>
+        <div class="col source"><a class="item-search-header-link <?php echo $orderBy === 'source' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(spp_modern_item_search_sort_url($realmId, $search, $itemsPerPage, 'source', $orderBy, $orderDir)); ?>">Source<?php echo $orderBy === 'source' ? ($orderDir === 'ASC' ? ' ?' : ' ?') : ''; ?></a></div>
+        <div class="col relevance"><a class="item-search-header-link <?php echo $orderBy === 'relevance' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(spp_modern_item_search_sort_url($realmId, $search, $itemsPerPage, 'relevance', $orderBy, $orderDir)); ?>">Relevance<?php echo $orderBy === 'relevance' ? ($orderDir === 'ASC' ? ' ?' : ' ?') : ''; ?></a></div>
       </div>
 
       <?php foreach ($pageResults as $row): ?>
         <?php
-          $detail = $visibleDetails[(int)$row['id']] ?? null;
-          $quality = (int)($detail['item_quality'] ?? ($row['quality'] ?? 0));
-          $icon = $detail['item_icon'] ?? 'armory/images/icons/64x64/404.png';
-          $legacyItemUrl = 'armory/index.php?searchType=iteminfo&item=' . (int)$row['id'];
+          $legacyItemUrl = '/armory/index.php?searchType=iteminfo&item=' . (int)$row['id'];
           if ($legacyRealmName !== '') {
               $legacyItemUrl .= '&realm=' . rawurlencode($legacyRealmName);
           }
+          $qualityColor = spp_modern_item_quality_color($row['quality']);
+          $itemId = (int)$row['id'];
         ?>
         <div class="row">
           <div class="col icon">
-            <img class="item-search-icon" src="<?php echo htmlspecialchars($icon); ?>" alt="">
+            <a href="<?php echo htmlspecialchars($legacyItemUrl); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo $itemId; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()">
+              <img class="item-search-icon" src="<?php echo htmlspecialchars($row['icon']); ?>" alt="">
+            </a>
           </div>
           <div class="col name">
-            <a class="item-link quality-<?php echo $quality; ?>" href="<?php echo htmlspecialchars($legacyItemUrl); ?>">
+            <a class="item-link" href="<?php echo htmlspecialchars($legacyItemUrl); ?>" style="color: <?php echo htmlspecialchars($qualityColor); ?>;" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo $itemId; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()">
               <?php echo htmlspecialchars($row['name']); ?>
             </a>
           </div>
@@ -654,5 +635,13 @@ builddiv_start(1, 'Item Search', 1);
 </div>
 
 <?php builddiv_end(); ?>
+
+
+
+
+
+
+
+
 
 

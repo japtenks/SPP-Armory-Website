@@ -38,7 +38,8 @@ $this_forum['pnum'] = $pnum;
 
 $topics = array();
 $alltopics = $DB->select("
-    SELECT f_topics.*,account.username 
+    SELECT f_topics.*,account.username,
+           COALESCE(NULLIF(f_topics.topic_poster, ''), account.username) AS topic_author_display
     FROM f_topics 
     LEFT JOIN account ON f_topics.topic_poster_id=account.id 
     WHERE forum_id=?d 
@@ -81,3 +82,5 @@ foreach($alltopics as $cur_topic)
 }
 unset($alltopics);
 ?>
+
+

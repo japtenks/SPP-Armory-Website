@@ -129,14 +129,16 @@ if ($selectedCharacter !== '') {
 
     if ($characterRow) {
         $stat = array_merge($stat, $characterRow);
-        $selectedClassId = (int)$characterRow['class'];
+        if ($selectedClassParam === '') {
+            $selectedClassId = (int)$characterRow['class'];
+        }
     }
 }
 
 $_GET['class'] = $selectedClassId;
 $_GET['realm'] = REALM_NAME;
 $GLOBALS['talent_calc_base_url'] = 'index.php?n=server&sub=talents';
-$talentBaseParams = 'index.php?n=server&sub=talents&realm=' . rawurlencode((string) REALM_NAME);
+$talentBaseParams = 'index.php?n=server&sub=talents&realm=' . rawurlencode((string) REALM_NAME) . '&class=' . (int) $selectedClassId;
 if ($selectedCharacter !== '') {
     $talentBaseParams .= '&character=' . rawurlencode($selectedCharacter);
 }

@@ -169,7 +169,7 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
           </a>
           <?php if ($t['closed']): ?><span class="new-tag">Closed</span><?php endif; ?>
         </div>
-        <div><?php echo htmlspecialchars($t['username']); ?></div>
+        <div><?php echo htmlspecialchars($t['topic_author_display']); ?></div>
         <div><?php echo (int)$t['num_replies']; ?></div>
         <div><?php echo (int)$t['num_views']; ?></div>
         <div>
@@ -195,3 +195,5 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
     </div>
   </div>
 <?php builddiv_end(); ?>
+
+

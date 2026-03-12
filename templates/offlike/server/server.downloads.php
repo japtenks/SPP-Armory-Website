@@ -6,13 +6,13 @@ $downloadsRoot = $siteRoot . DIRECTORY_SEPARATOR . 'downloads';
 $sections = array(
     'addons' => array(
         'title' => 'Addon Packs',
-        'description' => 'Local LAN copies of addon zips and folders. Start by copying files here.',
+        'description' => 'Local copies of addon zips and folders. Start by copying files here.',
         'web' => '/downloads/addons',
         'path' => $downloadsRoot . DIRECTORY_SEPARATOR . 'addons',
     ),
     'tools' => array(
         'title' => 'Tools & Utilities',
-        'description' => 'Optional helper tools, launchers, docs, or patches for players on the LAN.',
+        'description' => 'Optional helper tools, launchers, docs, or patches for players on the Realms.',
         'web' => '/downloads/tools',
         'path' => $downloadsRoot . DIRECTORY_SEPARATOR . 'tools',
     ),
@@ -175,8 +175,7 @@ if (!function_exists('downloads_collect_files')) {
 </style>
 <div class="downloads-shell">
   <div class="downloads-intro">
-    <h2>LAN Downloads</h2>
-    <p>This page is for locally hosted client files. The main target is addon packs from the <a class="downloads-link" href="https://github.com/celguar/spp-classics-cmangos/tree/master/Addons" target="_blank" rel="noopener noreferrer">spp-classics-cmangos Addons repo</a>, but you can also drop in launchers, patches, PDFs, or other curated files for your LAN.</p>
+    <p>This page is for hosted client files. The main target is addon packs from the <a class="downloads-link" href="https://github.com/celguar/spp-classics-cmangos/tree/master/Addons" target="_blank" rel="noopener noreferrer">spp-classics-cmangos</a> repo, but you can also drop in launchers, patches, PDFs, or other curated files.</p>
     <p class="downloads-note">Suggested Linux host folders: <code>/var/www/html/downloads/addons</code> and <code>/var/www/html/downloads/tools</code>.</p>
 	<p class="downloads-note">Suggested windows host folders: <code>/website/downloads/addons</code> and <code>/website/downloads/tools</code>.</p>
   </div>
