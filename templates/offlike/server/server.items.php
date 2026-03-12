@@ -1,63 +1,6 @@
 <?php
-$siteDb = $DB;
-$siteWorldDb = $WSDB ?? null;
-$siteCharDb = $CHDB ?? null;
-$siteArmoryDb = $ARDB ?? null;
-$siteConfig = $config ?? null;
-$siteRealms = $realms ?? null;
-$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
-
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
-$DB = $siteDb;
-$WSDB = $siteWorldDb;
-$CHDB = $siteCharDb;
-if ($siteArmoryDb !== null) {
-    $ARDB = $siteArmoryDb;
-}
-if ($siteConfig !== null) {
-    $config = $siteConfig;
-}
-if ($siteRealms !== null) {
-    $realms = $siteRealms;
-}
-
-if (!function_exists('spp_modern_item_search_with_legacy_env')) {
-    function spp_modern_item_search_with_legacy_env(callable $callback) {
-        global $DB, $WSDB, $CHDB, $ARDB, $config, $realms;
-
-        $env = $GLOBALS['spp_modern_item_search_legacy_env'] ?? null;
-        if (!is_array($env) || empty($env)) {
-            return null;
-        }
-
-        $original = [
-            'DB' => $DB,
-            'WSDB' => $WSDB ?? null,
-            'CHDB' => $CHDB ?? null,
-            'ARDB' => $ARDB ?? null,
-            'config' => $config ?? null,
-            'realms' => $realms ?? null,
-        ];
-
-        $DB = $env['DB'];
-        $WSDB = $env['WSDB'];
-        $CHDB = $env['CHDB'];
-        $ARDB = $env['ARDB'];
-        $config = $env['config'];
-        $realms = $env['realms'];
-
-        try {
-            return $callback();
-        } finally {
-            $DB = $original['DB'];
-            $WSDB = $original['WSDB'];
-            $CHDB = $original['CHDB'];
-            $ARDB = $original['ARDB'];
-            $config = $original['config'];
-            $realms = $original['realms'];
-        }
-    }
-}
+require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/settings.php');
 
 if (!function_exists('spp_modern_item_search_compare')) {
     function spp_modern_item_search_compare(array $left, array $right, $orderBy, $orderDir) {
@@ -65,13 +8,13 @@ if (!function_exists('spp_modern_item_search_compare')) {
 
         switch ($orderBy) {
             case 'name':
-                $cmp = strnatcasecmp($left['name'], $right['name']);
+                $cmp = strnatcasecmp((string)$left['name'], (string)$right['name']);
                 break;
             case 'level':
                 $cmp = ((int)$left['level']) <=> ((int)$right['level']);
                 break;
             case 'source':
-                $cmp = strnatcasecmp($left['source'], $right['source']);
+                $cmp = strnatcasecmp((string)$left['source'], (string)$right['source']);
                 break;
             default:
                 $cmp = ((int)$left['relevance']) <=> ((int)$right['relevance']);
@@ -79,7 +22,7 @@ if (!function_exists('spp_modern_item_search_compare')) {
         }
 
         if ($cmp === 0) {
-            $cmp = strnatcasecmp($left['name'], $right['name']);
+            $cmp = strnatcasecmp((string)$left['name'], (string)$right['name']);
         }
 
         return $cmp * $direction;
@@ -97,68 +40,148 @@ if (!function_exists('spp_modern_item_search_sort_url')) {
     }
 }
 
-$realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
-$bootstrapOk = false;
-$bootstrapError = '';
-
-if (is_array($realmMap) && isset($realmMap[$realmId])) {
-    $bootstrapState = [
-        'DB' => $DB,
-        'WSDB' => $WSDB ?? null,
-        'CHDB' => $CHDB ?? null,
-        'ARDB' => $ARDB ?? null,
-        'config' => $config ?? null,
-        'realms' => $realms ?? null,
-    ];
-
-    require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/settings.php');
-    require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/mysql.php');
-    require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/functions.php');
-
-    $legacyRealmName = null;
-    foreach ($realms as $realmName => $realmInfo) {
-        if ((int)$realmInfo[0] === $realmId) {
-            $legacyRealmName = $realmName;
-            break;
+if (!function_exists('spp_modern_item_search_normalize')) {
+    function spp_modern_item_search_normalize($search) {
+        $search = trim((string)$search);
+        $search = preg_replace('/\s\s+/', ' ', $search);
+        if (preg_match('/[^[:alnum:]\\s]/u', $search)) {
+            return '';
         }
+        return $search;
     }
+}
 
-    if ($legacyRealmName === null && isset($realmMap[$realmId]['label'])) {
-        $normalizedLabel = strtolower(preg_replace('/[^a-z0-9]+/', '', $realmMap[$realmId]['label']));
-        foreach ($realms as $realmName => $realmInfo) {
-            $normalizedRealmName = strtolower(preg_replace('/[^a-z0-9]+/', '', $realmName));
-            if ($normalizedRealmName === $normalizedLabel || $normalizedRealmName === 'spp' . $normalizedLabel) {
-                $legacyRealmName = $realmName;
-                break;
+if (!function_exists('spp_modern_item_cache_source')) {
+    function spp_modern_item_cache_source(PDO $worldPdo, PDO $armoryPdo, $itemId, $isPvpReward) {
+        $itemId = (int)$itemId;
+
+        $checks = [
+            ['SELECT `entry` FROM `quest_template` WHERE `SrcItemId` = ? LIMIT 1', 'Quest Item', 'world'],
+            ['SELECT `entry` FROM `npc_vendor` WHERE `item` = ? LIMIT 1', $isPvpReward ? 'PvP Reward (Vendor)' : 'Vendor', 'world'],
+            ['SELECT `entry` FROM `npc_vendor_template` WHERE `item` = ? LIMIT 1', $isPvpReward ? 'PvP Reward (Vendor)' : 'Vendor', 'world'],
+        ];
+
+        foreach ($checks as $check) {
+            $pdo = $check[2] === 'armory' ? $armoryPdo : $worldPdo;
+            $stmt = $pdo->prepare($check[0]);
+            $stmt->execute([$itemId]);
+            if ($stmt->fetchColumn()) {
+                return $check[1];
             }
         }
-    }
 
-    if ($legacyRealmName !== null) {
-        initialize_realm($legacyRealmName);
-        $GLOBALS['spp_modern_item_search_legacy_env'] = [
-            'DB' => $DB,
-            'WSDB' => $WSDB,
-            'CHDB' => $CHDB,
-            'ARDB' => $ARDB,
-            'config' => $config,
-            'realms' => $realms,
-            'legacyRealmName' => $legacyRealmName,
-        ];
-        $bootstrapOk = true;
-    } else {
-        $bootstrapError = 'The legacy armory realm mapping could not be resolved for this realm.';
-    }
+        $objectStmt = $worldPdo->prepare('SELECT `entry` FROM `gameobject_loot_template` WHERE `item` = ? LIMIT 1');
+        $objectStmt->execute([$itemId]);
+        $objectLootId = $objectStmt->fetchColumn();
+        if ($objectLootId) {
+            $instanceStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_data` WHERE (`id` = ? OR `lootid_1` = ? OR `lootid_2` = ? OR `lootid_3` = ? OR `lootid_4` = ? OR `name_id` = ?) AND `type` = \'object\' LIMIT 1');
+            $instanceStmt->execute([$objectLootId, $objectLootId, $objectLootId, $objectLootId, $objectLootId, $objectLootId]);
+            $instanceLoot = $instanceStmt->fetch(PDO::FETCH_ASSOC);
+            if ($instanceLoot) {
+                $templateStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_template` WHERE `id` = ? LIMIT 1');
+                $templateStmt->execute([(int)$instanceLoot['instance_id']]);
+                $instanceInfo = $templateStmt->fetch(PDO::FETCH_ASSOC);
+                if ($instanceInfo) {
+                    $suffix = (((int)$instanceInfo['expansion'] < 2) || !(int)$instanceInfo['raid']) ? '' : ((int)$instanceInfo['is_heroic'] ? ' (H)' : '');
+                    return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
+                }
+            }
+            return 'Chest Drop';
+        }
 
-    $DB = $bootstrapState['DB'];
-    $WSDB = $bootstrapState['WSDB'];
-    $CHDB = $bootstrapState['CHDB'];
-    $ARDB = $bootstrapState['ARDB'];
-    $config = $bootstrapState['config'];
-    $realms = $bootstrapState['realms'];
-} else {
-    $bootstrapError = 'The requested realm could not be loaded.';
+        $creatureStmt = $worldPdo->prepare('SELECT `entry` FROM `creature_loot_template` WHERE `item` = ? LIMIT 1');
+        $creatureStmt->execute([$itemId]);
+        $creatureLootId = $creatureStmt->fetchColumn();
+        if ($creatureLootId) {
+            $instanceStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_data` WHERE (`id` = ? OR `lootid_1` = ? OR `lootid_2` = ? OR `lootid_3` = ? OR `lootid_4` = ? OR `name_id` = ?) AND `type` = \'npc\' LIMIT 1');
+            $instanceStmt->execute([$creatureLootId, $creatureLootId, $creatureLootId, $creatureLootId, $creatureLootId, $creatureLootId]);
+            $instanceLoot = $instanceStmt->fetch(PDO::FETCH_ASSOC);
+            if ($instanceLoot) {
+                $templateStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_template` WHERE `id` = ? LIMIT 1');
+                $templateStmt->execute([(int)$instanceLoot['instance_id']]);
+                $instanceInfo = $templateStmt->fetch(PDO::FETCH_ASSOC);
+                if ($instanceInfo) {
+                    $suffix = (((int)$instanceInfo['expansion'] < 2) || !(int)$instanceInfo['raid']) ? '' : ((int)$instanceInfo['is_heroic'] ? ' (H)' : '');
+                    return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
+                }
+            }
+            return 'Drop';
+        }
+
+        $refStmt = $worldPdo->prepare('SELECT `entry`, `groupid` FROM `reference_loot_template` WHERE `item` = ?');
+        $refStmt->execute([$itemId]);
+        $refLoot = $refStmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($refLoot) {
+            if (count($refLoot) > 1) {
+                return 'World Drop';
+            }
+
+            $bossStmt = $worldPdo->prepare('SELECT `entry` FROM `creature_loot_template` WHERE `mincountOrRef` = ?');
+            $bossStmt->execute([-((int)$refLoot[0]['entry'])]);
+            $bossIds = $bossStmt->fetchAll(PDO::FETCH_COLUMN);
+            if ($bossIds && (count($bossIds) === 1 || count($bossIds) === 2)) {
+                $bossId = (int)$bossIds[0];
+                $instanceStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_data` WHERE (`id` = ? OR `lootid_1` = ? OR `lootid_2` = ? OR `lootid_3` = ? OR `lootid_4` = ? OR `name_id` = ?) AND `type` = \'npc\' LIMIT 1');
+                $instanceStmt->execute([$bossId, $bossId, $bossId, $bossId, $bossId, $bossId]);
+                $instanceLoot = $instanceStmt->fetch(PDO::FETCH_ASSOC);
+                if ($instanceLoot) {
+                    $templateStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_template` WHERE `id` = ? LIMIT 1');
+                    $templateStmt->execute([(int)$instanceLoot['instance_id']]);
+                    $instanceInfo = $templateStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($instanceInfo) {
+                        $suffix = (((int)$instanceInfo['expansion'] < 2) || !(int)$instanceInfo['raid']) ? '' : ((int)$instanceInfo['is_heroic'] ? ' (H)' : '');
+                        return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
+                    }
+                }
+            }
+
+            return 'World Drop';
+        }
+
+        $questRewardStmt = $worldPdo->prepare('SELECT `entry` FROM `quest_template` WHERE `RewItemId1` = ? OR `RewItemId2` = ? OR `RewItemId3` = ? OR `RewItemId4` = ? LIMIT 1');
+        $questRewardStmt->execute([$itemId, $itemId, $itemId, $itemId]);
+        if ($questRewardStmt->fetchColumn()) {
+            return 'Quest Reward';
+        }
+
+        return 'Created';
+    }
 }
+
+if (!function_exists('spp_modern_item_backfill_search_cache')) {
+    function spp_modern_item_backfill_search_cache(PDO $worldPdo, PDO $armoryPdo, $realmDbKey, array $worldRow, $localeField = null) {
+        $itemId = (int)$worldRow['entry'];
+        $itemName = (string)$worldRow['name'];
+        if ($localeField && !empty($worldRow[$localeField])) {
+            $itemName = (string)$worldRow[$localeField];
+        }
+
+        $quality = (int)$worldRow['Quality'];
+        $level = (int)$worldRow['ItemLevel'];
+        $flags = (int)$worldRow['Flags'];
+        $source = spp_modern_item_cache_source($worldPdo, $armoryPdo, $itemId, (($flags & 32768) === 32768));
+        $relevance = ($quality * 25) + $level;
+
+        $insert = $armoryPdo->prepare(
+            'INSERT INTO `cache_item_search` (`item_id`, `mangosdbkey`, `item_name`, `item_level`, `item_source`, `item_relevance`) VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $insert->execute([$itemId, (int)$realmDbKey, $itemName, $level, $source, $relevance]);
+
+        return [
+            'id' => $itemId,
+            'name' => $itemName,
+            'level' => $level,
+            'source' => $source,
+            'relevance' => $relevance,
+            'quality' => $quality,
+        ];
+    }
+}
+
+$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
+$realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
+$realmLabel = $realmMap[$realmId]['label'] ?? 'Realm';
+$realmDbKey = $realmId;
 
 $search = trim($_GET['search'] ?? '');
 $orderBy = strtolower(trim($_GET['sort'] ?? 'relevance'));
@@ -171,97 +194,101 @@ if ($orderDir !== 'ASC' && $orderDir !== 'DESC') {
     $orderDir = 'DESC';
 }
 
+$defaultPerPage = isset($config['results_per_page_items']) ? max(1, (int)$config['results_per_page_items']) : 25;
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
-$itemsPerPage = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;
+$itemsPerPage = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : $defaultPerPage;
+$minSearchLength = isset($config['min_items_search']) ? (int)$config['min_items_search'] : 2;
 $searchError = '';
 $validatedSearch = '';
 $results = [];
 $visibleDetails = [];
-$legacyRealmName = $GLOBALS['spp_modern_item_search_legacy_env']['legacyRealmName'] ?? '';
-$realmLabel = $realmMap[$realmId]['label'] ?? 'Realm';
+$legacyRealmName = '';
+
+$bootstrapOk = is_array($realmMap) && isset($realmMap[$realmId]);
+$bootstrapError = $bootstrapOk ? '' : 'The requested realm could not be loaded.';
+
+try {
+    require_once($_SERVER['DOCUMENT_ROOT'] . '/core/dbsimple/Generic.php');
+    require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/mysql.php');
+    $legacyRealmName = '';
+    if (!empty($realms) && is_array($realms)) {
+        foreach ($realms as $name => $keys) {
+            if ((int)($keys[2] ?? 0) === (int)$realmDbKey) {
+                $legacyRealmName = (string)$name;
+                break;
+            }
+        }
+    }
+} catch (Throwable $e) {
+    $legacyRealmName = '';
+}
 
 if ($bootstrapOk && $search !== '') {
-    $searchPayload = spp_modern_item_search_with_legacy_env(function () use ($search) {
-        global $config, $realms;
+    $validatedSearch = spp_modern_item_search_normalize($search);
+    if ($validatedSearch === '' || strlen($validatedSearch) < $minSearchLength) {
+        $searchError = 'Search must be at least ' . $minSearchLength . ' characters and use letters, numbers, or spaces only.';
+    } else {
+        try {
+            $armoryPdo = spp_get_pdo('armory', $realmId);
+            $worldPdo = spp_get_pdo('world', $realmId);
+            $searchLike = '%' . str_replace(' ', '%', $validatedSearch) . '%';
+            $localeId = isset($config['locales']) ? (int)$config['locales'] : 0;
+            $localeField = $localeId > 0 ? 'name_loc' . $localeId : null;
 
-        $validated = validate_string($search);
-        $minSearchLength = (int)($config['min_items_search'] ?? 2);
+            $cacheStmt = $armoryPdo->prepare(
+                'SELECT `item_id`, `item_name`, `item_level`, `item_source`, `item_relevance` FROM `cache_item_search` WHERE `item_name` LIKE :term AND `mangosdbkey` = :realmdbkey'
+            );
+            $cacheStmt->execute([
+                'term' => $searchLike,
+                'realmdbkey' => (int)$realmDbKey,
+            ]);
 
-        if ($validated === '' || strlen($validated) < $minSearchLength) {
-            return [
-                'error' => 'Search must be at least ' . $minSearchLength . ' characters and use letters, numbers, or spaces only.',
-                'validated' => $validated,
-                'results' => [],
-            ];
-        }
-
-        $searchLike = change_whitespace($validated);
-        $realmKey = (int)$realms[REALM_NAME][2];
-        $items = [];
-        $cacheMap = [];
-
-        $cachedRows = execute_query(
-            'armory',
-            "SELECT * FROM `cache_item_search` WHERE `item_name` LIKE '%" . $searchLike . "%' AND `mangosdbkey` = " . $realmKey
-        );
-
-        if (is_array($cachedRows)) {
-            foreach ($cachedRows as $row) {
+            $resultMap = [];
+            foreach ($cacheStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $itemId = (int)$row['item_id'];
-                $cacheMap[$itemId] = $row;
-                $items[$itemId] = [
+                $resultMap[$itemId] = [
                     'id' => $itemId,
-                    'name' => $row['item_name'],
+                    'name' => (string)$row['item_name'],
                     'level' => (int)$row['item_level'],
-                    'source' => $row['item_source'],
+                    'source' => (string)$row['item_source'],
                     'relevance' => (int)$row['item_relevance'],
+                    'quality' => null,
                 ];
             }
-        }
 
-        if (!empty($config['locales'])) {
-            $localeColumn = 'name_loc' . (int)$config['locales'];
-            $worldRows = execute_query(
-                'world',
-                "SELECT `entry` FROM `locales_item` WHERE `" . $localeColumn . "` LIKE '%" . $searchLike . "%'"
-            );
-        } else {
-            $worldRows = execute_query(
-                'world',
-                "SELECT `entry` FROM `item_template` WHERE `name` LIKE '%" . $searchLike . "%'"
-            );
-        }
+            if ($localeField) {
+                $worldStmt = $worldPdo->prepare(
+                    'SELECT `item_template`.`entry`, `item_template`.`name`, `item_template`.`ItemLevel`, `item_template`.`Quality`, `item_template`.`Flags`, `locales_item`.`' . $localeField . '` FROM `item_template` LEFT JOIN `locales_item` ON `item_template`.`entry` = `locales_item`.`entry` WHERE `locales_item`.`' . $localeField . '` LIKE :term'
+                );
+            } else {
+                $worldStmt = $worldPdo->prepare(
+                    'SELECT `entry`, `name`, `ItemLevel`, `Quality`, `Flags` FROM `item_template` WHERE `name` LIKE :term'
+                );
+            }
+            $worldStmt->execute(['term' => $searchLike]);
 
-        if (is_array($worldRows)) {
-            foreach ($worldRows as $row) {
+            foreach ($worldStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $itemId = (int)$row['entry'];
-                if (!isset($cacheMap[$itemId])) {
-                    $cacheMap[$itemId] = cache_item_search($itemId);
+                if (isset($resultMap[$itemId])) {
+                    if ($resultMap[$itemId]['quality'] === null && isset($row['Quality'])) {
+                        $resultMap[$itemId]['quality'] = (int)$row['Quality'];
+                    }
+                    continue;
                 }
 
-                $items[$itemId] = [
-                    'id' => $itemId,
-                    'name' => $cacheMap[$itemId]['item_name'],
-                    'level' => (int)$cacheMap[$itemId]['item_level'],
-                    'source' => $cacheMap[$itemId]['item_source'],
-                    'relevance' => (int)$cacheMap[$itemId]['item_relevance'],
-                ];
+                $resultMap[$itemId] = spp_modern_item_backfill_search_cache(
+                    $worldPdo,
+                    $armoryPdo,
+                    $realmDbKey,
+                    $row,
+                    $localeField
+                );
             }
+
+            $results = array_values($resultMap);
+        } catch (Throwable $e) {
+            $searchError = 'Item search failed to query the realm databases.';
         }
-
-        return [
-            'error' => '',
-            'validated' => $validated,
-            'results' => array_values($items),
-        ];
-    });
-
-    if (is_array($searchPayload)) {
-        $searchError = $searchPayload['error'];
-        $validatedSearch = $searchPayload['validated'];
-        $results = $searchPayload['results'];
-    } else {
-        $searchError = 'The legacy armory search could not be started.';
     }
 }
 
@@ -282,53 +309,65 @@ $resultStart = $totalResults > 0 ? $offset + 1 : 0;
 $resultEnd = min($offset + $itemsPerPage, $totalResults);
 
 if ($bootstrapOk && $pageResults) {
-    $visibleIds = array_map(static function ($row) {
-        return (int)$row['id'];
-    }, $pageResults);
-
-    $visibleDetails = spp_modern_item_search_with_legacy_env(function () use ($visibleIds) {
-        global $realms;
-
-        $realmKey = (int)$realms[REALM_NAME][2];
-        $detailMap = [];
-        $ids = implode(',', array_map('intval', $visibleIds));
-
-        if ($ids === '') {
-            return [];
-        }
-
-        $cacheRows = execute_query(
-            'armory',
-            "SELECT * FROM `cache_item` WHERE `item_id` IN (" . $ids . ") AND `mangosdbkey` = " . $realmKey
+    try {
+        $armoryPdo = spp_get_pdo('armory', $realmId);
+        $itemIds = array_map(static function ($row) {
+            return (int)$row['id'];
+        }, $pageResults);
+        $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
+        $detailStmt = $armoryPdo->prepare(
+            'SELECT `item_id`, `item_quality`, `item_icon` FROM `cache_item` WHERE `item_id` IN (' . $placeholders . ') AND `mangosdbkey` = ?'
         );
-
-        if (is_array($cacheRows)) {
-            foreach ($cacheRows as $row) {
-                $detailMap[(int)$row['item_id']] = $row;
-            }
+        $detailStmt->execute(array_merge($itemIds, [(int)$realmDbKey]));
+        foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $visibleDetails[(int)$row['item_id']] = $row;
         }
 
-        foreach ($visibleIds as $itemId) {
-            if (!isset($detailMap[$itemId])) {
-                $detailMap[$itemId] = cache_item($itemId);
+        if (count($visibleDetails) < count($pageResults)) {
+            $worldPdo = spp_get_pdo('world', $realmId);
+            $missingIds = [];
+            foreach ($pageResults as $row) {
+                if (!isset($visibleDetails[(int)$row['id']])) {
+                    $missingIds[] = (int)$row['id'];
+                }
+            }
+
+            if ($missingIds) {
+                $worldPlaceholders = implode(',', array_fill(0, count($missingIds), '?'));
+                $worldStmt = $worldPdo->prepare('SELECT `entry`, `name`, `Quality`, `displayid` FROM `item_template` WHERE `entry` IN (' . $worldPlaceholders . ')');
+                $worldStmt->execute($missingIds);
+                $worldRows = [];
+                foreach ($worldStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $worldRows[(int)$row['entry']] = $row;
+                }
+
+                $insertStmt = $armoryPdo->prepare('INSERT INTO `cache_item` (`item_id`, `mangosdbkey`, `item_name`, `item_quality`, `item_icon`) VALUES (?, ?, ?, ?, ?)');
+                foreach ($missingIds as $itemId) {
+                    if (!isset($worldRows[$itemId])) {
+                        continue;
+                    }
+                    $worldRow = $worldRows[$itemId];
+                    $icon = 'armory/images/icons/64x64/404.png';
+                    if (!empty($worldRow['displayid'])) {
+                        $iconStmt = $worldPdo->prepare('SELECT `icon1` FROM `itemdisplayinfo` WHERE `displayid` = ? LIMIT 1');
+                        $iconStmt->execute([(int)$worldRow['displayid']]);
+                        $iconName = $iconStmt->fetchColumn();
+                        if ($iconName) {
+                            $icon = 'armory/images/icons/64x64/' . strtolower((string)$iconName) . '.png';
+                        }
+                    }
+                    $insertStmt->execute([$itemId, (int)$realmDbKey, (string)$worldRow['name'], (int)$worldRow['Quality'], $icon]);
+                    $visibleDetails[$itemId] = [
+                        'item_id' => $itemId,
+                        'item_quality' => (int)$worldRow['Quality'],
+                        'item_icon' => $icon,
+                    ];
+                }
             }
         }
-
-        return $detailMap;
-    });
-}
-
-$DB = $siteDb;
-$WSDB = $siteWorldDb;
-$CHDB = $siteCharDb;
-if ($siteArmoryDb !== null) {
-    $ARDB = $siteArmoryDb;
-}
-if ($siteConfig !== null) {
-    $config = $siteConfig;
-}
-if ($siteRealms !== null) {
-    $realms = $siteRealms;
+    } catch (Throwable $e) {
+        $visibleDetails = [];
+    }
 }
 
 builddiv_start(1, 'Item Search', 1);
@@ -504,7 +543,7 @@ builddiv_start(1, 'Item Search', 1);
   <section class="item-search-intro">
     <div>
       <h1 class="item-search-title">Modern Armory Item Search</h1>
-      <p class="item-search-copy">This page uses the original armory item lookup rules and cache tables, but presents the results in the current site layout. Search by item name and it will query the selected realm's armory and world databases the same way the legacy armory did.</p>
+      <p class="item-search-copy">This page now follows the original armory search flow more closely by reading the per-realm armory cache first, then filling missing matches from the realm world database.</p>
     </div>
 
     <form method="get" class="item-search-form">
@@ -532,7 +571,7 @@ builddiv_start(1, 'Item Search', 1);
       <button type="submit" class="item-search-button">Search</button>
     </form>
 
-    <p class="item-search-helper">Realm: <?php echo htmlspecialchars($realmLabel); ?>. Minimum search length matches the old armory rules.</p>
+    <p class="item-search-helper">Realm: <?php echo htmlspecialchars($realmLabel); ?>. Minimum search length: <?php echo $minSearchLength; ?>.</p>
   </section>
 
   <?php if (!$bootstrapOk): ?>
@@ -572,7 +611,7 @@ builddiv_start(1, 'Item Search', 1);
       <?php foreach ($pageResults as $row): ?>
         <?php
           $detail = $visibleDetails[(int)$row['id']] ?? null;
-          $quality = (int)($detail['item_quality'] ?? 0);
+          $quality = (int)($detail['item_quality'] ?? ($row['quality'] ?? 0));
           $icon = $detail['item_icon'] ?? 'armory/images/icons/64x64/404.png';
           $legacyItemUrl = 'armory/index.php?searchType=iteminfo&item=' . (int)$row['id'];
           if ($legacyRealmName !== '') {
@@ -615,4 +654,5 @@ builddiv_start(1, 'Item Search', 1);
 </div>
 
 <?php builddiv_end(); ?>
+
 
