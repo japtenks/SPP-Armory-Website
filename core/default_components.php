@@ -65,9 +65,12 @@ $mainnav_links = array(
 
   /* ------------------ 8. SUPPORT ------------------ */
   '8-menuSupport' => array(
-    0 => array('bugs',         'index.php?n=forum&sub=viewforum&fid=2', ''),
-    1 => array('spp_discord',  'https://discord.gg/TpxqWWT',            ''),
-    2 => array('bots_discord', 'https://discord.gg/s4JGKG2BUW',         ''),
+    0 => array('bugs',           'index.php?n=forum&sub=viewforum&fid=2', ''),
+    1 => array('spp_discord',    'https://discord.gg/TpxqWWT', ''),
+    2 => array('bots_discord',   'https://discord.gg/s4JGKG2BUW', ''),
+    3 => array('spp_proxmox',    'https://github.com/japtenks/spp-cmangos-prox/issues', ''),
+    4 => array('spp_mangos',     'https://github.com/celguar/mangos-classic/tree/ike3-bots', ''),
+    5 => array('website_issues', 'https://github.com/japtenks/SPP-Armory-Website/issues', ''),
   ),
 );
 

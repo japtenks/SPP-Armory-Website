@@ -134,7 +134,7 @@ $armoryRealm = $realmMap[$realmId]['label'];
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $items_per_page = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;
 $search = trim($_GET['search'] ?? '');
-$includeBots = isset($_GET['show_bots']) && $_GET['show_bots'] === '1';
+$includeBots = !isset($_GET['show_bots']) || $_GET['show_bots'] === '1';
 $searchTerms = parse_character_search($search);
 
 $baseWhere = [];
@@ -216,9 +216,7 @@ $characters = array_slice($filteredCharacters, $offset, $items_per_page);
   <input type="hidden" name="realm" value="<?php echo $realmId; ?>">
   <input type="hidden" name="p" value="1">
   <input type="hidden" name="per_page" value="<?php echo $items_per_page; ?>">
-  <?php if ($includeBots): ?>
-    <input type="hidden" name="show_bots" value="1">
-  <?php endif; ?>
+  <input type="hidden" name="show_bots" value="<?php echo $includeBots ? '1' : '0'; ?>">
 
   <input
     type="text"

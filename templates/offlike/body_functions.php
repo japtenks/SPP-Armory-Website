@@ -692,6 +692,7 @@ function render_character_pagination($p, $pnum, $items_per_page, $realmId, $incl
           <span>per page</span>
 
           <label style="margin-left:10px;">
+            <input type="hidden" name="show_bots" value="0">
             <input type="checkbox" name="show_bots" value="1"
                    onchange="this.form.submit()" <?php echo $includeBots ? 'checked' : ''; ?>>
             Include bots

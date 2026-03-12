@@ -6,13 +6,13 @@ $downloadsRoot = $siteRoot . DIRECTORY_SEPARATOR . 'downloads';
 $sections = array(
     'addons' => array(
         'title' => 'Addon Packs',
-        'description' => 'Local LAN copies of addon zips and folders. Start by copying files from the spp-cmangos-prox Addons repo here.',
+        'description' => 'Local LAN copies of addon zips and folders. Start by copying files here.',
         'web' => '/downloads/addons',
         'path' => $downloadsRoot . DIRECTORY_SEPARATOR . 'addons',
     ),
     'tools' => array(
         'title' => 'Tools & Utilities',
-        'description' => 'Optional helper tools, launchers, docs, or small patches for players on the LAN.',
+        'description' => 'Optional helper tools, launchers, docs, or patches for players on the LAN.',
         'web' => '/downloads/tools',
         'path' => $downloadsRoot . DIRECTORY_SEPARATOR . 'tools',
     ),
@@ -176,8 +176,9 @@ if (!function_exists('downloads_collect_files')) {
 <div class="downloads-shell">
   <div class="downloads-intro">
     <h2>LAN Downloads</h2>
-    <p>This page is for locally hosted client files. The main target is addon packs from the <a class="downloads-link" href="https://github.com/japtenks/spp-cmangos-prox/tree/master/Addons" target="_blank" rel="noopener noreferrer">spp-cmangos-prox Addons repo</a>, but you can also drop in launchers, patches, PDFs, or other curated files for your LAN.</p>
+    <p>This page is for locally hosted client files. The main target is addon packs from the <a class="downloads-link" href="https://github.com/celguar/spp-classics-cmangos/tree/master/Addons" target="_blank" rel="noopener noreferrer">spp-classics-cmangos Addons repo</a>, but you can also drop in launchers, patches, PDFs, or other curated files for your LAN.</p>
     <p class="downloads-note">Suggested Linux host folders: <code>/var/www/html/downloads/addons</code> and <code>/var/www/html/downloads/tools</code>.</p>
+	<p class="downloads-note">Suggested windows host folders: <code>/website/downloads/addons</code> and <code>/website/downloads/tools</code>.</p>
   </div>
 
   <div class="downloads-grid">
@@ -204,14 +205,6 @@ if (!function_exists('downloads_collect_files')) {
     <?php endforeach; ?>
   </div>
 
-  <div class="downloads-card">
-    <h3>Populate The Library</h3>
-    <p>Keep the website repo clean. Pull addon source files into a separate checkout, then copy the curated zips or folders you want players to download into the hosted folders above.</p>
-    <div class="downloads-steps">
-      <div>1. Sparse-checkout or clone the source repo somewhere outside this website folder.</div>
-      <div>2. Copy the files you want to publish into <code>downloads/addons</code> or <code>downloads/tools</code>.</div>
-      <div>3. Refresh this page and the new files will appear automatically.</div>
-    </div>
-  </div>
+
 </div>
 <?php builddiv_end(); ?>
