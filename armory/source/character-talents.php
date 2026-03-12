@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 if (!defined('Armory')) { exit; }
 
 /**
@@ -235,7 +235,7 @@ function duration_secs_from_id($id) {
   if (!$row) return 0;
 
   $ms = (int)$row['durationValue'];   // always ms in your DB
-  return ($ms > 0) ? ($ms / 1000) : 0; // → return pure seconds as float
+  return ($ms > 0) ? ($ms / 1000) : 0; // â†’ return pure seconds as float
 }
 
 function get_radius_yds_by_id($rid) {
@@ -393,7 +393,7 @@ $formatS = static function (int $bp, int $dieSides, int $div = 1): array {
 };
 
 
-// $/1000;12345S1 → "0.5 sec", "1 sec", etc
+// $/1000;12345S1 â†’ "0.5 sec", "1 sec", etc
 $desc = preg_replace_callback('/\$\s*\/1000;(\d+)S1\b/', function($m) {
     $sid = (int)$m[1];
     $row = get_spell_row($sid);
@@ -525,7 +525,7 @@ $desc = preg_replace_callback('/\$(\d+)x([1-3])\b/', function($m){
   return (string)$val;
 }, $desc);
 
-/* ${$*K;sN%}  →  (K * sNmin)%   e.g., ${$*5;s1%} -> 5 * $s1 = 15% */
+/* ${$*K;sN%}  â†’  (K * sNmin)%   e.g., ${$*5;s1%} -> 5 * $s1 = 15% */
 $desc = preg_replace_callback(
   '/\{\$\s*\*\s*([0-9]+)\s*;\s*\$s([1-3])\s*%\s*\}/i',
   function($m) use ($s1min,$s2min,$s3min){
@@ -632,7 +632,7 @@ $getDurSecBySpellId = function($sid){
 $currId  = isset($sp['id']) ? (int)$sp['id'] : 0;
 $durSecs = $getDurSecBySpellId($currId);
 
-// Evaluate ${$d-1} sec  → "<durSecs - 1> sec"
+// Evaluate ${$d-1} sec  â†’ "<durSecs - 1> sec"
 $desc = preg_replace_callback(
     '/\$\{\s*\$d\s*([+-])\s*(\d+)\s*\}\s*sec\b/i',
     function ($m) use ($durSecs) {
@@ -672,7 +672,7 @@ if (strpos($desc, '$d') !== false) {
       $ds = $getDurSecBySpellId($sid);
       if ($ds > $durSecs) $durSecs = $ds;
 
-      // effect_trigger_* family (or effect_trigger_spell_* if that’s what the DBC has)
+      // effect_trigger_* family (or effect_trigger_spell_* if thatâ€™s what the DBC has)
       $base = _trigger_col_base();
       $col1 = $base.'1'; $col2 = $base.'2'; $col3 = $base.'3';
       $row = execute_query('armory',
@@ -752,7 +752,7 @@ $d     = fmt_secs($durSecs);
   $t3 = $trimNum(((int)($sp['effect_amplitude_3'] ?? 0)) / 1000.0);
 
  
-// ${AP*$mN/100} → "(Attack Power * N / 100)"
+// ${AP*$mN/100} â†’ "(Attack Power * N / 100)"
 $desc = preg_replace_callback(
     '/\{\$\s*(AP|RAP|SP)\s*\*\s*\$m([1-3])\s*\/\s*100\s*\}/i',
     function ($m) use ($s1min, $s2min, $s3min) {
@@ -780,7 +780,7 @@ $desc = preg_replace_callback(
     return $m[0];
   }, $desc);
 
-  // $n (proc charges) – fallback to cached lookup
+  // $n (proc charges) â€“ fallback to cached lookup
   $procN = (int)($sp['proc_charges'] ?? 0);
   if ($procN <= 0 && isset($sp['id'])) $procN = (int)get_spell_proc_charges((int)$sp['id']);
   if ($procN > 0) $desc = preg_replace('/\$n\b/i', (string)$procN, $desc);
@@ -823,7 +823,7 @@ while (preg_match('/\$l([^:;]+):([^;]+);/', $desc, $m, PREG_OFFSET_CAPTURE)) {
 
   $word = (abs($val - 1.0) < 0.000001) ? $singular : $plural;
 
-  // Replace this one occurrence and continue (handles multiple $l…; tokens)
+  // Replace this one occurrence and continue (handles multiple $lâ€¦; tokens)
   $desc = substr($desc, 0, $offset) . $word . substr($desc, $offset + strlen($full));
 }
 /* ---------- $*<factor>;<token>  (multiply a numeric token) ---------- */
@@ -929,6 +929,7 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 
 ?>
 
+<?php if (!$isEmbedMode): ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -950,7 +951,14 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
     </div></div>
 
 <br><br>
-
+<?php else: ?>
+<?php
+  $cssPath = $_SERVER['DOCUMENT_ROOT'].'/armory/css/talents.css';
+  $jsPath  = $_SERVER['DOCUMENT_ROOT'].'/armory/js/talents.js';
+?>
+<link rel="stylesheet" href="/armory/css/talents.css<?= is_file($cssPath) ? '?v='.filemtime($cssPath) : '' ?>">
+<script defer src="/armory/js/talents.js<?= is_file($jsPath) ? '?v='.filemtime($jsPath) : '' ?>"></script>
+<?php endif; ?>
 <?php if (empty($tabs)): ?>
   <!-- If no talent tabs are available for this class, show a fallback message -->
   <em>No talent tabs found for this class.</em>
@@ -1046,7 +1054,7 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 											  }
 											  $found = $byPos["$r:$c"];
 
-											$max = 0;													//“current/max” and color the cell correctly green/yellow				
+											$max = 0;													//â€œcurrent/maxâ€ and color the cell correctly green/yellow				
 											for ($x = 5; $x >= 1; $x--) {
 											  if (!empty($found["rank$x"])) { $max = $x; break; }
 }
@@ -1069,7 +1077,7 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 											  else                               $cellClass .= ' empty';
 
 											  // Render cell
-											  echo '<div class="'.$cellClass.'" style="--icon:url(\''.$iconQ.'\')"
+											  echo '<div class="'.$cellClass.'" style="background-image:url(\''.$iconQ.'\')"
 														data-tt-title="'.$title.'"
 														data-tt-desc="'.$desc.'">
 													  <span class="talent-rank">'.(int)$cur.'/'.(int)$max.'</span>
@@ -1085,5 +1093,10 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 <?php endif; ?>
 
 
+<?php if (!$isEmbedMode): ?>
 </body>
 </html>
+<?php endif; ?>
+
+
+

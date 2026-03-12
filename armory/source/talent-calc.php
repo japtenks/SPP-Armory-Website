@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 if (!defined('Armory')) { exit; }
 
 /**
@@ -235,9 +235,9 @@ function _trigger_col_base(){
 }
 
 // -------------------- CALCULATOR SETTINGS (no prefill) --------------------
-$CALC_MODE    = true;         // interactive calc (ignore learned ranks)
-$MAX_POINTS   = 61;           // TBC max
-$talentCap    = $MAX_POINTS;  // start with 61 left
+$CALC_MODE    = array_key_exists('server_talent_calc_mode', $GLOBALS) ? (bool)$GLOBALS['server_talent_calc_mode'] : true;
+$MAX_POINTS   = get_talent_cap((int)($stat['level'] ?? 0)) ?: 61;
+$talentCap    = $CALC_MODE ? $MAX_POINTS : (get_talent_cap((int)($stat['level'] ?? 0)) ?: $MAX_POINTS);
 $pointsSpent  = 0;            // initial
 // Class selection (calc mode doesn't depend on level)
 $CLASS_NAMES = [
@@ -354,9 +354,9 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 <?php
 // --- view header vars ---
 $talentCalcStandalone = defined('REQUESTED_ACTION') && REQUESTED_ACTION === 'talentscalc';
-$talentCalcHeading    = $lang['talentscalc'] ?? 'Talents Calculator';
+$talentCalcHeading    = $CALC_MODE ? ($lang['talentscalc'] ?? 'Talents Calculator') : 'Talent Build';
 
-// pre-escape so we don’t repeat htmlspecialchars everywhere
+// pre-escape so we donâ€™t repeat htmlspecialchars everywhere
 $classSlugSafe = htmlspecialchars($classSlug, ENT_QUOTES);
 $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
 ?>
@@ -373,7 +373,7 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
     <div class="tc-header is-<?= $classSlugSafe ?>">
 <div class="tc-head-left"> 	<!--Area above the left two talent trees, class, points,share-->
   <div class="tc-leftpanel">
-    <div class="tc-subtitle">Talent Calculator</div>
+    <div class="tc-subtitle"><?= $CALC_MODE ? 'Talent Calculator' : 'Current Talent Build' ?></div>
 
     <div class="tc-classcolor">
       <?= htmlspecialchars($charClass, ENT_QUOTES) ?>:
@@ -446,7 +446,7 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
     <?php
       $tabId   = (int) $t['id'];
       $tabName = (string) $t['name'];
-      $points  = 0; // view-only
+      $points  = 0;
       $bgUrl   = talent_bg_for_tab($tabId);
 
       // Pull talents for this tab
@@ -497,6 +497,7 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
       }
 
       $tabIconUrlQ  = htmlspecialchars(icon_url($tabIconName), ENT_QUOTES, 'UTF-8');
+      if (!$CALC_MODE) { foreach ($talents as $talentRow) { $points += current_rank_for_talent((int)$stat['guid'], $talentRow, $rankMap, $hasCharSpell); } }
       $capForHeader = (int) $talentCap;
       $bgUrlQ       = htmlspecialchars($bgUrl, ENT_QUOTES, 'UTF-8');
       $tabNameQ     = htmlspecialchars($tabName, ENT_QUOTES, 'UTF-8');
@@ -714,6 +715,7 @@ window.tcClassId = <?= (int)$charClassId ?>;
   }
 })();
 </script>
+
 
 
 

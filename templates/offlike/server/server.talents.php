@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 $siteRoot = !empty($_SERVER['DOCUMENT_ROOT'])
     ? rtrim($_SERVER['DOCUMENT_ROOT'], '/\\')
     : dirname(__DIR__, 3);
@@ -8,6 +8,7 @@ require_once($siteRoot . '/core/dbsimple/Generic.php');
 require_once($siteRoot . '/armory/configuration/settings.php');
 require_once($siteRoot . '/armory/configuration/mysql.php');
 require_once($siteRoot . '/armory/configuration/defines.php');
+require_once($siteRoot . '/armory/configuration/statisticshandler.php');
 
 if (!defined('Armory')) {
     define('Armory', 1);
@@ -23,7 +24,6 @@ if (!is_array($realmMap) || empty($realmMap)) {
 
 $requestedRealm = $_GET['realm'] ?? null;
 $realmId = null;
-
 if (is_string($requestedRealm) && $requestedRealm !== '' && !ctype_digit($requestedRealm)) {
     foreach ($realmMap as $mappedRealmId => $mappedRealmInfo) {
         if (strcasecmp($requestedRealm, $mappedRealmInfo['label']) === 0) {
@@ -31,7 +31,6 @@ if (is_string($requestedRealm) && $requestedRealm !== '' && !ctype_digit($reques
             break;
         }
     }
-
     if ($realmId === null) {
         foreach ($realms as $realmName => $realmInfo) {
             if (strcasecmp($requestedRealm, $realmName) === 0) {
@@ -41,7 +40,6 @@ if (is_string($requestedRealm) && $requestedRealm !== '' && !ctype_digit($reques
         }
     }
 }
-
 if ($realmId === null) {
     $realmId = spp_resolve_realm_id($realmMap);
 }
@@ -53,7 +51,6 @@ foreach ($realms as $realmName => $realmInfo) {
         break;
     }
 }
-
 if (!$armoryRealmName) {
     die('Unable to resolve realm for talent calculator.');
 }
@@ -105,6 +102,9 @@ $classNameToId = [
 $selectedCharacter = trim($_GET['character'] ?? '');
 $selectedClassParam = trim($_GET['class'] ?? '');
 $selectedClassId = 1;
+$viewMode = strtolower(trim($_GET['mode'] ?? 'calc'));
+$isProfileMode = in_array($viewMode, array('profile', 'build', 'view'), true);
+$isEmbedMode = !empty($_GET['embed']);
 
 if ($selectedClassParam !== '') {
     if (ctype_digit($selectedClassParam)) {
@@ -120,13 +120,11 @@ $stat = [
     'class' => $selectedClassId,
     'level' => 0,
 ];
-
 if ($selectedCharacter !== '') {
     $characterRow = $CHDB->selectRow(
         'SELECT `guid`, `name`, `class`, `level` FROM `characters` WHERE `name`=? LIMIT 1',
         $selectedCharacter
     );
-
     if ($characterRow) {
         $stat = array_merge($stat, $characterRow);
         if ($selectedClassParam === '') {
@@ -138,14 +136,21 @@ if ($selectedCharacter !== '') {
 $_GET['class'] = $selectedClassId;
 $_GET['realm'] = REALM_NAME;
 $GLOBALS['talent_calc_base_url'] = 'index.php?n=server&sub=talents';
+$GLOBALS['server_talent_calc_mode'] = !$isProfileMode;
+$GLOBALS['server_talent_profile_mode'] = $isProfileMode;
 $talentBaseParams = 'index.php?n=server&sub=talents&realm=' . rawurlencode((string) REALM_NAME) . '&class=' . (int) $selectedClassId;
 if ($selectedCharacter !== '') {
     $talentBaseParams .= '&character=' . rawurlencode($selectedCharacter);
 }
+if ($isProfileMode) {
+    $talentBaseParams .= '&mode=profile';
+}
 echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script>';
 ?>
+<?php if (!$isProfileMode): ?>
 <link rel="stylesheet" href="/armory/css/talents-calc.css?v=modern-server">
 <script defer src="/armory/js/talents-calc.js?v=modern-server"></script>
+<?php endif; ?>
 <style>
 .server-talents-shell {
   padding: 12px 10px 16px;
@@ -154,13 +159,36 @@ echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script
   max-width: none;
   margin: 0;
 }
+.server-talents-shell.is-profile .tc-share,
+.server-talents-shell.is-profile .tc-classgrid,
+.server-talents-shell.is-profile #tcResetAllBtn {
+  display: none !important;
+}
+.server-talents-shell.is-profile .tc-header {
+  margin-bottom: 16px;
+}
+.server-talents-shell.is-profile .tc-subtitle {
+  font-size: 1.2rem;
+}
+.server-talents-shell.is-profile .talent-cell {
+  cursor: default;
+}
+.server-talents-shell.is-embed {
+  padding: 0;
+}
+.server-talents-shell.is-embed .tc-container {
+  padding: 0;
+}
 </style>
 <?php
-builddiv_start(1, 'Talent Calculator', 1);
-echo '<div class="server-talents-shell">';
-include($siteRoot . '/armory/source/talent-calc.php');
+if (!$isEmbedMode) builddiv_start(1, $isProfileMode ? 'Talent Build' : 'Talent Calculator', 1);
+echo '<div class="server-talents-shell' . ($isProfileMode ? ' is-profile' : '') . ($isEmbedMode ? ' is-embed' : '') . '">';
+include($siteRoot . ($isProfileMode ? '/armory/source/character-talents.php' : '/armory/source/talent-calc.php'));
 echo '</div>';
-builddiv_end();
+if (!$isEmbedMode) builddiv_end();
+
+
+
 
 
 

@@ -252,7 +252,7 @@ $characters = array_slice($filteredCharacters, $offset, $items_per_page);
     ?>
     <div class="row">
       <div class="col name class-<?php echo strtolower($classNames[$item['class']] ?? 'unknown'); ?>">
-        <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($item['name']); ?>&realm=<?php echo urlencode($armoryRealm); ?>">
+        <a href="index.php?n=server&amp;sub=character&amp;realm=<?php echo (int)$realmId; ?>&amp;character=<?php echo urlencode($item['name']); ?>">
           <img src="<?php echo $portrait; ?>" class="circle portrait" alt="">
           <?php echo htmlspecialchars($item['name']); ?>
         </a>
@@ -357,6 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
+
 
 
 

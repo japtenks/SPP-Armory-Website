@@ -45,6 +45,13 @@ $com_content['server'] = array(
         '4-menuInteractive',
         0
     ),
+    'character' => array(
+        '',
+        'Character',
+        mw_url('server', 'character'),
+        '',
+        0
+    ),
     'guilds' => array(
         '',
         'Guilds on the server',
@@ -202,6 +209,7 @@ $com_content['server'] = array(
     ),
 );
 ?>
+
 
 
 

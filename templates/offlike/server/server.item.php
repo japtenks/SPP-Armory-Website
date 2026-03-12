@@ -457,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <tbody>
             <?php foreach ($owners as $owner): ?>
               <tr>
-                <td class="class-<?php echo htmlspecialchars($owner['class_slug']); ?>"><a class="item-owner-link" href="<?php echo htmlspecialchars('armory/index.php?searchType=profile&character=' . rawurlencode($owner['name']) . ($legacyRealmName !== '' ? '&realm=' . rawurlencode($legacyRealmName) : '')); ?>"><?php echo htmlspecialchars($owner['name']); ?></a></td>
+                <td class="class-<?php echo htmlspecialchars($owner['class_slug']); ?>"><a class="item-owner-link" href="<?php echo htmlspecialchars('index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . rawurlencode($owner['name'])); ?>"><?php echo htmlspecialchars($owner['name']); ?></a></td>
                 <td><?php echo (int)$owner['level']; ?></td>
                 <td><div class="item-owner-icons"><img src="/templates/offlike/images/icons/race/<?php echo (int)$owner['race']; ?>-<?php echo (int)$owner['gender']; ?>.gif" alt="<?php echo htmlspecialchars($owner['race_name']); ?>" title="<?php echo htmlspecialchars($owner['race_name']); ?>"><img src="/templates/offlike/images/icons/class/<?php echo (int)$owner['class']; ?>.jpg" alt="<?php echo htmlspecialchars($owner['class_name']); ?>" title="<?php echo htmlspecialchars($owner['class_name']); ?>"></div></td>
                 <td class="item-owner-faction"><img src="<?php echo htmlspecialchars($owner['faction_icon']); ?>" alt="<?php echo htmlspecialchars($owner['faction']); ?>" title="<?php echo htmlspecialchars($owner['faction']); ?>"></td>
@@ -474,6 +474,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <?php builddiv_end(); ?>
+
 
 
 
