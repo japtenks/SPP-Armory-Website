@@ -90,10 +90,10 @@ if (!function_exists('spp_get_pdo')) {
 }
 
 $db = [
-    'host' => '192.168.1.90',
-    'port' => 3306,
-    'user' => 'mangos',
-    'pass' => 'mangos'
+    'host' => '127.0.0.1',
+    'port' => 3310,
+    'user' => 'root',
+    'pass' => '123456'
 ];
 
 $realmDbMap = [
