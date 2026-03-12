@@ -61,6 +61,7 @@ $mainnav_links = array(
     1 => array('guilds',            'index.php?n=server&sub=guilds',  ''),
     2 => array('honor',             'index.php?n=server&sub=honor',   ''),
 	3 => array('talent_calculator', 'index.php?n=server&sub=talents', ''),
+    4 => array('items',             'index.php?n=server&sub=items',   ''),
   ),
 
   /* ------------------ 8. SUPPORT ------------------ */
@@ -106,6 +107,7 @@ $com_content = array(
         'guilds'        => array('', 'Guilds', 'index.php?n=server&sub=guilds', 1, 1),
         'sets'          => array('', 'Armor Sets', 'index.php?n=server&sub=sets', 1, 1),
         'talents'       => array('', 'Talents', 'index.php?n=server&sub=talents', 1, 1),
+        'items'         => array('', 'items', 'index.php?n=server&sub=items', 1, 1),
         'downloads'     => array('', 'Downloads', 'index.php?n=server&sub=downloads', 1, 1),
     ),
 
@@ -215,6 +217,7 @@ if ((int)$MW->getConfig->components->left_section->botcommands == 1)         uns
 
 
 ?>
+
 
 
 

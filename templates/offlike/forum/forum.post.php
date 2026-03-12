@@ -1,31 +1,86 @@
 <style>
-/* ---------- Modern Post Form ---------- */
+.reply-context {
+  max-width: 980px;
+  margin: 24px auto 18px;
+}
+.reply-context h3 {
+  color: #ffcc66;
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+.reply-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.reply-post {
+  display: flex;
+  background: #101010;
+  border: 1px solid #302719;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.45);
+}
+.reply-post-avatar {
+  width: 94px;
+  flex: 0 0 94px;
+  text-align: center;
+}
+.reply-post-avatar img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 2px solid #3b2a10;
+  object-fit: cover;
+}
+.reply-post-user {
+  margin-top: 6px;
+  color: #ffcc66;
+  font-weight: bold;
+}
+.reply-post-level,
+.reply-post-guild {
+  color: #9b9b9b;
+  font-size: 0.82rem;
+}
+.reply-post-body {
+  flex: 1;
+  min-width: 0;
+  padding-left: 14px;
+}
+.reply-post-meta {
+  font-size: 0.82rem;
+  color: #999;
+  margin-bottom: 8px;
+}
+.reply-post-message {
+  color: #d6d6d6;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
 .reply-panel {
   background: #0f0f0f;
   border: 1px solid #3b2a10;
   border-radius: 10px;
   padding: 18px 20px;
-  margin: 30px auto;
-  max-width: 880px;
+  margin: 18px auto 30px;
+  max-width: 980px;
   box-shadow: 0 0 12px rgba(0,0,0,0.6), inset 0 0 8px rgba(255,204,102,0.05);
   color: #ccc;
   font-family: "Trebuchet MS", sans-serif;
 }
-
 .reply-panel h2 {
   color: #ffcc66;
   font-size: 1.2rem;
-  margin-bottom: 14px;
+  margin: 0 0 14px;
   font-weight: bold;
 }
-
 .reply-panel label {
   font-weight: bold;
   color: #ffcc66;
   display: block;
   margin-bottom: 8px;
 }
-
 .subject-input {
   width: 100%;
   background: #111;
@@ -35,15 +90,13 @@
   padding: 8px;
   margin-bottom: 14px;
   font-size: 0.95rem;
-  transition: border-color 0.2s;
 }
-.subject-input:focus {
+.subject-input:focus,
+textarea.editor:focus {
   border-color: #ffcc66;
   box-shadow: 0 0 6px rgba(255,204,102,0.25);
   outline: none;
 }
-
-/* Editor Toolbar */
 .editor-toolbar {
   background: #1a1a1a;
   border: 1px solid #333;
@@ -67,7 +120,6 @@
   background: #333;
   color: #ffcc66;
 }
-
 textarea.editor {
   width: 100%;
   min-height: 180px;
@@ -79,34 +131,6 @@ textarea.editor {
   resize: vertical;
   font-family: "Trebuchet MS", sans-serif;
 }
-textarea.editor:focus {
-  border-color: #ffcc66;
-  box-shadow: 0 0 6px rgba(255,204,102,0.25);
-  outline: none;
-}
-
-/* Attach + options */
-.attach-row {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  font-size: 0.9rem;
-}
-.attach-row input[type="file"] {
-  background: #111;
-  border: 1px solid #333;
-  color: #aaa;
-  border-radius: 4px;
-  padding: 3px;
-}
-.attach-row label {
-  font-weight: normal;
-  color: #ccc;
-}
-
-/* Buttons */
 .reply-actions {
   margin-top: 16px;
   text-align: right;
@@ -132,10 +156,8 @@ textarea.editor:focus {
   border-color: #444;
 }
 .reply-actions .btn:hover {
-  opacity: 0.9;
+  opacity: 0.92;
 }
-
-/* Checkbox row */
 .subscribe-row {
   margin-top: 10px;
   display: flex;
@@ -144,29 +166,64 @@ textarea.editor:focus {
   color: #aaa;
   font-size: 0.9rem;
 }
+@media (max-width: 720px) {
+  .reply-post {
+    flex-direction: column;
+  }
+  .reply-post-avatar {
+    width: auto;
+    flex: none;
+    margin-bottom: 10px;
+  }
+  .reply-post-body {
+    padding-left: 0;
+  }
+}
 </style>
 <?php
 if (!defined('INCLUDED') || INCLUDED !== true) exit;
 $action = $_GET['action'] ?? '';
 $is_newtopic = ($action === 'newtopic');
+$pageTitle = $is_newtopic ? 'Create New Topic' : 'Reply to Thread';
+$forumId = $this_forum['forum_id'] ?? 0;
+$topicId = $this_topic['topic_id'] ?? 0;
+$formAction = $is_newtopic
+    ? 'index.php?n=forum&sub=post&action=donewtopic&f=' . $forumId
+    : 'index.php?n=forum&sub=post&action=donewpost&t=' . $topicId . '&f=' . $forumId;
 ?>
 
-<?php builddiv_start(1, $is_newtopic ? 'Create New Topic' : 'Reply to Thread'); ?>
+<?php builddiv_start(1, $pageTitle); ?>
+
+<?php if (!$is_newtopic && !empty($posts)): ?>
+<section class="reply-context">
+  <h3>Thread Context</h3>
+  <div class="reply-posts">
+    <?php foreach ($posts as $post): ?>
+      <article class="reply-post">
+        <div class="reply-post-avatar">
+          <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
+          <div class="reply-post-user"><?php echo htmlspecialchars($post['poster']); ?></div>
+          <div class="reply-post-level">Lvl <?php echo (int)$post['level']; ?></div>
+          <?php if (!empty($post['guild'])): ?>
+            <div class="reply-post-guild"><?php echo htmlspecialchars($post['guild']); ?></div>
+          <?php endif; ?>
+        </div>
+        <div class="reply-post-body">
+          <div class="reply-post-meta">#<?php echo (int)$post['pos_num']; ?> · <?php echo date('M d, Y H:i', $post['posted']); ?></div>
+          <div class="reply-post-message"><?php echo $post['message']; ?></div>
+        </div>
+      </article>
+    <?php endforeach; ?>
+  </div>
+</section>
+<?php endif; ?>
 
 <section class="reply-panel">
-<form method="post"
-      action="index.php?n=forum&sub=post&action=<?php 
-          if ($is_newtopic) {
-              echo 'donewtopic&fid=' . ($this_forum['forum_id'] ?? 0);
-          } else {
-              $fid = !empty($this_forum['forum_id']) ? $this_forum['forum_id'] : ($this_topic['forum_id'] ?? 0);
-              echo 'donewpost&t=' . ($this_topic['topic_id'] ?? 0) . '&fid=' . $fid;
-          } ?>"
-      enctype="multipart/form-data">
-
+  <h2><?php echo $is_newtopic ? 'Start a New Discussion' : 'Write Your Reply'; ?></h2>
+  <form method="post" action="<?php echo $formAction; ?>" enctype="multipart/form-data">
     <?php if ($is_newtopic): ?>
       <label for="subject">Subject:</label>
-      <input type="text" id="subject" name="subject" maxlength="80" placeholder="Enter your topic title..." class="subject-input"/>
+      <input type="text" id="subject" name="subject" maxlength="80" placeholder="Enter your topic title..." class="subject-input" />
     <?php endif; ?>
 
     <label for="message">Message:</label>
@@ -178,18 +235,13 @@ $is_newtopic = ($action === 'newtopic');
       <button type="button" onclick="insertTag('url')">Link</button>
       <button type="button" onclick="insertTag('img')">Img</button>
       <button type="button" onclick="insertTag('quote')">Quote</button>
-      <button type="button" onclick="insertTag('color=red')">?</button>
+      <button type="button" onclick="insertTag('color=red')">Color</button>
     </div>
 
     <textarea id="message" name="text" class="editor" placeholder="Write your message..."></textarea>
 
-    <div class="attach-row">
-      <label>Attach file: <input type="file" name="file"></label>
-      <span>Max file size 10 MB</span>
-    </div>
-
     <div class="subscribe-row">
-      <input type="checkbox" id="subscribe" name="subscribe">
+      <input type="checkbox" id="subscribe" name="subscribe" />
       <label for="subscribe">Subscribe to this topic</label>
     </div>
 
@@ -209,8 +261,8 @@ function insertTag(tag) {
   const end = textarea.selectionEnd;
   const selected = textarea.value.substring(start, end);
   const tagParts = tag.split('=');
-  const open = tagParts.length > 1 ? `[${tag}]` : `[${tag}]`;
-  const close = tagParts.length > 1 ? `[/${tagParts[0]}]` : `[/${tag}]`;
+  const open = `[${tag}]`;
+  const close = `[/${tagParts[0]}]`;
   textarea.setRangeText(open + selected + close, start, end, 'end');
   textarea.focus();
 }

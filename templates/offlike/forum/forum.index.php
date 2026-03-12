@@ -120,67 +120,23 @@ img[src*="forum_top.png"] {
   border-radius: 6px;
   box-shadow: 0 0 10px rgba(0,0,0,0.6);
 }
-
 </style>
 <?php
-// ========================================================
-// Load forum categories + forums
-// ========================================================
-$categories = $DB->select("
-    SELECT cat_id, cat_name
-    FROM tbcrealmd.f_categories
-    ORDER BY cat_disp_position ASC
-");
-
-$items = [];
-
-foreach ($categories as $cat) {
-    $forums = $DB->select("
-        SELECT f.*,
-               t.topic_name,
-               t.last_post,
-               t.last_poster
-        FROM tbcrealmd.f_forums AS f
-        LEFT JOIN tbcrealmd.f_topics AS t ON f.last_topic_id = t.topic_id
-        WHERE f.cat_id = ?d
-        ORDER BY f.disp_position ASC
-    ", $cat['cat_id']);
-
-    if ($forums) {
-        foreach ($forums as &$forum) {
-            $forum['cat_name'] = $cat['cat_name'];
-            $forum['linktothis'] = "index.php?n=forum&sub=viewforum&fid=" . (int)$forum['forum_id'];
-            $forum['linktolastpost'] = !empty($forum['last_topic_id'])
-                ? "index.php?n=forum&sub=viewtopic&tid=" . (int)$forum['last_topic_id']
-                : "#";
-            $forum['topic_name'] = $forum['topic_name'] ?? '';
-            $forum['last_poster'] = $forum['last_poster'] ?? '';
-            $forum['last_post'] = !empty($forum['last_post'])
-                ? date('d-m-Y, H:i', $forum['last_post'])
-                : '';
-        }
-        $items[] = $forums;
-    }
-}
-
-// ========================================================
-// Render Forum Index
-// ========================================================
-if (true):
-  builddiv_start(1, $lang['spp_forum']);
+builddiv_start(1, $lang['spp_forum']);
 ?>
 <div class="modern-content">
   <img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="Forums" class="forum-header"/>
 
   <div class="modern-content forum-container">
-    <?php if (empty($items)): ?>
+    <?php if (empty($items) || !is_array($items)): ?>
       <div class="forum-empty">No forums available.</div>
     <?php endif; ?>
 
     <?php foreach ($items as $catitem): ?>
+      <?php if (empty($catitem) || !is_array($catitem)) continue; ?>
       <section class="forum-category modern-block">
         <div class="modern-title">
-          <img src="<?php echo $currtmp; ?>/images/nav_m.gif" alt="Potatoes"/> 
+          <img src="<?php echo $currtmp; ?>/images/nav_m.gif" alt="Category"/>
           <?php echo htmlspecialchars($catitem[0]['cat_name']); ?>
         </div>
 
@@ -190,10 +146,10 @@ if (true):
               <img src="<?php echo $currtmp; ?>/images/<?php
                 echo $forumitem['closed']
                   ? 'lock-icon.gif'
-                  : ($forumitem['isnew'] ?? false
+                  : (($forumitem['isnew'] ?? false)
                     ? 'news-community.gif'
                     : 'no-news-community.gif');
-              ?>" alt="Lord farquad"/>
+              ?>" alt="Status"/>
             </div>
 
             <div class="forum-details">
@@ -202,14 +158,14 @@ if (true):
               </a>
               <p class="forum-desc"><?php echo htmlspecialchars($forumitem['forum_desc']); ?></p>
 
-              <?php if (!empty($forumitem['topic_name'])): ?>
+              <?php if (!empty($forumitem['topic_name']) && !empty($forumitem['last_topic_id'])): ?>
                 <div class="lastreply">
-                  <?php echo $lang['lastreplyin']; ?> 
+                  <?php echo $lang['lastreplyin']; ?>
                   <a href="<?php echo $forumitem['linktolastpost']; ?>">
                     <?php echo htmlspecialchars($forumitem['topic_name']); ?>
                   </a><br/>
-                  <?php echo $lang['from']; ?> 
-                  <span><?php echo htmlspecialchars($forumitem['last_poster']); ?></span> 
+                  <?php echo $lang['from']; ?>
+                  <span><?php echo htmlspecialchars($forumitem['last_poster']); ?></span>
                   <?php echo $forumitem['last_post']; ?>
                 </div>
               <?php endif; ?>
@@ -232,4 +188,3 @@ if (true):
   </div>
 </div>
 <?php builddiv_end(); ?>
-<?php endif; ?>

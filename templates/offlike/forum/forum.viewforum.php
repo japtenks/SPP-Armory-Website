@@ -131,60 +131,21 @@ img[src*="forum_top.png"] {
   gap: 8px;
   justify-content: flex-end;
 }
-
 </style>
 
 <?php
 if (INCLUDED !== true) exit;
-
-// ========================================================
-// Validate and fetch forum info
-// ========================================================
-$forumId = isset($_GET['fid']) ? (int)$_GET['fid'] : 0;
-if ($forumId <= 0) {
+if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
     output_message('alert', 'Invalid forum.');
     return;
 }
-
-$forum = $DB->selectRow("
-    SELECT f.forum_id, f.forum_name, f.forum_desc, f.closed, f.hidden, c.cat_name
-    FROM tbcrealmd.f_forums AS f
-    LEFT JOIN tbcrealmd.f_categories AS c ON f.cat_id = c.cat_id
-    WHERE f.forum_id = ?d AND f.hidden = 0
-    LIMIT 1
-", $forumId);
-
-if (!$forum) {
-    output_message('alert', 'Invalid forum.');
-    return;
-}
-
-// Pathway
-$pathway_info[] = ['title' => $lang['forum'], 'link' => 'index.php?n=forum'];
-$pathway_info[] = ['title' => $forum['forum_name'], 'link' => ''];
-
-// ========================================================
-// Fetch topics
-// ========================================================
-$topics = $DB->select("
-    SELECT 
-        t.topic_id, t.topic_name, t.topic_poster, t.num_replies, t.num_views,
-        t.last_post, t.last_post_id, t.last_poster, t.closed,
-        p.posted AS last_posted_time
-    FROM tbcrealmd.f_topics AS t
-    LEFT JOIN tbcrealmd.f_posts AS p ON p.post_id = t.last_post_id
-    WHERE t.forum_id = ?d
-    ORDER BY t.sticky DESC, t.last_post DESC
-", $forumId);
 ?>
 
-<?php builddiv_start(1, $forum['forum_name'], 0, true, $forumId, $forum['closed']); ?>
+<?php builddiv_start(1, $this_forum['forum_name'], 0, true, $this_forum['forum_id'], $this_forum['closed']); ?>
 
-
- <img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="Forums" class="forum-header"/>
+<img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="Forums" class="forum-header"/>
 
 <div class="modern-content forum-view">
-
   <div class="forum-list-head">
     <div></div>
     <div>Subject</div>
@@ -201,36 +162,36 @@ $topics = $DB->select("
   <?php else: ?>
     <?php foreach ($topics as $t): ?>
       <div class="forum-row">
-        <div><img src="<?php echo $currtmp; ?>/images/<?= $t['closed'] ? 'news-community.gif' : 'no-news-community.gif'; ?>" alt="bean status"></div>
+        <div><img src="<?php echo $currtmp; ?>/images/<?php echo $t['closed'] ? 'news-community.gif' : 'no-news-community.gif'; ?>" alt="Status"></div>
         <div class="col-subject">
-          <a href="index.php?n=forum&sub=viewtopic&tid=<?= $t['topic_id'] ?>">
-            <?= htmlspecialchars($t['topic_name']); ?>
+          <a href="<?php echo $t['linktothis']; ?>">
+            <?php echo htmlspecialchars($t['topic_name']); ?>
           </a>
           <?php if ($t['closed']): ?><span class="new-tag">Closed</span><?php endif; ?>
         </div>
-        <div><?= htmlspecialchars($t['topic_poster']); ?></div>
-        <div><?= (int)$t['num_replies']; ?></div>
-        <div><?= (int)$t['num_views']; ?></div>
+        <div><?php echo htmlspecialchars($t['username']); ?></div>
+        <div><?php echo (int)$t['num_replies']; ?></div>
+        <div><?php echo (int)$t['num_views']; ?></div>
         <div>
-          <?= htmlspecialchars($t['last_poster']); ?><br>
-          <?= $t['last_posted_time'] ? date('d-m-Y, H:i', $t['last_posted_time']) : ''; ?>
+          <?php echo htmlspecialchars($t['last_poster']); ?><br>
+          <?php echo $t['last_post']; ?>
         </div>
       </div>
     <?php endforeach; ?>
   <?php endif; ?>
 
-    <div class="forum-legend">
-      <div>
-        <img src="<?php echo $currtmp; ?>/images/news-community.gif" alt="New Posts"/> 
-        <?php echo $lang['newpost']; ?>
-      </div>
-      <div>
-        <img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt="No New Posts"/> 
-        <?php echo $lang['nonewpost']; ?>
-      </div>
-      <div>
-        <img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt="Fourm Closed"/> 
-        <?php echo $lang['postclose']; ?>
-      </div>
+  <div class="forum-legend">
+    <div>
+      <img src="<?php echo $currtmp; ?>/images/news-community.gif" alt="New Posts"/>
+      <?php echo $lang['newpost']; ?>
     </div>
+    <div>
+      <img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt="No New Posts"/>
+      <?php echo $lang['nonewpost']; ?>
+    </div>
+    <div>
+      <img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt="Forum Closed"/>
+      <?php echo $lang['postclose']; ?>
+    </div>
+  </div>
 <?php builddiv_end(); ?>

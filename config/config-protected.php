@@ -1,4 +1,3 @@
-
 <?php
 //cat /var/www/html/config/config-protected.php
 // =============================================================
@@ -34,11 +33,67 @@ if (!function_exists('spp_resolve_realm_id')) {
     }
 }
 
+if (!function_exists('spp_get_db_config')) {
+    function spp_get_db_config($target = 'realmd', $realmId = null) {
+        $db = $GLOBALS['db'] ?? null;
+        $realmDbMap = $GLOBALS['realmDbMap'] ?? null;
+
+        if (!is_array($db) || !is_array($realmDbMap) || empty($realmDbMap)) {
+            throw new RuntimeException('Database configuration is not loaded.');
+        }
+
+        $resolvedRealmId = spp_resolve_realm_id($realmDbMap, $realmId);
+        if (!isset($realmDbMap[$resolvedRealmId])) {
+            throw new RuntimeException('Invalid realm selected.');
+        }
+
+        $realm = $realmDbMap[$resolvedRealmId];
+        $dbKey = $target === 'world' ? 'world' : $target;
+
+        if (!isset($realm[$dbKey])) {
+            throw new RuntimeException('Unknown database target: ' . $target);
+        }
+
+        return [
+            'host' => $db['host'],
+            'port' => $db['port'],
+            'user' => $db['user'],
+            'pass' => $db['pass'],
+            'name' => $realm[$dbKey],
+            'realm_id' => $resolvedRealmId,
+            'charset' => 'utf8mb4',
+        ];
+    }
+}
+
+if (!function_exists('spp_get_pdo')) {
+    function spp_get_pdo($target = 'realmd', $realmId = null) {
+        static $connections = [];
+
+        $config = spp_get_db_config($target, $realmId);
+        $cacheKey = $target . ':' . $config['realm_id'];
+
+        if (!isset($connections[$cacheKey])) {
+            $connections[$cacheKey] = new PDO(
+                "mysql:host={$config['host']};port={$config['port']};dbname={$config['name']};charset={$config['charset']}",
+                $config['user'],
+                $config['pass'],
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]
+            );
+        }
+
+        return $connections[$cacheKey];
+    }
+}
+
 $db = [
-    'host' => '127.0.0.1',
-    'port' => 3310,
-    'user' => 'root',
-    'pass' => '123456'
+    'host' => '192.168.1.90',
+    'port' => 3306,
+    'user' => 'mangos',
+    'pass' => 'mangos'
 ];
 
 $realmDbMap = [
