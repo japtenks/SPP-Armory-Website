@@ -267,6 +267,7 @@ function load_characters_for_user() {
 
 		//$params['sha_pass_hash'] = strtoup($this->gethash($params['password']));
         //$params['sha_pass_hash'] = $this->gethash($params['password']);
+        $tmp_act_key = '';
         if((int)$MW->getConfig->generic->req_reg_act){
             $tmp_act_key = $this->generate_key();
             $params['locked'] = 1;
