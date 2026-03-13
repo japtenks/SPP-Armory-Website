@@ -36,7 +36,7 @@ $gmCommands = loadCommands($pdo,$world_db,'gm');
     </tbody>
   </table>
 </div>
-<script src="/js/commands.js"></script>
+<script src="/xfer/assets/js/commands.js"></script>
 <?php builddiv_end(); ?>
 
 
