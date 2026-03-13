@@ -26,7 +26,8 @@ $requestedRealm = $_GET['realm'] ?? null;
 $realmId = null;
 if (is_string($requestedRealm) && $requestedRealm !== '' && !ctype_digit($requestedRealm)) {
     foreach ($realmMap as $mappedRealmId => $mappedRealmInfo) {
-        if (strcasecmp($requestedRealm, $mappedRealmInfo['label']) === 0) {
+        $mappedArmoryRealm = spp_get_armory_realm_name((int)$mappedRealmId) ?? ($mappedRealmInfo['label'] ?? '');
+        if (strcasecmp($requestedRealm, $mappedRealmInfo['label']) === 0 || strcasecmp($requestedRealm, $mappedArmoryRealm) === 0) {
             $realmId = (int)$mappedRealmId;
             break;
         }

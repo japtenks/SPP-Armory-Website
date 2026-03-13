@@ -81,7 +81,7 @@ if (!is_array($realmMap) || empty($realmMap)) {
 
 $realmId = spp_resolve_realm_id($realmMap);
 $realmDB = $realmMap[$realmId]['chars'];
-$armoryRealm = $realmMap[$realmId]['label'];
+$armoryRealm = spp_get_armory_realm_name($realmId) ?? ($realmMap[$realmId]['label'] ?? '');
 
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $itemsPerPage = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;

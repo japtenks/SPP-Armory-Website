@@ -175,6 +175,23 @@ function build_serverinfo_menu($asList = true) {
 }
 
 // ------------------ ACCOUNT MENU ------------------
+function spp_account_menu_class_slug($classId) {
+    $map = array(
+        1 => 'warrior',
+        2 => 'paladin',
+        3 => 'hunter',
+        4 => 'rogue',
+        5 => 'priest',
+        6 => 'deathknight',
+        7 => 'shaman',
+        8 => 'mage',
+        9 => 'warlock',
+        11 => 'druid',
+    );
+
+    return $map[(int)$classId] ?? 'unknown';
+}
+
 function build_account_menu($asList = true) {
     global $user, $auth, $languages;
 
@@ -185,23 +202,53 @@ function build_account_menu($asList = true) {
         }
     }
 
-    // --- Pick display name: selected character or "Account" ---
-    $charName = "Account";
-    if (!empty($GLOBALS['characters']) && !empty($_COOKIE["cur_selected_character"])) {
+    $selectedRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? $_COOKIE['cur_selected_realm'] ?? 0);
+    $selectedCharacterId = (int)($_COOKIE['cur_selected_character'] ?? 0);
+    $charName = 'Account';
+    $activeCharacter = null;
+
+    if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
         foreach ($GLOBALS['characters'] as $character) {
-            if ($character["guid"] == $_COOKIE["cur_selected_character"]) {
-                $charName = htmlspecialchars($character["name"]);
+            if ((int)($character['realm_id'] ?? 0) === $selectedRealmId && (int)$character['guid'] === $selectedCharacterId) {
+                $activeCharacter = $character;
                 break;
             }
         }
+
+        if ($activeCharacter === null) {
+            foreach ($GLOBALS['characters'] as $character) {
+                if ((int)($character['realm_id'] ?? 0) === $selectedRealmId) {
+                    $activeCharacter = $character;
+                    break;
+                }
+            }
+        }
+
+        if ($activeCharacter === null && !empty($GLOBALS['characters'][0])) {
+            $activeCharacter = $GLOBALS['characters'][0];
+        }
+    }
+
+    if ($activeCharacter !== null) {
+        $charName = htmlspecialchars($activeCharacter['name']);
+        $selectedCharacterId = (int)$activeCharacter['guid'];
+        $selectedRealmId = (int)($activeCharacter['realm_id'] ?? $selectedRealmId);
+    }
+
+    $returnUrl = $_SERVER['REQUEST_URI'] ?? 'index.php';
+    $returnUrl = preg_replace('/([?&])(setchar|changerealm_to|returnto)=[^&]*/', '$1', $returnUrl);
+    $returnUrl = preg_replace('/\?&/', '?', $returnUrl);
+    $returnUrl = preg_replace('/[?&]+$/', '', $returnUrl);
+    if ($returnUrl === '' || $returnUrl === '/') {
+        $returnUrl = 'index.php';
     }
 
     if ($asList) {
-        echo '<li class="has-sub account-dropdown">';
+        echo '<li class="has-sub account">';
         echo '<a href="#">';
         echo '<span class="account-name">'.$charName.' ▼</span>';
         echo '</a>';
-        echo '<ul>';
+        echo '<ul class="account-menu">';
     }
 
     // --- Guest (not logged in) ---
@@ -224,24 +271,31 @@ function build_account_menu($asList = true) {
 
         // --- Characters grouped by realm ---
         if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
-            $grouped = [];
+            $grouped = array();
             foreach ($GLOBALS['characters'] as $char) {
                 $grouped[$char['realm_name']][] = $char;
             }
 
+            $showRealmLabels = count($grouped) > 1;
             foreach ($grouped as $realmName => $chars) {
-                echo '<li class="menu-realm-label"><strong>'.$realmName.'</strong></li>';
+                if ($showRealmLabels) {
+                    echo '<li class="menu-realm-label"><strong>' . htmlspecialchars($realmName) . '</strong></li>';
+                }
                 foreach ($chars as $character) {
-                    $isActive = (!empty($_COOKIE['cur_selected_character']) && $_COOKIE['cur_selected_character'] == $character["guid"]);
-                    $class = $isActive ? "char-item active-char" : "char-item";
-                    $mark  = $isActive ? "&gt; " : "";
+                    $characterRealmId = (int)($character['realm_id'] ?? 0);
+                    $isActive = ($selectedCharacterId === (int)$character['guid'] && $selectedRealmId === $characterRealmId);
+                    $classSlug = spp_account_menu_class_slug((int)($character['class'] ?? 0));
+                    $itemClass = $isActive ? 'char-item active-char class-' . $classSlug : 'char-item class-' . $classSlug;
+                    $mark = $isActive ? '&gt; ' : '';
+                    $switchHref = 'index.php?setchar=' . (int)$character['guid']
+                        . '&setchar_realm=' . $characterRealmId
+                        . '&changerealm_to=' . $characterRealmId
+                        . '&returnto=' . rawurlencode($returnUrl);
 
-			echo '<li class="' . $class . ' class-' . $character['class'] . '" 
-      			onclick="document.cookie=\'cur_selected_character=' . $character['guid'] . '; path=/\';
-               		document.cookie=\'cur_selected_realm=' . $character['realm_id'] . '; path=/\'; 
-               		location.reload();">'
-      			. $mark . htmlspecialchars($character['name']) .
-      			' <span class="level">(Lvl ' . $character['level'] . ')</span></li>';
+                    echo '<li class="' . $itemClass . '"><a href="' . htmlspecialchars($switchHref) . '">'
+                        . '<span class="char-name">' . $mark . htmlspecialchars($character['name']) . '</span>'
+                        . ' <span class="level">(Lvl ' . (int)$character['level'] . ')</span>'
+                        . '</a></li>';
                 }
             }
             echo '<li class="menu-spacer"></li>';
@@ -478,25 +532,58 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
 
     // === Optional Realm Selector ===
     if ($realm == 1) {
-        $realmId = (int)($_GET['realm'] ?? 1);
+        global $DB;
 
-        echo '<form method="get" action="" class="realm-select-form" style="margin:0;">';
+        $realmMap = $GLOBALS['realmDbMap'] ?? array();
+        $realmId = is_array($realmMap) && !empty($realmMap) ? spp_resolve_realm_id($realmMap) : (int)($_GET['realm'] ?? 1);
+        $availableRealms = array();
 
-        // preserve query params like n=statistic
-        foreach ($_GET as $key => $value) {
-            if ($key !== 'realm') {
-                echo '<input type="hidden" name="' . htmlspecialchars($key) . '" value="' . htmlspecialchars($value) . '" />';
+        if (is_array($realmMap) && !empty($realmMap)) {
+            $realmRows = $DB->select("SELECT id, name FROM realmlist ORDER BY id ASC");
+            if (is_array($realmRows)) {
+                foreach ($realmRows as $realmRow) {
+                    $candidateRealmId = (int)($realmRow['id'] ?? 0);
+                    if ($candidateRealmId <= 0 || !isset($realmMap[$candidateRealmId])) {
+                        continue;
+                    }
+
+                    $availableRealms[$candidateRealmId] = array(
+                        'id' => $candidateRealmId,
+                        'name' => !empty($realmRow['name']) ? $realmRow['name'] : ($realmMap[$candidateRealmId]['label'] ?? ('Realm ' . $candidateRealmId)),
+                    );
+                }
+            }
+
+            if (empty($availableRealms)) {
+                foreach ($realmMap as $candidateRealmId => $realmInfo) {
+                    $availableRealms[(int)$candidateRealmId] = array(
+                        'id' => (int)$candidateRealmId,
+                        'name' => $realmInfo['label'] ?? ('Realm ' . (int)$candidateRealmId),
+                    );
+                }
             }
         }
 
-        echo '<label for="realm" style="font-weight:bold;color:#ffcc00;margin-right:6px;">Select Realm:</label>';
-        echo '<select id="realm" name="realm" onchange="this.form.submit()" style="padding:3px 6px;border-radius:4px;background:#111;border:1px solid #333;color:#fff;">';
-        echo '<option value="1"' . ($realmId == 1 ? ' selected' : '') . '>Classic</option>';
-        echo '<option value="2"' . ($realmId == 2 ? ' selected' : '') . '>The Burning Crusade</option>';
-        echo '<option value="3"' . ($realmId == 3 ? ' selected' : '') . '>Wrath of the Lich King</option>';
-        echo '</select>';
+        if (count($availableRealms) > 1) {
+            echo '<form method="get" action="" class="realm-select-form" style="margin:0;">';
 
-        echo '</form>';
+            // preserve query params like n=statistic
+            foreach ($_GET as $key => $value) {
+                if ($key !== 'realm') {
+                    echo '<input type="hidden" name="' . htmlspecialchars($key) . '" value="' . htmlspecialchars($value) . '" />';
+                }
+            }
+
+            echo '<label for="realm" style="font-weight:bold;color:#ffcc00;margin-right:6px;">Select Realm:</label>';
+            echo '<select id="realm" name="realm" onchange="this.form.submit()" style="padding:3px 6px;border-radius:4px;background:#111;border:1px solid #333;color:#fff;">';
+            foreach ($availableRealms as $realmOption) {
+                echo '<option value="' . (int)$realmOption['id'] . '"' . ($realmId === (int)$realmOption['id'] ? ' selected' : '') . '>'
+                    . htmlspecialchars($realmOption['name']) . '</option>';
+            }
+            echo '</select>';
+
+            echo '</form>';
+        }
     }
 
 // === Optional Forum Navigation Buttons ===

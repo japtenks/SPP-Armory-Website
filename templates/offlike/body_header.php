@@ -94,8 +94,8 @@ function changeLanguage(lang) {
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const accBtn  = document.querySelector(".account-dropdown > a");
-  const accDrop = document.querySelector(".account-dropdown");
+  const accDrop = document.querySelector(".nav-right .account-dropdown");
+  const accBtn  = accDrop ? accDrop.querySelector("li > a") : null;
   if (accBtn) {
     accBtn.addEventListener("click", e => {
       e.preventDefault();
@@ -149,4 +149,3 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
-

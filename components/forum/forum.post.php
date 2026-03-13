@@ -18,6 +18,24 @@ if (!is_array($realmMap) || empty($realmMap)) {
 }
 $realmId = spp_resolve_realm_id($realmMap);
 $charDbName = $realmMap[$realmId]['chars'];
+$activeForumCharacter = resolve_forum_character_for_realm($user, $realmId);
+
+if ($activeForumCharacter) {
+    $user['character_id'] = (int)$activeForumCharacter['guid'];
+    $user['character_name'] = $activeForumCharacter['name'];
+
+    if (!empty($user['id'])) {
+        setcookie('cur_selected_character', $user['character_id'], time() + 86400, '/');
+        setcookie('cur_selected_realm', $realmId, time() + 86400, '/');
+        setcookie('cur_selected_realmd', $realmId, time() + 86400, '/');
+        $DB->query(
+            "UPDATE website_accounts SET character_id=?d, character_name=? WHERE account_id=?d",
+            $user['character_id'],
+            $user['character_name'],
+            $user['id']
+        );
+    }
+}
 
 if (!empty($_GET['fid']) && empty($_GET['f'])) {
     $_GET['f'] = $_GET['fid'];
@@ -42,7 +60,7 @@ if (!empty($_GET['f'])) {
 if ($user['id'] <= 0) {
     $canPost = false;
     $posting_block_reason = 'You must be logged in to post.';
-} elseif (!isValidChar($user)) {
+} elseif (!isValidChar($user, $realmId)) {
     $canPost = false;
     $posting_block_reason = 'You must select a valid character before posting. This account currently has no available character loaded for the selected realm.';
     output_message('alert', $posting_block_reason);

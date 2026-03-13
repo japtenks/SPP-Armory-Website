@@ -552,9 +552,7 @@ $desc = preg_replace_callback(
   );
 
 // put this BEFORE your other ${...} handlers
-$playerLevel = isset($GLOBALS['expansion'])
-  ? (($GLOBALS['expansion']==2)?80:(($GLOBALS['expansion']==1)?70:60))
-  : 60;
+$playerLevel = ($expansion == 2) ? 80 : (($expansion == 1) ? 70 : 60);
 
 $desc = preg_replace_callback(
   '/\$\{\s*\(\s*300\s*-\s*10\s*\*\s*\$max\s*\(\s*0\s*,\s*\$PL\s*-\s*60\s*\)\s*\)\s*\/\s*10\s*\}/i',

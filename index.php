@@ -230,17 +230,27 @@ unset( $req_arr, $req_vars ) ;
 if ( ( int )$MW->getConfig->generic_values->realm_info->multirealm && isset( $_REQUEST['changerealm_to'] ) )
 {
 	setcookie( "cur_selected_realmd", intval( $_REQUEST['changerealm_to'] ), time() +
-		( 3600 * 24 ) ) ; // expire in 24 hour
+		( 3600 * 24 ), '/' ) ; // expire in 24 hour
+	setcookie( "cur_selected_realm", intval( $_REQUEST['changerealm_to'] ), time() +
+		( 3600 * 24 ), '/' ) ;
 	$user['cur_selected_realmd'] = intval( $_REQUEST['changerealm_to'] ) ;
 } elseif ( ( int )$MW->getConfig->generic_values->realm_info->multirealm && isset
 ( $_COOKIE['cur_selected_realmd'] ) )
 {
 	$user['cur_selected_realmd'] = intval( $_COOKIE['cur_selected_realmd'] ) ;
+} elseif ( ( int )$MW->getConfig->generic_values->realm_info->multirealm && isset
+( $_COOKIE['cur_selected_realm'] ) )
+{
+	$user['cur_selected_realmd'] = intval( $_COOKIE['cur_selected_realm'] ) ;
+	setcookie( "cur_selected_realmd", $user['cur_selected_realmd'], time() + ( 3600 *
+		24 ), '/' ) ;
 } else
 {
 	$user['cur_selected_realmd'] = ( int )$MW->getConfig->generic_values->realm_info->default_realm_id ;
 	setcookie( "cur_selected_realmd", $user['cur_selected_realmd'], time() + ( 3600 *
-		24 ) ) ;
+		24 ), '/' ) ;
+	setcookie( "cur_selected_realm", $user['cur_selected_realmd'], time() + ( 3600 *
+		24 ), '/' ) ;
 }
 
 // Make an array from `dbinfo` column for the selected realm..
@@ -379,17 +389,39 @@ $req_tpl = false ;
 // Handle character switch from ?setchar=ID
 if (isset($_GET['setchar'])) {
     $charId = (int) $_GET['setchar'];
+    $requestedCharRealmId = (int)($_GET['setchar_realm'] ?? $_GET['changerealm_to'] ?? 0);
 
     if ($charId > 0 && isset($user['id']) && $user['id'] > 0) {
-        // Verify the character belongs to this account
-        $char = $CHDB->selectRow(
-            "SELECT guid, name FROM `characters` WHERE guid=?d AND account=?d",
-            $charId, $user['id']
-        );
+        $char = null;
+        $selectedRealmId = $requestedCharRealmId > 0 ? $requestedCharRealmId : (int)($user['cur_selected_realmd'] ?? 0);
+
+        if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
+            foreach ($GLOBALS['characters'] as $loadedCharacter) {
+                if ((int)($loadedCharacter['guid'] ?? 0) === $charId
+                    && ($requestedCharRealmId <= 0 || (int)($loadedCharacter['realm_id'] ?? 0) === $requestedCharRealmId)) {
+                    $char = array(
+                        'guid' => (int)$loadedCharacter['guid'],
+                        'name' => $loadedCharacter['name'],
+                    );
+                    $selectedRealmId = (int)($loadedCharacter['realm_id'] ?? $selectedRealmId);
+                    break;
+                }
+            }
+        }
+
+        if (!$char) {
+            // Fallback to the current realm DB if the global character cache is unavailable.
+            $char = $CHDB->selectRow(
+                "SELECT guid, name FROM `characters` WHERE guid=?d AND account=?d",
+                $charId, $user['id']
+            );
+        }
 
         if ($char) {
             // Update cookie and DB
             setcookie('cur_selected_character', $char['guid'], time() + 86400, '/');
+            setcookie('cur_selected_realm', $selectedRealmId, time() + 86400, '/');
+            setcookie('cur_selected_realmd', $selectedRealmId, time() + 86400, '/');
             $DB->query(
                 "UPDATE website_accounts 
                  SET character_id=?d, character_name=? 
@@ -399,8 +431,16 @@ if (isset($_GET['setchar'])) {
         }
     }
 
+    $redirectTarget = 'index.php';
+    if (!empty($_GET['returnto'])) {
+        $candidateRedirect = rawurldecode((string)$_GET['returnto']);
+        if ($candidateRedirect !== '' && preg_match('#^(?:/|index\.php|\./index\.php|\?.*)#', $candidateRedirect)) {
+            $redirectTarget = $candidateRedirect;
+        }
+    }
+
     // Always redirect to clean the URL
-    header("Location: index.php");
+    header("Location: " . $redirectTarget);
     exit;
 }
 

@@ -13,7 +13,8 @@ if (!isset($realmMap[$realmId])) {
 }
 
 $realmDB = $realmMap[$realmId]['chars'];
-$armoryRealm = $realmMap[$realmId]['label'];
+$realmWorldDB = $realmMap[$realmId]['world'];
+$armoryRealm = spp_get_armory_realm_name($realmId) ?? ($realmMap[$realmId]['label'] ?? '');
 $currtmp = '/armory';
 
 $guildId = isset($_GET['guildid']) ? (int)$_GET['guildid'] : 0;
@@ -38,6 +39,65 @@ if (!$guild) {
     return;
 }
 
+$guildEstablishedLabel = 'Unknown';
+try {
+    $createdColumn = null;
+    foreach (array('createdate', 'create_date', 'created_at') as $candidateColumn) {
+        $columnExists = $DB->selectCell(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild' AND COLUMN_NAME=?",
+            $realmDB,
+            $candidateColumn
+        );
+        if ((int)$columnExists > 0) {
+            $createdColumn = $candidateColumn;
+            break;
+        }
+    }
+
+    if ($createdColumn !== null) {
+        $createdValue = $DB->selectCell("SELECT `{$createdColumn}` FROM {$realmDB}.guild WHERE guildid=?d", $guildId);
+        if (!empty($createdValue) && $createdValue !== '0000-00-00 00:00:00') {
+            $createdTs = is_numeric($createdValue) ? (int)$createdValue : strtotime((string)$createdValue);
+            if ($createdTs > 0) {
+                $guildEstablishedLabel = date('M j, Y', $createdTs);
+            }
+        }
+    }
+
+    if ($guildEstablishedLabel === 'Unknown') {
+        $eventTimeColumn = null;
+        $eventTableExists = $DB->selectCell(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild_eventlog'",
+            $realmDB
+        );
+        if ((int)$eventTableExists > 0) {
+            foreach (array('TimeStamp', 'timestamp', 'time', 'event_time') as $candidateColumn) {
+                $columnExists = $DB->selectCell(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild_eventlog' AND COLUMN_NAME=?",
+                    $realmDB,
+                    $candidateColumn
+                );
+                if ((int)$columnExists > 0) {
+                    $eventTimeColumn = $candidateColumn;
+                    break;
+                }
+            }
+
+            if ($eventTimeColumn !== null) {
+                $firstEventValue = $DB->selectCell("SELECT MIN(`{$eventTimeColumn}`) FROM {$realmDB}.guild_eventlog WHERE guildid=?d", $guildId);
+                if (!empty($firstEventValue)) {
+                    $firstEventTs = is_numeric($firstEventValue) ? (int)$firstEventValue : strtotime((string)$firstEventValue);
+                    if ($firstEventTs > 0) {
+                        $guildEstablishedLabel = date('M j, Y', $firstEventTs);
+                    }
+                }
+            }
+        }
+    }
+} catch (Throwable $e) {
+    error_log('[guild] Failed resolving established date: ' . $e->getMessage());
+}
+
 $leader = $DB->selectRow("SELECT guid, name, race, class, level, gender FROM {$realmDB}.characters WHERE guid=?d", (int)$guild['leaderguid']);
 $members = $DB->select("
     SELECT
@@ -60,9 +120,46 @@ if (!is_array($members)) {
     $members = [];
 }
 
+$memberAverageItemLevels = [];
+if (!empty($members)) {
+    $memberIds = array_values(array_unique(array_map(static function ($member) {
+        return (int)($member['guid'] ?? 0);
+    }, $members)));
+    $memberIds = array_values(array_filter($memberIds));
+
+    if (!empty($memberIds)) {
+        $memberIdSql = implode(',', $memberIds);
+        try {
+            $itemLevelRows = $DB->select("
+                SELECT
+                  ci.guid,
+                  ROUND(AVG(it.ItemLevel), 1) AS avg_item_level
+                FROM {$realmDB}.character_inventory ci
+                INNER JOIN {$realmWorldDB}.item_template it ON it.entry = ci.item_template
+                WHERE ci.guid IN ({$memberIdSql})
+                  AND ci.bag = 0
+                  AND ci.slot BETWEEN 0 AND 18
+                  AND ci.slot NOT IN (3, 18)
+                  AND ci.item_template > 0
+                GROUP BY ci.guid
+            ");
+
+            if (is_array($itemLevelRows)) {
+                foreach ($itemLevelRows as $itemLevelRow) {
+                    $memberAverageItemLevels[(int)$itemLevelRow['guid']] = round((float)$itemLevelRow['avg_item_level'], 1);
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[guild] Failed loading average item levels: ' . $e->getMessage());
+        }
+    }
+}
+
 $guildMembers = count($members);
 $avgLevel = 0;
 $maxLevel = 0;
+$guildAverageItemLevelTotal = 0.0;
+$guildAverageItemLevelCount = 0;
 $classBreakdown = [];
 $rankOptions = [];
 
@@ -70,6 +167,12 @@ foreach ($members as $member) {
     $level = (int)($member['level'] ?? 0);
     $avgLevel += $level;
     if ($level > $maxLevel) $maxLevel = $level;
+
+    $memberItemLevel = (float)($memberAverageItemLevels[(int)($member['guid'] ?? 0)] ?? 0);
+    if ($memberItemLevel > 0) {
+        $guildAverageItemLevelTotal += $memberItemLevel;
+        $guildAverageItemLevelCount++;
+    }
 
     $classId = (int)($member['class'] ?? 0);
     if (!isset($classBreakdown[$classId])) $classBreakdown[$classId] = 0;
@@ -82,6 +185,7 @@ foreach ($members as $member) {
 }
 
 $avgLevel = $guildMembers > 0 ? round($avgLevel / $guildMembers, 1) : 0;
+$guildAverageItemLevel = $guildAverageItemLevelCount > 0 ? round($guildAverageItemLevelTotal / $guildAverageItemLevelCount, 1) : 0;
 $factionName = ($leader && in_array((int)$leader['race'], $allianceRaces, true)) ? 'Alliance' : 'Horde';
 $factionSlug = strtolower($factionName);
 $crest = 'templates/offlike/images/modern/logo-' . $factionSlug . '.png';
@@ -151,9 +255,17 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   color: #fff4c9;
 }
 .guild-subtitle {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 1.3rem;
   color: #d9c99a;
+}
+.guild-masterline {
+  margin: 0;
+  font-size: 1rem;
+  color: #f2ddb0;
+}
+.guild-masterline strong {
+  color: #ffd65e;
 }
 .guild-meta {
   display: grid;
@@ -380,6 +492,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
       <div>
         <h1 class="guild-title"><?php echo htmlspecialchars($guild['name']); ?></h1>
         <p class="guild-subtitle"><?php echo htmlspecialchars($armoryRealm); ?></p>
+        <p class="guild-masterline">Guild Master <strong><?php echo $leader ? htmlspecialchars($leader['name']) : 'Unknown'; ?></strong></p>
       </div>
     </div>
     <div class="guild-meta">
@@ -396,8 +509,12 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
         <span class="guild-meta-value"><?php echo $avgLevel; ?></span>
       </div>
       <div class="guild-meta-card">
-        <span class="guild-meta-label">Guild Master</span>
-        <span class="guild-meta-value"><?php echo $leader ? htmlspecialchars($leader['name']) : 'Unknown'; ?></span>
+        <span class="guild-meta-label">Average iLvl</span>
+        <span class="guild-meta-value"><?php echo $guildAverageItemLevel > 0 ? number_format($guildAverageItemLevel, 1) : '-'; ?></span>
+      </div>
+      <div class="guild-meta-card">
+        <span class="guild-meta-label">Established</span>
+        <span class="guild-meta-value"><?php echo htmlspecialchars($guildEstablishedLabel); ?></span>
       </div>
     </div>
   </div>
@@ -440,6 +557,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
             <th>Race</th>
             <th>Class</th>
             <th>Level</th>
+            <th>Avg iLvl</th>
             <th>Guild Rank</th>
           </tr>
         </thead>
@@ -456,17 +574,18 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
                 <td>
                   <div class="guild-member class-<?php echo $memberClassSlug; ?>">
                     <img class="guild-portrait" src="<?php echo $portrait; ?>" alt="<?php echo htmlspecialchars($member['name']); ?>">
-                    <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($member['name']); ?>&realm=<?php echo urlencode($armoryRealm); ?>"><?php echo htmlspecialchars($member['name']); ?></a>
+                    <a href="index.php?n=server&sub=character&realm=<?php echo (int)$realmId; ?>&character=<?php echo urlencode($member['name']); ?>"><?php echo htmlspecialchars($member['name']); ?></a>
                   </div>
                 </td>
                 <td><img class="guild-race-icon" src="/templates/offlike/images/icons/race/<?php echo $member['race'].'-'.$member['gender']; ?>.gif" alt="<?php echo htmlspecialchars($memberRaceName); ?>" title="<?php echo htmlspecialchars($memberRaceName); ?>"></td>
                 <td><img class="guild-class-icon" src="/templates/offlike/images/icons/class/<?php echo $member['class']; ?>.jpg" alt="<?php echo htmlspecialchars($memberClassName); ?>" title="<?php echo htmlspecialchars($memberClassName); ?>"></td>
                 <td><?php echo (int)$member['level']; ?></td>
+                <td><?php echo !empty($memberAverageItemLevels[(int)$member['guid']]) ? number_format((float)$memberAverageItemLevels[(int)$member['guid']], 1) : '-'; ?></td>
                 <td class="guild-rank"><?php echo htmlspecialchars(!empty($member['rank_name']) ? $member['rank_name'] : ('Rank ' . (int)$member['rank'])); ?></td>
               </tr>
             <?php endforeach; ?>
           <?php else: ?>
-            <tr><td colspan="5">No roster members matched the current filter.</td></tr>
+            <tr><td colspan="6">No roster members matched the current filter.</td></tr>
           <?php endif; ?>
         </tbody>
       </table>
@@ -484,7 +603,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
 
       <section class="guild-section guild-insights-panel">
         <h3 class="guild-side-title">Roster Overview</h3>
-        <p class="guild-side-copy"><?php echo $guildMembers; ?> members, average level <?php echo $avgLevel; ?>, max level <?php echo $maxLevel; ?>.</p>
+        <p class="guild-side-copy"><?php echo $guildMembers; ?> members, average level <?php echo $avgLevel; ?>, guild average iLvl <?php echo $guildAverageItemLevel > 0 ? number_format($guildAverageItemLevel, 1) : '-'; ?>, max level <?php echo $maxLevel; ?>.</p>
 
         <div class="guild-divider">
           <h3 class="guild-side-title">Class Breakdown</h3>

@@ -110,6 +110,11 @@ function load_characters_for_user() {
             $CHDB = DbSimple_Generic::connect($dsn);
             $CHDB->setErrorHandler('databaseErrorHandler');
 
+            $realmName = $this->DB->selectCell('SELECT name FROM realmlist WHERE id=?d', (int)$id);
+            if (empty($realmName)) {
+                $realmName = $realmInfo['label'] ?? ('Realm ' . (int)$id);
+            }
+
             $chars = $CHDB->select("
                 SELECT guid, name, race, class, level
                 FROM characters
@@ -124,14 +129,15 @@ function load_characters_for_user() {
 
             foreach ($chars as &$char) {
                 $char['realm_id']   = $id;
-                $char['realm_name'] = $realmInfo['label'];
+                $char['realm_name'] = $realmName;
             }
 
             $GLOBALS['characters'] = array_merge($GLOBALS['characters'], $chars);
-            error_log("[AUTH] Added " . count($chars) . " from {$realmInfo['label']}");
+            error_log("[AUTH] Added " . count($chars) . " from {$realmName}");
 
         } catch (Exception $e) {
-            error_log("[AUTH] Failed loading characters for realm {$realmInfo['label']}: " . $e->getMessage());
+            $realmLogName = $realmInfo['label'] ?? ('Realm ' . (int)$id);
+            error_log("[AUTH] Failed loading characters for realm {$realmLogName}: " . $e->getMessage());
         }
     }
 

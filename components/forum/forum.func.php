@@ -61,15 +61,55 @@ function declension($int, $expressions)
     return $result;
 }
 
-function isValidChar($user)
+function isValidChar($user, $realmId = null)
 {
     if(!isset($user['character_id']) || empty($user['character_id']) ||
        !isset($user['character_name']) || empty($user['character_name']))
     {
         return false;
     }
+
+    if ($realmId !== null && function_exists('spp_get_pdo')) {
+        try {
+            $charsPdo = spp_get_pdo('chars', (int)$realmId);
+            $stmt = $charsPdo->prepare('SELECT COUNT(1) FROM `characters` WHERE `guid` = :guid AND `name` = :name AND `account` = :account');
+            $stmt->execute([
+                ':guid' => (int)$user['character_id'],
+                ':name' => (string)$user['character_name'],
+                ':account' => (int)$user['id'],
+            ]);
+            return ((int)$stmt->fetchColumn() === 1);
+        } catch (Throwable $e) {
+            error_log('[forum.isValidChar] Realm character validation failed: ' . $e->getMessage());
+        }
+    }
+
     return ($GLOBALS['CHDB']->selectCell('SELECT COUNT(1) AS cnt FROM `characters` WHERE `guid`=?d AND name=? AND account=?d',
                                          $user['character_id'], $user['character_name'], $user['id']) == 1);
+}
+
+function resolve_forum_character_for_realm(array $user, int $realmId)
+{
+    $characters = $GLOBALS['characters'] ?? [];
+    if (!is_array($characters) || empty($characters) || empty($user['id'])) {
+        return null;
+    }
+
+    $cookieCharacterId = (int)($_COOKIE['cur_selected_character'] ?? 0);
+
+    foreach ($characters as $character) {
+        if ((int)($character['realm_id'] ?? 0) === $realmId && (int)$character['guid'] === $cookieCharacterId) {
+            return $character;
+        }
+    }
+
+    foreach ($characters as $character) {
+        if ((int)($character['realm_id'] ?? 0) === $realmId && !empty($character['guid']) && !empty($character['name'])) {
+            return $character;
+        }
+    }
+
+    return null;
 }
 
 function get_character_portrait_path($guid, $gender, $race, $class)

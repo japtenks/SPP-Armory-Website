@@ -21,6 +21,25 @@ function print_time($t){
   echo implode(', ',$out);
 }
 
+function connect_realm_db($realmData, $dbName){
+  if (!$realmData || $dbName === '') {
+    return null;
+  }
+
+  $dbPort = (int)$realmData['dbport'];
+  if ((int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port) {
+    $dbPort = (int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port;
+  }
+
+  $dsn = 'mysql://' . $realmData['dbuser'] . ':' . $realmData['dbpass'] . '@' . $realmData['dbhost'] . ':' . $dbPort . '/' . $dbName;
+  $conn = DbSimple_Generic::connect($dsn);
+  if ($conn) {
+    $conn->query('SET NAMES utf8');
+  }
+
+  return $conn;
+}
+
 /* ---------- Realm Data Build ---------- */
 $realm_flags_def=[0=>"Normal",1=>"PvP",4=>"RP",8=>"RPPvP"];
 $items=[];
@@ -30,9 +49,12 @@ foreach($realms as $r){
   $realm_id=(int)$r['id'];
   $realm_name=$r['name'];
   $realm_type=$realm_flags_def[$r['realmflags']&0x0F]??"Normal";
-  $is_online=($r['realmflags']!=1&&($r['realmflags']&2)!=2);
+  $realmData=$DB->selectRow("SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $realm_id);
+  $checkAddress=(int)$MW->getConfig->generic->use_local_ip_port_test ? '127.0.0.1' : $r['address'];
+  $is_online=check_port_status($checkAddress, $r['port'])===true;
   
   $res_color = $is_online ? 1 : 0;
+  $res_img = $is_online ? './templates/tbc/images/uparrow2.gif' : './templates/tbc/images/downarrow2.gif';
   $build_ver=trim($r['realmbuilds']);
 
   // Determine expansion by build version
@@ -40,19 +62,24 @@ foreach($realms as $r){
   if(preg_match('/8[6-9][0-9]{2}/',$build_ver))$exp="tbc";
   elseif(preg_match('/[12][0-9]{4}/',$build_ver))$exp="wotlk";
 
+  $charDbName = $realmData['chardbname'] ?? '';
+  $worldDbName = $realmData['dbname'] ?? '';
+  $CHDB_EXTRA = connect_realm_db($realmData, $charDbName);
+  $WSDB_EXTRA = connect_realm_db($realmData, $worldDbName);
+
   // uptime stats
   $uptime=0;$avg_uptime=0;$restart_count=0;
-  if($is_online){
+  if($WSDB_EXTRA){
     $uptimeStart=$DB->selectCell("SELECT starttime FROM uptime WHERE realmid=?d ORDER BY starttime DESC LIMIT 1",$realm_id);
     if($uptimeStart)$uptime=time()-$uptimeStart;
     $avg_uptime=$DB->selectCell("SELECT ROUND(AVG(uptime)/3600,2) FROM uptime WHERE realmid=?d AND starttime>UNIX_TIMESTAMP(DATE_SUB(NOW(),INTERVAL 7 DAY))",$realm_id);
     $restart_count=$DB->selectCell("SELECT COUNT(*) FROM uptime WHERE realmid=?d AND starttime>=UNIX_TIMESTAMP(CURDATE())",$realm_id);
     if($restart_count==0 && $is_online)$restart_count=1; // current session counts as one
   }
-	else
- 	 $avg_uptime=$DB->selectCell("SELECT ROUND(AVG(uptime)/3600,2) FROM uptime WHERE realmid=?d AND starttime>UNIX_TIMESTAMP(DATE_SUB(NOW(),INTERVAL 7 DAY))",$realm_id);
-     $restart_count=$DB->selectCell("SELECT COUNT(*) FROM uptime WHERE realmid=?d AND starttime>=UNIX_TIMESTAMP(CURDATE())",$realm_id);
- 		
+  else {
+    $avg_uptime=$DB->selectCell("SELECT ROUND(AVG(uptime)/3600,2) FROM uptime WHERE realmid=?d AND starttime>UNIX_TIMESTAMP(DATE_SUB(NOW(),INTERVAL 7 DAY))",$realm_id);
+    $restart_count=$DB->selectCell("SELECT COUNT(*) FROM uptime WHERE realmid=?d AND starttime>=UNIX_TIMESTAMP(CURDATE())",$realm_id);
+  }
  
 
   // player/faction/progression
@@ -60,41 +87,37 @@ foreach($realms as $r){
   $progress=['MC','Ony','BWL','ZG','AQ','Naxx','Kara','SSC','TK','BT','SWP','Naxx25','Ulduar','ICC'];
   foreach($progress as $p)$state[$p]='uncleared';
 
- 
-    if($realm_id==1)$charDB="classiccharacters";
-    elseif($realm_id==2)$charDB="tbccharacters";
-    elseif($realm_id==3)$charDB="wotlkcharacters";
-    else $charDB="";
-
-    if($charDB){
-      $pop=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.characters WHERE online=1");
-      $alli=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.characters WHERE online=1 AND race IN (1,3,4,7,11)");
-      $horde=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.characters WHERE online=1 AND race IN (2,5,6,8,10)");
-      $avg_lvl=$DB->selectCell("SELECT ROUND(AVG(level),1) FROM {$charDB}.characters WHERE online=1");
-      $max_lvl=$DB->selectCell("SELECT MAX(level) FROM {$charDB}.characters");
+    if($CHDB_EXTRA){
+      $pop=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `characters` WHERE online=1");
+      $alli=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `characters` WHERE online=1 AND race IN (1,3,4,7,11)");
+      $horde=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `characters` WHERE online=1 AND race IN (2,5,6,8,10)");
+      $avg_lvl=$CHDB_EXTRA->selectCell("SELECT ROUND(AVG(level),1) FROM `characters` WHERE online=1");
+      $max_lvl=$CHDB_EXTRA->selectCell("SELECT MAX(level) FROM `characters`");
 
       // ---- Progression checks per expansion ----
       if($exp=="classic"){
-        $state['MC']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (16866,16854,16867,16868,16865,16863,16861,16862)")>3?'cleared':'uncleared';
-        $state['Ony']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (16963,16964,16965,16966,16967,16968,16969,16970)")>3?'cleared':'uncleared';
-        $state['BWL']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (16911,16924,16932,16940,16945,16953,16961,16968)")>3?'partial':'uncleared';
-        $state['ZG']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (19802,19854,19822,19862,19848,19910)")>3?'cleared':'uncleared';
-        $state['AQ']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (21329,21330,21331,21332,21333,21220)")>3?'partial':'uncleared';
-        $state['Naxx']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (22416,22417,22418,22419,22420,22421,22422,22423)")>2?'partial':'uncleared';
+        $state['MC']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (16866,16854,16867,16868,16865,16863,16861,16862)")>3?'cleared':'uncleared';
+        $state['Ony']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (16963,16964,16965,16966,16967,16968,16969,16970)")>3?'cleared':'uncleared';
+        $state['BWL']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (16911,16924,16932,16940,16945,16953,16961,16968)")>3?'partial':'uncleared';
+        $state['ZG']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (19802,19854,19822,19862,19848,19910)")>3?'cleared':'uncleared';
+        $state['AQ']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (21329,21330,21331,21332,21333,21220)")>3?'partial':'uncleared';
+        $state['Naxx']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (22416,22417,22418,22419,22420,22421,22422,22423)")>2?'partial':'uncleared';
       }
       elseif($exp=="tbc"){
-        $state['Kara']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (29066,29067,29068,29069,29070)")>3?'cleared':'uncleared';
-        $state['SSC']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (30245,30246,30247,30248,30249)")>3?'partial':'uncleared';
-        $state['TK']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (30233,30234,30235,30236,30237)")>3?'partial':'uncleared';
-        $state['BT']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (30969,30970,30971,30972,30974)")>3?'partial':'uncleared';
-        $state['SWP']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (34332,34333,34334,34335,34336)")>2?'partial':'uncleared';
+        $state['Kara']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (29066,29067,29068,29069,29070)")>3?'cleared':'uncleared';
+        $state['SSC']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (30245,30246,30247,30248,30249)")>3?'partial':'uncleared';
+        $state['TK']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (30233,30234,30235,30236,30237)")>3?'partial':'uncleared';
+        $state['BT']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (30969,30970,30971,30972,30974)")>3?'partial':'uncleared';
+        $state['SWP']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (34332,34333,34334,34335,34336)")>2?'partial':'uncleared';
       }
       elseif($exp=="wotlk"){
-        $state['Naxx25']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (40554,40557,40559,40560,40562)")>3?'cleared':'uncleared';
-        $state['Ulduar']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (45340,45341,45342,45343,45344)")>3?'partial':'uncleared';
-        $state['ICC']=$DB->selectCell("SELECT COUNT(*) FROM {$charDB}.item_instance WHERE itemEntry IN (51155,51156,51157,51158,51159)")>3?'partial':'uncleared';
+        $state['Naxx25']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (40554,40557,40559,40560,40562)")>3?'cleared':'uncleared';
+        $state['Ulduar']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (45340,45341,45342,45343,45344)")>3?'partial':'uncleared';
+        $state['ICC']=$CHDB_EXTRA->selectCell("SELECT COUNT(*) FROM `item_instance` WHERE itemEntry IN (51155,51156,51157,51158,51159)")>3?'partial':'uncleared';
       }
     }
+
+  unset($CHDB_EXTRA, $WSDB_EXTRA);
   
 
   $items[]=[
