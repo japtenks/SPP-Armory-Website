@@ -547,7 +547,7 @@ function modernHideTooltip() {
 <div class="item-search-shell">
   <section class="item-search-intro">
     <div>
-      <h1 class="item-search-title">Modern Armory Item Search</h1>
+     
       <p class="item-search-copy">This version reads the visible item data directly from the live realm databases and loads the full item tooltip on demand when you hover an item.</p>
     </div>
 

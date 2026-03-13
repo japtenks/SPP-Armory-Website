@@ -45,16 +45,12 @@ if ($realmId === null) {
     $realmId = spp_resolve_realm_id($realmMap);
 }
 
-$armoryRealmName = defined('DefaultRealmName') ? DefaultRealmName : null;
-foreach ($realms as $realmName => $realmInfo) {
-    if ((int)$realmInfo[0] === (int)$realmId) {
-        $armoryRealmName = $realmName;
-        break;
-    }
-}
-if (!$armoryRealmName) {
+$realmConfig = $realmMap[$realmId] ?? null;
+if (!is_array($realmConfig)) {
     die('Unable to resolve realm for talent calculator.');
 }
+
+$armoryRealmName = spp_get_armory_realm_name($realmId) ?? ($realmConfig['label'] ?? ('Realm ' . (int)$realmId));
 
 if (!function_exists('server_talents_init_db')) {
     function server_talents_init_db($connectionInfo)
@@ -68,10 +64,14 @@ if (!function_exists('server_talents_init_db')) {
     }
 }
 
-$DB = server_talents_init_db($realmd_DB[$realms[$armoryRealmName][0]]);
-$WSDB = server_talents_init_db($mangosd_DB[$realms[$armoryRealmName][2]]);
-$CHDB = server_talents_init_db($characters_DB[$realms[$armoryRealmName][1]]);
-$ARDB = server_talents_init_db($armory_DB[$realms[$armoryRealmName][3]]);
+$hostport = $db['host'] . ':' . $db['port'];
+$DB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['realmd']));
+$WSDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['world']));
+$CHDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['chars']));
+$ARDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['armory']));
+if (!empty($realmConfig['bots'])) {
+    $PBDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['bots']));
+}
 
 if (!defined('REALM_NAME')) {
     define('REALM_NAME', $armoryRealmName);
@@ -226,7 +226,6 @@ echo '<div class="server-talents-shell' . ($isProfileMode ? ' is-profile' : '') 
 include($siteRoot . ($isProfileMode ? '/armory/source/character-talents.php' : '/armory/source/talent-calc.php'));
 echo '</div>';
 if (!$isEmbedMode) builddiv_end();
-
 
 
 

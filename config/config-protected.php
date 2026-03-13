@@ -71,18 +71,53 @@ if (!function_exists('spp_get_pdo')) {
         static $connections = [];
 
         $config = spp_get_db_config($target, $realmId);
-        $cacheKey = $target . ':' . $config['realm_id'];
+        $cacheKey = $target . ':' . $config['realm_id'] . ':' . $config['name'];
 
         if (!isset($connections[$cacheKey])) {
-            $connections[$cacheKey] = new PDO(
-                "mysql:host={$config['host']};port={$config['port']};dbname={$config['name']};charset={$config['charset']}",
-                $config['user'],
-                $config['pass'],
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                ]
-            );
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ];
+
+            try {
+                $connections[$cacheKey] = new PDO(
+                    "mysql:host={$config['host']};port={$config['port']};dbname={$config['name']};charset={$config['charset']}",
+                    $config['user'],
+                    $config['pass'],
+                    $options
+                );
+            } catch (Throwable $e) {
+                if ($target !== 'armory') {
+                    throw $e;
+                }
+
+                $realmDbMap = $GLOBALS['realmDbMap'] ?? [];
+                $tried = [$config['name'] => true];
+                foreach ($realmDbMap as $fallbackRealm) {
+                    $fallbackName = $fallbackRealm['armory'] ?? null;
+                    if (!$fallbackName || isset($tried[$fallbackName])) {
+                        continue;
+                    }
+                    $tried[$fallbackName] = true;
+                    try {
+                        $fallbackCacheKey = $target . ':' . $config['realm_id'] . ':' . $fallbackName;
+                        if (!isset($connections[$fallbackCacheKey])) {
+                            $connections[$fallbackCacheKey] = new PDO(
+                                "mysql:host={$config['host']};port={$config['port']};dbname={$fallbackName};charset={$config['charset']}",
+                                $config['user'],
+                                $config['pass'],
+                                $options
+                            );
+                        }
+                        error_log('[config] armory fallback: using ' . $fallbackName . ' for realm ' . (int)$config['realm_id']);
+                        return $connections[$fallbackCacheKey];
+                    } catch (Throwable $fallbackError) {
+                        continue;
+                    }
+                }
+
+                throw $e;
+            }
         }
 
         return $connections[$cacheKey];

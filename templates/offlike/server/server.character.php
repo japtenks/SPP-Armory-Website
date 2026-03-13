@@ -10,16 +10,46 @@ function spp_character_table_exists(PDO $pdo, $tableName) {
     return $cache[$key] = (bool)$stmt->fetchColumn();
 }
 
-function spp_character_talent_points(PDO $charsPdo, PDO $armoryPdo, $guid, $tabId) {
+function spp_character_pick_dbc_pdo(array $candidates, $tableName) {
+    foreach ($candidates as $pdo) {
+        if ($pdo instanceof PDO && spp_character_table_exists($pdo, $tableName)) {
+            return $pdo;
+        }
+    }
+    return null;
+}
+
+function spp_character_talent_points(PDO $charsPdo, PDO $talentPdo, $guid, $tabId) {
     $guid = (int)$guid;
     $tabId = (int)$tabId;
     if ($guid <= 0 || $tabId <= 0) return 0;
     $points = 0;
     if (spp_character_table_exists($charsPdo, 'character_talent')) {
-        $stmt = $charsPdo->prepare('SELECT ct.`current_rank` FROM `character_talent` ct INNER JOIN `dbc_talent` dt ON dt.`id` = ct.`talent_id` WHERE ct.`guid` = ? AND dt.`ref_talenttab` = ?');
-        $stmt->execute(array($guid, $tabId));
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $points += (int)$row['current_rank'] + 1;
-        if ($points > 0) return $points;
+        $stmt = $charsPdo->prepare('SELECT `talent_id`, `current_rank` FROM `character_talent` WHERE `guid` = ?');
+        $stmt->execute(array($guid));
+        $talentRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!empty($talentRows) && spp_character_table_exists($talentPdo, 'dbc_talent')) {
+            $talentIds = array();
+            $rankByTalent = array();
+            foreach ($talentRows as $row) {
+                $talentId = (int)($row['talent_id'] ?? 0);
+                if ($talentId <= 0) continue;
+                $talentIds[$talentId] = true;
+                $rankByTalent[$talentId] = (int)($row['current_rank'] ?? 0);
+            }
+            if (!empty($talentIds)) {
+                $placeholders = implode(',', array_fill(0, count($talentIds), '?'));
+                $talentStmt = $talentPdo->prepare('SELECT `id`, `ref_talenttab` FROM `dbc_talent` WHERE `id` IN (' . $placeholders . ')');
+                $talentStmt->execute(array_keys($talentIds));
+                foreach ($talentStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    if ((int)($row['ref_talenttab'] ?? 0) === $tabId) {
+                        $talentId = (int)$row['id'];
+                        $points += ($rankByTalent[$talentId] ?? 0) + 1;
+                    }
+                }
+                if ($points > 0) return $points;
+            }
+        }
     }
     if (!spp_character_table_exists($charsPdo, 'character_spell')) return 0;
     $spellRows = $charsPdo->prepare('SELECT `spell` FROM `character_spell` WHERE `guid` = ? AND `disabled` = 0');
@@ -27,7 +57,8 @@ function spp_character_talent_points(PDO $charsPdo, PDO $armoryPdo, $guid, $tabI
     $learned = array();
     foreach ($spellRows->fetchAll(PDO::FETCH_ASSOC) as $row) $learned[(int)$row['spell']] = true;
     if (empty($learned)) return 0;
-    $stmt = $armoryPdo->prepare('SELECT `rank1`, `rank2`, `rank3`, `rank4`, `rank5` FROM `dbc_talent` WHERE `ref_talenttab` = ?');
+    if (!spp_character_table_exists($talentPdo, 'dbc_talent')) return 0;
+    $stmt = $talentPdo->prepare('SELECT `rank1`, `rank2`, `rank3`, `rank4`, `rank5` FROM `dbc_talent` WHERE `ref_talenttab` = ?');
     $stmt->execute(array($tabId));
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         for ($rank = 5; $rank >= 1; $rank--) {
@@ -59,6 +90,19 @@ function spp_character_columns(PDO $pdo, $tableName) {
     return $cache[$key] = $columns;
 }
 
+function spp_character_spellicon_fields(PDO $pdo) {
+    static $cache = array();
+    $key = spl_object_hash($pdo);
+    if (isset($cache[$key])) return $cache[$key];
+    $columns = spp_character_columns($pdo, 'dbc_spellicon');
+    $idField = isset($columns['id']) ? 'id' : (isset($columns['ID']) ? 'ID' : null);
+    $nameField = isset($columns['name']) ? 'name' : (isset($columns['TextureFilename']) ? 'TextureFilename' : null);
+    return $cache[$key] = array(
+        'id' => $idField,
+        'name' => $nameField,
+    );
+}
+
 function spp_character_portrait_path($level, $gender, $race, $class) {
     if ((int)$level <= 59) $bucket = 'wow-default';
     elseif ((int)$level <= 69) $bucket = 'wow';
@@ -71,9 +115,12 @@ function spp_character_icon_url($iconName) {
     $iconName = trim((string)$iconName);
     if ($iconName === '') return '/armory/images/icons/64x64/404.png';
     $basename = preg_replace('/\.(png|jpg|jpeg|gif)$/i', '', $iconName);
-    $xferPath = $_SERVER['DOCUMENT_ROOT'] . '/xfer/assets/images/' . $basename . '.png';
-    if (is_file($xferPath)) {
-        return '/xfer/assets/images/' . $basename . '.png';
+    $basename = strtolower($basename);
+    foreach (array('jpg', 'jpeg', 'png') as $extension) {
+        $xferPath = $_SERVER['DOCUMENT_ROOT'] . '/xfer/assets/images/' . $basename . '.' . $extension;
+        if (is_file($xferPath)) {
+            return '/xfer/assets/images/' . $basename . '.' . $extension;
+        }
     }
     return '/armory/images/icons/64x64/' . strtolower($basename) . '.png';
 }
@@ -327,7 +374,7 @@ $skillsByCategory = array();
 $professionsByCategory = array();
 $professionRecipesBySkillId = array();
 $knownCharacterSpells = array();
-$achievementSummary = array('supported' => false, 'count' => 0, 'points' => 0, 'recent' => array());
+$achievementSummary = array('supported' => false, 'count' => 0, 'points' => 0, 'recent' => array(), 'groups' => array());
 $recentGear = array();
 $lastInstance = '';
 $lastInstanceDate = 0;
@@ -336,7 +383,7 @@ $displayLocation = 'Unknown zone';
 $combatHighlights = array();
 $factionIcon = '';
 
-builddiv_start(1, 'Character Profile', 1);
+builddiv_start(1, 'Character Profile', 0);
 
 if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
     $pageError = 'The requested realm is unavailable.';
@@ -409,7 +456,19 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             }
         }
 
-        $stmt = $armoryPdo->prepare('SELECT tt.`id`, tt.`name`, tt.`tab_number`, si.`name` AS `icon_name` FROM `dbc_talenttab` tt LEFT JOIN `dbc_spellicon` si ON si.`id` = tt.`SpellIconID` WHERE (tt.`refmask_chrclasses` & ?) <> 0 ORDER BY tt.`tab_number` ASC');
+        $talentMetaPdo = spp_character_pick_dbc_pdo(array($worldPdo, $armoryPdo), 'dbc_talenttab') ?: $armoryPdo;
+        $talentDataPdo = spp_character_pick_dbc_pdo(array($worldPdo, $armoryPdo), 'dbc_talent') ?: $talentMetaPdo;
+        $spellIconPdo = spp_character_pick_dbc_pdo(array($talentMetaPdo, $worldPdo, $armoryPdo), 'dbc_spellicon') ?: $talentMetaPdo;
+        $spellIconFields = spp_character_spellicon_fields($spellIconPdo);
+        $talentTabSql = 'SELECT tt.`id`, tt.`name`, tt.`tab_number`, NULL AS `icon_name` FROM `dbc_talenttab` tt';
+        if ($spellIconFields['id'] && $spellIconFields['name']) {
+            $talentTabSql = 'SELECT tt.`id`, tt.`name`, tt.`tab_number`, si.`' . $spellIconFields['name'] . '` AS `icon_name` ' .
+                'FROM `dbc_talenttab` tt LEFT JOIN `dbc_spellicon` si ON si.`' . $spellIconFields['id'] . '` = tt.`SpellIconID` ' .
+                'WHERE (tt.`refmask_chrclasses` & ?) <> 0 ORDER BY tt.`tab_number` ASC';
+        } else {
+            $talentTabSql .= ' WHERE (tt.`refmask_chrclasses` & ?) <> 0 ORDER BY tt.`tab_number` ASC';
+        }
+        $stmt = $talentMetaPdo->prepare($talentTabSql);
         $stmt->execute(array(1 << ((int)$character['class'] - 1)));
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $tabRow) {
             $tabId = (int)$tabRow['id'];
@@ -417,7 +476,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
         }
         if (!empty($talentTabs)) {
             foreach ($talentTabs as $tabId => $tabMeta) {
-                $talentTabs[$tabId]['points'] = spp_character_talent_points($charsPdo, $armoryPdo, $characterGuid, $tabId);
+                $talentTabs[$tabId]['points'] = spp_character_talent_points($charsPdo, $talentDataPdo, $characterGuid, $tabId);
             }
         }
         if (spp_character_table_exists($charsPdo, 'character_reputation')) {
@@ -519,7 +578,16 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             $skillMap = array();
             if (!empty($skillIds)) {
                 $placeholders = implode(',', array_fill(0, count($skillIds), '?'));
-                $stmt = $armoryPdo->prepare('SELECT sl.`id`, sl.`name`, sl.`description`, sc.`name` AS `category_name`, si.`name` AS `icon_name` FROM `dbc_skillline` sl LEFT JOIN `dbc_skilllinecategory` sc ON sc.`id` = sl.`ref_skilllinecategory` LEFT JOIN `dbc_spellicon` si ON si.`id` = sl.`ref_spellicon` WHERE sl.`id` IN (' . $placeholders . ')');
+                $spellIconFields = spp_character_spellicon_fields($armoryPdo);
+                $skillSql = 'SELECT sl.`id`, sl.`name`, sl.`description`, sc.`name` AS `category_name`, NULL AS `icon_name` ' .
+                    'FROM `dbc_skillline` sl LEFT JOIN `dbc_skilllinecategory` sc ON sc.`id` = sl.`ref_skilllinecategory` ';
+                if ($spellIconFields['id'] && $spellIconFields['name']) {
+                    $skillSql = 'SELECT sl.`id`, sl.`name`, sl.`description`, sc.`name` AS `category_name`, si.`' . $spellIconFields['name'] . '` AS `icon_name` ' .
+                        'FROM `dbc_skillline` sl LEFT JOIN `dbc_skilllinecategory` sc ON sc.`id` = sl.`ref_skilllinecategory` ' .
+                        'LEFT JOIN `dbc_spellicon` si ON si.`' . $spellIconFields['id'] . '` = sl.`ref_spellicon` ';
+                }
+                $skillSql .= 'WHERE sl.`id` IN (' . $placeholders . ')';
+                $stmt = $armoryPdo->prepare($skillSql);
                 $stmt->execute(array_keys($skillIds));
                 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $skillMap[(int)$row['id']] = $row;
             }
@@ -746,7 +814,51 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             }
         }
 
-        if (spp_character_table_exists($charsPdo, 'character_achievement') && spp_character_table_exists($armoryPdo, 'dbc_achievement')) {
+        if (spp_character_table_exists($charsPdo, 'character_achievement')) {
+            $achievementSourcePdo = null;
+            $achievementQuerySql = '';
+            $achievementIconIdField = '';
+            $achievementIdField = 'id';
+            $achievementNameField = 'name';
+            $achievementDescriptionField = 'description';
+            $achievementPointsField = 'points';
+            $achievementCategoryField = 'category_id';
+            $achievementCategoryMap = array();
+
+            if (spp_character_table_exists($worldPdo, 'achievement_dbc')) {
+                $achievementSourcePdo = $worldPdo;
+                $achievementQuerySql =
+                    'SELECT a.`ID` AS `id`, a.`Title_Lang_enUS` AS `name`, a.`Description_Lang_enUS` AS `description`, ' .
+                    'a.`Points` AS `points`, a.`Category` AS `category_id`, a.`IconID` AS `icon_id` ' .
+                    'FROM `achievement_dbc` a WHERE a.`ID` IN (%s)';
+                $achievementIconIdField = 'icon_id';
+
+                if (spp_character_table_exists($worldPdo, 'achievement_category_dbc')) {
+                    foreach ($worldPdo->query('SELECT `ID`, `Name_Lang_enUS`, `Parent` FROM `achievement_category_dbc`')->fetchAll(PDO::FETCH_ASSOC) as $categoryRow) {
+                        $achievementCategoryMap[(int)$categoryRow['ID']] = array(
+                            'name' => trim((string)($categoryRow['Name_Lang_enUS'] ?? '')),
+                            'parent' => (int)($categoryRow['Parent'] ?? -1),
+                        );
+                    }
+                }
+            } elseif (spp_character_table_exists($armoryPdo, 'dbc_achievement')) {
+                $achievementSourcePdo = $armoryPdo;
+                $achievementQuerySql =
+                    'SELECT a.`id`, a.`name`, a.`description`, a.`points`, a.`ref_achievement_category` AS `category_id`, ' .
+                    'a.`ref_spellicon` AS `icon_id` FROM `dbc_achievement` a WHERE a.`id` IN (%s)';
+                $achievementIconIdField = 'icon_id';
+
+                if (spp_character_table_exists($armoryPdo, 'dbc_achievement_category')) {
+                    foreach ($armoryPdo->query('SELECT `id`, `name`, `ref_achievement_category` FROM `dbc_achievement_category`')->fetchAll(PDO::FETCH_ASSOC) as $categoryRow) {
+                        $achievementCategoryMap[(int)$categoryRow['id']] = array(
+                            'name' => trim((string)($categoryRow['name'] ?? '')),
+                            'parent' => (int)($categoryRow['ref_achievement_category'] ?? -1),
+                        );
+                    }
+                }
+            }
+
+            if ($achievementSourcePdo) {
             $achievementSummary['supported'] = true;
             $stmt = $charsPdo->prepare('SELECT `achievement`, `date` FROM `character_achievement` WHERE `guid` = ? ORDER BY `date` DESC');
             $stmt->execute(array($characterGuid));
@@ -757,14 +869,60 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             $achievementMap = array();
             if (!empty($achievementIds)) {
                 $placeholders = implode(',', array_fill(0, count($achievementIds), '?'));
-                $stmt = $armoryPdo->prepare('SELECT `id`, `name`, `description`, `points` FROM `dbc_achievement` WHERE `id` IN (' . $placeholders . ')');
+                $stmt = $achievementSourcePdo->prepare(sprintf($achievementQuerySql, $placeholders));
                 $stmt->execute(array_keys($achievementIds));
-                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $achievementMap[(int)$row['id']] = $row;
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $achievementMap[(int)$row[$achievementIdField]] = $row;
+            }
+            $achievementIconMap = array();
+            $achievementIconIds = array();
+            foreach ($achievementMap as $achievementRow) {
+                $iconId = (int)($achievementRow[$achievementIconIdField] ?? 0);
+                if ($iconId > 0) $achievementIconIds[$iconId] = true;
+            }
+            if (!empty($achievementIconIds) && spp_character_table_exists($armoryPdo, 'dbc_spellicon')) {
+                $spellIconFields = spp_character_spellicon_fields($armoryPdo);
+                if ($spellIconFields['id'] && $spellIconFields['name']) {
+                $placeholders = implode(',', array_fill(0, count($achievementIconIds), '?'));
+                    $stmt = $armoryPdo->prepare('SELECT `' . $spellIconFields['id'] . '` AS `id`, `' . $spellIconFields['name'] . '` AS `name` FROM `dbc_spellicon` WHERE `' . $spellIconFields['id'] . '` IN (' . $placeholders . ')');
+                    $stmt->execute(array_keys($achievementIconIds));
+                    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $iconRow) $achievementIconMap[(int)$iconRow['id']] = (string)$iconRow['name'];
+                }
             }
             foreach ($achievementRows as $index => $row) {
-                $achievement = $achievementMap[(int)$row['achievement']] ?? array('id' => (int)$row['achievement'], 'name' => 'Achievement #' . (int)$row['achievement'], 'description' => '', 'points' => 0);
-                $achievementSummary['points'] += (int)($achievement['points'] ?? 0);
-                if ($index < 12) $achievementSummary['recent'][] = $achievement;
+                $achievement = $achievementMap[(int)$row['achievement']] ?? array(
+                    'id' => (int)$row['achievement'],
+                    'name' => 'Achievement #' . (int)$row['achievement'],
+                    'description' => '',
+                    'points' => 0,
+                    'icon_id' => 0,
+                    'category_id' => 0,
+                );
+                $categoryId = (int)($achievement[$achievementCategoryField] ?? 0);
+                $categoryName = trim((string)($achievementCategoryMap[$categoryId]['name'] ?? ''));
+                $parentCategoryId = (int)($achievementCategoryMap[$categoryId]['parent'] ?? -1);
+                $parentCategoryName = trim((string)($achievementCategoryMap[$parentCategoryId]['name'] ?? ''));
+                if ($categoryName === '') $categoryName = 'Other';
+                $groupName = $parentCategoryName !== '' ? $parentCategoryName : $categoryName;
+                $subgroupName = $parentCategoryName !== '' ? $categoryName : '';
+                $iconId = (int)($achievement[$achievementIconIdField] ?? 0);
+                $achievementEntry = array(
+                    'id' => (int)($achievement[$achievementIdField] ?? $row['achievement']),
+                    'name' => (string)($achievement[$achievementNameField] ?? ('Achievement #' . (int)$row['achievement'])),
+                    'description' => trim((string)($achievement[$achievementDescriptionField] ?? '')),
+                    'points' => (int)($achievement[$achievementPointsField] ?? 0),
+                    'date' => (int)($row['date'] ?? 0),
+                    'date_label' => !empty($row['date']) ? gmdate('M j, Y', (int)$row['date']) : '',
+                    'icon' => spp_character_icon_url($achievementIconMap[$iconId] ?? 'INV_Misc_QuestionMark'),
+                    'category' => $categoryName,
+                    'group' => $groupName,
+                    'subgroup' => $subgroupName,
+                );
+                $achievementSummary['points'] += (int)($achievement[$achievementPointsField] ?? 0);
+                if ($index < 12) $achievementSummary['recent'][] = $achievementEntry;
+                if (!isset($achievementSummary['groups'][$groupName])) $achievementSummary['groups'][$groupName] = array();
+                if (!isset($achievementSummary['groups'][$groupName][$subgroupName])) $achievementSummary['groups'][$groupName][$subgroupName] = array();
+                $achievementSummary['groups'][$groupName][$subgroupName][] = $achievementEntry;
+            }
             }
         }
         if (spp_character_table_exists($charsPdo, 'character_armory_feed')) {
@@ -834,7 +992,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
     }
 }
 
-$realmLabel = $realmMap[$realmId]['label'] ?? 'Realm';
+$realmLabel = spp_get_armory_realm_name($realmId) ?? ($realmMap[$realmId]['label'] ?? 'Realm');
 $zoneName = isset($character['zone']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['zone']) : 'Unknown zone';
 $currentMapName = isset($character['map']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['map']) : 'Unknown zone';
 $normalizedZoneName = $zoneName !== 'Unknown zone' ? trim((string)$zoneName) : '';
@@ -929,7 +1087,7 @@ $resourceMap = array(
     1 => array('label' => 'Rage', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 100), 'class' => 'is-rage'),
     2 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
     3 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
-    4 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    4 => array('label' => 'Energy', 'current' => (int)($character['power1'] ?? 0), 'max' => max(100, (int)($stats['maxpower1'] ?? 0)), 'class' => 'is-energy'),
     5 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
     7 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
     8 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
@@ -983,9 +1141,19 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 ?>
 
 <style>
-.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-hero>*{position:relative;z-index:1}.character-hero-mark{position:absolute;right:320px;top:34px;bottom:34px;width:min(360px,26vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}.character-hero-mark img{width:100%;max-width:340px;max-height:100%;object-fit:contain;opacity:.14;filter:drop-shadow(0 10px 24px rgba(0,0,0,.3))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45)}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}.character-hero-mark{right:24px;top:auto;bottom:18px;width:min(300px,52vw);height:180px;justify-content:flex-end}.character-hero-mark img{max-width:220px;opacity:.1}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}.character-hero-mark{display:none}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
+.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-hero>*{position:relative;z-index:1}.character-hero-mark{position:absolute;right:320px;top:34px;bottom:34px;width:min(360px,26vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}.character-hero-mark img{width:100%;max-width:340px;max-height:100%;object-fit:contain;opacity:.14;filter:drop-shadow(0 10px 24px rgba(0,0,0,.3))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45)}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img,.character-achievement-icon{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub,.character-achievement-meta{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}.character-achievement-list{gap:14px}.character-achievement-item{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:start}.character-achievement-icon{width:48px;height:48px;display:block}.character-achievement-title{color:#f7edd0;font-size:1.02rem;font-weight:800;line-height:1.2}.character-achievement-points-badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,204,72,.08);color:#ffd467;font-weight:800}.character-achievement-sections{display:grid;gap:18px}.character-achievement-section{display:grid;gap:12px}.character-achievement-disclosure{border:1px solid rgba(255,196,0,.16);border-radius:18px;background:rgba(5,8,18,.38)}.character-achievement-disclosure[open]{background:rgba(5,8,18,.5)}.character-achievement-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;cursor:pointer;list-style:none}.character-achievement-summary::-webkit-details-marker{display:none}.character-achievement-summary::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}.character-achievement-disclosure[open]>.character-achievement-summary::after{content:'-'}.character-achievement-summary-text{display:flex;flex-direction:column;gap:4px;min-width:0}.character-achievement-section-title{margin:0;color:#ffe39a;font-size:1.15rem}.character-achievement-count{color:#aa9870;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-disclosure-body{display:grid;gap:12px;padding:0 18px 18px}.character-achievement-subtitle{margin:0 0 4px;color:#c7b07b;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}.character-hero-mark{right:24px;top:auto;bottom:18px;width:min(300px,52vw);height:180px;justify-content:flex-end}.character-hero-mark img{max-width:220px;opacity:.1}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}.character-hero-mark{display:none}.character-achievement-item{grid-template-columns:40px minmax(0,1fr)}.character-achievement-points-badge{grid-column:2}.character-achievement-summary{padding:12px 14px}.character-achievement-disclosure-body{padding:0 14px 14px}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid,.character-achievement-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
 .character-grid.character-grid-overview{grid-template-columns:minmax(300px,.86fr) minmax(0,1.5fr)}
 .character-grid.character-grid-sheet{grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr)}
+.character-achievement-section.is-collapsible{padding:0;border:1px solid rgba(255,196,0,.16);background:rgba(5,8,18,.38);overflow:hidden}
+.character-achievement-section.is-collapsible.is-open{background:rgba(5,8,18,.5)}
+.character-achievement-section.is-collapsible > .character-achievement-section-title{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;margin:0;cursor:pointer;user-select:none}
+.character-achievement-section.is-collapsible > .character-achievement-section-title::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}
+.character-achievement-section.is-collapsible.is-open > .character-achievement-section-title::after{content:'-'}
+.character-achievement-section-body{display:grid;gap:12px;padding:0 18px 18px}
+.character-achievement-section.is-collapsible:not(.is-open) > .character-achievement-section-body{display:none}
+.character-achievement-section-pinned > .character-achievement-section-title{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.character-achievement-section-pinned > .character-achievement-section-title::after{content:none}
+@media (max-width:720px){.character-achievement-section.is-collapsible > .character-achievement-section-title{padding:12px 14px}.character-achievement-section-body{padding:0 14px 14px}}
 .character-gear-showcase{padding:24px 20px 30px;background:radial-gradient(circle at center,rgba(66,49,154,.18),transparent 30%),linear-gradient(180deg,rgba(2,6,18,.98),rgba(2,4,12,1));overflow:hidden}
 .character-gear-showcase .character-panel-title{text-align:center}
 .character-gear-stage{position:relative;width:540px;max-width:100%;min-height:880px;margin:0 auto}
@@ -1467,9 +1635,58 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
   <?php if ($tab === 'reputation'): ?><section class="character-panel"><h2 class="character-panel-title">Reputation</h2><?php if (!empty($reputationSections)): ?><div class="character-reputation-sections"><?php foreach ($reputationSections as $sectionLabel => $sectionReputations): ?><section class="character-reputation-section"><h3 class="character-reputation-section-title"><?php echo htmlspecialchars($sectionLabel); ?></h3><div class="character-reputation-list"><?php foreach ($sectionReputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier']); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php elseif (!empty($reputations)): ?><div class="character-reputation-list"><?php foreach ($reputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier'] ?? spp_character_reputation_tier($reputation['label'] ?? 'neutral')); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div><?php else: ?><div class="character-empty">No visible reputations were found for this character.</div><?php endif; ?></section><?php endif; ?>
   <?php if ($tab === 'skills'): ?><section class="character-panel"><h2 class="character-panel-title">Skills</h2><?php if (!empty($skillsByCategory)): ?><div class="character-skill-sections"><?php foreach ($skillsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No non-class skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
   <?php if ($tab === 'professions'): ?><section class="character-panel"><h2 class="character-panel-title">Professions</h2><?php if (!empty($professionsByCategory)): ?><div class="character-skill-sections"><?php foreach ($professionsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if (!empty($skill['specializations'])): ?><div class="character-skill-specialization"><?php echo htmlspecialchars(implode(' / ', $skill['specializations'])); ?></div><?php endif; ?><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['rank_label'] ?? ($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max']))); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div><?php if (!empty($skill['recipes'])): ?><?php $recipeListId = 'recipe-list-' . preg_replace('/[^a-z0-9]+/i', '-', strtolower(($skill['name'] ?? 'skill') . '-' . ($skill['skill_id'] ?? 0))); ?><details class="character-profession-recipes"><summary><strong>Known Special Recipes</strong><span><?php echo (int)count($skill['recipes']); ?> tracked</span></summary><?php if (!empty($skill['recipe_filters'])): ?><div class="character-recipe-filters"><?php foreach ($skill['recipe_filters'] as $filterIndex => $filter): ?><button type="button" class="character-recipe-filter<?php echo $filterIndex === 0 ? ' is-active' : ''; ?>" onclick="sppRecipeFilter(this, '<?php echo htmlspecialchars($recipeListId); ?>', '<?php echo htmlspecialchars($filter['key']); ?>')"><?php echo htmlspecialchars($filter['label']); ?><?php if (!empty($filter['count']) && $filter['key'] !== 'all'): ?> <span>(<?php echo (int)$filter['count']; ?>)</span><?php endif; ?></button><?php endforeach; ?></div><?php endif; ?><div class="character-recipe-list" id="<?php echo htmlspecialchars($recipeListId); ?>"><?php foreach ($skill['recipes'] as $recipe): ?><a class="character-recipe-row quality-<?php echo (int)$recipe['quality']; ?>" data-tags="|<?php echo htmlspecialchars(implode('|', $recipe['tags'] ?? array('all'))); ?>|" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$recipe['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$recipe['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($recipe['icon']); ?>" alt="<?php echo htmlspecialchars($recipe['name']); ?>"><div><strong><?php echo htmlspecialchars($recipe['name']); ?></strong><?php if (($recipe['source'] ?? '') !== ''): ?><div class="character-recipe-source"><?php echo htmlspecialchars($recipe['source']); ?></div><?php endif; ?><div class="character-recipe-badges"><?php if (!empty($recipe['tag_map']['faction'])): ?><span class="character-recipe-badge is-faction">Faction</span><?php endif; ?><?php if (!empty($recipe['tag_map']['rare-drop'])): ?><span class="character-recipe-badge is-rare-drop">Rare Drop</span><?php endif; ?><?php if (!empty($recipe['tag_map']['endgame'])): ?><span class="character-recipe-badge is-endgame">300 Skill</span><?php endif; ?><?php if (!empty($recipe['tag_map']['flask'])): ?><span class="character-recipe-badge is-flask">Flask</span><?php endif; ?></div></div></a><?php endforeach; ?></div></details><?php elseif (stripos((string)$categoryName, 'profession') !== false || stripos((string)$categoryName, 'secondary') !== false): ?><div class="character-profession-recipes"><div class="character-recipe-empty">No tracked special recipes yet. Trainer-learned basics are still covered by the profession rank above.</div></div><?php endif; ?></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No professions or secondary skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
-  <?php if ($tab === 'achievements'): ?><section class="character-panel"><h2 class="character-panel-title">Achievements</h2><?php if ($achievementSummary['supported']): ?><div class="character-hero-grid" style="margin-bottom:18px;"><div class="character-stat-card"><span class="character-stat-label">Completed</span><div class="character-stat-value"><?php echo (int)$achievementSummary['count']; ?></div></div><div class="character-stat-card"><span class="character-stat-label">Points</span><div class="character-stat-value"><?php echo (int)$achievementSummary['points']; ?></div></div></div><?php if (!empty($achievementSummary['recent'])): ?><div class="character-achievement-list"><?php foreach ($achievementSummary['recent'] as $achievement): ?><div class="character-achievement-item"><strong><?php echo htmlspecialchars($achievement['name']); ?></strong><div class="character-skill-meta"><?php echo htmlspecialchars(trim((string)($achievement['description'] ?? ''))); ?></div><div class="character-skill-meta">+<span class="character-achievement-points"><?php echo (int)($achievement['points'] ?? 0); ?></span> points</div></div><?php endforeach; ?></div><?php else: ?><div class="character-empty">This character has no recorded achievements yet.</div><?php endif; ?><?php else: ?><div class="character-empty">Achievements are not available for this realm ruleset or database layout yet.</div><?php endif; ?></section><?php endif; ?>
+  <?php if ($tab === 'achievements'): ?><section class="character-panel"><h2 class="character-panel-title">Achievements</h2><?php if ($achievementSummary['supported']): ?><div class="character-hero-grid" style="margin-bottom:18px;"><div class="character-stat-card"><span class="character-stat-label">Completed</span><div class="character-stat-value"><?php echo (int)$achievementSummary['count']; ?></div></div><div class="character-stat-card"><span class="character-stat-label">Points</span><div class="character-stat-value"><?php echo (int)$achievementSummary['points']; ?></div></div></div><?php if (!empty($achievementSummary['recent'])): ?><section class="character-achievement-section" style="margin-bottom:22px;"><h3 class="character-achievement-section-title">Recent Earned</h3><div class="character-achievement-list"><?php foreach ($achievementSummary['recent'] as $achievement): ?><article class="character-achievement-item"><img class="character-achievement-icon" src="<?php echo htmlspecialchars($achievement['icon']); ?>" alt=""><div><div class="character-achievement-title"><?php echo htmlspecialchars($achievement['name']); ?></div><?php if (($achievement['description'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['description']); ?></div><?php endif; ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['category'] ?? ''); ?><?php if (($achievement['date_label'] ?? '') !== ''): ?> • <?php echo htmlspecialchars($achievement['date_label']); ?><?php endif; ?></div></div><div class="character-achievement-points-badge">+<?php echo (int)($achievement['points'] ?? 0); ?></div></article><?php endforeach; ?></div></section><?php endif; ?><?php if (!empty($achievementSummary['groups'])): ?><div class="character-achievement-sections"><?php foreach ($achievementSummary['groups'] as $groupName => $subgroups): ?><section class="character-achievement-section"><h3 class="character-achievement-section-title"><?php echo htmlspecialchars($groupName !== '' ? $groupName : 'Other'); ?></h3><?php foreach ($subgroups as $subgroupName => $achievements): ?><?php if ($subgroupName !== ''): ?><h4 class="character-achievement-subtitle"><?php echo htmlspecialchars($subgroupName); ?></h4><?php endif; ?><div class="character-achievement-grid"><?php foreach ($achievements as $achievement): ?><article class="character-achievement-item"><img class="character-achievement-icon" src="<?php echo htmlspecialchars($achievement['icon']); ?>" alt=""><div><div class="character-achievement-title"><?php echo htmlspecialchars($achievement['name']); ?></div><?php if (($achievement['description'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['description']); ?></div><?php endif; ?><?php if (($achievement['date_label'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['date_label']); ?></div><?php endif; ?></div><div class="character-achievement-points-badge">+<?php echo (int)($achievement['points'] ?? 0); ?></div></article><?php endforeach; ?></div><?php endforeach; ?></section><?php endforeach; ?></div><?php elseif (empty($achievementSummary['recent'])): ?><div class="character-empty">This character has no recorded achievements yet.</div><?php endif; ?><?php else: ?><div class="character-empty">Achievements are not available for this realm ruleset or database layout yet.</div><?php endif; ?></section><?php endif; ?>
 <?php endif; ?>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var achievementPanel = document.querySelector('.character-panel');
+  if (!achievementPanel) return;
+  var heading = achievementPanel.querySelector('.character-panel-title');
+  if (!heading || heading.textContent.trim() !== 'Achievements') return;
+
+  var sections = achievementPanel.querySelectorAll('.character-achievement-section');
+  sections.forEach(function (section) {
+    var title = section.querySelector(':scope > .character-achievement-section-title');
+    if (!title) return;
+
+    var body = document.createElement('div');
+    body.className = 'character-achievement-section-body';
+
+    while (title.nextSibling) {
+      body.appendChild(title.nextSibling);
+    }
+
+    if (!body.children.length) return;
+
+    section.appendChild(body);
+    section.classList.add('is-collapsible');
+
+    var pinned = title.textContent.trim() === 'Recent Earned';
+    if (pinned) {
+      section.classList.add('character-achievement-section-pinned', 'is-open');
+      return;
+    }
+
+    title.tabIndex = 0;
+    title.setAttribute('role', 'button');
+    title.setAttribute('aria-expanded', 'false');
+
+    var toggle = function () {
+      var isOpen = section.classList.toggle('is-open');
+      title.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    };
+
+    title.addEventListener('click', toggle);
+    title.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  });
+});
+</script>
 <?php builddiv_end(); ?>
 
 
