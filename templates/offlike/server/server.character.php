@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 
 function spp_character_table_exists(PDO $pdo, $tableName) {
@@ -9,6 +9,43 @@ function spp_character_table_exists(PDO $pdo, $tableName) {
     $stmt->execute(array($tableName));
     return $cache[$key] = (bool)$stmt->fetchColumn();
 }
+
+function spp_character_talent_points(PDO $charsPdo, PDO $armoryPdo, $guid, $tabId) {
+    $guid = (int)$guid;
+    $tabId = (int)$tabId;
+    if ($guid <= 0 || $tabId <= 0) return 0;
+    $points = 0;
+    if (spp_character_table_exists($charsPdo, 'character_talent')) {
+        $stmt = $charsPdo->prepare('SELECT ct.`current_rank` FROM `character_talent` ct INNER JOIN `dbc_talent` dt ON dt.`id` = ct.`talent_id` WHERE ct.`guid` = ? AND dt.`ref_talenttab` = ?');
+        $stmt->execute(array($guid, $tabId));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $points += (int)$row['current_rank'] + 1;
+        if ($points > 0) return $points;
+    }
+    if (!spp_character_table_exists($charsPdo, 'character_spell')) return 0;
+    $spellRows = $charsPdo->prepare('SELECT `spell` FROM `character_spell` WHERE `guid` = ? AND `disabled` = 0');
+    $spellRows->execute(array($guid));
+    $learned = array();
+    foreach ($spellRows->fetchAll(PDO::FETCH_ASSOC) as $row) $learned[(int)$row['spell']] = true;
+    if (empty($learned)) return 0;
+    $stmt = $armoryPdo->prepare('SELECT `rank1`, `rank2`, `rank3`, `rank4`, `rank5` FROM `dbc_talent` WHERE `ref_talenttab` = ?');
+    $stmt->execute(array($tabId));
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        for ($rank = 5; $rank >= 1; $rank--) {
+            $spellId = (int)($row['rank' . $rank] ?? 0);
+            if ($spellId > 0 && isset($learned[$spellId])) {
+                $points += $rank;
+                break;
+            }
+        }
+    }
+    return $points;
+}
+
+function spp_character_reputation_tier($label) {
+    $key = strtolower(trim((string)$label));
+    return preg_replace('/[^a-z0-9]+/', '-', $key);
+}
+
 
 function spp_character_columns(PDO $pdo, $tableName) {
     static $cache = array();
@@ -84,8 +121,16 @@ $stats = array();
 $equipment = array();
 $talentTabs = array();
 $reputations = array();
+$reputationSections = array();
 $skillsByCategory = array();
 $achievementSummary = array('supported' => false, 'count' => 0, 'points' => 0, 'recent' => array());
+$recentGear = array();
+$lastInstance = '';
+$lastInstanceDate = 0;
+$currentMapName = 'Unknown zone';
+$displayLocation = 'Unknown zone';
+$combatHighlights = array();
+$factionIcon = '';
 
 builddiv_start(1, 'Character Profile', 1);
 
@@ -99,8 +144,8 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
         $worldPdo = spp_get_pdo('world', $realmId);
         $armoryPdo = spp_get_pdo('armory', $realmId);
         $characterColumns = spp_character_columns($charsPdo, 'characters');
-        $selectColumns = array('guid', 'name', 'race', 'class', 'gender', 'level', 'zone', 'online', 'totaltime');
-        foreach (array('health', 'power1', 'stored_honorable_kills', 'stored_honor_rating', 'honor_highest_rank', 'totalKills', 'totalHonorPoints') as $columnName) {
+        $selectColumns = array('guid', 'name', 'race', 'class', 'gender', 'level', 'zone', 'map', 'online', 'totaltime');
+        foreach (array('health', 'power1', 'power2', 'stored_honorable_kills', 'stored_honor_rating', 'honor_highest_rank', 'totalKills', 'totalHonorPoints') as $columnName) {
             if (isset($characterColumns[$columnName])) $selectColumns[] = $columnName;
         }
         $sql = 'SELECT c.`' . implode('`, c.`', $selectColumns) . '`, gm.`guildid`, g.`name` AS `guild_name` FROM `characters` c LEFT JOIN `guild_member` gm ON gm.`guid` = c.`guid` LEFT JOIN `guild` g ON g.`guildid` = gm.`guildid`';
@@ -119,7 +164,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
         }
 
         if (spp_character_table_exists($charsPdo, 'character_inventory')) {
-            $stmt = $charsPdo->prepare('SELECT `slot`, `item_template` FROM `character_inventory` WHERE `guid` = ? AND `bag` = 0 AND `slot` BETWEEN 0 AND 18 ORDER BY `slot` ASC');
+            $stmt = $charsPdo->prepare('SELECT `slot`, `item`, `item_template` FROM `character_inventory` WHERE `guid` = ? AND `bag` = 0 AND `slot` BETWEEN 0 AND 18 ORDER BY `slot` ASC');
             $stmt->execute(array($characterGuid));
             $inventoryRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $itemIds = array();
@@ -149,6 +194,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                 $itemRow = $itemMap[$entry];
                 $equipment[$slotId] = array(
                     'slot_name' => $slotNames[$slotId] ?? ('Slot ' . $slotId),
+                    'item_guid' => isset($row['item']) ? (int)$row['item'] : 0,
                     'entry' => $entry,
                     'name' => (string)$itemRow['name'],
                     'quality' => (int)$itemRow['Quality'],
@@ -165,36 +211,40 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             $tabId = (int)$tabRow['id'];
             $talentTabs[$tabId] = array('name' => (string)$tabRow['name'], 'points' => 0, 'icon' => spp_character_icon_url($tabRow['icon_name'] ?? ''));
         }
-        if (!empty($talentTabs) && spp_character_table_exists($charsPdo, 'character_talent')) {
-            $stmt = $charsPdo->prepare('SELECT `talent_id`, `current_rank` FROM `character_talent` WHERE `guid` = ?');
-            $stmt->execute(array($characterGuid));
-            $talentRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $talentIds = array();
-            foreach ($talentRows as $row) $talentIds[(int)$row['talent_id']] = true;
-            if (!empty($talentIds)) {
-                $placeholders = implode(',', array_fill(0, count($talentIds), '?'));
-                $stmt = $armoryPdo->prepare('SELECT `id`, `ref_talenttab` FROM `dbc_talent` WHERE `id` IN (' . $placeholders . ')');
-                $stmt->execute(array_keys($talentIds));
-                $talentMap = array();
-                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $talentMap[(int)$row['id']] = (int)$row['ref_talenttab'];
-                foreach ($talentRows as $row) {
-                    $talentId = (int)$row['talent_id'];
-                    $tabId = $talentMap[$talentId] ?? 0;
-                    if ($tabId > 0 && isset($talentTabs[$tabId])) $talentTabs[$tabId]['points'] += (int)$row['current_rank'] + 1;
-                }
+        if (!empty($talentTabs)) {
+            foreach ($talentTabs as $tabId => $tabMeta) {
+                $talentTabs[$tabId]['points'] = spp_character_talent_points($charsPdo, $armoryPdo, $characterGuid, $tabId);
             }
         }
         if (spp_character_table_exists($charsPdo, 'character_reputation')) {
-            $stmt = $charsPdo->prepare('SELECT `faction`, `standing`, `flags` FROM `character_reputation` WHERE `guid` = ? AND (`flags` & 1 = 1)');
+            $reputationSectionIds = array(
+                1118 => 'Classic',
+                469 => 'Alliance',
+                891 => 'Alliance Forces',
+                1037 => 'Classic',
+                67 => 'Horde',
+                892 => 'Horde Forces',
+                1052 => 'Classic',
+                936 => 'Shattrath City',
+                1117 => 'Classic',
+                169 => 'Steamwheedle Cartel',
+                980 => 'Outland',
+                1097 => 'Classic',
+                0 => 'Other',
+            );
+            $sectionFactionIds = array_keys($reputationSectionIds);
+            $stmt = $charsPdo->prepare('SELECT `faction`, `standing`, `flags` FROM `character_reputation` WHERE `guid` = ? AND (`flags` & 1 = 1)' . (!empty($sectionFactionIds) ? ' AND `faction` NOT IN (' . implode(', ', array_map('intval', $sectionFactionIds)) . ')' : ''));
             $stmt->execute(array($characterGuid));
             $repRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $factionIds = array();
             foreach ($repRows as $row) $factionIds[(int)$row['faction']] = true;
             $factionMap = array();
+            $sectionNameMap = $reputationSectionIds;
             if (!empty($factionIds)) {
                 $placeholders = implode(',', array_fill(0, count($factionIds), '?'));
                 $factionColumns = spp_character_columns($armoryPdo, 'dbc_faction');
                 $selectParts = array('`id`', '`name`', '`description`');
+                if (isset($factionColumns['ref_faction'])) $selectParts[] = '`ref_faction`';
                 for ($idx = 0; $idx <= 4; $idx++) {
                     $raceField = 'base_ref_chrraces_' . $idx;
                     $modifierField = 'base_modifier_' . $idx;
@@ -204,6 +254,23 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                 $stmt = $armoryPdo->prepare('SELECT ' . implode(', ', $selectParts) . ' FROM `dbc_faction` WHERE `id` IN (' . $placeholders . ')');
                 $stmt->execute(array_keys($factionIds));
                 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $factionMap[(int)$row['id']] = $row;
+                $sectionLookupIds = array();
+                foreach ($factionMap as $row) {
+                    $sectionId = (int)($row['ref_faction'] ?? 0);
+                    if ($sectionId > 0) $sectionLookupIds[$sectionId] = true;
+                }
+                $missingSectionIds = array();
+                foreach (array_keys($sectionLookupIds) as $sectionId) {
+                    if (!isset($sectionNameMap[$sectionId])) $missingSectionIds[] = $sectionId;
+                }
+                if (!empty($missingSectionIds)) {
+                    $sectionPlaceholders = implode(',', array_fill(0, count($missingSectionIds), '?'));
+                    $stmt = $armoryPdo->prepare('SELECT `id`, `name` FROM `dbc_faction` WHERE `id` IN (' . $sectionPlaceholders . ')');
+                    $stmt->execute($missingSectionIds);
+                    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $sectionRow) {
+                        $sectionNameMap[(int)$sectionRow['id']] = trim((string)$sectionRow['name']) !== '' ? (string)$sectionRow['name'] : ('Group ' . (int)$sectionRow['id']);
+                    }
+                }
             }
             foreach ($repRows as $row) {
                 $faction = $factionMap[(int)$row['faction']] ?? null;
@@ -219,7 +286,23 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                     }
                 }
                 $rank = spp_character_rep_rank($standing);
-                $reputations[] = array('name' => (string)$faction['name'], 'description' => trim((string)($faction['description'] ?? '')), 'label' => $rank['label'], 'value' => $rank['value'], 'max' => $rank['max'], 'standing' => $standing, 'percent' => $rank['max'] > 0 ? min(100, max(0, round(($rank['value'] / $rank['max']) * 100))) : 0);
+                $sectionId = (int)($faction['ref_faction'] ?? 0);
+                $sectionLabel = $sectionNameMap[$sectionId] ?? ($sectionId > 0 ? ('Group ' . $sectionId) : 'Other');
+                $entry = array(
+                    'name' => (string)$faction['name'],
+                    'description' => trim((string)($faction['description'] ?? '')),
+                    'label' => $rank['label'],
+                    'tier' => spp_character_reputation_tier($rank['label']),
+                    'value' => $rank['value'],
+                    'max' => $rank['max'],
+                    'standing' => $standing,
+                    'percent' => $rank['max'] > 0 ? min(100, max(0, round(($rank['value'] / $rank['max']) * 100))) : 0,
+                    'section_id' => $sectionId,
+                    'section' => $sectionLabel,
+                );
+                $reputations[] = $entry;
+                if (!isset($reputationSections[$sectionLabel])) $reputationSections[$sectionLabel] = array();
+                $reputationSections[$sectionLabel][] = $entry;
             }
         }
 
@@ -270,6 +353,67 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                 if ($index < 12) $achievementSummary['recent'][] = $achievement;
             }
         }
+        if (spp_character_table_exists($charsPdo, 'character_armory_feed')) {
+            $stmt = $charsPdo->prepare('SELECT `type`, `data`, `date` FROM `character_armory_feed` WHERE `guid` = ? AND `type` IN (2, 3) ORDER BY `date` DESC LIMIT 25');
+            $stmt->execute(array($characterGuid));
+            $feedRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $recentGearFeed = array();
+            foreach ($feedRows as $feedRow) {
+                $feedType = (int)$feedRow['type'];
+                $feedData = (int)$feedRow['data'];
+                if ($feedType === 2 && $feedData > 0 && !isset($recentGearFeed[$feedData]) && count($recentGearFeed) < 5) {
+                    $recentGearFeed[$feedData] = (int)$feedRow['date'];
+                }
+                if ($lastInstance === '' && $feedType === 3 && $feedData > 0) {
+                    $instanceStmt = $armoryPdo->prepare("SELECT * FROM `armory_instance_data` WHERE (`id` = ? OR `lootid_1` = ? OR `lootid_2` = ? OR `lootid_3` = ? OR `lootid_4` = ? OR `name_id` = ?) AND `type` = 'npc' LIMIT 1");
+                    $instanceStmt->execute(array($feedData, $feedData, $feedData, $feedData, $feedData, $feedData));
+                    $instanceLoot = $instanceStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($instanceLoot) {
+                        $templateStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_template` WHERE `id` = ? LIMIT 1');
+                        $templateStmt->execute(array((int)$instanceLoot['instance_id']));
+                        $instanceInfo = $templateStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($instanceInfo) {
+                            $suffix = (((int)$instanceInfo['expansion'] < 2) || !(int)$instanceInfo['raid']) ? '' : ((int)$instanceInfo['is_heroic'] ? ' (H)' : '');
+                            $bossName = trim((string)($instanceLoot['name_en_gb'] ?? ''));
+                            $instanceName = trim((string)($instanceInfo['name_en_gb'] ?? '')) . $suffix;
+                            $lastInstance = trim($bossName . ' - ' . $instanceName, ' -');
+                            $lastInstanceDate = (int)$feedRow['date'];
+                        }
+                    }
+                }
+            }
+            if (!empty($recentGearFeed)) {
+                $recentGearIds = array_keys($recentGearFeed);
+                $placeholders = implode(',', array_fill(0, count($recentGearIds), '?'));
+                $recentItemMap = array();
+                $recentIconMap = array();
+                $stmt = $worldPdo->prepare('SELECT `entry`, `name`, `Quality`, `ItemLevel`, `RequiredLevel`, `displayid` FROM `item_template` WHERE `entry` IN (' . $placeholders . ')');
+                $stmt->execute($recentGearIds);
+                $displayIds = array();
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $itemRow) {
+                    $recentItemMap[(int)$itemRow['entry']] = $itemRow;
+                    if (!empty($itemRow['displayid'])) $displayIds[(int)$itemRow['displayid']] = true;
+                }
+                if (!empty($displayIds)) {
+                    $placeholders = implode(',', array_fill(0, count($displayIds), '?'));
+                    $stmt = $armoryPdo->prepare('SELECT `id`, `name` FROM `dbc_itemdisplayinfo` WHERE `id` IN (' . $placeholders . ')');
+                    $stmt->execute(array_keys($displayIds));
+                    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $iconRow) $recentIconMap[(int)$iconRow['id']] = (string)$iconRow['name'];
+                }
+                foreach ($recentGearFeed as $entry => $feedDate) {
+                    if (!isset($recentItemMap[$entry])) continue;
+                    $itemRow = $recentItemMap[$entry];
+                    $recentGear[] = array(
+                        'entry' => (int)$entry,
+                        'name' => (string)$itemRow['name'],
+                        'quality' => (int)$itemRow['Quality'],
+                        'item_level' => (int)$itemRow['ItemLevel'],
+                        'icon' => spp_character_icon_url($recentIconMap[(int)$itemRow['displayid']] ?? ''),
+                        'date' => (int)$feedDate,
+                    );
+                }
+            }
+        }
     } catch (Throwable $e) {
         error_log('[character-profile] ' . $e->getMessage());
         $pageError = ($e->getMessage() === 'Character not found.') ? 'Character not found.' : 'Character details could not be loaded.';
@@ -278,8 +422,35 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
 
 $realmLabel = $realmMap[$realmId]['label'] ?? 'Realm';
 $zoneName = isset($character['zone']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['zone']) : 'Unknown zone';
+$currentMapName = isset($character['map']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['map']) : 'Unknown zone';
+$normalizedZoneName = $zoneName !== 'Unknown zone' ? trim((string)$zoneName) : '';
+$normalizedMapName = $currentMapName !== 'Unknown zone' ? trim((string)$currentMapName) : '';
+$continentNames = array('Azeroth', 'Eastern Kingdoms', 'Kalimdor', 'Outland', 'Northrend');
+if ($normalizedZoneName !== '' && $normalizedMapName !== '' && strcasecmp($normalizedZoneName, $normalizedMapName) !== 0 && !in_array($normalizedMapName, $continentNames, true)) {
+    $displayLocation = $normalizedZoneName . ', ' . $normalizedMapName;
+} elseif ($normalizedZoneName !== '') {
+    $displayLocation = $normalizedZoneName;
+} elseif ($normalizedMapName !== '') {
+    $displayLocation = $normalizedMapName;
+} else {
+    $displayLocation = 'Unknown location';
+}
+if ($lastInstance === '' && $currentMapName !== 'Unknown zone' && strpos($currentMapName, ':' ) !== false) $lastInstance = $currentMapName;
+if (empty($recentGear) && !empty($equipment)) {
+    foreach (array_slice(array_values($equipment), 0, 5) as $fallbackItem) {
+        $recentGear[] = array(
+            'entry' => (int)$fallbackItem['entry'],
+            'name' => (string)$fallbackItem['name'],
+            'quality' => (int)$fallbackItem['quality'],
+            'item_level' => (int)$fallbackItem['item_level'],
+            'icon' => (string)$fallbackItem['icon'],
+            'date' => 0,
+        );
+    }
+}
 $portraitUrl = $character ? spp_character_portrait_path($character['level'], $character['gender'], $character['race'], $character['class']) : '';
 $factionName = $character ? spp_character_faction_name($character['race']) : '';
+$factionIcon = $factionName === 'Horde' ? '/armory/images/icon-horde.gif' : '/armory/images/icon-alliance.gif';
 $classSlug = $character ? strtolower(str_replace(' ', '', $classNames[(int)$character['class']] ?? 'unknown')) : 'unknown';
 $characterUrl = 'index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . urlencode((string)$characterName);
 $talentCalculatorUrl = 'index.php?n=server&sub=talents&realm=' . (int)$realmId . '&character=' . urlencode((string)$characterName);
@@ -290,11 +461,393 @@ usort($talentList, function ($a, $b) { return $b['points'] <=> $a['points']; });
 $reputationHighlights = $reputations;
 usort($reputationHighlights, function ($a, $b) { return $b['standing'] <=> $a['standing']; });
 $reputationHighlights = array_slice($reputationHighlights, 0, 5);
-$professionHighlights = !empty($skillsByCategory['Professions']) ? array_slice($skillsByCategory['Professions'], 0, 2) : array();
+$primaryPowerLabelMap = array(1 => 'Rage', 2 => 'Mana', 3 => 'Mana', 4 => 'Energy', 5 => 'Mana', 6 => 'Runic Power', 7 => 'Mana', 8 => 'Mana', 9 => 'Mana', 11 => 'Mana');
+$primaryPowerLabel = $primaryPowerLabelMap[(int)$character['class']] ?? 'Power';
+$specName = !empty($talentList) ? (string)$talentList[0]['name'] : 'No Specialization';
+$specBreakdown = !empty($talentTabs) ? implode(' / ', array_map(function ($tab) { return (string)(int)$tab['points']; }, array_values($talentTabs))) : '0 / 0 / 0';
+$resistanceStats = array(
+    'Arcane' => (int)($stats['resArcane'] ?? 0),
+    'Fire' => (int)($stats['resFire'] ?? 0),
+    'Nature' => (int)($stats['resNature'] ?? 0),
+    'Frost' => (int)($stats['resFrost'] ?? 0),
+    'Shadow' => (int)($stats['resShadow'] ?? 0),
+);
+$baseStatsView = array(
+    'Strength' => (int)($stats['strength'] ?? 0),
+    'Agility' => (int)($stats['agility'] ?? 0),
+    'Stamina' => (int)($stats['stamina'] ?? 0),
+    'Intellect' => (int)($stats['intellect'] ?? 0),
+    'Spirit' => (int)($stats['spirit'] ?? 0),
+    'Armor' => (int)($stats['armor'] ?? 0),
+);
+$meleeStatsView = array(
+    'Damage' => ((float)($stats['mainHandDamageMin'] ?? 0) > 0 || (float)($stats['mainHandDamageMax'] ?? 0) > 0) ? number_format((float)($stats['mainHandDamageMin'] ?? 0), 0, '.', ',') . ' - ' . number_format((float)($stats['mainHandDamageMax'] ?? 0), 0, '.', ',') : '0 - 0',
+    'Speed' => (((float)($stats['mainHandSpeed'] ?? 0) > 0) || ((float)($stats['offHandSpeed'] ?? 0) > 0)) ? rtrim(rtrim(number_format((float)($stats['mainHandSpeed'] ?? 0), 2, '.', ''), '0'), '.') . ' / ' . rtrim(rtrim(number_format((float)($stats['offHandSpeed'] ?? 0), 2, '.', ''), '0'), '.') : '0 / 0',
+    'Power' => number_format((float)($stats['attackPower'] ?? 0), 0, '.', ','),
+    'Hit Rating' => number_format((float)($stats['meleeHitRating'] ?? 0), 0, '.', ','),
+    'Crit Chance' => rtrim(rtrim(number_format((float)($stats['critPct'] ?? 0), 2, '.', ''), '0'), '.') . '%',
+    'Expertise' => number_format((float)($stats['expertise'] ?? $stats['expertiseRating'] ?? 0), 0, '.', ','),
+);
+$gearShowcaseLeft = array(0, 2, 14, 4, 8, 15, 17);
+$gearShowcaseRight = array(9, 1, 3, 5, 6, 7, 10, 11, 12, 13);
+$gearShowcaseBottom = array(16, 18);
+$resourceMap = array(
+    1 => array('label' => 'Rage', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 100), 'class' => 'is-rage'),
+    2 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    3 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    4 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    5 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    7 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    8 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    9 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+    11 => array('label' => 'Mana', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 0), 'class' => 'is-mana'),
+);
+$primaryResource = $resourceMap[(int)($character['class'] ?? 0)] ?? array('label' => 'Power', 'current' => (int)($character['power1'] ?? 0), 'max' => (int)($stats['maxpower1'] ?? 100), 'class' => 'is-mana');
+$healthCurrent = (int)($character['health'] ?? 0);
+$healthMax = max($healthCurrent, (int)($stats['maxhealth'] ?? 0));
+$resourceCurrent = (int)$primaryResource['current'];
+$resourceMax = max($resourceCurrent, (int)$primaryResource['max']);
+$paperdollLeftSlots = array(0, 1, 2, 14, 4, 3, 18, 8);
+$paperdollRightSlots = array(9, 5, 6, 7, 10, 11, 12, 13);
+$paperdollBottomSlots = array(15, 16, 17);
+$talentBarCap = max(1, (int)($character['level'] ?? 0) - 9);
+$talentTreesView = array_values($talentTabs);
+$defenseStatsView = array(
+    'Armor' => number_format((float)($stats['armor'] ?? 0), 0, '.', ','),
+    'Defense' => number_format((float)($stats['defenseRating'] ?? 0), 0, '.', ','),
+    'Dodge' => rtrim(rtrim(number_format((float)($stats['dodgePct'] ?? 0), 2, '.', ''), '0'), '.') . '%',
+    'Parry' => rtrim(rtrim(number_format((float)($stats['parryPct'] ?? 0), 2, '.', ''), '0'), '.') . '%',
+    'Block' => rtrim(rtrim(number_format((float)($stats['blockPct'] ?? 0), 2, '.', ''), '0'), '.') . '%',
+    'Resilience' => number_format((float)($stats['resilience'] ?? 0), 0, '.', ','),
+);
+$spellStatsView = array(
+    'Bonus Damage' => number_format((float)($stats['spellPower'] ?? 0), 0, '.', ','),
+    'Bonus Healing' => number_format((float)($stats['healBonus'] ?? 0), 0, '.', ','),
+    'Hit Rating' => number_format((float)($stats['spellHitRating'] ?? 0), 0, '.', ','),
+    'Crit Chance' => rtrim(rtrim(number_format((float)($stats['spellCritPct'] ?? 0), 2, '.', ''), '0'), '.') . '%',
+    'Haste Rating' => number_format((float)($stats['spellHasteRating'] ?? 0), 0, '.', ','),
+    'Mana Regen' => number_format((float)($stats['manaRegen'] ?? 0), 0, '.', ','),
+);
+$rangedStatsView = array(
+    'Damage' => ((float)($stats['rangedDamageMin'] ?? 0) > 0 || (float)($stats['rangedDamageMax'] ?? 0) > 0) ? number_format((float)($stats['rangedDamageMin'] ?? 0), 0, '.', ',') . ' - ' . number_format((float)($stats['rangedDamageMax'] ?? 0), 0, '.', ',') : '0 - 0',
+    'Speed' => ((float)($stats['rangedSpeed'] ?? 0) > 0) ? rtrim(rtrim(number_format((float)($stats['rangedSpeed'] ?? 0), 2, '.', ''), '0'), '.') : '0',
+    'Power' => number_format((float)($stats['rangedAttackPower'] ?? 0), 0, '.', ','),
+    'Hit Rating' => number_format((float)($stats['rangedHitRating'] ?? 0), 0, '.', ','),
+    'Crit Chance' => rtrim(rtrim(number_format((float)($stats['rangedCritPct'] ?? 0), 2, '.', ''), '0'), '.') . '%',
+    'Haste Rating' => number_format((float)($stats['rangedHasteRating'] ?? 0), 0, '.', ','),
+);
+$paperdollLeftPanels = array(
+    'base' => array('label' => 'Base Stats', 'rows' => $baseStatsView),
+    'defense' => array('label' => 'Defense', 'rows' => $defenseStatsView),
+);
+$paperdollRightPanels = array(
+    'melee' => array('label' => 'Melee', 'rows' => $meleeStatsView),
+    'spell' => array('label' => 'Spell', 'rows' => $spellStatsView),
+    'ranged' => array('label' => 'Ranged', 'rows' => $rangedStatsView),
+);
+$paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), true) ? 'ranged' : (in_array((int)($character['class'] ?? 0), array(5, 8, 9), true) ? 'spell' : 'melee');
 ?>
+
 <style>
-.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-meta-strip,.character-actions,.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-meta-strip{margin-top:18px}.character-pill,.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45)}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta{margin-top:4px;color:#aa9870;font-size:.88rem}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}}@media (max-width:560px){.character-hero-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
+.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-faction-icon{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4))}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45)}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
+.character-grid.character-grid-overview{grid-template-columns:minmax(300px,.86fr) minmax(0,1.5fr)}
+.character-grid.character-grid-sheet{grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr)}
+.character-gear-showcase{padding:24px 20px 30px;background:radial-gradient(circle at center,rgba(66,49,154,.18),transparent 30%),linear-gradient(180deg,rgba(2,6,18,.98),rgba(2,4,12,1));overflow:hidden}
+.character-gear-showcase .character-panel-title{text-align:center}
+.character-gear-stage{position:relative;width:540px;max-width:100%;min-height:880px;margin:0 auto}
+.character-gear-stage::before{content:"";position:absolute;inset:18% 19% 12%;background:radial-gradient(circle at center,rgba(92,68,214,.2),transparent 58%);pointer-events:none}
+.character-gear-column,.character-gear-bottom{position:absolute;z-index:1;display:grid;gap:18px}
+.character-gear-stage > .character-gear-column:first-child{top:118px;left:10px}
+.character-gear-stage > .character-gear-column:nth-child(3){top:44px;right:10px}
+.character-gear-slot{display:flex;justify-content:center;align-items:center}
+.character-gear-card{position:relative;display:block;width:64px;height:64px;border-radius:14px;border:1px solid rgba(255,204,72,.3);background:linear-gradient(180deg,rgba(21,25,38,.96),rgba(8,10,16,.98));box-shadow:0 0 0 1px rgba(255,255,255,.03) inset,0 10px 25px rgba(0,0,0,.4);overflow:hidden}
+.character-gear-card img{display:block;width:100%;height:100%;object-fit:cover}
+.character-gear-card.is-empty{opacity:.42}
+.character-gear-card.is-empty::after{content:attr(data-slot);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;color:#88754b;font-size:.67rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center}
+.character-gear-center{position:absolute;inset:122px 120px 140px;z-index:1;display:flex;justify-content:center;align-items:center}
+.character-gear-portrait-wrap{position:relative;width:100%;max-width:280px;padding:0;border-radius:0;background:none}
+.character-gear-portrait-wrap::before{content:"";position:absolute;inset:-26px -34px;background:radial-gradient(circle at center,rgba(42,24,111,.28),transparent 62%);pointer-events:none}
+.character-gear-portrait{display:block;width:100%;max-width:280px;aspect-ratio:1/1;margin:0 auto;border-radius:28px;object-fit:cover;filter:drop-shadow(0 20px 44px rgba(0,0,0,.6))}
+.character-gear-bottom{left:50%;bottom:16px;grid-template-columns:repeat(2,64px);transform:translateX(-50%)}
+.character-sheet-spec{display:flex;gap:12px;align-items:center}
+.character-sheet-spec-icon{width:42px;height:42px;border-radius:999px;border:1px solid rgba(255,204,72,.28);background:rgba(0,0,0,.35);padding:6px}
+.character-sheet-spec-icon img{display:block;width:100%;height:100%;object-fit:cover}
+.character-sheet-spec-name{display:block;color:#ffd200;font-size:1.85rem;font-weight:800;line-height:1}
+.character-sheet-spec-breakdown{display:block;margin-top:4px;color:#f5ead1;font-size:1.15rem;font-weight:700}
+.character-sheet-resists{display:grid;gap:10px}
+.character-sheet-resist{display:flex;justify-content:space-between;align-items:center;gap:12px;color:#ffd200;font-size:1.1rem;font-weight:800;text-transform:uppercase}
+.character-sheet-resist strong{min-width:44px;padding:4px 8px;border-radius:10px;border:1px solid rgba(255,204,72,.24);background:rgba(0,0,0,.35);color:#fff}
+.character-sheet-bars{padding:18px 20px;background:linear-gradient(180deg,rgba(37,27,6,.96),rgba(20,15,5,.98))}
+.character-sheet-bar-row{display:grid;grid-template-columns:90px minmax(0,1fr);align-items:center;gap:14px}
+.character-sheet-bar-row + .character-sheet-bar-row{margin-top:10px}
+.character-sheet-bar-row span{color:#fff4c4;font-size:1.05rem;font-weight:800;text-transform:uppercase}
+.character-sheet-bar-track{position:relative;height:22px;border-radius:0;overflow:hidden;border:1px solid rgba(0,0,0,.55);background:rgba(3,5,10,.55)}
+.character-sheet-bar-fill{height:100%}
+.character-sheet-bar-fill.is-health{background:linear-gradient(90deg,#1d7600,#4fd500)}
+.character-sheet-bar-fill.is-mana{background:linear-gradient(90deg,#004fba,#5ea8ff)}
+.character-sheet-bar-fill.is-rage{background:linear-gradient(90deg,#7d0808,#dd2d2d)}
+.character-sheet-bar-fill.is-energy{background:linear-gradient(90deg,#9d8400,#f2db3d)}
+.character-sheet-bar-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.9);letter-spacing:.02em}
+.character-sheet-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;background:rgba(255,205,97,.12)}
+.character-sheet-statbox{background:linear-gradient(180deg,rgba(17,14,10,.98),rgba(8,7,5,.98))}
+.character-sheet-statbox-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,205,97,.12);background:linear-gradient(180deg,rgba(15,20,26,.98),rgba(5,7,10,.98));color:#fff;font-size:1rem;font-weight:800}
+.character-sheet-statbox-body{padding:14px}
+.character-sheet-statlist{display:grid;gap:10px}
+.character-sheet-statrow{display:flex;justify-content:space-between;align-items:baseline;gap:14px;color:#ffd200;font-size:1.1rem;font-weight:800}
+.character-sheet-statrow strong{color:#fff}
+.character-fact-link{align-items:flex-start}
+.character-fact-link .character-fact-sub{margin-top:2px}
+@media (max-width:1100px){.character-grid.character-grid-overview,.character-grid.character-grid-sheet{grid-template-columns:1fr}}
+@media (max-width:720px){.character-sheet-grid,.character-sheet-stats{grid-template-columns:1fr}.character-sheet-bar-row{grid-template-columns:1fr}.character-gear-stage{width:100%;min-height:auto;display:grid;gap:18px}.character-gear-stage > .character-gear-column:first-child,.character-gear-stage > .character-gear-column:nth-child(3),.character-gear-center,.character-gear-bottom{position:relative;inset:auto;left:auto;right:auto;bottom:auto;transform:none}.character-gear-center{order:-1}.character-gear-column,.character-gear-bottom{grid-template-columns:repeat(4,64px);justify-content:center}.character-gear-portrait-wrap{max-width:220px}}
 </style>
+<style>
+.character-grid.character-grid-overview{grid-template-columns:minmax(300px,.84fr) minmax(0,1.6fr)}
+.character-paperdoll-shell{padding:10px 28px 16px;overflow:visible}
+.legacy-paperdoll{width:405px;max-width:none;margin:0 auto;padding:4px 0 0;background:url('/armory/images/profile-bg.jpg') no-repeat 50% 0;position:relative;color:#fff;font-family:'Trebuchet MS',Arial,Helvetica,sans-serif}
+.legacy-paperdoll ul{margin:0;padding:0;list-style:none}
+.legacy-paperdoll li{width:60px;height:55px;margin:1px;position:relative}
+.legacy-paperdoll .stack1,.legacy-paperdoll .stack2,.legacy-paperdoll .stack3,.legacy-paperdoll .stack4{width:405px;margin:0 auto;position:relative}
+.legacy-paperdoll .stack1{height:189px;padding-top:9px;margin-bottom:3px;z-index:3}
+.legacy-paperdoll .stack2{height:54px}
+.legacy-paperdoll .stack3{height:134px}
+.legacy-paperdoll .stack4{height:70px}
+.legacy-paperdoll .stack4 li{float:left;width:54px;height:55px}
+.legacy-paperdoll .items-left,.legacy-paperdoll .items-right,.legacy-paperdoll .items-bot{position:absolute}
+.legacy-paperdoll .items-left{width:60px;top:3px;left:-67px}
+.legacy-paperdoll .items-right{width:60px;top:3px;left:412px}
+.legacy-paperdoll .items-bot{width:200px;top:11px;left:94px}
+.legacy-paperdoll .items-left a,.legacy-paperdoll .items-right a,.legacy-paperdoll .items-bot a{cursor:pointer;z-index:4;display:block;position:absolute}
+.legacy-paperdoll .items-left a,.legacy-paperdoll .items-right a{width:75px;height:60px;top:-4px}
+.legacy-paperdoll .items-left a{background:url('/armory/images/icon-glass-left.gif') no-repeat -75px 0;left:-14px}
+.legacy-paperdoll .items-right a{background:url('/armory/images/icon-glass-right.gif') no-repeat 0 0;left:-2px}
+.legacy-paperdoll .items-bot a{width:60px;height:75px;background:url('/armory/images/icon-glass-bot.gif') no-repeat 0 0;top:-6px;left:-1px}
+.legacy-paperdoll .items-left a:hover{background-position:-1px 0}
+.legacy-paperdoll .items-right a:hover{background-position:-74px 0}
+.legacy-paperdoll .items-bot a:hover{background-position:0 -74px}
+.legacy-paperdoll .items-left img,.legacy-paperdoll .items-right img,.legacy-paperdoll .items-bot img{height:52px;width:52px;position:relative;left:4px;top:1px}
+.legacy-paperdoll #slot0x,.legacy-paperdoll #slot1x,.legacy-paperdoll #slot2x,.legacy-paperdoll #slot3x,.legacy-paperdoll #slot4x,.legacy-paperdoll #slot18x,.legacy-paperdoll #slot8x{left:3px}
+.legacy-paperdoll .spec,.legacy-paperdoll .resists,.legacy-paperdoll .profs,.legacy-paperdoll .dropdown1,.legacy-paperdoll .dropdown2,.legacy-paperdoll .stats1,.legacy-paperdoll .stats2{background:url('/armory/images/cpbg.png');position:relative;cursor:default}
+.legacy-paperdoll .spec{width:261px;height:69px;float:left}
+.legacy-paperdoll .resists{width:141px;height:189px;float:right}
+.legacy-paperdoll .profs{width:261px;height:117px;margin-top:3px;float:left}
+.legacy-paperdoll .spec h4,.legacy-paperdoll .profs h4,.legacy-paperdoll .stack2 h4{margin:0;padding:0 8px;color:#fff;text-transform:uppercase;font-size:10px}
+.legacy-paperdoll .resists > h4{margin:0;padding:0 8px;color:#fff;text-transform:uppercase;font-size:10px}
+.legacy-paperdoll .spec-wrapper,.legacy-paperdoll .talent-tree-row{padding:7px 0 0 50px}
+.legacy-paperdoll .spec-wrapper h5,.legacy-paperdoll .talent-tree-row h5{margin:0;color:#ffd200;font-size:14px;line-height:1.1;text-transform:uppercase}
+.legacy-paperdoll .spec-wrapper span{display:block;color:#fff;padding:0 0 0 3px;font-size:12px}
+.legacy-paperdoll .spec-icon,.legacy-paperdoll .tree-icon{position:absolute;left:15px}
+.legacy-paperdoll .spec-icon img,.legacy-paperdoll .tree-icon img{position:relative;top:10px;width:27px;height:27px}
+.legacy-paperdoll .bar-container{margin:3px 0 0;padding:0;height:16px;width:180px;border:1px solid #000;background:url('/armory/images/bar-grey.gif') repeat-x;position:relative;text-align:center;color:#fff}
+.legacy-paperdoll .bar-container b{height:16px;margin:0;padding:0;float:left;background:url('/armory/images/bar-mana.gif') repeat-x}
+.legacy-paperdoll .bar-container span{position:absolute;top:-1px;left:0;width:180px;text-align:center;font-size:12px}
+.legacy-paperdoll .resists ul{padding:10px 0 0}
+.legacy-paperdoll .resists li{height:29px !important;text-align:right;padding:0 33px 0 0;width:90px;position:relative}
+.legacy-paperdoll .resists li:hover{background-position:100% 100%}
+.legacy-paperdoll li.fire{background:url('/armory/images/res-fire.gif') no-repeat 100% 0}
+.legacy-paperdoll li.nature{background:url('/armory/images/res-nature.gif') no-repeat 100% 0}
+.legacy-paperdoll li.arcane{background:url('/armory/images/res-arcane.gif') no-repeat 100% 0}
+.legacy-paperdoll li.frost{background:url('/armory/images/res-frost.gif') no-repeat 100% 0}
+.legacy-paperdoll li.shadow{background:url('/armory/images/res-shadow.gif') no-repeat 100% 0}
+.legacy-paperdoll .resists b{position:absolute;right:4px;width:20px;text-align:center;top:6px;color:#000;font-size:12px !important}
+.legacy-paperdoll .resists span{position:absolute;right:6px;width:20px;text-align:center;top:5px;color:#fff;font-size:12px !important}
+.legacy-paperdoll .resists h5{margin:0;padding:5px 0 0;color:#ffd200;font-size:12px;text-transform:uppercase;font-weight:700}
+.legacy-paperdoll .health-stat,.legacy-paperdoll .mana-stat,.legacy-paperdoll .rage-stat,.legacy-paperdoll .energy-stat{width:380px;height:15px;padding:5px 6px 0 5px}
+.legacy-paperdoll .health-stat p,.legacy-paperdoll .mana-stat p,.legacy-paperdoll .rage-stat p,.legacy-paperdoll .energy-stat p{float:right;width:75%;margin:0;text-align:center;color:#fff;height:16px;border:1px solid #000}
+.legacy-paperdoll .health-stat p{background:url('/armory/images/bar-life.gif') repeat-x}
+.legacy-paperdoll .mana-stat p{background:url('/armory/images/bar-mana.gif') repeat-x}
+.legacy-paperdoll .rage-stat p{background:url('/armory/images/bar-rage.gif') repeat-x}
+.legacy-paperdoll .energy-stat p{background:url('/armory/images/bar-energy.gif') repeat-x}
+.legacy-paperdoll .health-stat p span,.legacy-paperdoll .mana-stat p span,.legacy-paperdoll .rage-stat p span,.legacy-paperdoll .energy-stat p span{position:relative;top:-1px}
+.legacy-paperdoll .health-stat h4,.legacy-paperdoll .mana-stat h4,.legacy-paperdoll .rage-stat h4,.legacy-paperdoll .energy-stat h4{text-align:right;width:55px;margin:0}
+.legacy-paperdoll .dropdown1,.legacy-paperdoll .dropdown2{position:relative;z-index:99;height:27px;width:201px;background:#000;margin-top:3px}
+.legacy-paperdoll .dropdown1,.legacy-paperdoll .stats1{float:left}
+.legacy-paperdoll .dropdown2,.legacy-paperdoll .stats2{float:right}
+.legacy-paperdoll .stats1,.legacy-paperdoll .stats2{position:relative;height:96px;width:201px;margin-top:3px}
+.legacy-paperdoll .stats-select{width:201px;height:23px;background:url('/armory/images/profile-dd.gif') no-repeat 0 0;border:0;color:#fff;padding:2px 8px 0;font-size:12px;appearance:none;-webkit-appearance:none;-moz-appearance:none;background-size:100% 100%}
+.legacy-paperdoll .stats-select:focus{outline:none}
+.legacy-paperdoll .stats-panel{position:absolute;left:5px;right:6px;top:30px;bottom:6px;display:none}
+.legacy-paperdoll .stats-panel.is-active{display:block}
+.legacy-paperdoll .character-stats{margin:0;padding:0;list-style:none}
+.legacy-paperdoll .character-stats li{height:13px !important;width:100%;line-height:10px;display:flex;justify-content:space-between;gap:10px}
+.legacy-paperdoll .character-stats span{color:#ffd800;padding-left:4px;line-height:10px;font-size:10px}
+.legacy-paperdoll .character-stats i{line-height:10px;font-size:10px;color:#fff;font-style:normal}
+
+
+@media (max-width:1100px){.character-grid.character-grid-overview{grid-template-columns:1fr}}
+@media (max-width:760px){.character-paperdoll-shell{padding:10px 6px 8px;overflow-x:auto}.legacy-paperdoll{transform:scale(.88);transform-origin:top center;margin-bottom:-48px}}
+</style>
+<style>
+.character-gear-showcase{padding:20px 18px 18px;background:linear-gradient(180deg,rgba(4,8,18,.94),rgba(6,11,22,.98));overflow:hidden}
+.character-gear-showcase .character-panel-title{text-align:center;margin-bottom:20px}
+.character-paperdoll-modern{position:relative;width:660px;max-width:100%;min-height:760px;margin:0 auto}
+.character-paperdoll-modern::before{content:"";position:absolute;inset:14% 18% 12%;border-radius:34px;background:radial-gradient(circle at center,rgba(74,129,255,.16),transparent 58%),radial-gradient(circle at center,rgba(255,194,76,.08),transparent 72%);pointer-events:none}
+.character-paperdoll-modern > .character-gear-column:first-child{top:14px;left:6px}
+.character-paperdoll-modern > .character-gear-column:nth-child(3){top:14px;right:6px}
+.character-paperdoll-modern .character-gear-column,.character-paperdoll-modern .character-gear-bottom{display:grid;gap:12px}
+.character-paperdoll-modern .character-gear-bottom{left:50%;bottom:8px;grid-template-columns:repeat(3,68px);transform:translateX(-50%)}
+.character-paperdoll-modern .character-gear-card{width:68px;height:68px;border-radius:18px;border:1px solid rgba(255,208,97,.32);background:linear-gradient(180deg,rgba(18,25,42,.96),rgba(7,10,17,.98));box-shadow:0 10px 30px rgba(0,0,0,.4),inset 0 0 0 1px rgba(255,255,255,.04)}
+.character-paperdoll-modern .character-gear-card:hover{transform:translateY(-1px);border-color:rgba(255,221,131,.58)}
+.character-paperdoll-modern .character-gear-card.is-empty{background:linear-gradient(180deg,rgba(13,18,30,.75),rgba(7,10,17,.82));border-style:dashed}
+.character-paperdoll-modern .character-gear-card.is-empty::after{color:#8d7c55;font-size:.62rem;padding:6px}
+.character-paperdoll-core{position:absolute;inset:18px 104px 118px;z-index:1;display:grid;gap:12px;align-content:start;padding:14px;border-radius:26px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(10,16,30,.86),rgba(6,11,22,.92));backdrop-filter:blur(10px);box-shadow:0 18px 46px rgba(0,0,0,.42)}
+.character-paperdoll-top{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(150px,.75fr);gap:12px}
+.character-paperdoll-card{padding:14px 16px;border-radius:18px;border:1px solid rgba(255,204,72,.14);background:linear-gradient(180deg,rgba(16,22,38,.96),rgba(9,12,22,.96))}
+.character-paperdoll-card h3{margin:0 0 10px;color:#c8b27c;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase}
+.character-paperdoll-spec{display:flex;gap:12px;align-items:center}
+.character-paperdoll-spec-icon{width:44px;height:44px;border-radius:14px;border:1px solid rgba(255,204,72,.22);background:rgba(0,0,0,.32);padding:6px;flex:none}
+.character-paperdoll-spec-icon img{display:block;width:100%;height:100%;object-fit:cover}
+.character-paperdoll-spec-name{color:#fff3c4;font-size:1.2rem;font-weight:800;line-height:1.05}
+.character-paperdoll-spec-breakdown{margin-top:4px;color:#ffd467;font-size:1rem;font-weight:700}
+.character-paperdoll-trees{display:grid;gap:8px;margin-top:12px}
+.character-paperdoll-tree{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.character-paperdoll-tree strong{color:#f7edd0;font-size:.95rem}
+.character-paperdoll-tree span{color:#ffd467;font-weight:800}
+.character-paperdoll-tree-bar{grid-column:1 / -1;height:10px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}
+.character-paperdoll-tree-bar b{display:block;height:100%;background:linear-gradient(90deg,#ffc44d,#ffd976)}
+.character-paperdoll-resists{display:grid;gap:8px}
+.character-paperdoll-resist{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.03);color:#f6e5b2;font-weight:700}
+.character-paperdoll-resist span{color:#c8b27c;text-transform:uppercase;letter-spacing:.08em;font-size:.75rem}
+.character-paperdoll-resist strong{min-width:34px;text-align:center;padding:4px 8px;border-radius:999px;background:rgba(255,204,72,.12);border:1px solid rgba(255,204,72,.2);color:#fff}
+.character-sheet-bars{padding:14px 16px;border-radius:18px;border:1px solid rgba(255,204,72,.14);background:linear-gradient(180deg,rgba(27,20,7,.95),rgba(12,10,6,.98))}
+.character-sheet-stats{gap:12px;background:none}
+.character-sheet-statbox{border-radius:18px;border:1px solid rgba(255,204,72,.14);overflow:hidden}
+.character-sheet-statbox-head{padding:12px 14px}
+.character-paperdoll-select{width:100%;height:36px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:rgba(8,12,22,.92);color:#f7edd0;font-size:.95rem;font-weight:700}
+.character-paperdoll-select:focus{outline:none;border-color:rgba(255,221,131,.4)}
+.character-paperdoll-select-wrap{padding:12px 14px 0}
+.character-sheet-statbox-body{padding:12px 14px 14px}
+.character-sheet-statlist{gap:8px}
+.character-sheet-statrow{font-size:.98rem}.character-paperdoll-stats-wide{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-paperdoll-stats-wide .stats-panel{display:none}.character-paperdoll-stats-wide .stats-panel.is-active{display:block}
+.character-reputation-sections{display:grid;gap:18px}
+.character-reputation-section{padding:18px;border-radius:18px;border:1px solid rgba(255,204,72,.12);background:linear-gradient(180deg,rgba(10,14,26,.88),rgba(5,8,18,.9))}
+.character-reputation-section-title{margin:0 0 14px;color:#fff3c4;font-size:1.5rem}
+.character-reputation-list{display:grid;gap:12px}
+.character-reputation-item{padding:16px 18px;border-radius:16px;border:1px solid rgba(255,204,72,.1);background:rgba(255,255,255,.02)}
+.character-reputation-head{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.character-reputation-name{margin:0;color:#f7edd0;font-size:1.1rem;font-weight:800}
+.character-reputation-rank{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-size:.82rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.character-reputation-meta{margin-top:10px;color:#bca87a;font-size:.96rem;line-height:1.45}
+.character-reputation-track{position:relative;height:18px;margin-top:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}
+.character-reputation-fill{height:100%;background:linear-gradient(90deg,#b68b00,#ffd467)}
+.character-reputation-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.88rem;font-weight:800;letter-spacing:.03em;text-shadow:0 1px 2px rgba(0,0,0,.85)}
+.rep-hated .character-reputation-rank,.rep-hated .character-reputation-fill{background:linear-gradient(90deg,#6b0000,#b50f0f);color:#ffe4e4}
+.rep-hostile .character-reputation-rank,.rep-hostile .character-reputation-fill{background:linear-gradient(90deg,#8b2500,#d14a00);color:#fff0dc}
+.rep-unfriendly .character-reputation-rank,.rep-unfriendly .character-reputation-fill{background:linear-gradient(90deg,#8b5f00,#d19a00);color:#fff4d8}
+.rep-neutral .character-reputation-rank,.rep-neutral .character-reputation-fill{background:linear-gradient(90deg,#827200,#c1ae00);color:#fffbd6}
+.rep-friendly .character-reputation-rank,.rep-friendly .character-reputation-fill{background:linear-gradient(90deg,#587d00,#90b900);color:#eefbd4}
+.rep-honored .character-reputation-rank,.rep-honored .character-reputation-fill{background:linear-gradient(90deg,#00735d,#00a884);color:#d8fff5}
+.rep-revered .character-reputation-rank,.rep-revered .character-reputation-fill{background:linear-gradient(90deg,#005f96,#2397df);color:#e0f5ff}
+.rep-exalted .character-reputation-rank,.rep-exalted .character-reputation-fill{background:linear-gradient(90deg,#0084a8,#20d0e8);color:#e1fdff}
+@media (max-width:760px){.character-gear-showcase{padding:16px 10px 14px}.character-paperdoll-modern{width:100%;min-height:auto;display:grid;gap:18px}.character-paperdoll-modern > .character-gear-column:first-child,.character-paperdoll-modern > .character-gear-column:nth-child(3),.character-paperdoll-modern .character-paperdoll-core,.character-paperdoll-modern .character-gear-bottom{position:relative;inset:auto;left:auto;right:auto;bottom:auto;transform:none}.character-paperdoll-modern .character-paperdoll-core{order:-1}.character-paperdoll-modern .character-gear-column,.character-paperdoll-modern .character-gear-bottom{grid-template-columns:repeat(4,68px);justify-content:center}.character-paperdoll-top,.character-sheet-stats,.character-paperdoll-stats-wide{grid-template-columns:1fr}}
+</style>
+<link rel="stylesheet" type="text/css" href="/armory/css/armory-tooltips.css" />
+<style>
+.modern-item-tooltip{min-width:220px;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto}
+.modern-item-tooltip-loading{padding:14px 16px;color:#f5e6b2;border:1px solid rgba(255,196,0,.35);border-radius:10px;background:rgba(5,8,18,.96);box-shadow:0 16px 38px rgba(0,0,0,.45)}
+#modern-item-tooltip{position:fixed;z-index:9999;pointer-events:none;display:none}
+</style><script>
+let modernTooltipNode = null;
+const modernTooltipCache = new Map();
+let modernTooltipRequestToken = 0;
+
+function modernTooltipEnsure() {
+  if (!modernTooltipNode) {
+    modernTooltipNode = document.createElement('div');
+    modernTooltipNode.id = 'modern-item-tooltip';
+    modernTooltipNode.className = 'talent-tt';
+    document.body.appendChild(modernTooltipNode);
+  }
+  return modernTooltipNode;
+}
+
+function modernShowTooltip(event, html) {
+  const tip = modernTooltipEnsure();
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  modernMoveTooltip(event);
+}
+
+function modernTooltipLoadingHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Loading item tooltip...</div>';
+}
+
+function modernTooltipErrorHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Unable to load item tooltip.</div>';
+}
+
+function modernRequestTooltip(event, itemId, realmId) {
+  const cacheKey = realmId + ':' + itemId;
+  if (modernTooltipCache.has(cacheKey)) {
+    modernShowTooltip(event, modernTooltipCache.get(cacheKey));
+    return;
+  }
+
+  modernShowTooltip(event, modernTooltipLoadingHtml());
+  modernTooltipRequestToken += 1;
+  const token = modernTooltipRequestToken;
+  const url = 'modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
+
+  fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+    .then(function (response) {
+      if (!response.ok) {
+        throw new Error('tooltip request failed');
+      }
+      return response.text();
+    })
+    .then(function (html) {
+      const safeHtml = html && html.trim() !== '' ? html : modernTooltipErrorHtml();
+      modernTooltipCache.set(cacheKey, safeHtml);
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, safeHtml);
+      }
+    })
+    .catch(function () {
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, modernTooltipErrorHtml());
+      }
+    });
+}
+
+function modernMoveTooltip(event) {
+  const tip = modernTooltipEnsure();
+  if (tip.style.display === 'none') return;
+  const offset = 18;
+  const rect = tip.getBoundingClientRect();
+  const spaceRight = window.innerWidth - event.clientX - offset - 12;
+  const spaceLeft = event.clientX - offset - 12;
+  const spaceBelow = window.innerHeight - event.clientY - offset - 12;
+  const spaceAbove = event.clientY - offset - 12;
+  let left = spaceRight >= rect.width || spaceRight >= spaceLeft
+    ? event.clientX + offset
+    : event.clientX - rect.width - offset;
+  let top = spaceBelow >= rect.height || spaceBelow >= spaceAbove
+    ? event.clientY + offset
+    : event.clientY - rect.height - offset;
+  left = Math.max(12, Math.min(left, window.innerWidth - rect.width - 12));
+  top = Math.max(12, Math.min(top, window.innerHeight - rect.height - 12));
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
+function modernHideTooltip() {
+  if (modernTooltipNode) modernTooltipNode.style.display = 'none';
+}
+
+function sppPaperdollSwap(selectEl, targetId) {
+  var wrap = document.getElementById(targetId);
+  if (!wrap) return;
+  var key = selectEl.value;
+  var panels = wrap.querySelectorAll('[data-panel]');
+  for (var i = 0; i < panels.length; i++) {
+    panels[i].classList.toggle('is-active', panels[i].getAttribute('data-panel') === key);
+  }
+}
+</script>
 <div class="character-page">
 <?php if ($pageError !== ''): ?>
   <div class="character-error"><?php echo htmlspecialchars($pageError); ?></div>
@@ -306,17 +859,16 @@ $professionHighlights = !empty($skillsByCategory['Professions']) ? array_slice($
         <div>
           <p class="character-eyebrow"><?php echo htmlspecialchars($realmLabel); ?> Character Profile</p>
           <h1 class="character-title class-<?php echo htmlspecialchars($classSlug); ?>"><a href="<?php echo htmlspecialchars($characterUrl); ?>"><?php echo htmlspecialchars($characterName); ?></a></h1>
-          <p class="character-subtitle">Level <?php echo (int)$character['level']; ?> <?php echo htmlspecialchars($raceNames[(int)$character['race']] ?? 'Unknown'); ?> <?php echo htmlspecialchars($classNames[(int)$character['class']] ?? 'Unknown'); ?><?php if ($guildId > 0 && $guildName !== ''): ?> | <a href="<?php echo htmlspecialchars('index.php?n=server&sub=guild&realm=' . (int)$realmId . '&guildid=' . $guildId); ?>" style="color:#ffe39a;text-decoration:none;">&lt;<?php echo htmlspecialchars($guildName); ?>&gt;</a><?php endif; ?></p>
-          <div class="character-meta-strip"><span class="character-pill"><?php echo htmlspecialchars($factionName); ?></span><span class="character-pill"><?php echo htmlspecialchars($zoneName); ?></span><span class="character-pill"><?php echo !empty($character['online']) ? 'Online Now' : 'Offline'; ?></span></div>
-          <div class="character-actions"><a class="character-link" href="index.php?n=server&sub=chars&realm=<?php echo (int)$realmId; ?>">Back to Characters</a><a class="character-link" href="<?php echo htmlspecialchars($talentCalculatorUrl); ?>">Open Talent Calculator</a></div>
+          <p class="character-subtitle">Level <?php echo (int)$character['level']; ?> <?php echo htmlspecialchars($raceNames[(int)$character['race']] ?? 'Unknown'); ?> <?php echo htmlspecialchars($classNames[(int)$character['class']] ?? 'Unknown'); ?></p>
+          <div class="character-guildline"><img class="character-faction-icon" src="<?php echo htmlspecialchars($factionIcon); ?>" alt="<?php echo htmlspecialchars($factionName); ?>"><?php if ($guildId > 0 && $guildName !== ''): ?><a href="<?php echo htmlspecialchars('index.php?n=server&sub=guild&realm=' . (int)$realmId . '&guildid=' . $guildId); ?>" style="color:#ffe39a;text-decoration:none;font-weight:700;">&lt;<?php echo htmlspecialchars($guildName); ?>&gt;</a><?php else: ?><span style="color:#aa9870;">Unaffiliated</span><?php endif; ?></div>
         </div>
       </div>
     </div>
     <div class="character-hero-grid">
       <div class="character-stat-card"><span class="character-stat-label">Play Time</span><div class="character-stat-value"><?php echo htmlspecialchars(spp_character_format_playtime($character['totaltime'] ?? 0)); ?></div></div>
       <div class="character-stat-card"><span class="character-stat-label">Achievement Points</span><div class="character-stat-value"><?php echo (int)$achievementSummary['points']; ?></div></div>
-      <div class="character-stat-card"><span class="character-stat-label">Total Kills</span><div class="character-stat-value"><?php echo (int)($character['stored_honorable_kills'] ?? $character['totalKills'] ?? 0); ?></div></div>
-      <div class="character-stat-card"><span class="character-stat-label">Best Talent Tree</span><div class="character-stat-value"><?php echo !empty($talentList) ? (int)$talentList[0]['points'] . ' pts' : '0'; ?></div></div>
+      <div class="character-stat-card"><span class="character-stat-label">Honorable Kills</span><div class="character-stat-value"><?php echo (int)($character['stored_honorable_kills'] ?? $character['totalKills'] ?? 0); ?></div></div>
+      <div class="character-stat-card"><span class="character-stat-label">Honor Points</span><div class="character-stat-value"><?php echo number_format((int)($character['totalHonorPoints'] ?? $character['stored_honor_rating'] ?? 0), 0, '.', ','); ?></div></div>
     </div>
   </section>
 
@@ -327,26 +879,123 @@ $professionHighlights = !empty($skillsByCategory['Professions']) ? array_slice($
   </nav>
 
   <?php if ($tab === 'overview'): ?>
-    <section class="character-grid">
-      <div class="character-panel"><h2 class="character-panel-title">Quick Facts</h2><div class="character-facts"><div class="character-fact"><span>Realm</span><strong><?php echo htmlspecialchars($realmLabel); ?></strong></div><div class="character-fact"><span>Location</span><strong><?php echo htmlspecialchars($zoneName); ?></strong></div><div class="character-fact"><span>Guild</span><strong><?php echo $guildName !== '' ? htmlspecialchars($guildName) : 'Unaffiliated'; ?></strong></div><div class="character-fact"><span>Health</span><strong><?php echo (int)($stats['maxhealth'] ?? $character['health'] ?? 0); ?></strong></div><div class="character-fact"><span>Primary Power</span><strong><?php echo (int)($stats['maxpower1'] ?? $character['power1'] ?? 0); ?></strong></div><div class="character-fact"><span>Visible Reputations</span><strong><?php echo count($reputations); ?></strong></div></div></div>
-      <div class="character-panel"><h2 class="character-panel-title">Stat Snapshot</h2><div class="character-facts"><?php foreach (array('strength' => 'Strength', 'agility' => 'Agility', 'stamina' => 'Stamina', 'intellect' => 'Intellect', 'spirit' => 'Spirit', 'armor' => 'Armor', 'critPct' => 'Crit', 'dodgePct' => 'Dodge', 'parryPct' => 'Parry', 'blockPct' => 'Block', 'attackPower' => 'Attack Power', 'healBonus' => 'Healing') as $statKey => $label): ?><?php if (isset($stats[$statKey])): ?><div class="character-fact"><span><?php echo htmlspecialchars($label); ?></span><strong><?php echo htmlspecialchars((string)$stats[$statKey]); ?></strong></div><?php endif; ?><?php endforeach; ?></div></div>
+    <section class="character-grid character-grid-overview">
+      <div class="character-panel"><h2 class="character-panel-title">Quick Facts</h2><div class="character-facts"><div class="character-fact"><span>Realm</span><strong><?php echo htmlspecialchars($realmLabel); ?></strong></div><div class="character-fact"><span>Guild</span><strong><?php echo $guildName !== "" ? htmlspecialchars($guildName) : "Unaffiliated"; ?></strong></div><div class="character-fact"><span>Recent Gear</span><?php if (!empty($recentGear)): ?><div class="character-fact-list"><?php foreach ($recentGear as $item): ?><a class="character-fact-link quality-<?php echo (int)$item['quality']; ?>" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$item['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$item['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($item['icon']); ?>" alt=""><span><?php echo htmlspecialchars($item['name']); ?><?php if (!empty($item['item_level'])): ?><div class="character-fact-sub">Item level <?php echo (int)$item['item_level']; ?></div><?php endif; ?></span></a><?php endforeach; ?></div><?php else: ?><strong>No recent gear recorded.</strong><?php endif; ?></div><div class="character-fact"><span>Last Instance</span><strong><?php echo $lastInstance !== "" ? htmlspecialchars($lastInstance) : "No recorded run"; ?></strong><?php if ($lastInstanceDate > 0): ?><div class="character-fact-sub"><?php echo gmdate('M j, Y', $lastInstanceDate); ?></div><?php endif; ?></div></div></div>
+      <section class="character-panel character-gear-showcase">
+        <h2 class="character-panel-title">Equipped Items</h2>
+        <div class="character-gear-stage character-paperdoll-modern">
+          <div class="character-gear-column character-gear-column-left">
+            <?php foreach ($paperdollLeftSlots as $slotId): $item = $equipment[$slotId] ?? null; ?>
+              <div class="character-gear-slot">
+                <?php if ($item): ?>
+                                <a class="character-gear-card" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$item['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$item['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()">
+                    <img src="<?php echo htmlspecialchars($item['icon']); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>">
+                  </a>
+                <?php else: ?>
+                  <div class="character-gear-card is-empty" data-slot="<?php echo htmlspecialchars($slotNames[$slotId] ?? ('Slot ' . $slotId)); ?>"></div>
+                <?php endif; ?>
+              </div>
+            <?php endforeach; ?>
+          </div>
+          <div class="character-gear-center character-paperdoll-core">
+            <div class="character-paperdoll-top">
+              <div class="character-paperdoll-card">
+                <h3>Talent Specialization</h3>
+                <div class="character-paperdoll-spec">
+                  <?php if (!empty($talentList[0]['icon'])): ?><div class="character-paperdoll-spec-icon"><img src="<?php echo htmlspecialchars($talentList[0]['icon']); ?>" alt=""></div><?php endif; ?>
+                  <div>
+                    <div class="character-paperdoll-spec-name"><?php echo htmlspecialchars($specName); ?></div>
+                    <div class="character-paperdoll-spec-breakdown"><?php echo htmlspecialchars($specBreakdown); ?></div>
+                  </div>
+                </div>
+                <div class="character-paperdoll-trees">
+                  <?php if (!empty($talentTreesView)): ?>
+                    <?php foreach ($talentTreesView as $tree): ?>
+                      <div class="character-paperdoll-tree">
+                        <strong><?php echo htmlspecialchars($tree['name']); ?></strong>
+                        <span><?php echo (int)$tree['points']; ?> / <?php echo (int)$talentBarCap; ?></span>
+                        <div class="character-paperdoll-tree-bar"><b style="width: <?php echo min(100, max(0, round(((int)$tree['points'] / $talentBarCap) * 100))); ?>%"></b></div>
+                      </div>
+                    <?php endforeach; ?>
+                  <?php else: ?>
+                    <div class="character-empty">No talent data yet.</div>
+                  <?php endif; ?>
+                </div>
+              </div>
+              <div class="character-paperdoll-card">
+                <h3>Resistances</h3>
+                <div class="character-paperdoll-resists">
+                  <?php foreach (array('Arcane', 'Fire', 'Nature', 'Frost', 'Shadow') as $label): ?>
+                    <div class="character-paperdoll-resist"><span><?php echo htmlspecialchars($label); ?></span><strong><?php echo (int)$resistanceStats[$label]; ?></strong></div>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+            </div>
+            <div class="character-sheet-bars">
+              <div class="character-sheet-bar-row"><span>Health</span><div class="character-sheet-bar-track"><div class="character-sheet-bar-fill is-health" style="width: <?php echo $healthMax > 0 ? min(100, max(0, round(($healthCurrent / $healthMax) * 100))) : 0; ?>%;"></div><div class="character-sheet-bar-value"><?php echo number_format($healthCurrent, 0, '.', ','); ?> / <?php echo number_format($healthMax, 0, '.', ','); ?></div></div></div>
+              <div class="character-sheet-bar-row"><span><?php echo htmlspecialchars($primaryResource['label']); ?></span><div class="character-sheet-bar-track"><div class="character-sheet-bar-fill <?php echo htmlspecialchars($primaryResource['class']); ?>" style="width: <?php echo $resourceMax > 0 ? min(100, max(0, round(($resourceCurrent / $resourceMax) * 100))) : 0; ?>%;"></div><div class="character-sheet-bar-value"><?php echo number_format($resourceCurrent, 0, '.', ','); ?> / <?php echo number_format($resourceMax, 0, '.', ','); ?></div></div></div>
+            </div>
+          </div>
+          <div class="character-gear-column character-gear-column-right">
+            <?php foreach ($paperdollRightSlots as $slotId): $item = $equipment[$slotId] ?? null; ?>
+              <div class="character-gear-slot">
+                <?php if ($item): ?>
+                                <a class="character-gear-card" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$item['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$item['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()">
+                    <img src="<?php echo htmlspecialchars($item['icon']); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>">
+                  </a>
+                <?php else: ?>
+                  <div class="character-gear-card is-empty" data-slot="<?php echo htmlspecialchars($slotNames[$slotId] ?? ('Slot ' . $slotId)); ?>"></div>
+                <?php endif; ?>
+              </div>
+            <?php endforeach; ?>
+          </div>
+          <div class="character-gear-bottom">
+            <?php foreach ($paperdollBottomSlots as $slotId): $item = $equipment[$slotId] ?? null; ?>
+              <div class="character-gear-slot">
+                <?php if ($item): ?>
+                                <a class="character-gear-card" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$item['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$item['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()">
+                    <img src="<?php echo htmlspecialchars($item['icon']); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>">
+                  </a>
+                <?php else: ?>
+                  <div class="character-gear-card is-empty" data-slot="<?php echo htmlspecialchars($slotNames[$slotId] ?? ('Slot ' . $slotId)); ?>"></div>
+                <?php endif; ?>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      </section>
     </section>
-
-    <section class="character-grid">
-      <div class="character-panel"><h2 class="character-panel-title">Talents & Professions</h2><div class="character-bars"><?php $talentCap = max(1, (int)$character['level'] - 9); ?><?php if (!empty($talentList)): foreach ($talentList as $talentTab): ?><div><div class="character-bar-label"><span><?php echo htmlspecialchars($talentTab['name']); ?></span><strong><?php echo (int)$talentTab['points']; ?> pts</strong></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo min(100, max(0, round(($talentTab['points'] / $talentCap) * 100))); ?>%"></div></div></div><?php endforeach; else: ?><div class="character-empty">Talent data is not available for this character yet.</div><?php endif; ?><?php foreach ($professionHighlights as $profession): ?><div><div class="character-bar-label"><span><?php echo htmlspecialchars($profession['name']); ?></span><strong><?php echo (int)$profession['value']; ?>/<?php echo (int)$profession['max']; ?></strong></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$profession['percent']; ?>%"></div></div></div><?php endforeach; ?></div></div>
-      <div class="character-panel"><h2 class="character-panel-title">Standing Highlights</h2><?php if (!empty($reputationHighlights)): ?><div class="character-bars"><?php foreach ($reputationHighlights as $reputation): ?><div><div class="character-bar-label"><span><?php echo htmlspecialchars($reputation['name']); ?></span><strong><?php echo htmlspecialchars($reputation['label']); ?></strong></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div></div></div><?php endforeach; ?></div><?php else: ?><div class="character-empty">No visible reputations were found.</div><?php endif; ?></div>
-    </section>
-
-    <section class="character-panel"><h2 class="character-panel-title">Equipped Items</h2><?php if (!empty($equipment)): ?><div class="character-equip-grid"><?php foreach ($equipment as $item): ?><div class="character-item"><img src="<?php echo htmlspecialchars($item['icon']); ?>" alt=""><div><div class="character-item-slot"><?php echo htmlspecialchars($item['slot_name']); ?></div><div class="character-item-name quality-<?php echo (int)$item['quality']; ?>"><a href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$item['entry']); ?>"><?php echo htmlspecialchars($item['name']); ?></a></div><div class="character-item-meta">Item level <?php echo (int)$item['item_level']; ?><?php if ($item['required_level'] > 0): ?> | Req. <?php echo (int)$item['required_level']; ?><?php endif; ?></div></div></div><?php endforeach; ?></div><?php else: ?><div class="character-empty">No equipped items could be read from the realm database.</div><?php endif; ?></section>
+      <section class="character-panel">
+        <div class="character-paperdoll-stats-wide">
+          <div class="character-sheet-statbox">
+            <div class="character-paperdoll-select-wrap"><select class="character-paperdoll-select" onchange="sppPaperdollSwap(this, 'paperdoll-left-panels')"><?php foreach ($paperdollLeftPanels as $key => $panel): ?><option value="<?php echo htmlspecialchars($key); ?>"><?php echo htmlspecialchars($panel['label']); ?></option><?php endforeach; ?></select></div>
+            <div class="character-sheet-statbox-body"><div id="paperdoll-left-panels"><?php foreach ($paperdollLeftPanels as $key => $panel): ?><div class="stats-panel<?php echo $key === 'base' ? ' is-active' : ''; ?>" data-panel="<?php echo htmlspecialchars($key); ?>"><ul class="character-sheet-statlist"><?php foreach ($panel['rows'] as $label => $value): ?><li class="character-sheet-statrow"><span><?php echo htmlspecialchars($label); ?></span><strong><?php echo htmlspecialchars((string)$value); ?></strong></li><?php endforeach; ?></ul></div><?php endforeach; ?></div></div>
+          </div>
+          <div class="character-sheet-statbox">
+            <div class="character-paperdoll-select-wrap"><select class="character-paperdoll-select" onchange="sppPaperdollSwap(this, 'paperdoll-right-panels')"><?php foreach ($paperdollRightPanels as $key => $panel): ?><option value="<?php echo htmlspecialchars($key); ?>"<?php echo $key === $paperdollRightDefault ? ' selected' : ''; ?>><?php echo htmlspecialchars($panel['label']); ?></option><?php endforeach; ?></select></div>
+            <div class="character-sheet-statbox-body"><div id="paperdoll-right-panels"><?php foreach ($paperdollRightPanels as $key => $panel): ?><div class="stats-panel<?php echo $key === $paperdollRightDefault ? ' is-active' : ''; ?>" data-panel="<?php echo htmlspecialchars($key); ?>"><ul class="character-sheet-statlist"><?php foreach ($panel['rows'] as $label => $value): ?><li class="character-sheet-statrow"><span><?php echo htmlspecialchars($label); ?></span><strong><?php echo htmlspecialchars((string)$value); ?></strong></li><?php endforeach; ?></ul></div><?php endforeach; ?></div></div>
+          </div>
+        </div>
+      </section>
   <?php endif; ?>
 
   <?php if ($tab === 'talents'): ?><div style="margin-top:4px;"><?php $__savedGet = $_GET; $_GET['realm'] = (string)$realmId; $_GET['character'] = (string)$characterName; $_GET['mode'] = 'profile'; $_GET['embed'] = '1'; unset($_GET['class']); include($_SERVER['DOCUMENT_ROOT'] . '/templates/offlike/server/server.talents.php'); $_GET = $__savedGet; ?></div><?php endif; ?>
-  <?php if ($tab === 'reputation'): ?><section class="character-panel"><h2 class="character-panel-title">Reputation</h2><?php if (!empty($reputations)): ?><div class="character-skill-list"><?php foreach ($reputations as $reputation): ?><div class="character-skill-item"><div class="character-bar-label"><span><?php echo htmlspecialchars($reputation['name']); ?></span><strong><?php echo htmlspecialchars($reputation['label']); ?></strong></div><div class="character-bar-track" style="margin-top:10px;"><div class="character-bar-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div></div><div class="character-skill-meta"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?><?php if ($reputation['description'] !== ''): ?> | <?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></div><?php endforeach; ?></div><?php else: ?><div class="character-empty">No visible reputations were found for this character.</div><?php endif; ?></section><?php endif; ?>
+  <?php if ($tab === 'reputation'): ?><section class="character-panel"><h2 class="character-panel-title">Reputation</h2><?php if (!empty($reputationSections)): ?><div class="character-reputation-sections"><?php foreach ($reputationSections as $sectionLabel => $sectionReputations): ?><section class="character-reputation-section"><h3 class="character-reputation-section-title"><?php echo htmlspecialchars($sectionLabel); ?></h3><div class="character-reputation-list"><?php foreach ($sectionReputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier']); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php elseif (!empty($reputations)): ?><div class="character-reputation-list"><?php foreach ($reputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier'] ?? spp_character_reputation_tier($reputation['label'] ?? 'neutral')); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div><?php else: ?><div class="character-empty">No visible reputations were found for this character.</div><?php endif; ?></section><?php endif; ?>
   <?php if ($tab === 'skills'): ?><section class="character-panel"><h2 class="character-panel-title">Skills</h2><?php if (!empty($skillsByCategory)): ?><?php foreach ($skillsByCategory as $categoryName => $categorySkills): ?><div style="margin-top:18px;"><h3 style="margin:0 0 12px;color:#ffd467;"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-list"><?php foreach ($categorySkills as $skill): ?><div class="character-skill-item"><div class="character-skill-head"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><div class="character-skill-meta"><?php echo (int)$skill['value']; ?>/<?php echo (int)$skill['max']; ?><?php if ($skill['description'] !== ''): ?> | <?php echo htmlspecialchars($skill['description']); ?><?php endif; ?></div></div></div><div class="character-bar-track" style="margin-top:12px;"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div></div></div><?php endforeach; ?></div></div><?php endforeach; ?><?php else: ?><div class="character-empty">No skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
   <?php if ($tab === 'achievements'): ?><section class="character-panel"><h2 class="character-panel-title">Achievements</h2><?php if ($achievementSummary['supported']): ?><div class="character-hero-grid" style="margin-bottom:18px;"><div class="character-stat-card"><span class="character-stat-label">Completed</span><div class="character-stat-value"><?php echo (int)$achievementSummary['count']; ?></div></div><div class="character-stat-card"><span class="character-stat-label">Points</span><div class="character-stat-value"><?php echo (int)$achievementSummary['points']; ?></div></div></div><?php if (!empty($achievementSummary['recent'])): ?><div class="character-achievement-list"><?php foreach ($achievementSummary['recent'] as $achievement): ?><div class="character-achievement-item"><strong><?php echo htmlspecialchars($achievement['name']); ?></strong><div class="character-skill-meta"><?php echo htmlspecialchars(trim((string)($achievement['description'] ?? ''))); ?></div><div class="character-skill-meta">+<span class="character-achievement-points"><?php echo (int)($achievement['points'] ?? 0); ?></span> points</div></div><?php endforeach; ?></div><?php else: ?><div class="character-empty">This character has no recorded achievements yet.</div><?php endif; ?><?php else: ?><div class="character-empty">Achievements are not available for this realm ruleset or database layout yet.</div><?php endif; ?></section><?php endif; ?>
 <?php endif; ?>
 </div>
 <?php builddiv_end(); ?>
+
+
+
+
+
+
+
+
+
+
 
 
 
