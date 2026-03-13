@@ -1,6 +1,28 @@
 <?php
 if (INCLUDED !== true) exit;
 
+$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
+$registerRealmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
+$registerExpansion = 2;
+$registerRealmlistHost = preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? ''));
+if ($registerRealmlistHost === '') {
+    $registerRealmlistHost = (string)($_SERVER['SERVER_ADDR'] ?? '127.0.0.1');
+}
+
+if (function_exists('spp_get_pdo')) {
+    try {
+        $realmdPdo = spp_get_pdo('realmd', $registerRealmId);
+        $realmRow = $realmdPdo->prepare('SELECT `address` FROM `realmlist` WHERE `id` = ? LIMIT 1');
+        $realmRow->execute([(int)$registerRealmId]);
+        $realmInfo = $realmRow->fetch(PDO::FETCH_ASSOC);
+        if (!empty($realmInfo['address'])) {
+            $registerRealmlistHost = (string)$realmInfo['address'];
+        }
+    } catch (Throwable $e) {
+        // Fall back to current host if the realm DB cannot be queried here.
+    }
+}
+
 /* -----------------------------
    ACCOUNT CREATION HANDLER
 ----------------------------- */
@@ -26,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 array(
                     'username'  => $username,
                     'password'  => $password,
-                    'expansion' => 0
+                    'expansion' => $registerExpansion
                 ),
                 false
             );
@@ -36,13 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $auth->login(array('username' => $username, 'password' => $password));
                 }
 
-                $message = "<div style='color:lime;font-weight:bold;margin-bottom:8px;'>Account <b>" . htmlspecialchars($username) . "</b> created successfully.</div>";
+                $message = '<strong>Account <b>' . htmlspecialchars($username) . '</b> created successfully.</strong>'
+                    . '<br>Next step: open your game client and log in to create your first character.'
+                    . '<br>Set your realmlist to: <code>set realmlist ' . htmlspecialchars($registerRealmlistHost) . '</code>';
             } else {
                 $errorDetail = is_array($result)
                     ? implode('<br>', array_map('htmlspecialchars', $result))
                     : 'Unknown error';
 
-                $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Account creation failed.<br><small>{$errorDetail}</small></div>";
+                $message = '<strong>Account creation failed.</strong><br><small>' . $errorDetail . '</small>';
             }
         }
     }
@@ -58,11 +82,11 @@ function header_image_account() {
   <tbody>
     <tr>
       <td class="header-bg">
-        <img src="templates/offlike/images/headers/title_acc_man.gif" alt="Account Management" class="header-title">
+        <img src="templates/offlike/images/headers/title_acc_man.gif" alt="Account Management" class="account-header-title">
       </td>
     </tr>
     <tr>
-      <td colspan="3" class="header-bottom">
+      <td class="header-bottom">
         <img src="templates/offlike/images/headers/bottom.gif" alt="Bottom border" class="header-bottomimg">
       </td>
     </tr>
@@ -76,24 +100,76 @@ function header_image_account() {
 /* === Account Header Styling === */
 .header-account { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
 .header-account td { padding: 0; }
-.header-bg { height: 180px; background: url('templates/offlike/images/headers/account_bg.png') repeat-x center; text-align: center; position: relative; }
-.header-title { position: relative; top: 45px; max-width: 380px; }
+.header-bg { height: 180px; background: url('templates/offlike/images/headers/account_bg.jpg') repeat-x center; text-align: center; position: relative; }
+.account-header-title { position: relative; top: 45px; max-width: 380px; }
 .header-bottomimg { width: 100%; height: 16px; display: block; }
 
 /* === Register Panel === */
 .register-panel {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 24px;
-  max-width: 760px;
+  width: min(100%, 1080px);
   margin: 0 auto;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
-.register-panel h3 { text-align: center; margin-bottom: 18px; color: #9cf; }
-.form-flex { display: flex; align-items: center; justify-content: center; gap: 24px; }
+.register-message {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 196, 0, 0.18);
+  background: rgba(6, 10, 18, 0.88);
+  line-height: 1.45;
+}
+.register-message.is-success {
+  color: #8ef7a7;
+  border-color: rgba(80, 220, 120, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(80, 220, 120, 0.12);
+}
+.register-message code {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff3c2;
+}
+.register-message-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.register-message-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 196, 0, 0.22);
+  background: rgba(22, 34, 58, 0.88);
+  color: #e7f0ff;
+  text-decoration: none;
+  font-weight: 700;
+}
+.register-message-link:hover {
+  background: rgba(40, 64, 102, 0.95);
+}
+.register-message.is-error {
+  color: #ff9d9d;
+  border-color: rgba(255, 90, 90, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 90, 0.1);
+}
+.form-flex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 18px 24px 24px;
+  border: 1px solid #333;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #111318;
+}
 .form-flex img { max-width: 180px; border-radius: 8px; border: 2px solid #333; }
-.register-form { flex: 1; }
+.register-form { flex: 1; max-width: 760px; }
 .form-group { display: flex; align-items: center; margin: 10px 0; }
 .form-group label { flex: 0 0 160px; text-align: right; color: #ccc; font-weight: bold; margin-right: 10px; }
 .form-group input {
@@ -119,15 +195,48 @@ function header_image_account() {
 }
 .btn-primary:hover { background: linear-gradient(#3b7cff, #295fb5); }
 .account-note { margin-top: 16px; font-size: 0.9rem; color: #bbb; text-align: left; line-height: 1.4; }
+@media (max-width: 820px) {
+  .form-flex {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .form-flex img {
+    margin: 0 auto;
+  }
+  .form-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .form-group label {
+    flex: none;
+    margin: 0 0 6px;
+    text-align: left;
+  }
+}
 
 </style>
 
-<?php builddiv_start(1, $lang['account_create']); ?>
-<div class="modern-content register-panel">
-<?php if (!empty($message)) echo $message; ?>
+<?php
+$registerMessageClass = '';
+if (!empty($message)) {
+  $registerMessageClass = (stripos($message, 'created successfully') !== false)
+    ? ' is-success'
+    : ' is-error';
+}
+builddiv_start(1, 'Create Account');
+?>
+<div class="register-panel">
+<?php if (!empty($message)): ?>
+  <div class="register-message<?php echo $registerMessageClass; ?>">
+    <?php echo $message; ?>
+    <?php if ($registerMessageClass === ' is-success'): ?>
+      <div class="register-message-actions">
+        <a class="register-message-link" href="download-realmlist.php?realm=<?php echo (int)$registerRealmId; ?>">Download `realmlist.wtf`</a>
+      </div>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
 <?php header_image_account(); ?>
-
-<h3><?php echo $lang['create_account']; ?></h3>
 
 <div class="form-flex">
   <img src="templates/tbc/images/orc2.jpg" alt="Orc Warrior">

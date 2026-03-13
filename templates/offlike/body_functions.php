@@ -265,7 +265,8 @@ function build_account_menu($asList = true) {
         }
 
         // --- Admin panel ---
-        if (!empty($user['gmlevel']) && $user['gmlevel'] > 0) {
+        if ((!empty($user['g_is_admin']) && (int)$user['g_is_admin'] === 1)
+            || (!empty($user['g_is_supadmin']) && (int)$user['g_is_supadmin'] === 1)) {
             echo '<li><a href="index.php?n=admin">Admin Panel</a></li>';
         }
 

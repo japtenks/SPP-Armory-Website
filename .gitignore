@@ -20,3 +20,4 @@ config/config.xml
 /img/
 armory/configuration/mysql.php
 /templates/offlike/cache
+/core/cache

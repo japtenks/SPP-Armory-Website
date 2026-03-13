@@ -9,11 +9,11 @@
 .header-left, .header-right { width: 140px; vertical-align: bottom; }
 .header-bg {
   height: 180px;
-  background: url('templates/offlike/images/headers/account_bg.png') repeat-x center;
+  background: url('templates/offlike/images/headers/account_bg.jpg') repeat-x center;
   text-align: center;
   position: relative;
 }
-.header-title {
+.account-header-title {
   position: relative;
   top: 45px;
   max-width: 380px;
@@ -22,17 +22,8 @@
 
 /* === Modern Login Panel === */
 .login-panel {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  padding: 24px 16px;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  max-width: 760px;
+  width: min(100%, 1080px);
   margin: 0 auto;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
 .login-form {
@@ -100,15 +91,24 @@
 <style>
 .form-flex {
   display: flex;
-  align-items: top;
+  align-items: center;
   justify-content: center;
-  height:180px;
+  min-height: 220px;
   gap: 24px;
+  padding: 18px 24px 24px;
+  border: 1px solid #333;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #111318;
 }
 .form-flex img {
-  
+  width: 236px;
+  max-width: 100%;
   border-radius: 8px;
   border: 2px solid #333;
+}
+.login-form {
+  max-width: 560px;
 }
 .form-group {
   display: flex;
@@ -161,11 +161,11 @@ function header_image_account() {
   <tbody>
     <tr>
       <td class="header-bg">
-        <img src="templates/offlike/images/headers/title_acc_man.gif" alt="Account Management" class="header-title">
+        <img src="templates/offlike/images/headers/title_acc_man.gif" alt="Account Management" class="account-header-title">
       </td>
-
+    </tr>
     <tr>
-      <td colspan="3" class="header-bottom">
+      <td class="header-bottom">
         <img src="templates/offlike/images/headers/bottom.gif" alt="Bottom border" class="header-bottomimg">
       </td>
     </tr>
@@ -173,21 +173,30 @@ function header_image_account() {
 </table>
 <?php
 }
+
+$loginReturnTo = trim((string)($_REQUEST['returnto'] ?? ''));
+if ($loginReturnTo === '' && !empty($_SERVER['HTTP_REFERER'])) {
+  $loginReturnTo = (string)$_SERVER['HTTP_REFERER'];
+}
+if ($loginReturnTo === '' || stripos($loginReturnTo, 'index.php?n=account&sub=login') !== false) {
+  $loginReturnTo = 'index.php?n=forum';
+}
 ?>
 
 
 
 
 
-<?php builddiv_start(1, $lang['login']); ?>
+<?php builddiv_start(1, 'Login'); ?>
 
-<div class="modern-content login-panel">
+<div class="login-panel">
 <?php header_image_account(); ?>
 <?php if ($user['id'] <= 0): ?>
 <div class="form-flex">
   <img src="templates/tbc/images/twoheaded-ogre.jpg" alt="Orc Warrior">
   <form method="post" action="index.php?n=account&sub=login" class="login-form">
     <input type="hidden" name="action" value="login">
+    <input type="hidden" name="returnto" value="<?php echo htmlspecialchars($loginReturnTo); ?>">
 
     <div class="login-field">
       <label for="login"><b><?php echo $lang['username']; ?></b></label>

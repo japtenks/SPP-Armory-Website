@@ -154,11 +154,45 @@ echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script
 <?php endif; ?>
 <style>
 .server-talents-shell {
-  padding: 12px 10px 16px;
+  padding: 0;
+}
+.server-talents-shell #tc-root {
+  width: 100%;
+  margin: 0;
+  transform: none;
 }
 .server-talents-shell .tc-container {
   max-width: none;
   margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+.server-talents-shell .tc-header {
+  width: 100%;
+  margin: 0 0 12px;
+}
+.server-talents-shell .tc-stack {
+  width: 100%;
+  margin: 0;
+  transform: none;
+  justify-content: space-between;
+}
+.server-talents-shell .talent-trees {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.server-talents-shell .talent-tree {
+  width: 100%;
+  max-width: none;
+}
+.server-talents-shell .talent-flex {
+  width: min(100%, var(--tree-inner-w));
 }
 .server-talents-shell.is-profile .tc-share,
 .server-talents-shell.is-profile .tc-classgrid,
@@ -180,6 +214,11 @@ echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script
 .server-talents-shell.is-embed .tc-container {
   padding: 0;
 }
+@media (max-width: 980px) {
+  .server-talents-shell .talent-trees {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 <?php
 if (!$isEmbedMode) builddiv_start(1, $isProfileMode ? 'Talent Build' : 'Talent Calculator', 1);
@@ -187,8 +226,6 @@ echo '<div class="server-talents-shell' . ($isProfileMode ? ' is-profile' : '') 
 include($siteRoot . ($isProfileMode ? '/armory/source/character-talents.php' : '/armory/source/talent-calc.php'));
 echo '</div>';
 if (!$isEmbedMode) builddiv_end();
-
-
 
 
 

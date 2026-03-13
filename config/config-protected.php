@@ -89,11 +89,61 @@ if (!function_exists('spp_get_pdo')) {
     }
 }
 
+if (!function_exists('spp_get_armory_realm_name')) {
+    function spp_get_armory_realm_name($realmId = null) {
+        static $cache = [];
+
+        $db = $GLOBALS['db'] ?? null;
+        $realmDbMap = $GLOBALS['realmDbMap'] ?? null;
+
+        if (!is_array($db) || !is_array($realmDbMap) || empty($realmDbMap)) {
+            return null;
+        }
+
+        $resolvedRealmId = spp_resolve_realm_id($realmDbMap, $realmId);
+        if (isset($cache[$resolvedRealmId])) {
+            return $cache[$resolvedRealmId];
+        }
+
+        $fallback = $realmDbMap[$resolvedRealmId]['label'] ?? null;
+        $realmdDb = $realmDbMap[$resolvedRealmId]['realmd'] ?? null;
+        if (!$realmdDb) {
+            return $cache[$resolvedRealmId] = $fallback;
+        }
+
+        try {
+            $pdo = new PDO(
+                "mysql:host={$db['host']};port={$db['port']};dbname={$realmdDb};charset=utf8mb4",
+                $db['user'],
+                $db['pass'],
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]
+            );
+
+            $stmt = $pdo->prepare("SELECT `name` FROM `realmlist` WHERE `id` = ? LIMIT 1");
+            $stmt->execute([(int)$resolvedRealmId]);
+            $row = $stmt->fetch();
+
+            if (!$row) {
+                $row = $pdo->query("SELECT `name` FROM `realmlist` ORDER BY `id` ASC LIMIT 1")->fetch();
+            }
+
+            $cache[$resolvedRealmId] = !empty($row['name']) ? $row['name'] : $fallback;
+            return $cache[$resolvedRealmId];
+        } catch (Throwable $e) {
+            error_log('[config] Failed resolving armory realm name: ' . $e->getMessage());
+            return $cache[$resolvedRealmId] = $fallback;
+        }
+    }
+}
+
 $db = [
-    'host' => '127.0.0.1',
-    'port' => 3310,
-    'user' => 'root',
-    'pass' => '123456'
+    'host' => '192.168.1.90',
+    'port' => 3306,
+    'user' => 'mangos',
+    'pass' => 'mangos'
 ];
 
 $realmDbMap = [

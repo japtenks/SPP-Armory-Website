@@ -2,7 +2,6 @@
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 
 $currtmp = '/armory';
-$use_itemsite_url = '/armory/index.php?searchType=iteminfo&item=';
 
 /* ---------- Realm Selection ---------- */
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
@@ -20,6 +19,7 @@ if (!isset($realmMap[$realmId])) {
 $db_chars = $realmMap[$realmId]['chars'];
 $db_world = $realmMap[$realmId]['world'];
 $realmName = $realmMap[$realmId]['label'];
+$use_itemsite_url = 'index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=';
 
 /* ---------- PDO Connection ---------- */
 try {
@@ -315,6 +315,23 @@ if ($maxReqLevel !== null) $baseUrl .= '&max_level=' . $maxReqLevel;
 }.ah-price-stack .price-line {
   display: block;
 }
+.modern-item-tooltip {
+  min-width: 220px;
+}
+.modern-item-tooltip-loading {
+  padding: 14px 16px;
+  color: #f5e6b2;
+  border: 1px solid rgba(255, 196, 0, 0.35);
+  border-radius: 10px;
+  background: rgba(5, 8, 18, 0.96);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
+}
+#modern-item-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  display: none;
+}
 @media (max-width: 980px) {
   .ah-search-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -449,7 +466,13 @@ function sort_link($key, $label, $currentSort, $currentDir, $baseUrl) {
     <div class="row">
       <div class="col"><?php echo item_manage_class($row['class']); ?></div>
       <div class="col">
-        <a class="iqual<?php echo $row['quality']; ?>" href="<?php echo $use_itemsite_url . $row['item_template']; ?>" target="_blank">
+        <a
+          class="iqual<?php echo $row['quality']; ?>"
+          href="<?php echo htmlspecialchars($use_itemsite_url . (int)$row['item_template']); ?>"
+          onmousemove="modernMoveTooltip(event)"
+          onmouseover="modernRequestTooltip(event, <?php echo (int)$row['item_template']; ?>, <?php echo (int)$realmId; ?>)"
+          onmouseout="modernHideTooltip()"
+        >
           <?php echo htmlspecialchars($row['itemname']); ?>
         </a>
       </div>
@@ -466,6 +489,100 @@ function sort_link($key, $label, $currentSort, $currentDir, $baseUrl) {
     </div>
   <?php endforeach; endif; ?>
 </div>
+
+<script>
+let modernTooltipNode = null;
+const modernTooltipCache = new Map();
+let modernTooltipRequestToken = 0;
+
+function modernTooltipEnsure() {
+  if (!modernTooltipNode) {
+    modernTooltipNode = document.createElement('div');
+    modernTooltipNode.id = 'modern-item-tooltip';
+    modernTooltipNode.className = 'talent-tt';
+    document.body.appendChild(modernTooltipNode);
+  }
+  return modernTooltipNode;
+}
+
+function modernShowTooltip(event, html) {
+  const tip = modernTooltipEnsure();
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  modernMoveTooltip(event);
+}
+
+function modernTooltipLoadingHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Loading item tooltip...</div>';
+}
+
+function modernTooltipErrorHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Unable to load item tooltip.</div>';
+}
+
+function modernRequestTooltip(event, itemId, realmId) {
+  const cacheKey = realmId + ':' + itemId;
+  if (modernTooltipCache.has(cacheKey)) {
+    modernShowTooltip(event, modernTooltipCache.get(cacheKey));
+    return;
+  }
+
+  modernShowTooltip(event, modernTooltipLoadingHtml());
+  modernTooltipRequestToken += 1;
+  const token = modernTooltipRequestToken;
+  const url = 'modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
+
+  fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+    .then(function (response) {
+      if (!response.ok) {
+        throw new Error('tooltip request failed');
+      }
+      return response.text();
+    })
+    .then(function (html) {
+      const safeHtml = html && html.trim() !== '' ? html : modernTooltipErrorHtml();
+      modernTooltipCache.set(cacheKey, safeHtml);
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, safeHtml);
+      }
+    })
+    .catch(function () {
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, modernTooltipErrorHtml());
+      }
+    });
+}
+
+function modernMoveTooltip(event) {
+  const tip = modernTooltipEnsure();
+  if (tip.style.display === 'none') {
+    return;
+  }
+  const offset = 18;
+  let left = event.clientX + offset;
+  let top = event.clientY + offset;
+  const rect = tip.getBoundingClientRect();
+  if (left + rect.width > window.innerWidth - 12) {
+    left = event.clientX - rect.width - offset;
+  }
+  if (top + rect.height > window.innerHeight - 12) {
+    top = event.clientY - rect.height - offset;
+  }
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
+function modernHideTooltip() {
+  if (modernTooltipNode) {
+    modernTooltipNode.style.display = 'none';
+  }
+}
+</script>
 
 <?php builddiv_end(); ?>
 

@@ -2,6 +2,70 @@
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 require_once($_SERVER['DOCUMENT_ROOT'] . '/components/forum/forum.func.php');
 
+if (!function_exists('spp_guild_roster_sort_compare')) {
+    function spp_guild_roster_sort_compare(array $left, array $right, $sortBy, $sortDir, array $classNames, array $raceNames, array $memberAverageItemLevels) {
+        $direction = strtoupper($sortDir) === 'ASC' ? 1 : -1;
+        $leftGuid = (int)($left['guid'] ?? 0);
+        $rightGuid = (int)($right['guid'] ?? 0);
+        $leftAvgItemLevel = (float)($memberAverageItemLevels[$leftGuid] ?? 0);
+        $rightAvgItemLevel = (float)($memberAverageItemLevels[$rightGuid] ?? 0);
+
+        switch ($sortBy) {
+            case 'name':
+                $comparison = strcasecmp((string)($left['name'] ?? ''), (string)($right['name'] ?? ''));
+                break;
+            case 'race':
+                $comparison = strcasecmp((string)($raceNames[(int)($left['race'] ?? 0)] ?? 'Unknown'), (string)($raceNames[(int)($right['race'] ?? 0)] ?? 'Unknown'));
+                if ($comparison === 0) {
+                    $comparison = strcasecmp((string)($left['name'] ?? ''), (string)($right['name'] ?? ''));
+                }
+                break;
+            case 'class':
+                $comparison = strcasecmp((string)($classNames[(int)($left['class'] ?? 0)] ?? 'Unknown'), (string)($classNames[(int)($right['class'] ?? 0)] ?? 'Unknown'));
+                if ($comparison === 0) {
+                    $comparison = strcasecmp((string)($left['name'] ?? ''), (string)($right['name'] ?? ''));
+                }
+                break;
+            case 'level':
+                $comparison = ((int)($left['level'] ?? 0) <=> (int)($right['level'] ?? 0));
+                if ($comparison === 0) {
+                    $comparison = strcasecmp((string)($left['name'] ?? ''), (string)($right['name'] ?? ''));
+                }
+                break;
+            case 'ilvl':
+                $comparison = ($leftAvgItemLevel <=> $rightAvgItemLevel);
+                if ($comparison === 0) {
+                    $comparison = ((int)($left['level'] ?? 0) <=> (int)($right['level'] ?? 0));
+                }
+                break;
+            case 'rank':
+                $comparison = ((int)($left['rank'] ?? 0) <=> (int)($right['rank'] ?? 0));
+                if ($comparison === 0) {
+                    $comparison = strcasecmp((string)($left['rank_name'] ?? ''), (string)($right['rank_name'] ?? ''));
+                }
+                break;
+            default:
+                $comparison = ((int)($left['rank'] ?? 0) <=> (int)($right['rank'] ?? 0));
+                if ($comparison === 0) {
+                    $comparison = ((int)($right['level'] ?? 0) <=> (int)($left['level'] ?? 0));
+                }
+                if ($comparison === 0) {
+                    $comparison = strcasecmp((string)($left['name'] ?? ''), (string)($right['name'] ?? ''));
+                }
+                break;
+        }
+
+        return $comparison * $direction;
+    }
+}
+
+if (!function_exists('spp_guild_roster_sort_url')) {
+    function spp_guild_roster_sort_url($baseUrl, $sortBy, $currentSortBy, $currentSortDir) {
+        $nextSortDir = ($currentSortBy === $sortBy && strtoupper($currentSortDir) === 'ASC') ? 'DESC' : 'ASC';
+        return $baseUrl . '&sort=' . rawurlencode($sortBy) . '&dir=' . rawurlencode($nextSortDir) . '&p=1';
+    }
+}
+
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 if (!is_array($realmMap) || empty($realmMap)) {
     die("Realm DB map not loaded");
@@ -199,6 +263,15 @@ $selectedRank = isset($_GET['rank']) ? (int)$_GET['rank'] : -1;
 $selectedMax = isset($_GET['maxonly']) ? 1 : 0;
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $itemsPerPage = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;
+$sortBy = strtolower(trim($_GET['sort'] ?? 'rank'));
+$sortDir = strtoupper(trim($_GET['dir'] ?? 'ASC'));
+$allowedSorts = array('name', 'race', 'class', 'level', 'ilvl', 'rank');
+if (!in_array($sortBy, $allowedSorts, true)) {
+    $sortBy = 'rank';
+}
+if ($sortDir !== 'ASC' && $sortDir !== 'DESC') {
+    $sortDir = 'ASC';
+}
 
 $filteredMembers = [];
 foreach ($members as $member) {
@@ -207,6 +280,12 @@ foreach ($members as $member) {
     if ($selectedRank >= 0 && (int)$member['rank'] !== $selectedRank) continue;
     if ($selectedMax && (int)$member['level'] < $maxLevel) continue;
     $filteredMembers[] = $member;
+}
+
+if (!empty($filteredMembers)) {
+    usort($filteredMembers, function ($left, $right) use ($sortBy, $sortDir, $classNames, $raceNames, $memberAverageItemLevels) {
+        return spp_guild_roster_sort_compare($left, $right, $sortBy, $sortDir, $classNames, $raceNames, $memberAverageItemLevels);
+    });
 }
 
 $totalMembers = count($filteredMembers);
@@ -260,18 +339,27 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   color: #d9c99a;
 }
 .guild-masterline {
-  margin: 0;
-  font-size: 1rem;
-  color: #f2ddb0;
-}
+    margin: 0;
+    font-size: 1rem;
+    color: #f2ddb0;
+  }
 .guild-masterline strong {
-  color: #ffd65e;
-}
-.guild-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 24px;
-  align-content: start;
+    color: #ffd65e;
+  }
+  .guild-establishedline {
+    margin: 4px 0 0;
+    font-size: 0.98rem;
+    color: #d7c28e;
+  }
+  .guild-establishedline strong {
+    color: #f4d06a;
+    font-weight: 700;
+  }
+  .guild-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 24px;
+    align-content: start;
 }
 .guild-meta-card {
   min-width: 0;
@@ -375,6 +463,15 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   font-size: 0.95rem;
   color: #ffc21c;
   border-bottom: 1px solid rgba(255, 204, 72, 0.28);
+}
+.guild-roster thead th a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+}
+.guild-roster thead th a:hover,
+.guild-roster thead th a.is-active {
+  color: #fff1b0;
 }
 .guild-roster tbody td {
   padding: 14px 16px;
@@ -487,17 +584,18 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
 <div class="guild-page">
 <div class="guild-detail">
   <div class="guild-hero">
-    <div class="guild-hero-main">
-      <img class="guild-crest" src="<?php echo $crest; ?>" alt="<?php echo htmlspecialchars($factionName); ?>">
-      <div>
-        <h1 class="guild-title"><?php echo htmlspecialchars($guild['name']); ?></h1>
-        <p class="guild-subtitle"><?php echo htmlspecialchars($armoryRealm); ?></p>
-        <p class="guild-masterline">Guild Master <strong><?php echo $leader ? htmlspecialchars($leader['name']) : 'Unknown'; ?></strong></p>
+      <div class="guild-hero-main">
+        <img class="guild-crest" src="<?php echo $crest; ?>" alt="<?php echo htmlspecialchars($factionName); ?>">
+        <div>
+          <h1 class="guild-title"><?php echo htmlspecialchars($guild['name']); ?></h1>
+          <p class="guild-subtitle"><?php echo htmlspecialchars($armoryRealm); ?></p>
+          <p class="guild-masterline">Guild Master <strong><?php echo $leader ? htmlspecialchars($leader['name']) : 'Unknown'; ?></strong></p>
+          <p class="guild-establishedline">Established <strong><?php echo htmlspecialchars($guildEstablishedLabel); ?></strong></p>
+        </div>
       </div>
-    </div>
-    <div class="guild-meta">
-      <div class="guild-meta-card">
-        <span class="guild-meta-label">Faction</span>
+      <div class="guild-meta">
+        <div class="guild-meta-card">
+          <span class="guild-meta-label">Faction</span>
         <span class="guild-meta-value"><?php echo htmlspecialchars($factionName); ?></span>
       </div>
       <div class="guild-meta-card">
@@ -508,16 +606,12 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
         <span class="guild-meta-label">Average Level</span>
         <span class="guild-meta-value"><?php echo $avgLevel; ?></span>
       </div>
-      <div class="guild-meta-card">
-        <span class="guild-meta-label">Average iLvl</span>
-        <span class="guild-meta-value"><?php echo $guildAverageItemLevel > 0 ? number_format($guildAverageItemLevel, 1) : '-'; ?></span>
-      </div>
-      <div class="guild-meta-card">
-        <span class="guild-meta-label">Established</span>
-        <span class="guild-meta-value"><?php echo htmlspecialchars($guildEstablishedLabel); ?></span>
+        <div class="guild-meta-card">
+          <span class="guild-meta-label">Average iLvl</span>
+          <span class="guild-meta-value"><?php echo $guildAverageItemLevel > 0 ? number_format($guildAverageItemLevel, 1) : '-'; ?></span>
+        </div>
       </div>
     </div>
-  </div>
 
   <div class="guild-shell">
     <section class="guild-section guild-roster-panel">
@@ -543,8 +637,8 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
             <option value="<?php echo (int)$rankId; ?>"<?php echo $selectedRank === (int)$rankId ? ' selected' : ''; ?>><?php echo htmlspecialchars($rankName); ?></option>
           <?php endforeach; ?>
         </select>
-        <label class="guild-check"><input type="checkbox" name="maxonly" value="1"<?php echo $selectedMax ? ' checked' : ''; ?>> Max Level Only</label>
-      </form>
+        <label class="guild-check"><input type="checkbox" name="maxonly" value="1"<?php echo $selectedMax ? ' checked' : ''; ?> onchange="this.form.submit()"> Max Level Only</label>
+        </form>
 
       <div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo $totalMembers; ?> members</div>
 
@@ -553,12 +647,12 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
       <table class="guild-roster">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Race</th>
-            <th>Class</th>
-            <th>Level</th>
-            <th>Avg iLvl</th>
-            <th>Guild Rank</th>
+            <th><a class="<?php echo $sortBy === 'name' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'name', $sortBy, $sortDir)); ?>">Name<?php echo $sortBy === 'name' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
+            <th><a class="<?php echo $sortBy === 'race' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'race', $sortBy, $sortDir)); ?>">Race<?php echo $sortBy === 'race' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
+            <th><a class="<?php echo $sortBy === 'class' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'class', $sortBy, $sortDir)); ?>">Class<?php echo $sortBy === 'class' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
+            <th><a class="<?php echo $sortBy === 'level' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'level', $sortBy, $sortDir)); ?>">Level<?php echo $sortBy === 'level' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
+            <th><a class="<?php echo $sortBy === 'ilvl' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'ilvl', $sortBy, $sortDir)); ?>">Avg iLvl<?php echo $sortBy === 'ilvl' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
+            <th><a class="<?php echo $sortBy === 'rank' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'rank', $sortBy, $sortDir)); ?>">Guild Rank<?php echo $sortBy === 'rank' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
           </tr>
         </thead>
         <tbody>
