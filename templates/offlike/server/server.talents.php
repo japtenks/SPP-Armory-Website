@@ -1,7 +1,5 @@
 ﻿<?php
-$siteRoot = !empty($_SERVER['DOCUMENT_ROOT'])
-    ? rtrim($_SERVER['DOCUMENT_ROOT'], '/\\')
-    : dirname(__DIR__, 3);
+$siteRoot = dirname(__DIR__, 3);
 
 require_once($siteRoot . '/config/config-protected.php');
 require_once($siteRoot . '/core/dbsimple/Generic.php');
@@ -22,11 +20,33 @@ if (!is_array($realmMap) || empty($realmMap)) {
     die('Realm DB map not loaded');
 }
 
+if (!function_exists('server_talents_resolve_armory_realm_name')) {
+    function server_talents_resolve_armory_realm_name($realmId, array $realmMap, array $legacyRealms = array()): string
+    {
+        $realmId = (int)$realmId;
+
+        if (function_exists('spp_get_armory_realm_name')) {
+            $resolved = spp_get_armory_realm_name($realmId);
+            if (is_string($resolved) && $resolved !== '') {
+                return $resolved;
+            }
+        }
+
+        foreach ($legacyRealms as $realmName => $realmInfo) {
+            if ((int)($realmInfo[0] ?? 0) === $realmId) {
+                return (string)$realmName;
+            }
+        }
+
+        return 'Realm ' . $realmId;
+    }
+}
+
 $requestedRealm = $_GET['realm'] ?? null;
 $realmId = null;
 if (is_string($requestedRealm) && $requestedRealm !== '' && !ctype_digit($requestedRealm)) {
     foreach ($realmMap as $mappedRealmId => $mappedRealmInfo) {
-        $mappedArmoryRealm = spp_get_armory_realm_name((int)$mappedRealmId) ?? '';
+        $mappedArmoryRealm = server_talents_resolve_armory_realm_name((int)$mappedRealmId, $realmMap, $realms ?? array());
         if ($mappedArmoryRealm !== '' && strcasecmp($requestedRealm, $mappedArmoryRealm) === 0) {
             $realmId = (int)$mappedRealmId;
             break;
@@ -50,7 +70,7 @@ if (!is_array($realmConfig)) {
     die('Unable to resolve realm for talent calculator.');
 }
 
-$armoryRealmName = spp_get_armory_realm_name($realmId) ?? '';
+$armoryRealmName = server_talents_resolve_armory_realm_name($realmId, $realmMap, $realms ?? array());
 
 if (!function_exists('server_talents_init_db')) {
     function server_talents_init_db($connectionInfo)
