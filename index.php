@@ -253,8 +253,49 @@ if ( ( int )$MW->getConfig->generic_values->realm_info->multirealm && isset( $_R
 		24 ), '/' ) ;
 }
 
+$defaultRealmId = (int)$MW->getConfig->generic_values->realm_info->default_realm_id;
+if ( $defaultRealmId < 1 && function_exists( 'spp_default_realm_id' ) && isset( $GLOBALS['realmDbMap'] ) )
+{
+	$defaultRealmId = (int)spp_default_realm_id( $GLOBALS['realmDbMap'] ) ;
+}
+if ( $defaultRealmId < 1 )
+{
+	$defaultRealmId = 1 ;
+}
+
+$selectedRealmId = (int)$user['cur_selected_realmd'] ;
+$dbinfo_mangos = null ;
+$selectedRealmIsValid = ( $selectedRealmId > 0 ) ;
+
+if ( $selectedRealmIsValid )
+{
+	$realmExists = $DB->selectCell( "SELECT `id` FROM `realmlist` WHERE `id`=?d LIMIT 1", $selectedRealmId ) ;
+	$dbinfo_mangos = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $selectedRealmId ) ;
+	$selectedRealmIsValid = !empty( $realmExists ) && !empty( $dbinfo_mangos ) ;
+
+	if ( $selectedRealmIsValid && function_exists( 'spp_get_pdo' ) && isset( $GLOBALS['realmDbMap'][$selectedRealmId] ) )
+	{
+		try
+		{
+			spp_get_pdo( 'realmd', $selectedRealmId ) ;
+		}
+		catch ( Throwable $e )
+		{
+			$selectedRealmIsValid = false ;
+			error_log( "[realm] Falling back from realm {$selectedRealmId}: " . $e->getMessage() ) ;
+		}
+	}
+}
+
+if ( !$selectedRealmIsValid )
+{
+	$user['cur_selected_realmd'] = $defaultRealmId ;
+	setcookie( "cur_selected_realmd", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
+	setcookie( "cur_selected_realm", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
+	$dbinfo_mangos = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $user['cur_selected_realmd'] ) ;
+}
+
 // Make an array from `dbinfo` column for the selected realm..
-$dbinfo_mangos = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $user['cur_selected_realmd'] ) ;
 //$dbinfo_mangos = explode( ';', $mangos_info ) ;
 if ( ( int )$MW->getConfig->generic->use_archaeic_dbinfo_format )
 {

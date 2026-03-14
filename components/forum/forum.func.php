@@ -96,10 +96,33 @@ function resolve_forum_character_for_realm(array $user, int $realmId)
     }
 
     $cookieCharacterId = (int)($_COOKIE['cur_selected_character'] ?? 0);
+    $cookieRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? ($_COOKIE['cur_selected_realm'] ?? 0));
+
+    if ($cookieCharacterId > 0 && $cookieRealmId > 0) {
+        foreach ($characters as $character) {
+            if (
+                (int)($character['realm_id'] ?? 0) === $cookieRealmId &&
+                (int)($character['guid'] ?? 0) === $cookieCharacterId
+            ) {
+                return $character;
+            }
+        }
+    }
 
     foreach ($characters as $character) {
         if ((int)($character['realm_id'] ?? 0) === $realmId && (int)$character['guid'] === $cookieCharacterId) {
             return $character;
+        }
+    }
+
+    if (!empty($user['character_id']) && !empty($user['character_name'])) {
+        foreach ($characters as $character) {
+            if (
+                (int)($character['guid'] ?? 0) === (int)$user['character_id'] &&
+                (string)($character['name'] ?? '') === (string)$user['character_name']
+            ) {
+                return $character;
+            }
         }
     }
 

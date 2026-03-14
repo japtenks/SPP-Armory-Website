@@ -42,15 +42,15 @@ if ($_GET['action'] == 'view') {
 
         $itemnum = $DB->selectCell("
             SELECT COUNT(1)
-            FROM tbcrealmd.website_pms
+            FROM website_pms
             WHERE owner_id = ?d
         ", $user['id']);
         $pnum = ceil($itemnum / $items_per_page);
 
         $items = $DB->select("
             SELECT pms.*, s.username AS sender
-            FROM tbcrealmd.website_pms AS pms
-            LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
+            FROM website_pms AS pms
+            LEFT JOIN account AS s ON pms.sender_id = s.id
             WHERE pms.owner_id = ?d
             ORDER BY posted DESC
             LIMIT ?d, ?d
@@ -62,15 +62,15 @@ if ($_GET['action'] == 'view') {
 
         $itemnum = $DB->selectCell("
             SELECT COUNT(1)
-            FROM tbcrealmd.website_pms
+            FROM website_pms
             WHERE sender_id = ?d
         ", $user['id']);
         $pnum = ceil($itemnum / $items_per_page);
 
         $items = $DB->select("
             SELECT pms.*, r.username AS `for`
-            FROM tbcrealmd.website_pms AS pms
-            LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+            FROM website_pms AS pms
+            LEFT JOIN account AS r ON pms.owner_id = r.id
             WHERE pms.sender_id = ?d
             ORDER BY posted DESC
             LIMIT ?d, ?d
@@ -90,13 +90,13 @@ elseif (
     if ($_GET['dir'] == 'in') {
         // Delete messages RECEIVED
         $DB->query("
-            DELETE FROM tbcrealmd.website_pms
+            DELETE FROM website_pms
             WHERE owner_id = ?d AND id IN (?a)
         ", $user['id'], $_POST['checkpm']);
     } else {
         // Delete messages SENT
         $DB->query("
-            DELETE FROM tbcrealmd.website_pms
+            DELETE FROM website_pms
             WHERE sender_id = ?d AND id IN (?a)
         ", $user['id'], $_POST['checkpm']);
     }
@@ -117,16 +117,16 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
 
         $item = $DB->selectRow("
             SELECT pms.*, s.username AS sender, r.username AS receiver
-            FROM tbcrealmd.website_pms AS pms
-            LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
-            LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+            FROM website_pms AS pms
+            LEFT JOIN account AS s ON pms.sender_id = s.id
+            LEFT JOIN account AS r ON pms.owner_id = r.id
             WHERE pms.owner_id = ?d AND pms.id = ?d
             LIMIT 1
         ", $user['id'], $_GET['iid']);
 
         // Mark as read
         if ($item && empty($item['showed'])) {
-            $DB->query("UPDATE tbcrealmd.website_pms SET showed = 1 WHERE id = ?d", $item['id']);
+            $DB->query("UPDATE website_pms SET showed = 1 WHERE id = ?d", $item['id']);
         }
 
     } elseif ($_GET['dir'] == 'out') {
@@ -135,9 +135,9 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
 
         $item = $DB->selectRow("
             SELECT pms.*, s.username AS sender, r.username AS receiver
-            FROM tbcrealmd.website_pms AS pms
-            LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
-            LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+            FROM website_pms AS pms
+            LEFT JOIN account AS s ON pms.sender_id = s.id
+            LEFT JOIN account AS r ON pms.owner_id = r.id
             WHERE pms.sender_id = ?d AND pms.id = ?d
             LIMIT 1
         ", $user['id'], $_GET['iid']);
@@ -163,14 +163,14 @@ elseif ($_GET['action'] == 'add') {
         // Lookup recipient from account table
         $owner_id = $DB->selectCell("
             SELECT id
-            FROM tbcrealmd.account
+            FROM account
             WHERE username = ?
             LIMIT 1
         ", $_POST['owner']);
 
         if ($owner_id > 0) {
             $DB->query("
-                INSERT INTO tbcrealmd.website_pms
+                INSERT INTO website_pms
                     (owner_id, subject, message, sender_id, posted, sender_ip, showed)
                 VALUES
                     (?d, ?, ?, ?d, ?d, ?, 0)
@@ -189,9 +189,9 @@ elseif ($_GET['action'] == 'add') {
 if (!empty($_GET['reply'])) {
     $content = $DB->selectRow("
         SELECT pms.*, s.username AS sender, r.username AS receiver
-        FROM tbcrealmd.website_pms AS pms
-        LEFT JOIN tbcrealmd.account AS s ON pms.sender_id = s.id
-        LEFT JOIN tbcrealmd.account AS r ON pms.owner_id = r.id
+        FROM website_pms AS pms
+        LEFT JOIN account AS s ON pms.sender_id = s.id
+        LEFT JOIN account AS r ON pms.owner_id = r.id
         WHERE pms.id = ?d
         LIMIT 1
     ", $_GET['reply']);

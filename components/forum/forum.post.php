@@ -16,7 +16,10 @@ $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 if (!is_array($realmMap) || empty($realmMap)) {
     die("Realm DB map not loaded");
 }
-$realmId = spp_resolve_realm_id($realmMap);
+$cookieRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? ($_COOKIE['cur_selected_realm'] ?? 0));
+$realmId = ($cookieRealmId > 0 && isset($realmMap[$cookieRealmId]))
+    ? $cookieRealmId
+    : spp_resolve_realm_id($realmMap);
 $charDbName = $realmMap[$realmId]['chars'];
 $activeForumCharacter = resolve_forum_character_for_realm($user, $realmId);
 
