@@ -7,10 +7,10 @@
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-helper.php');
 
 $db = [
-    'host' => '192.168.1.90',
-    'port' => 3306,
-    'user' => 'mangos',
-    'pass' => 'mangos'
+    'host' => '127.0.0.1',
+    'port' => 3310,
+    'user' => '123456',
+    'pass' => '123456'
 ];
 
 $realmDbMap = [
