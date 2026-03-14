@@ -1,6 +1,8 @@
-\# SPP-Armory-Website 2026 Refresh
+# SPP-Armory-Website 2026 Refresh
 **Site Redesign**
-![Video](img/WebShowcase.mp4)
+
+<video src="img/WebShowcase.mp4" controls width="800"></video>
+
 ![Front Page](img/website08.png)
 
 Website for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos). Windows \
