@@ -17,6 +17,6 @@ $db['world']  = $realmMap[$realmId]['world'];
 $db['armory'] = $realmMap[$realmId]['armory'];
 $db['bots']   = $realmMap[$realmId]['bots'];
 $realmName    = function_exists('spp_get_armory_realm_name')
-    ? (spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId))
-    : ('Realm ' . (int)$realmId);
+    ? (spp_get_armory_realm_name($realmId) ?? '')
+    : '';
 $expansion    = ($realmId == 3) ? 2 : (($realmId == 2) ? 1 : 0);

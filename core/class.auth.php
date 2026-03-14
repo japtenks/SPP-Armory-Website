@@ -113,8 +113,8 @@ function load_characters_for_user() {
             $realmName = $this->DB->selectCell('SELECT name FROM realmlist WHERE id=?d', (int)$id);
             if (empty($realmName)) {
             $realmName = function_exists('spp_get_armory_realm_name')
-                ? (spp_get_armory_realm_name((int)$id) ?? ('Realm ' . (int)$id))
-                : ('Realm ' . (int)$id);
+                ? (spp_get_armory_realm_name((int)$id) ?? '')
+                : '';
             }
 
             $chars = $CHDB->select("
@@ -126,8 +126,8 @@ function load_characters_for_user() {
 
             if (!is_array($chars) || empty($chars)) {
                 $realmLogName = function_exists('spp_get_armory_realm_name')
-                    ? (spp_get_armory_realm_name((int)$id) ?? ('Realm ' . (int)$id))
-                    : ('Realm ' . (int)$id);
+                    ? (spp_get_armory_realm_name((int)$id) ?? '')
+                    : '';
                 error_log("[AUTH] No characters found in {$realmLogName} for account {$this->user['id']}");
                 continue;
             }
@@ -142,8 +142,8 @@ function load_characters_for_user() {
 
         } catch (Exception $e) {
             $realmLogName = function_exists('spp_get_armory_realm_name')
-                ? (spp_get_armory_realm_name((int)$id) ?? ('Realm ' . (int)$id))
-                : ('Realm ' . (int)$id);
+                ? (spp_get_armory_realm_name((int)$id) ?? '')
+                : '';
             error_log("[AUTH] Failed loading characters for realm {$realmLogName}: " . $e->getMessage());
         }
     }

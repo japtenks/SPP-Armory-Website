@@ -1005,7 +1005,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
     }
 }
 
-$realmLabel = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
+$realmLabel = spp_get_armory_realm_name($realmId) ?? '';
 $zoneName = isset($character['zone']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['zone']) : 'Unknown zone';
 $currentMapName = isset($character['map']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['map']) : 'Unknown zone';
 $normalizedZoneName = $zoneName !== 'Unknown zone' ? trim((string)$zoneName) : '';
@@ -1674,12 +1674,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     section.appendChild(body);
     section.classList.add('is-collapsible');
-
-    var pinned = title.textContent.trim() === 'Recent Earned';
-    if (pinned) {
-      section.classList.add('character-achievement-section-pinned', 'is-open');
-      return;
-    }
 
     title.tabIndex = 0;
     title.setAttribute('role', 'button');

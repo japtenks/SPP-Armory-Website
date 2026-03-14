@@ -668,24 +668,6 @@ if ($list) {
 <script src="shared/global/third-party/sarissa/0.9.7.6/sarissa.js" type="text/javascript"></script>
 <script src="shared/global/third-party/sarissa/0.9.7.6/sarissa_dhtml.js" type="text/javascript"></script>
 <script src="js/ajaxtooltip.js" type="text/javascript"></script>
-<script>
-
-(function () {
-  // Wowhead-like short code: <class>-<tree1>-<tree2>-<tree3>
-  var h = location.hash.slice(1);
-  if (!/^\d+-[0-5-]+$/.test(h)) return;
-
-  // already on the calculator? do nothing
-  if (/[?&]searchType=talentscalc\b/.test(location.search)) return;
-
-  // jump to the calculator and keep the hash (short code)
-  var u = new URL(location.href);
-  u.searchParams.set('searchType', 'talentscalc'); // <-- note the plural key
-  location.replace(u.pathname + '?' + u.searchParams.toString() + '#' + h);
-})();
-</script>
-
-
 </body>
 </html>
 

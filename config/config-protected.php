@@ -140,7 +140,7 @@ if (!function_exists('spp_get_armory_realm_name')) {
             return $cache[$resolvedRealmId];
         }
 
-        $fallback = 'Realm ' . (int)$resolvedRealmId;
+        $fallback = null;
         $realmdDb = $realmDbMap[$resolvedRealmId]['realmd'] ?? null;
         if (!$realmdDb) {
             return $cache[$resolvedRealmId] = $fallback;

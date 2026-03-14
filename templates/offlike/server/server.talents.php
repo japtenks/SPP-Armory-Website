@@ -50,7 +50,7 @@ if (!is_array($realmConfig)) {
     die('Unable to resolve realm for talent calculator.');
 }
 
-$armoryRealmName = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
+$armoryRealmName = spp_get_armory_realm_name($realmId) ?? '';
 
 if (!function_exists('server_talents_init_db')) {
     function server_talents_init_db($connectionInfo)

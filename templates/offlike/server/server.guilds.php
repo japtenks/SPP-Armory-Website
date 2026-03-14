@@ -171,7 +171,7 @@ if (!is_array($realmMap) || empty($realmMap)) {
 $realmId = spp_resolve_realm_id($realmMap);
 $realmDB = $realmMap[$realmId]['chars'];
 $realmWorldDB = $realmMap[$realmId]['world'];
-$armoryRealm = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
+$armoryRealm = spp_get_armory_realm_name($realmId) ?? '';
 
 $classNames = [
   1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest',

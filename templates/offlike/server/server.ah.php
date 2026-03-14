@@ -18,7 +18,7 @@ if (!isset($realmMap[$realmId])) {
 
 $db_chars = $realmMap[$realmId]['chars'];
 $db_world = $realmMap[$realmId]['world'];
-$realmName = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
+$realmName = spp_get_armory_realm_name($realmId) ?? '';
 $use_itemsite_url = 'index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=';
 
 /* ---------- PDO Connection ---------- */

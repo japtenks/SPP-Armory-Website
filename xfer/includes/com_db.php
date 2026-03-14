@@ -7,8 +7,8 @@ require_once($_SERVER['DOCUMENT_ROOT'] . '/xfer/includes/realm_db.php');
 $db['name'] = $db['chars'];
 $world_db   = $db['world'];
 $realmName  = function_exists('spp_get_armory_realm_name')
-    ? (spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId))
-    : ('Realm ' . (int)$realmId);
+    ? (spp_get_armory_realm_name($realmId) ?? '')
+    : '';
 
 try {
     $pdo = new PDO(

@@ -550,7 +550,7 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
 
                     $preferredName = !empty($realmRow['name']) ? $realmRow['name'] : '';
                     if ($preferredName === '') {
-                        $preferredName = 'Realm ' . $candidateRealmId;
+                        continue;
                     }
 
                     $availableRealms[$candidateRealmId] = array(
@@ -566,7 +566,7 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
                         ? (spp_get_armory_realm_name((int)$candidateRealmId) ?? '')
                         : '';
                     if ($fallbackName === '') {
-                        $fallbackName = 'Realm ' . (int)$candidateRealmId;
+                        continue;
                     }
                     $availableRealms[(int)$candidateRealmId] = array(
                         'id' => (int)$candidateRealmId,
@@ -643,7 +643,7 @@ function builddiv_end() {
 function get_realm_info()
 {
     $realmId = (int)($_GET['realm'] ?? 1);
-    $resolveRealmName = static function (int $id, string $fallback): string {
+    $resolveRealmName = static function (int $id, string $fallback = ''): string {
         if (function_exists('spp_get_armory_realm_name')) {
             $resolved = spp_get_armory_realm_name($id);
             if (is_string($resolved) && $resolved !== '') {
@@ -661,7 +661,7 @@ function get_realm_info()
                 'world'=> 'classicmangos',
                 'bots' => 'classicplayerbots',
                 'logs' => 'classiclogs',
-                'name' => $resolveRealmName(1, 'Classic'),
+                'name' => $resolveRealmName(1),
                 'exp'  => 0
             ];
         case 2:
@@ -671,7 +671,7 @@ function get_realm_info()
                 'world'=> 'tbcmangos',
                 'bots' => 'tbcplayerbots',
                 'logs' => 'tbclogs',
-                'name' => $resolveRealmName(2, 'The Burning Crusade'),
+                'name' => $resolveRealmName(2),
                 'exp'  => 1
             ];
         case 3:
@@ -681,7 +681,7 @@ function get_realm_info()
                 'world'=> 'wotlkmangos',
                 'bots' => 'wotlkplayerbots',
                 'logs' => 'wotlklogs',
-                'name' => $resolveRealmName(3, 'Wrath of the Lich King'),
+                'name' => $resolveRealmName(3),
                 'exp'  => 2
             ];
         default:
@@ -691,7 +691,7 @@ function get_realm_info()
                 'world'=> 'classicmangos',
                 'bots' => 'classicplayerbots',
                 'logs' => 'classiclogs',
-                'name' => $resolveRealmName(1, 'Classic'),
+                'name' => $resolveRealmName(1),
                 'exp'  => 0
             ];
     }

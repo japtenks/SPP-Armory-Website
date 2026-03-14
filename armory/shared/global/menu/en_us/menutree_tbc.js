@@ -79,7 +79,7 @@ Menu1_4_1_7 = new Array("Items", "/armory/index.php?searchType=items", "reg",
   dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 
 // 8) Talent Calculator						  
-Menu1_4_1_8 = new Array("Talent Calculator", "/armory/index.php#0-0-0", "reg",
+Menu1_4_1_8 = new Array("Talent Calculator", "/armory/index.php?searchType=talentscalc", "reg",
   dv3,dv4,dv5,dv6,dv7,dv8,dv9,dv10,dv11,dv12,dv13,dv14,dv15,dv16);
 
 

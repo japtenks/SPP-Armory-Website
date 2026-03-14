@@ -532,11 +532,6 @@ function extractBuildToken(input){
 function refreshShareUI(){
   const token = encodeWowheadLike();
 
-  // Address bar (no history spam)
-  const current = new URL(location.href);
-  const baseUrl = window.tcBaseUrl || (current.pathname + current.search);
-  history.replaceState(null, '', baseUrl + '#' + token);
-
   // Token box
   const box = document.getElementById('tcTokenBox');
   if (box) box.value = token;
@@ -551,10 +546,7 @@ if (whisper) whisper.textContent = `/w ${window.tcBotName || 'Botname'} talents 
 }
 
 /* ================== ROBUST BOOT ==================
-   - If hash or ?build exists, apply it (3- or 4-part).
-   - Otherwise set default "#0-0-0".
-   - Normalize to trees-only in URL and token box.
-   - Works on first load, BFCache, and manual hash edits.
+   Only honor explicit ?build tokens and never mutate the browser URL.
 */
 (function bootOnce(){
   let booted = false;
@@ -569,14 +561,10 @@ if (whisper) whisper.textContent = `/w ${window.tcBotName || 'Botname'} talents 
     }
 
     const qs   = new URLSearchParams(location.search);
-    const raw  = qs.get('build') || location.hash.replace(/^#/,'') || '';
+    const raw  = qs.get('build') || '';
     const tok  = extractBuildToken(raw); // "" if none
 
     if (!tok) {
-      const def = '0-0-0';
-      const current = new URL(location.href);
-      const baseUrl = window.tcBaseUrl || (current.pathname + current.search);
-      history.replaceState(null, '', baseUrl + '#' + def);
       refreshShareUI(); // also updates whisper
       booted = true;
       return;
@@ -609,14 +597,6 @@ if (whisper) whisper.textContent = `/w ${window.tcBotName || 'Botname'} talents 
 
   // handle BFCache restores
   window.addEventListener('pageshow', (e)=>{ if (e.persisted) doBoot(); });
-
-  // If the user manually edits the hash + presses Enter, apply it
-  window.addEventListener('hashchange', () => {
-    const tok = extractBuildToken(location.hash.replace(/^#/, ''));
-    if (!tok) return;
-    decodeWowheadLike(tok);
-    refreshShareUI();
-  });
 })();
 
 /** Live updates: keep code box + hash + whisper synced after any rank change */
