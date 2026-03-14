@@ -268,7 +268,7 @@ if (!function_exists('spp_modern_item_cache_source')) {
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
-$realmLabel = $realmMap[$realmId]['label'] ?? 'Realm';
+$realmLabel = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
 $itemId = isset($_GET['item']) ? (int)$_GET['item'] : 0;
 
 $classNames = [1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest', 6 => 'Death Knight', 7 => 'Shaman', 8 => 'Mage', 9 => 'Warlock', 11 => 'Druid'];

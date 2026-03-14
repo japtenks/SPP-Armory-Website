@@ -359,8 +359,11 @@ if (
         $normalizedLegacyRealm = strtolower(preg_replace('/[^a-z0-9]+/', '', $legacyRealm));
 
         foreach ($realmMap as $candidateRealmId => $realmInfo) {
-            $label = strtolower(preg_replace('/[^a-z0-9]+/', '', $realmInfo['label'] ?? ''));
-            if ($normalizedLegacyRealm === $label || $normalizedLegacyRealm === 'spp' . $label) {
+            $resolvedRealmName = function_exists('spp_get_armory_realm_name')
+                ? (spp_get_armory_realm_name((int)$candidateRealmId) ?? '')
+                : '';
+            $label = strtolower(preg_replace('/[^a-z0-9]+/', '', $resolvedRealmName));
+            if ($label !== '' && ($normalizedLegacyRealm === $label || $normalizedLegacyRealm === 'spp' . $label)) {
                 $realmId = (int)$candidateRealmId;
                 break;
             }

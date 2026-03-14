@@ -548,10 +548,7 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
                         continue;
                     }
 
-                    $preferredName = $realmMap[$candidateRealmId]['label'] ?? '';
-                    if ($preferredName === '' && !empty($realmRow['name'])) {
-                        $preferredName = $realmRow['name'];
-                    }
+                    $preferredName = !empty($realmRow['name']) ? $realmRow['name'] : '';
                     if ($preferredName === '') {
                         $preferredName = 'Realm ' . $candidateRealmId;
                     }
@@ -565,9 +562,15 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
 
             if (empty($availableRealms)) {
                 foreach ($realmMap as $candidateRealmId => $realmInfo) {
+                    $fallbackName = function_exists('spp_get_armory_realm_name')
+                        ? (spp_get_armory_realm_name((int)$candidateRealmId) ?? '')
+                        : '';
+                    if ($fallbackName === '') {
+                        $fallbackName = 'Realm ' . (int)$candidateRealmId;
+                    }
                     $availableRealms[(int)$candidateRealmId] = array(
                         'id' => (int)$candidateRealmId,
-                        'name' => $realmInfo['label'] ?? ('Realm ' . (int)$candidateRealmId),
+                        'name' => $fallbackName,
                     );
                 }
             }
@@ -640,11 +643,12 @@ function builddiv_end() {
 function get_realm_info()
 {
     $realmId = (int)($_GET['realm'] ?? 1);
-    $realmMap = $GLOBALS['realmDbMap'] ?? [];
-
-    $resolveRealmName = static function (int $id, string $fallback) use ($realmMap): string {
-        if (isset($realmMap[$id]['label']) && $realmMap[$id]['label'] !== '') {
-            return (string)$realmMap[$id]['label'];
+    $resolveRealmName = static function (int $id, string $fallback): string {
+        if (function_exists('spp_get_armory_realm_name')) {
+            $resolved = spp_get_armory_realm_name($id);
+            if (is_string($resolved) && $resolved !== '') {
+                return $resolved;
+            }
         }
         return $fallback;
     };

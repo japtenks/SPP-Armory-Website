@@ -6,7 +6,9 @@ require_once($_SERVER['DOCUMENT_ROOT'] . '/xfer/includes/realm_db.php');
 // $db already has host/port/user/pass/chars from realm_db.php
 $db['name'] = $db['chars'];
 $world_db   = $db['world'];
-$realmName  = $realmDbMap[$realmId]['label'];
+$realmName  = function_exists('spp_get_armory_realm_name')
+    ? (spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId))
+    : ('Realm ' . (int)$realmId);
 
 try {
     $pdo = new PDO(

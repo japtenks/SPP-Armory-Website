@@ -129,7 +129,7 @@ if (!isset($realmMap[$realmId])) {
 
 $realmDB = $realmMap[$realmId]['chars'];
 $realmWorldDB = $realmMap[$realmId]['world'];
-$armoryRealm = spp_get_armory_realm_name($realmId) ?? ($realmMap[$realmId]['label'] ?? '');
+$armoryRealm = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
 $currtmp = '/armory';
 
 $guildId = isset($_GET['guildid']) ? (int)$_GET['guildid'] : 0;

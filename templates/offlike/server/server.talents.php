@@ -26,8 +26,8 @@ $requestedRealm = $_GET['realm'] ?? null;
 $realmId = null;
 if (is_string($requestedRealm) && $requestedRealm !== '' && !ctype_digit($requestedRealm)) {
     foreach ($realmMap as $mappedRealmId => $mappedRealmInfo) {
-        $mappedArmoryRealm = spp_get_armory_realm_name((int)$mappedRealmId) ?? ($mappedRealmInfo['label'] ?? '');
-        if (strcasecmp($requestedRealm, $mappedRealmInfo['label']) === 0 || strcasecmp($requestedRealm, $mappedArmoryRealm) === 0) {
+        $mappedArmoryRealm = spp_get_armory_realm_name((int)$mappedRealmId) ?? '';
+        if ($mappedArmoryRealm !== '' && strcasecmp($requestedRealm, $mappedArmoryRealm) === 0) {
             $realmId = (int)$mappedRealmId;
             break;
         }
@@ -50,7 +50,7 @@ if (!is_array($realmConfig)) {
     die('Unable to resolve realm for talent calculator.');
 }
 
-$armoryRealmName = spp_get_armory_realm_name($realmId) ?? ($realmConfig['label'] ?? ('Realm ' . (int)$realmId));
+$armoryRealmName = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
 
 if (!function_exists('server_talents_init_db')) {
     function server_talents_init_db($connectionInfo)

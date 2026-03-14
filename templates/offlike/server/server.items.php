@@ -218,7 +218,7 @@ if (!function_exists('spp_modern_item_cache_source')) {
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
-$realmLabel = $realmMap[$realmId]['label'] ?? 'Realm';
+$realmLabel = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
 
 $search = trim($_GET['search'] ?? '');
 $orderBy = strtolower(trim($_GET['sort'] ?? 'relevance'));

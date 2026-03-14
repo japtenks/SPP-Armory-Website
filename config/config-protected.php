@@ -140,7 +140,7 @@ if (!function_exists('spp_get_armory_realm_name')) {
             return $cache[$resolvedRealmId];
         }
 
-        $fallback = $realmDbMap[$resolvedRealmId]['label'] ?? null;
+        $fallback = 'Realm ' . (int)$resolvedRealmId;
         $realmdDb = $realmDbMap[$resolvedRealmId]['realmd'] ?? null;
         if (!$realmdDb) {
             return $cache[$resolvedRealmId] = $fallback;
@@ -188,7 +188,6 @@ $realmDbMap = [
         'chars'   => 'classiccharacters',
         'armory'  => 'classicarmory',
         'bots'    => 'classicplayerbots',
-        'label'   => 'SPP-Classic',
     ],
     2 => [
         'realmd'  => 'tbcrealmd',
@@ -196,7 +195,6 @@ $realmDbMap = [
         'chars'   => 'tbccharacters',
         'armory'  => 'tbcarmory',
         'bots'    => 'tbcplayerbots',
-        'label'   => 'SPP-The Burning Crusade',
     ],
     3 => [
         'realmd'  => 'wotlkrealmd',
@@ -204,7 +202,6 @@ $realmDbMap = [
         'chars'   => 'wotlkcharacters',
         'armory'  => 'wotlkarmory',
         'bots'    => 'wotlkplayerbots',
-        'label'   => 'SPP-Wrath of the Lich King',
     ],
 ];
 

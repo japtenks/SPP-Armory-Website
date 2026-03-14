@@ -1005,7 +1005,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
     }
 }
 
-$realmLabel = spp_get_armory_realm_name($realmId) ?? ($realmMap[$realmId]['label'] ?? 'Realm');
+$realmLabel = spp_get_armory_realm_name($realmId) ?? ('Realm ' . (int)$realmId);
 $zoneName = isset($character['zone']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['zone']) : 'Unknown zone';
 $currentMapName = isset($character['map']) && isset($GLOBALS['MANG']) && $GLOBALS['MANG'] instanceof Mangos ? $GLOBALS['MANG']->get_zone_name((int)$character['map']) : 'Unknown zone';
 $normalizedZoneName = $zoneName !== 'Unknown zone' ? trim((string)$zoneName) : '';
