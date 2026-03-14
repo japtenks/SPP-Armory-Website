@@ -73,11 +73,3 @@ $db = [
 
 
 
-\## Notes
-
-\- The `img/` folder is \*\*not included\*\* in release zips (set via `.gitattributes`).
-
-
-
-
-
