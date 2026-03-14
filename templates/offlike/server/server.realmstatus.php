@@ -50,11 +50,6 @@ foreach($realms as $r){
   $realm_name=$r['name'];
   $realm_type=$realm_flags_def[$r['realmflags']&0x0F]??"Normal";
   $realmData=$DB->selectRow("SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $realm_id);
-  $checkAddress=(int)$MW->getConfig->generic->use_local_ip_port_test ? '127.0.0.1' : $r['address'];
-  $is_online=check_port_status($checkAddress, $r['port'])===true;
-  
-  $res_color = $is_online ? 1 : 0;
-  $res_img = $is_online ? './templates/tbc/images/uparrow2.gif' : './templates/tbc/images/downarrow2.gif';
   $build_ver=trim($r['realmbuilds']);
 
   // Determine expansion by build version
@@ -66,6 +61,14 @@ foreach($realms as $r){
   $worldDbName = $realmData['dbname'] ?? '';
   $CHDB_EXTRA = connect_realm_db($realmData, $charDbName);
   $WSDB_EXTRA = connect_realm_db($realmData, $worldDbName);
+
+  // Use DB connectivity as the single online/offline source of truth.
+  $is_online = ($CHDB_EXTRA || $WSDB_EXTRA) ? true : false;
+  $res_color = $is_online ? 1 : 0;
+  $res_label = $is_online ? 'up' : 'down';
+  $res_img = $is_online
+    ? 'templates/offlike/images/modern/status/uparrow2.gif'
+    : 'templates/offlike/images/modern/status/downarrow2.gif';
 
   // uptime stats
   $uptime=0;$avg_uptime=0;$restart_count=0;
@@ -124,7 +127,7 @@ foreach($realms as $r){
     'id'=>$realm_id,'name'=>$realm_name,'type'=>$realm_type,'build'=>$build_ver,
     'exp'=>$exp,'pop'=>$pop,'alli'=>$alli,'horde'=>$horde,'uptime'=>$uptime,
     'avg_up'=>$avg_uptime,'restarts'=>$restart_count,'avg_lvl'=>$avg_lvl,'max_lvl'=>$max_lvl,
-    'state'=>$state,'res_color'=>$res_color,'img'=>$res_img
+    'state'=>$state,'res_color'=>$res_color,'status_label'=>$res_label,'img'=>$res_img
   ];
 }
 ?>
@@ -137,7 +140,9 @@ foreach($realms as $r){
         $up   = '<span class="status up">▲ '.$lang['up'].'</span>';
         $down = '<span class="status down">▼ '.$lang['down'].'</span>';
       $link='<a href="index.php?n=forum">'.$lang['realm_status_forum'].'</a>';
-      $desc=str_replace(['[up]','[down]','[realm_status_forum]'],[$up,$down,$link],$lang['realmstatus_desc']);
+      $up = '<span class="status up">&#9650; '.$lang['up'].'</span>';
+      $down = '<span class="status down">&#9660; '.$lang['down'].'</span>';
+      $desc=str_replace(['[up]','[down]'],[$up,$down],$lang['realmstatus_desc']);
       echo $desc;
     ?>
   </div>
@@ -152,7 +157,7 @@ foreach($realms as $r){
     <?php foreach($items as $r): ?>
     <div class="realm-card <?php echo $r['res_color']==1?'online':'offline'; ?>">
       <div class="realm-header">
-        <img src="<?php echo $r['img']; ?>" alt="status" class="realm-icon"/>
+        <img src="<?php echo htmlspecialchars($r['img']); ?>" alt="<?php echo htmlspecialchars($r['status_label']); ?>" class="realm-icon"/>
         <span class="realm-name"><?php echo htmlspecialchars($r['name']); ?></span>
         <span style="color:#888;font-size:.9rem;">(Build: <?php echo htmlspecialchars($r['build']); ?>)</span>
       </div>
@@ -220,3 +225,5 @@ foreach($realms as $r){
   </div>
 </div>
 <?php builddiv_end(); ?>
+
+
