@@ -135,11 +135,7 @@ $com_content = array(
 /* ------------------ DYNAMIC TALENTS LINK ------------------ */
 $talentMenuIndex = 3;
 if (isset($mainnav_links['7-menuArmory'][$talentMenuIndex])) {
-    $talentCharacter = isset($user['character_name']) ? trim($user['character_name']) : '';
     $talentLink = 'index.php?n=server&sub=talents';
-    if ($talentCharacter !== '') {
-        $talentLink .= '&character=' . rawurlencode($talentCharacter);
-    }
     if (!empty($user['cur_selected_realmd'])) {
         $talentLink .= '&realm=' . (int)$user['cur_selected_realmd'];
     }

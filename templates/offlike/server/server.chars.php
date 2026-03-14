@@ -59,6 +59,57 @@ builddiv_start(1, $lang['characters'], 1);
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 require_once($_SERVER['DOCUMENT_ROOT'] . '/components/forum/forum.func.php');
 
+if (!function_exists('spp_class_icon_url')) {
+    function spp_class_icon_url($classId)
+    {
+        $classId = (int)$classId;
+        $extensions = [
+            1 => 'jpg',
+            2 => 'jpg',
+            3 => 'jpg',
+            4 => 'jpg',
+            5 => 'jpg',
+            6 => 'gif',
+            7 => 'jpg',
+            8 => 'jpg',
+            9 => 'jpg',
+            11 => 'jpg',
+        ];
+
+        if (!isset($extensions[$classId])) {
+            return '/armory/images/icons/64x64/404.png';
+        }
+
+        return '/armory/images/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
+    }
+}
+
+if (!function_exists('spp_race_icon_url')) {
+    function spp_race_icon_url($raceId, $gender)
+    {
+        $raceId = (int)$raceId;
+        $gender = ((int)$gender === 1) ? 'female' : 'male';
+        $icons = [
+            1 => 'achievement_character_human_' . $gender,
+            2 => 'achievement_character_orc_' . $gender,
+            3 => 'achievement_character_dwarf_' . $gender,
+            4 => 'achievement_character_nightelf_' . $gender,
+            5 => 'achievement_character_undead_' . $gender,
+            6 => 'achievement_character_tauren_' . $gender,
+            7 => 'achievement_character_gnome_' . $gender,
+            8 => 'achievement_character_troll_' . $gender,
+            10 => 'achievement_character_bloodelf_' . $gender,
+            11 => 'achievement_character_draenei_' . $gender,
+        ];
+
+        if (!isset($icons[$raceId])) {
+            return '/armory/images/icons/64x64/404.png';
+        }
+
+        return '/armory/images/icons/64x64/' . $icons[$raceId] . '.png';
+    }
+}
+
 function parse_character_search($search)
 {
     $parsed = [
@@ -259,12 +310,12 @@ $characters = array_slice($filteredCharacters, $offset, $items_per_page);
       </div>
       <div class="col"><?php if (!empty($item['guild_id']) && !empty($item['guild_name'])): ?><a href="index.php?n=server&sub=guild&guildid=<?php echo (int)$item['guild_id']; ?>&realm=<?php echo $realmId; ?>"><?php echo htmlspecialchars($item['guild_name']); ?></a><?php else: ?>-<?php endif; ?></div>
       <div class="col">
-        <img src="/templates/offlike/images/icons/race/<?php echo $item['race'].'-'.$item['gender']; ?>.gif"
+        <img src="<?php echo htmlspecialchars(spp_race_icon_url($item['race'], $item['gender'])); ?>"
              class="circle"
              title="<?php echo $raceNames[$item['race']] ?? 'Unknown'; ?>">
       </div>
       <div class="col">
-        <img src="/templates/offlike/images/icons/class/<?php echo $item['class']; ?>.jpg"
+        <img src="<?php echo htmlspecialchars(spp_class_icon_url($item['class'])); ?>"
              class="circle"
              title="<?php echo $classNames[$item['class']] ?? 'Unknown'; ?>">
       </div>

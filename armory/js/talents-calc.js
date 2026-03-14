@@ -94,7 +94,7 @@
   const reqEl    = document.getElementById('tcReqLvl');
   const splitsEl = document.getElementById('tcSplits');
 
-  const MAX_POINTS = 61;
+  const MAX_POINTS = Math.max(0, parseInt(window.tcMaxPoints || '61', 10) || 61);
   let spent = 0;
 
   const splitByTree = new Map(); // treeEl -> points

@@ -65,7 +65,7 @@ function printMid(subArray) {
 	if (isRec && currentItem == subArray[0][1])
 		theString += ' class = "data2"';
 	theString += '><td><div><p><img src="images/pixel.gif" width="1" height="1" /></p></div></td></td>';
-	theString += '<td align = "center"><a onMouseOut = "javascript: hideTip();" onMouseOver="javascript: loadTooltip(textLoading, '+ subArray[0][1] +')" href="item-info.xml?'+ subArray[0][2] +'"><img src="images/icons/43x43/'+ subArray[0][0] +'.png" class="p43" border = "0" /></a></td>';	
+	theString += '<td align = "center"><a onMouseOut = "javascript: hideTip();" onMouseOver="javascript: loadTooltip(textLoading, '+ subArray[0][1] +')" href="item-info.xml?'+ subArray[0][2] +'"><img src="images/icons/64x64/'+ subArray[0][0] +'.png" class="p43" border = "0" /></a></td>';	
 	theString += '<td><q'+ globalColSelected[1] +'><strong><a onMouseOut = "javascript: hideTip();" onMouseOver="javascript: loadTooltip(textLoading, '+ subArray[0][1] +')" href = "item-info.xml?'+ subArray[0][2] +'" class = "rarity'+ subArray[0][3] +'">';
 	theString += truncateString(subArray[1][0], truncateVars);
 	theString +='</a></strong></q></td>';

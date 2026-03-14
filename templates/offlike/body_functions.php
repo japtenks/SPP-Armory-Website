@@ -548,9 +548,17 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
                         continue;
                     }
 
+                    $preferredName = $realmMap[$candidateRealmId]['label'] ?? '';
+                    if ($preferredName === '' && !empty($realmRow['name'])) {
+                        $preferredName = $realmRow['name'];
+                    }
+                    if ($preferredName === '') {
+                        $preferredName = 'Realm ' . $candidateRealmId;
+                    }
+
                     $availableRealms[$candidateRealmId] = array(
                         'id' => $candidateRealmId,
-                        'name' => !empty($realmRow['name']) ? $realmRow['name'] : ($realmMap[$candidateRealmId]['label'] ?? ('Realm ' . $candidateRealmId)),
+                        'name' => $preferredName,
                     );
                 }
             }
@@ -566,7 +574,12 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
         }
 
         if (count($availableRealms) > 1) {
-            echo '<form method="get" action="" class="realm-select-form" style="margin:0;">';
+            $realmFormAction = $_SERVER['PHP_SELF'] ?? 'index.php';
+            if (!is_string($realmFormAction) || $realmFormAction === '') {
+                $realmFormAction = 'index.php';
+            }
+
+            echo '<form method="get" action="' . htmlspecialchars($realmFormAction) . '" class="realm-select-form" style="margin:0;">';
 
             // preserve query params like n=statistic
             foreach ($_GET as $key => $value) {
@@ -627,6 +640,14 @@ function builddiv_end() {
 function get_realm_info()
 {
     $realmId = (int)($_GET['realm'] ?? 1);
+    $realmMap = $GLOBALS['realmDbMap'] ?? [];
+
+    $resolveRealmName = static function (int $id, string $fallback) use ($realmMap): string {
+        if (isset($realmMap[$id]['label']) && $realmMap[$id]['label'] !== '') {
+            return (string)$realmMap[$id]['label'];
+        }
+        return $fallback;
+    };
 
     switch ($realmId) {
         case 1:
@@ -636,7 +657,7 @@ function get_realm_info()
                 'world'=> 'classicmangos',
                 'bots' => 'classicplayerbots',
                 'logs' => 'classiclogs',
-                'name' => 'Classic',
+                'name' => $resolveRealmName(1, 'Classic'),
                 'exp'  => 0
             ];
         case 2:
@@ -646,7 +667,7 @@ function get_realm_info()
                 'world'=> 'tbcmangos',
                 'bots' => 'tbcplayerbots',
                 'logs' => 'tbclogs',
-                'name' => 'The Burning Crusade',
+                'name' => $resolveRealmName(2, 'The Burning Crusade'),
                 'exp'  => 1
             ];
         case 3:
@@ -656,7 +677,7 @@ function get_realm_info()
                 'world'=> 'wotlkmangos',
                 'bots' => 'wotlkplayerbots',
                 'logs' => 'wotlklogs',
-                'name' => 'Wrath of the Lich King',
+                'name' => $resolveRealmName(3, 'Wrath of the Lich King'),
                 'exp'  => 2
             ];
         default:
@@ -666,7 +687,7 @@ function get_realm_info()
                 'world'=> 'classicmangos',
                 'bots' => 'classicplayerbots',
                 'logs' => 'classiclogs',
-                'name' => 'Classic',
+                'name' => $resolveRealmName(1, 'Classic'),
                 'exp'  => 0
             ];
     }

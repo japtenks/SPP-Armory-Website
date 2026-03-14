@@ -168,10 +168,23 @@ function spp_character_language_icon_url($skillName, $raceId, $gender) {
     $skillName = strtolower(trim((string)$skillName));
     $raceId = (int)$raceId;
     $gender = (int)$gender;
+    $genderSlug = $gender === 1 ? 'female' : 'male';
+    $raceIconMap = array(
+        1 => 'achievement_character_human_' . $genderSlug,
+        2 => 'achievement_character_orc_' . $genderSlug,
+        3 => 'achievement_character_dwarf_' . $genderSlug,
+        4 => 'achievement_character_nightelf_' . $genderSlug,
+        5 => 'achievement_character_undead_' . $genderSlug,
+        6 => 'achievement_character_tauren_' . $genderSlug,
+        7 => 'achievement_character_gnome_' . $genderSlug,
+        8 => 'achievement_character_troll_' . $genderSlug,
+        10 => 'achievement_character_bloodelf_' . $genderSlug,
+        11 => 'achievement_character_draenei_' . $genderSlug,
+    );
     $sharedAlliance = array('language: common', 'common');
     $sharedHorde = array('language: orcish', 'orcish');
     if (in_array($skillName, $sharedAlliance, true) || in_array($skillName, $sharedHorde, true)) {
-        return '/armory/images/icons/race/' . $raceId . '-' . $gender . '.gif';
+        return isset($raceIconMap[$raceId]) ? '/armory/images/icons/64x64/' . $raceIconMap[$raceId] . '.png' : '/armory/images/icons/64x64/404.png';
     }
     $languageMap = array(
         'language: darnassian' => array(4),
@@ -198,7 +211,7 @@ function spp_character_language_icon_url($skillName, $raceId, $gender) {
     if (!isset($languageMap[$skillName])) return null;
     $choices = $languageMap[$skillName];
     $pickedRace = $choices[abs(crc32($skillName . ':' . $raceId . ':' . $gender)) % count($choices)];
-    return '/armory/images/icons/race/' . $pickedRace . '-' . $gender . '.gif';
+    return isset($raceIconMap[$pickedRace]) ? '/armory/images/icons/64x64/' . $raceIconMap[$pickedRace] . '.png' : '/armory/images/icons/64x64/404.png';
 }
 
 function spp_character_profession_tier_label($max, $name = '') {

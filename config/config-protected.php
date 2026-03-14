@@ -188,7 +188,7 @@ $realmDbMap = [
         'chars'   => 'classiccharacters',
         'armory'  => 'classicarmory',
         'bots'    => 'classicplayerbots',
-        'label'   => 'Classic',
+        'label'   => 'SPP-Classic',
     ],
     2 => [
         'realmd'  => 'tbcrealmd',
@@ -196,7 +196,7 @@ $realmDbMap = [
         'chars'   => 'tbccharacters',
         'armory'  => 'tbcarmory',
         'bots'    => 'tbcplayerbots',
-        'label'   => 'The Burning Crusade',
+        'label'   => 'SPP-The Burning Crusade',
     ],
     3 => [
         'realmd'  => 'wotlkrealmd',
@@ -204,7 +204,7 @@ $realmDbMap = [
         'chars'   => 'wotlkcharacters',
         'armory'  => 'wotlkarmory',
         'bots'    => 'wotlkplayerbots',
-        'label'   => 'Wrath of the Lich King',
+        'label'   => 'SPP-Wrath of the Lich King',
     ],
 ];
 

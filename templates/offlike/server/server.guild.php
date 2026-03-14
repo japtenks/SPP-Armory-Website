@@ -2,6 +2,57 @@
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
 require_once($_SERVER['DOCUMENT_ROOT'] . '/components/forum/forum.func.php');
 
+if (!function_exists('spp_class_icon_url')) {
+    function spp_class_icon_url($classId)
+    {
+        $classId = (int)$classId;
+        $extensions = [
+            1 => 'jpg',
+            2 => 'jpg',
+            3 => 'jpg',
+            4 => 'jpg',
+            5 => 'jpg',
+            6 => 'gif',
+            7 => 'jpg',
+            8 => 'jpg',
+            9 => 'jpg',
+            11 => 'jpg',
+        ];
+
+        if (!isset($extensions[$classId])) {
+            return '/armory/images/icons/64x64/404.png';
+        }
+
+        return '/armory/images/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
+    }
+}
+
+if (!function_exists('spp_race_icon_url')) {
+    function spp_race_icon_url($raceId, $gender)
+    {
+        $raceId = (int)$raceId;
+        $gender = ((int)$gender === 1) ? 'female' : 'male';
+        $icons = [
+            1 => 'achievement_character_human_' . $gender,
+            2 => 'achievement_character_orc_' . $gender,
+            3 => 'achievement_character_dwarf_' . $gender,
+            4 => 'achievement_character_nightelf_' . $gender,
+            5 => 'achievement_character_undead_' . $gender,
+            6 => 'achievement_character_tauren_' . $gender,
+            7 => 'achievement_character_gnome_' . $gender,
+            8 => 'achievement_character_troll_' . $gender,
+            10 => 'achievement_character_bloodelf_' . $gender,
+            11 => 'achievement_character_draenei_' . $gender,
+        ];
+
+        if (!isset($icons[$raceId])) {
+            return '/armory/images/icons/64x64/404.png';
+        }
+
+        return '/armory/images/icons/64x64/' . $icons[$raceId] . '.png';
+    }
+}
+
 if (!function_exists('spp_guild_roster_sort_compare')) {
     function spp_guild_roster_sort_compare(array $left, array $right, $sortBy, $sortDir, array $classNames, array $raceNames, array $memberAverageItemLevels) {
         $direction = strtoupper($sortDir) === 'ASC' ? 1 : -1;
@@ -671,8 +722,8 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
                     <a href="index.php?n=server&sub=character&realm=<?php echo (int)$realmId; ?>&character=<?php echo urlencode($member['name']); ?>"><?php echo htmlspecialchars($member['name']); ?></a>
                   </div>
                 </td>
-                <td><img class="guild-race-icon" src="/templates/offlike/images/icons/race/<?php echo $member['race'].'-'.$member['gender']; ?>.gif" alt="<?php echo htmlspecialchars($memberRaceName); ?>" title="<?php echo htmlspecialchars($memberRaceName); ?>"></td>
-                <td><img class="guild-class-icon" src="/templates/offlike/images/icons/class/<?php echo $member['class']; ?>.jpg" alt="<?php echo htmlspecialchars($memberClassName); ?>" title="<?php echo htmlspecialchars($memberClassName); ?>"></td>
+                <td><img class="guild-race-icon" src="<?php echo htmlspecialchars(spp_race_icon_url($member['race'], $member['gender'])); ?>" alt="<?php echo htmlspecialchars($memberRaceName); ?>" title="<?php echo htmlspecialchars($memberRaceName); ?>"></td>
+                <td><img class="guild-class-icon" src="<?php echo htmlspecialchars(spp_class_icon_url($member['class'])); ?>" alt="<?php echo htmlspecialchars($memberClassName); ?>" title="<?php echo htmlspecialchars($memberClassName); ?>"></td>
                 <td><?php echo (int)$member['level']; ?></td>
                 <td><?php echo !empty($memberAverageItemLevels[(int)$member['guid']]) ? number_format((float)$memberAverageItemLevels[(int)$member['guid']], 1) : '-'; ?></td>
                 <td class="guild-rank"><?php echo htmlspecialchars(!empty($member['rank_name']) ? $member['rank_name'] : ('Rank ' . (int)$member['rank'])); ?></td>

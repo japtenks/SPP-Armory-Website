@@ -29,6 +29,13 @@ function get_talent_cap(?int $level): int {
   return max(0, $level - 9);
 }
 
+function get_client_talent_cap(?int $client): int {
+  if ($client === null) return 61;
+  if ($client <= 0) return 51;
+  if ($client === 1) return 61;
+  return 71;
+}
+
 
 function class_icon_for(int $classId): string {
   // TBC classes only (no DK)
@@ -236,7 +243,8 @@ function _trigger_col_base(){
 
 // -------------------- CALCULATOR SETTINGS (no prefill) --------------------
 $CALC_MODE    = array_key_exists('server_talent_calc_mode', $GLOBALS) ? (bool)$GLOBALS['server_talent_calc_mode'] : true;
-$MAX_POINTS   = get_talent_cap((int)($stat['level'] ?? 0)) ?: 61;
+$defaultTalentCap = get_client_talent_cap(defined('CLIENT') ? (int)CLIENT : null);
+$MAX_POINTS   = get_talent_cap((int)($stat['level'] ?? 0)) ?: $defaultTalentCap;
 $talentCap    = $CALC_MODE ? $MAX_POINTS : (get_talent_cap((int)($stat['level'] ?? 0)) ?: $MAX_POINTS);
 $pointsSpent  = 0;            // initial
 // Class selection (calc mode doesn't depend on level)
@@ -410,8 +418,9 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
       <?php foreach ($CLASS_NAMES as $cid => $cname): ?>
         <?php
           $hrefBase = $GLOBALS['talent_calc_base_url'] ?? 'index.php?n=server&sub=talents';
+          $hrefRealmId = (int)($GLOBALS['talent_calc_realm_id'] ?? ($_GET['realm'] ?? 1));
           $href = $hrefBase
-                . '&realm='     . rawurlencode(REALM_NAME)
+                . '&realm='     . $hrefRealmId
                 . '&class='     . $cid;
           if (!empty($stat['name'])) {
               $href .= '&character=' . rawurlencode($stat['name']);
@@ -704,6 +713,7 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
 
 <script>
 window.tcClassId = <?= (int)$charClassId ?>;
+window.tcMaxPoints = <?= (int)$MAX_POINTS ?>;
 </script>
 <script>
 (function () {

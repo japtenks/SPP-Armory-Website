@@ -64,6 +64,32 @@ if (!function_exists('server_talents_init_db')) {
     }
 }
 
+if (!function_exists('server_talents_build_url')) {
+    function server_talents_build_url(int $realmId, int $classId, string $characterName = '', bool $isProfileMode = false, bool $isEmbedMode = false): string
+    {
+        $params = array(
+            'n' => 'server',
+            'sub' => 'talents',
+            'realm' => (string)$realmId,
+            'class' => (string)$classId,
+        );
+
+        if ($characterName !== '') {
+            $params['character'] = $characterName;
+        }
+
+        if ($isProfileMode) {
+            $params['mode'] = 'profile';
+        }
+
+        if ($isEmbedMode) {
+            $params['embed'] = '1';
+        }
+
+        return 'index.php?' . http_build_query($params);
+    }
+}
+
 $hostport = $db['host'] . ':' . $db['port'];
 $DB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['realmd']));
 $WSDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['world']));
@@ -135,17 +161,19 @@ if ($selectedCharacter !== '') {
 }
 
 $_GET['class'] = $selectedClassId;
-$_GET['realm'] = REALM_NAME;
-$GLOBALS['talent_calc_base_url'] = 'index.php?n=server&sub=talents';
+$_GET['realm'] = (string)$realmId;
+$GLOBALS['talent_calc_realm_id'] = (int)$realmId;
+$GLOBALS['talent_calc_realm_name'] = (string)REALM_NAME;
+$GLOBALS['talent_calc_base_url'] = server_talents_build_url(
+    (int)$realmId,
+    (int)$selectedClassId,
+    $selectedCharacter,
+    $isProfileMode,
+    $isEmbedMode
+);
 $GLOBALS['server_talent_calc_mode'] = !$isProfileMode;
 $GLOBALS['server_talent_profile_mode'] = $isProfileMode;
-$talentBaseParams = 'index.php?n=server&sub=talents&realm=' . rawurlencode((string) REALM_NAME) . '&class=' . (int) $selectedClassId;
-if ($selectedCharacter !== '') {
-    $talentBaseParams .= '&character=' . rawurlencode($selectedCharacter);
-}
-if ($isProfileMode) {
-    $talentBaseParams .= '&mode=profile';
-}
+$talentBaseParams = $GLOBALS['talent_calc_base_url'];
 echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script>';
 ?>
 <?php if (!$isProfileMode): ?>
@@ -226,6 +254,3 @@ echo '<div class="server-talents-shell' . ($isProfileMode ? ' is-profile' : '') 
 include($siteRoot . ($isProfileMode ? '/armory/source/character-talents.php' : '/armory/source/talent-calc.php'));
 echo '</div>';
 if (!$isEmbedMode) builddiv_end();
-
-
-

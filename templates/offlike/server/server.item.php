@@ -54,6 +54,57 @@ if (!function_exists('spp_modern_item_icon_url')) {
     }
 }
 
+if (!function_exists('spp_class_icon_url')) {
+    function spp_class_icon_url($classId)
+    {
+        $classId = (int)$classId;
+        $extensions = [
+            1 => 'jpg',
+            2 => 'jpg',
+            3 => 'jpg',
+            4 => 'jpg',
+            5 => 'jpg',
+            6 => 'gif',
+            7 => 'jpg',
+            8 => 'jpg',
+            9 => 'jpg',
+            11 => 'jpg',
+        ];
+
+        if (!isset($extensions[$classId])) {
+            return '/armory/images/icons/64x64/404.png';
+        }
+
+        return '/armory/images/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
+    }
+}
+
+if (!function_exists('spp_race_icon_url')) {
+    function spp_race_icon_url($raceId, $gender)
+    {
+        $raceId = (int)$raceId;
+        $gender = ((int)$gender === 1) ? 'female' : 'male';
+        $icons = [
+            1 => 'achievement_character_human_' . $gender,
+            2 => 'achievement_character_orc_' . $gender,
+            3 => 'achievement_character_dwarf_' . $gender,
+            4 => 'achievement_character_nightelf_' . $gender,
+            5 => 'achievement_character_undead_' . $gender,
+            6 => 'achievement_character_tauren_' . $gender,
+            7 => 'achievement_character_gnome_' . $gender,
+            8 => 'achievement_character_troll_' . $gender,
+            10 => 'achievement_character_bloodelf_' . $gender,
+            11 => 'achievement_character_draenei_' . $gender,
+        ];
+
+        if (!isset($icons[$raceId])) {
+            return '/armory/images/icons/64x64/404.png';
+        }
+
+        return '/armory/images/icons/64x64/' . $icons[$raceId] . '.png';
+    }
+}
+
 if (!function_exists('spp_modern_item_inventory_type_name')) {
     function spp_modern_item_inventory_type_name($inventoryType) {
         $map = [1 => 'Head', 2 => 'Neck', 3 => 'Shoulder', 5 => 'Chest', 6 => 'Waist', 7 => 'Legs', 8 => 'Feet', 9 => 'Wrist', 10 => 'Hands', 11 => 'Finger', 12 => 'Trinket', 13 => 'One Hand', 14 => 'Shield', 15 => 'Weapon', 16 => 'Back', 17 => 'Two-Hand', 21 => 'Main Hand', 22 => 'Off Hand', 23 => 'Held In Off-hand'];
@@ -128,7 +179,13 @@ if (!function_exists('spp_modern_item_cache_source')) {
                     return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
                 }
             }
-            return 'Chest Drop';
+            $objectNameStmt = $worldPdo->prepare('SELECT `name` FROM `gameobject_template` WHERE `entry` = ? LIMIT 1');
+            $objectNameStmt->execute([$objectLootId]);
+            $objectName = $objectNameStmt->fetchColumn();
+            if ($objectName) {
+                return 'Found in ' . (string)$objectName;
+            }
+            return 'Container Drop';
         }
 
         $creatureStmt = $worldPdo->prepare('SELECT `entry` FROM `creature_loot_template` WHERE `item` = ? LIMIT 1');
@@ -147,7 +204,56 @@ if (!function_exists('spp_modern_item_cache_source')) {
                     return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
                 }
             }
-            return 'Drop';
+            $creatureNameStmt = $worldPdo->prepare('SELECT `Name` FROM `creature_template` WHERE `entry` = ? LIMIT 1');
+            $creatureNameStmt->execute([$creatureLootId]);
+            $creatureName = $creatureNameStmt->fetchColumn();
+            if ($creatureName) {
+                return 'Dropped by ' . (string)$creatureName;
+            }
+            return 'Dropped Item';
+        }
+
+        $referenceStmt = $worldPdo->prepare('SELECT `entry`, `groupid` FROM `reference_loot_template` WHERE `item` = ?');
+        $referenceStmt->execute([$itemId]);
+        $referenceRows = $referenceStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!empty($referenceRows)) {
+            $referenceEntry = (int)($referenceRows[0]['entry'] ?? 0);
+            $referenceGroupId = (int)($referenceRows[0]['groupid'] ?? 0);
+            if (count($referenceRows) > 1) {
+                return 'World Drop';
+            }
+
+            if ($referenceEntry > 0) {
+                $bossStmt = $worldPdo->prepare('SELECT `entry` FROM `creature_loot_template` WHERE `mincountOrRef` = ?');
+                $bossStmt->execute([-1 * $referenceEntry]);
+                $bossRows = $bossStmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($bossRows) && count($bossRows) <= 2) {
+                    $creature = (int)($bossRows[0]['entry'] ?? 0);
+                    if ($creature > 0) {
+                        $instanceStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_data` WHERE (`id` = ? OR `lootid_1` = ? OR `lootid_2` = ? OR `lootid_3` = ? OR `lootid_4` = ? OR `name_id` = ?) AND `type` = \'npc\' LIMIT 1');
+                        $instanceStmt->execute([$creature, $creature, $creature, $creature, $creature, $creature]);
+                        $instanceLoot = $instanceStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($instanceLoot) {
+                            $templateStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_template` WHERE `id` = ? LIMIT 1');
+                            $templateStmt->execute([(int)$instanceLoot['instance_id']]);
+                            $instanceInfo = $templateStmt->fetch(PDO::FETCH_ASSOC);
+                            if ($instanceInfo) {
+                                $suffix = (((int)$instanceInfo['expansion'] < 2) || !(int)$instanceInfo['raid']) ? '' : ((int)$instanceInfo['is_heroic'] ? ' (H)' : '');
+                                return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
+                            }
+                        }
+
+                        $creatureNameStmt = $worldPdo->prepare('SELECT `Name` FROM `creature_template` WHERE `entry` = ? LIMIT 1');
+                        $creatureNameStmt->execute([$creature]);
+                        $creatureName = $creatureNameStmt->fetchColumn();
+                        if ($creatureName) {
+                            return (string)$creatureName;
+                        }
+                    }
+                }
+            }
+
+            return 'Dropped Item';
         }
 
         $questRewardStmt = $worldPdo->prepare('SELECT `entry` FROM `quest_template` WHERE `RewItemId1` = ? OR `RewItemId2` = ? OR `RewItemId3` = ? OR `RewItemId4` = ? LIMIT 1');
@@ -308,7 +414,7 @@ if ($itemId <= 0) {
                     'guild_id' => (int)($owner['guildid'] ?? 0),
                     'guild_name' => (string)($owner['guild_name'] ?? ''),
                     'faction' => $isAlliance ? 'Alliance' : 'Horde',
-                    'faction_icon' => $isAlliance ? '/armory/images/icon-alliance.gif' : '/armory/images/icon-horde.gif',
+                    'faction_icon' => $isAlliance ? '/templates/offlike/images/modern/logo-alliance.png' : '/templates/offlike/images/modern/logo-horde.png',
                 ];
             }
         }
@@ -324,7 +430,7 @@ if (!empty($_GET['per_page'])) $searchBackUrl .= '&per_page=' . max(1, (int)$_GE
 if (!empty($_GET['sort'])) $searchBackUrl .= '&sort=' . urlencode((string)$_GET['sort']);
 if (!empty($_GET['dir'])) $searchBackUrl .= '&dir=' . urlencode((string)$_GET['dir']);
 
-builddiv_start(1, 'Item Detail', 1);
+builddiv_start(1, 'Item Detail', 0);
 ?>
 <link rel="stylesheet" type="text/css" href="/armory/css/armory-tooltips.css" />
 <style>
@@ -362,7 +468,7 @@ builddiv_start(1, 'Item Detail', 1);
 .item-owner-link:hover, .item-guild-link:hover { text-decoration: underline; }
 .item-owner-icons { display: flex; align-items: center; gap: 8px; }
 .item-owner-icons img { width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255, 196, 0, 0.28); background: #050505; }
-.item-owner-faction img { width: 20px; height: 20px; display: block; }
+.item-owner-faction img { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255, 196, 0, 0.28); background: #050505; display: block; object-fit: cover; }
 .class-warrior { color: #C79C6E; }
 .class-paladin { color: #F58CBA; }
 .class-hunter { color: #ABD473; }
@@ -459,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function () {
               <tr>
                 <td class="class-<?php echo htmlspecialchars($owner['class_slug']); ?>"><a class="item-owner-link" href="<?php echo htmlspecialchars('index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . rawurlencode($owner['name'])); ?>"><?php echo htmlspecialchars($owner['name']); ?></a></td>
                 <td><?php echo (int)$owner['level']; ?></td>
-                <td><div class="item-owner-icons"><img src="/templates/offlike/images/icons/race/<?php echo (int)$owner['race']; ?>-<?php echo (int)$owner['gender']; ?>.gif" alt="<?php echo htmlspecialchars($owner['race_name']); ?>" title="<?php echo htmlspecialchars($owner['race_name']); ?>"><img src="/templates/offlike/images/icons/class/<?php echo (int)$owner['class']; ?>.jpg" alt="<?php echo htmlspecialchars($owner['class_name']); ?>" title="<?php echo htmlspecialchars($owner['class_name']); ?>"></div></td>
+                <td><div class="item-owner-icons"><img src="<?php echo htmlspecialchars(spp_race_icon_url($owner['race'], $owner['gender'])); ?>" alt="<?php echo htmlspecialchars($owner['race_name']); ?>" title="<?php echo htmlspecialchars($owner['race_name']); ?>"><img src="<?php echo htmlspecialchars(spp_class_icon_url($owner['class'])); ?>" alt="<?php echo htmlspecialchars($owner['class_name']); ?>" title="<?php echo htmlspecialchars($owner['class_name']); ?>"></div></td>
                 <td class="item-owner-faction"><img src="<?php echo htmlspecialchars($owner['faction_icon']); ?>" alt="<?php echo htmlspecialchars($owner['faction']); ?>" title="<?php echo htmlspecialchars($owner['faction']); ?>"></td>
                 <td><?php if ($owner['guild_id'] > 0 && $owner['guild_name'] !== ''): ?><a class="item-guild-link" href="<?php echo htmlspecialchars('index.php?n=server&sub=guild&realm=' . (int)$realmId . '&guildid=' . (int)$owner['guild_id']); ?>"><?php echo htmlspecialchars($owner['guild_name']); ?></a><?php else: ?>None<?php endif; ?></td>
               </tr>

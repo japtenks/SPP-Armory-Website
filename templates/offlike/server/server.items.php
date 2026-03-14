@@ -128,7 +128,13 @@ if (!function_exists('spp_modern_item_cache_source')) {
                     return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
                 }
             }
-            return 'Chest Drop';
+            $objectNameStmt = $worldPdo->prepare('SELECT `name` FROM `gameobject_template` WHERE `entry` = ? LIMIT 1');
+            $objectNameStmt->execute([$objectLootId]);
+            $objectName = $objectNameStmt->fetchColumn();
+            if ($objectName) {
+                return 'Found in ' . (string)$objectName;
+            }
+            return 'Container Drop';
         }
 
         $creatureStmt = $worldPdo->prepare('SELECT `entry` FROM `creature_loot_template` WHERE `item` = ? LIMIT 1');
@@ -147,7 +153,56 @@ if (!function_exists('spp_modern_item_cache_source')) {
                     return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
                 }
             }
-            return 'Drop';
+            $creatureNameStmt = $worldPdo->prepare('SELECT `Name` FROM `creature_template` WHERE `entry` = ? LIMIT 1');
+            $creatureNameStmt->execute([$creatureLootId]);
+            $creatureName = $creatureNameStmt->fetchColumn();
+            if ($creatureName) {
+                return 'Dropped by ' . (string)$creatureName;
+            }
+            return 'Dropped Item';
+        }
+
+        $referenceStmt = $worldPdo->prepare('SELECT `entry`, `groupid` FROM `reference_loot_template` WHERE `item` = ?');
+        $referenceStmt->execute([$itemId]);
+        $referenceRows = $referenceStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!empty($referenceRows)) {
+            $referenceEntry = (int)($referenceRows[0]['entry'] ?? 0);
+            $referenceGroupId = (int)($referenceRows[0]['groupid'] ?? 0);
+            if (count($referenceRows) > 1) {
+                return 'World Drop';
+            }
+
+            if ($referenceEntry > 0) {
+                $bossStmt = $worldPdo->prepare('SELECT `entry` FROM `creature_loot_template` WHERE `mincountOrRef` = ?');
+                $bossStmt->execute([-1 * $referenceEntry]);
+                $bossRows = $bossStmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($bossRows) && count($bossRows) <= 2) {
+                    $creature = (int)($bossRows[0]['entry'] ?? 0);
+                    if ($creature > 0) {
+                        $instanceStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_data` WHERE (`id` = ? OR `lootid_1` = ? OR `lootid_2` = ? OR `lootid_3` = ? OR `lootid_4` = ? OR `name_id` = ?) AND `type` = \'npc\' LIMIT 1');
+                        $instanceStmt->execute([$creature, $creature, $creature, $creature, $creature, $creature]);
+                        $instanceLoot = $instanceStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($instanceLoot) {
+                            $templateStmt = $armoryPdo->prepare('SELECT * FROM `armory_instance_template` WHERE `id` = ? LIMIT 1');
+                            $templateStmt->execute([(int)$instanceLoot['instance_id']]);
+                            $instanceInfo = $templateStmt->fetch(PDO::FETCH_ASSOC);
+                            if ($instanceInfo) {
+                                $suffix = (((int)$instanceInfo['expansion'] < 2) || !(int)$instanceInfo['raid']) ? '' : ((int)$instanceInfo['is_heroic'] ? ' (H)' : '');
+                                return trim($instanceLoot['name_en_gb'] . ' - ' . $instanceInfo['name_en_gb'] . $suffix);
+                            }
+                        }
+
+                        $creatureNameStmt = $worldPdo->prepare('SELECT `Name` FROM `creature_template` WHERE `entry` = ? LIMIT 1');
+                        $creatureNameStmt->execute([$creature]);
+                        $creatureName = $creatureNameStmt->fetchColumn();
+                        if ($creatureName) {
+                            return (string)$creatureName;
+                        }
+                    }
+                }
+            }
+
+            return 'Dropped Item';
         }
 
         $questRewardStmt = $worldPdo->prepare('SELECT `entry` FROM `quest_template` WHERE `RewItemId1` = ? OR `RewItemId2` = ? OR `RewItemId3` = ? OR `RewItemId4` = ? LIMIT 1');
