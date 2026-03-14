@@ -1,4 +1,4 @@
-<style>
+ï»¿<style>
 /* ---------- Modern Forum Topic View ---------- */
 .topic-header {
   display: flex;
@@ -95,6 +95,8 @@
 .post-message {
   line-height: 1.5;
   font-size: 0.95rem;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .post-edit-note {
   margin-top: 8px;
@@ -135,7 +137,7 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
   <header class="topic-header">
     <h1><?php echo htmlspecialchars($this_topic['topic_name']); ?></h1>
     <p class="meta">
-      Started by <strong><?php echo htmlspecialchars($this_topic['topic_poster']); ?></strong> ·
+      Started by <strong><?php echo htmlspecialchars($this_topic['topic_poster']); ?></strong> Â·
       <?php echo date('M d, Y H:i', $this_topic['topic_posted']); ?>
     </p>
   </header>
@@ -155,7 +157,7 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
 
           <div class="post-body">
             <header class="post-meta">
-              <span>#<?php echo $post['pos_num']; ?></span> ·
+              <span>#<?php echo $post['pos_num']; ?></span> Â·
               <span><?php echo date('M d, Y H:i', $post['posted']); ?></span>
             </header>
 
@@ -182,3 +184,4 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
 </div>
 
 <?php builddiv_end(); ?>
+

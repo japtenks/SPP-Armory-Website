@@ -1,4 +1,4 @@
-<style>
+﻿<style>
 .reply-context {
   max-width: 980px;
   margin: 24px auto 18px;
@@ -57,6 +57,8 @@
   color: #d6d6d6;
   line-height: 1.5;
   font-size: 0.95rem;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .reply-panel {
   background: #0f0f0f;
@@ -214,7 +216,7 @@ $formAction = $is_newtopic
           <?php endif; ?>
         </div>
         <div class="reply-post-body">
-          <div class="reply-post-meta">#<?php echo (int)$post['pos_num']; ?> · <?php echo date('M d, Y H:i', $post['posted']); ?></div>
+          <div class="reply-post-meta">#<?php echo (int)$post['pos_num']; ?> Â· <?php echo date('M d, Y H:i', $post['posted']); ?></div>
           <div class="reply-post-message"><?php echo $post['message']; ?></div>
         </div>
       </article>
