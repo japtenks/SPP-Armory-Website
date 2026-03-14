@@ -82,7 +82,8 @@
 <?php
 builddiv_start(1, 'Guilds', 1);
 
-require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
+$siteRoot = dirname(__DIR__, 3);
+require_once($siteRoot . '/config/config-protected.php');
 
 if (!function_exists('spp_guilds_sort_compare')) {
     function spp_guilds_sort_compare(array $left, array $right, $sortBy, $sortDir) {

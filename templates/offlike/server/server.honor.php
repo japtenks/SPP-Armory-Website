@@ -71,8 +71,9 @@
 <?php
 builddiv_start(1, $lang['honor'] ?? 'Honor', 1);
 
-require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
-require_once($_SERVER['DOCUMENT_ROOT'] . '/components/forum/forum.func.php');
+$siteRoot = dirname(__DIR__, 3);
+require_once($siteRoot . '/config/config-protected.php');
+require_once($siteRoot . '/components/forum/forum.func.php');
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 if (!is_array($realmMap) || empty($realmMap)) {

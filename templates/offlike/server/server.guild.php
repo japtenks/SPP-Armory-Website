@@ -1,6 +1,7 @@
 <?php
-require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
-require_once($_SERVER['DOCUMENT_ROOT'] . '/components/forum/forum.func.php');
+$siteRoot = dirname(__DIR__, 3);
+require_once($siteRoot . '/config/config-protected.php');
+require_once($siteRoot . '/components/forum/forum.func.php');
 
 if (!function_exists('spp_class_icon_url')) {
     function spp_class_icon_url($classId)

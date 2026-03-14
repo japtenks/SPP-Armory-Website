@@ -1,7 +1,8 @@
 <?php
 $siteDatabaseHandle = $GLOBALS['DB'] ?? null;
-require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
-require_once($_SERVER['DOCUMENT_ROOT'] . '/armory/configuration/settings.php');
+$siteRoot = dirname(__DIR__, 3);
+require_once($siteRoot . '/config/config-protected.php');
+require_once($siteRoot . '/armory/configuration/settings.php');
 if ($siteDatabaseHandle !== null) {
     $GLOBALS['DB'] = $siteDatabaseHandle;
     $DB = $siteDatabaseHandle;

@@ -469,14 +469,31 @@ function GetArenaTeamEmblem($teamId = 0) {
 function initialize_realm($realm_force = 0)
 {
 	global $realms, $realmd_DB, $mangosd_DB, $characters_DB, $armory_DB, $playerbot_DB, $DB, $WSDB, $CHDB, $ARDB, $PBDB;
-	//if(isset($_SESSION["realm"]))
-	//	define("REALM_NAME", $_SESSION["realm"]);
-	if(isset($_GET["realm"]) && isset($realms[$realm_name = stripslashes($_GET["realm"])]))
-		define("REALM_NAME", $realm_name);
-	else if ($realm_force)
+	$resolvedRealmName = '';
+
+	if (isset($_GET["realm"])) {
+		$realmRequest = stripslashes((string)$_GET["realm"]);
+
+		if (isset($realms[$realmRequest])) {
+			$resolvedRealmName = $realmRequest;
+		} elseif (ctype_digit($realmRequest)) {
+			$realmId = (int)$realmRequest;
+			foreach ($realms as $realmName => $realmData) {
+				if ((int)$realmData[0] === $realmId) {
+					$resolvedRealmName = $realmName;
+					break;
+				}
+			}
+		}
+	}
+
+	if ($resolvedRealmName !== '') {
+		define("REALM_NAME", $resolvedRealmName);
+	} else if ($realm_force) {
 	    define("REALM_NAME", $realm_force);
-	else
+	} else {
 		define("REALM_NAME", DefaultRealmName);
+	}
 	//switchConnection("armory", REALM_NAME);
 
     $needed_db = $realmd_DB[$realms[REALM_NAME][0]];
