@@ -529,6 +529,7 @@ try {
     $cfgRebalMin   = $rotationConfig['rebalance_min_sec']       ?? null;
     $cfgRebalMax   = $rotationConfig['rebalance_max_sec']       ?? null;
     $cfgLogins     = $rotationConfig['max_logins_per_interval'] ?? null;
+    $actualOnlineShare = $total > 0 ? round(($online / $total) * 100, 1) : null;
 
     $obsAvgOnline       = $latestHistory['observed_avg_online_sec']   ?? null;
     $obsAvgOffline      = $latestHistory['observed_avg_offline_sec']  ?? null;
@@ -584,6 +585,10 @@ try {
     <div class="rot-stat good">
       <div class="val"><?php echo ($cfgExpected !== null && $cfgExpected !== '') ? $cfgExpected . '%' : '—'; ?></div>
       <div class="lbl">Expected Online Share</div>
+    </div>
+    <div class="rot-stat <?php echo ($actualOnlineShare !== null && $cfgExpected !== null && $actualOnlineShare >= $cfgExpected) ? 'good' : 'info'; ?>">
+      <div class="val"><?php echo $actualOnlineShare !== null ? $actualOnlineShare . '%' : 'â€”'; ?></div>
+      <div class="lbl">Actual Online Share</div>
     </div>
     <div class="rot-stat muted">
       <div class="val">
