@@ -481,6 +481,12 @@ try {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.rot-help {
+  margin: -2px 0 12px;
+  color: #8a8a8a;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
 </style>
 
 <div class="rot-panel">
@@ -573,6 +579,9 @@ try {
   </div>
 
   <div class="rot-subtitle">Configured Cycle Targets</div>
+  <div class="rot-help">
+    Pulled from <code>aiplayerbot.conf</code> via launcher sync. Average in/out times are midpoint values. Expected online share = avg in world / (avg in world + avg offline).
+  </div>
   <div class="rot-stats">
     <div class="rot-stat info">
       <div class="val"><?php echo rotFormatSeconds($cfgAvgIn); ?></div>
@@ -645,6 +654,9 @@ try {
   </div>
 
   <div class="rot-subtitle">Observed Timing</div>
+  <div class="rot-help">
+    Calculated from snapshot-to-snapshot online/offline state changes in <code>bot_rotation_state</code>. These are observed transition averages, not the core's internal timer values.
+  </div>
   <div class="rot-stats">
     <div class="rot-stat good">
       <div class="val"><?php echo rotFormatSeconds($obsAvgOnline); ?></div>
