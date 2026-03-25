@@ -160,6 +160,31 @@ if ($num_chars == 0) {
 foreach ($rc as $race => $count) {
   ${'pc_'.$race} = $num_chars > 0 ? round(($count / $num_chars) * 100, 1) : 0;
 }
+
+function rotPctClass($v) {
+  if ($v >= 30) return 'pct-good';
+  if ($v >= 20) return 'pct-ok';
+  if ($v >= 10) return 'pct-warn';
+  return 'pct-bad';
+}
+
+function rotFormatSeconds($seconds) {
+  if ($seconds === null || $seconds === '' || !is_numeric($seconds) || $seconds <= 0) {
+    return '—';
+  }
+
+  $seconds = (int)round((float)$seconds);
+  if ($seconds >= 86400) {
+    return round($seconds / 86400, 1) . 'd';
+  }
+  if ($seconds >= 3600) {
+    return round($seconds / 3600, 1) . 'h';
+  }
+  if ($seconds >= 60) {
+    return round($seconds / 60, 1) . 'm';
+  }
+  return $seconds . 's';
+}
 ?>
 
 <?php if ($num_chars == 0): ?>
@@ -236,6 +261,9 @@ foreach ($rc as $race => $count) {
 /* ---------- Bot rotation query ---------- */
 $rotationData    = null;
 $rotationError   = null;
+$rotationConfig  = null;
+$latestHistory   = null;
+$realmdDB        = $GLOBALS['realmd']['db_name'] ?? 'classicrealmd';
 
 try {
   $rotRows = $DB->select("
@@ -257,12 +285,24 @@ try {
       MAX(CASE WHEN xp > 0 THEN level END)                                       AS highest_level
     FROM {$realmDB}.characters
     WHERE account IN (
-      SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%'
+      SELECT id FROM {$realmdDB}.account WHERE username LIKE 'RNDBOT%'
     )
   ");
   $rotationData = !empty($rotRows) ? $rotRows[0] : null;
 } catch (Exception $e) {
   $rotationError = $e->getMessage();
+}
+
+try {
+  $cfgRows = $DB->select("
+    SELECT *
+    FROM {$realmdDB}.bot_rotation_config
+    WHERE realm = {$realmId}
+    LIMIT 1
+  ");
+  $rotationConfig = !empty($cfgRows) ? $cfgRows[0] : null;
+} catch (Exception $e) {
+  $rotationConfig = null;
 }
 
 /* ---------- History ---------- */
@@ -271,13 +311,17 @@ $hasHistory  = false;
 try {
   $historyRows = $DB->select("
     SELECT snapshot_time, pct_online_rotating, pct_ever_rotated,
-           total_online, rotating_active, avg_level_rotating
-    FROM classicrealmd.bot_rotation_log
+           total_online, rotating_active, avg_level_rotating,
+           cfg_expected_online_pct, cfg_avg_in_world_sec, cfg_avg_offline_sec,
+           observed_avg_online_sec, observed_avg_offline_sec,
+           observed_online_sessions, observed_offline_sessions
+    FROM {$realmdDB}.bot_rotation_log
     WHERE realm = {$realmId}
     ORDER BY snapshot_time DESC
     LIMIT 48
   ");
   $hasHistory = !empty($historyRows);
+  $latestHistory = $hasHistory ? $historyRows[0] : null;
 } catch (Exception $e) {
   /* table doesn't exist yet — silently ignore, show setup hint */
   $hasHistory = false;
@@ -430,6 +474,13 @@ try {
 .pct-warn { color: #ff8c42; font-weight: 600; }
 .pct-bad  { color: #f44;    font-weight: 600; }
 .rot-no-history { font-size: 0.78rem; color: #555; font-style: italic; padding: 6px 0; }
+.rot-subtitle {
+  margin: 18px 0 10px;
+  color: #9f9f9f;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 </style>
 
 <div class="rot-panel">
@@ -465,12 +516,24 @@ try {
     $wCycled   = $total > 0 ? round($cycled   / $total * 100, 1) : 0;
     $wCold     = $total > 0 ? round($cold     / $total * 100, 1) : 0;
 
-    function rotPctClass($v) {
-      if ($v >= 30) return 'pct-good';
-      if ($v >= 20) return 'pct-ok';
-      if ($v >= 10) return 'pct-warn';
-      return 'pct-bad';
-    }
+    $cfgMinIn      = $rotationConfig['min_in_world_sec']        ?? null;
+    $cfgMaxIn      = $rotationConfig['max_in_world_sec']        ?? null;
+    $cfgAvgIn      = $rotationConfig['avg_in_world_sec']        ?? ($latestHistory['cfg_avg_in_world_sec'] ?? null);
+    $cfgMinOff     = $rotationConfig['min_offline_sec']         ?? null;
+    $cfgMaxOff     = $rotationConfig['max_offline_sec']         ?? null;
+    $cfgAvgOff     = $rotationConfig['avg_offline_sec']         ?? ($latestHistory['cfg_avg_offline_sec'] ?? null);
+    $cfgExpected   = $rotationConfig['expected_online_pct']     ?? ($latestHistory['cfg_expected_online_pct'] ?? null);
+    $cfgMinBots    = $rotationConfig['min_random_bots']         ?? null;
+    $cfgMaxBots    = $rotationConfig['max_random_bots']         ?? null;
+    $cfgAccounts   = $rotationConfig['account_count']           ?? null;
+    $cfgRebalMin   = $rotationConfig['rebalance_min_sec']       ?? null;
+    $cfgRebalMax   = $rotationConfig['rebalance_max_sec']       ?? null;
+    $cfgLogins     = $rotationConfig['max_logins_per_interval'] ?? null;
+
+    $obsAvgOnline       = $latestHistory['observed_avg_online_sec']   ?? null;
+    $obsAvgOffline      = $latestHistory['observed_avg_offline_sec']  ?? null;
+    $obsOnlineSessions  = $latestHistory['observed_online_sessions']  ?? 0;
+    $obsOfflineSessions = $latestHistory['observed_offline_sessions'] ?? 0;
   ?>
 
   <div class="rot-stats">
@@ -505,6 +568,94 @@ try {
     <div class="rot-stat good">
       <div class="val"><?php echo $maxLvl; ?></div>
       <div class="lbl">Highest Level</div>
+    </div>
+  </div>
+
+  <div class="rot-subtitle">Configured Cycle Targets</div>
+  <div class="rot-stats">
+    <div class="rot-stat info">
+      <div class="val"><?php echo rotFormatSeconds($cfgAvgIn); ?></div>
+      <div class="lbl">Avg Time In World</div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo rotFormatSeconds($cfgAvgOff); ?></div>
+      <div class="lbl">Avg Time Offline</div>
+    </div>
+    <div class="rot-stat good">
+      <div class="val"><?php echo ($cfgExpected !== null && $cfgExpected !== '') ? $cfgExpected . '%' : '—'; ?></div>
+      <div class="lbl">Expected Online Share</div>
+    </div>
+    <div class="rot-stat muted">
+      <div class="val">
+        <?php
+          echo ($cfgMinIn !== null && $cfgMaxIn !== null)
+            ? rotFormatSeconds($cfgMinIn) . ' - ' . rotFormatSeconds($cfgMaxIn)
+            : '—';
+        ?>
+      </div>
+      <div class="lbl">Session Window</div>
+    </div>
+    <div class="rot-stat muted">
+      <div class="val">
+        <?php
+          echo ($cfgMinOff !== null && $cfgMaxOff !== null)
+            ? rotFormatSeconds($cfgMinOff) . ' - ' . rotFormatSeconds($cfgMaxOff)
+            : '—';
+        ?>
+      </div>
+      <div class="lbl">Offline Window</div>
+    </div>
+    <div class="rot-stat muted">
+      <div class="val">
+        <?php
+          if ($cfgMinBots !== null && $cfgMaxBots !== null) {
+            echo $cfgMinBots . ' - ' . $cfgMaxBots;
+          } else {
+            echo '—';
+          }
+        ?>
+      </div>
+      <div class="lbl">Min / Max Online</div>
+    </div>
+    <div class="rot-stat muted">
+      <div class="val"><?php echo ($cfgAccounts !== null && $cfgAccounts !== '') ? $cfgAccounts : '—'; ?></div>
+      <div class="lbl">Bot Accounts</div>
+    </div>
+    <div class="rot-stat muted">
+      <div class="val">
+        <?php
+          if ($cfgRebalMin !== null && $cfgRebalMax !== null) {
+            echo rotFormatSeconds($cfgRebalMin) . ' - ' . rotFormatSeconds($cfgRebalMax);
+          } else {
+            echo '—';
+          }
+        ?>
+      </div>
+      <div class="lbl">Rebalance Interval</div>
+    </div>
+    <div class="rot-stat muted">
+      <div class="val"><?php echo ($cfgLogins !== null && $cfgLogins !== '') ? $cfgLogins : '—'; ?></div>
+      <div class="lbl">Max Logins / Interval</div>
+    </div>
+  </div>
+
+  <div class="rot-subtitle">Observed Timing</div>
+  <div class="rot-stats">
+    <div class="rot-stat good">
+      <div class="val"><?php echo rotFormatSeconds($obsAvgOnline); ?></div>
+      <div class="lbl">Observed Avg In World</div>
+    </div>
+    <div class="rot-stat good">
+      <div class="val"><?php echo rotFormatSeconds($obsAvgOffline); ?></div>
+      <div class="lbl">Observed Avg Offline</div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo (int)$obsOnlineSessions; ?></div>
+      <div class="lbl">Completed Online Sessions</div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo (int)$obsOfflineSessions; ?></div>
+      <div class="lbl">Completed Offline Sessions</div>
     </div>
   </div>
 
@@ -571,9 +722,12 @@ try {
           <th>Time</th>
           <th>Live %</th>
           <th>Ever %</th>
+          <th>Cfg %</th>
           <th>Online</th>
           <th>Rotating</th>
           <th>Avg Lvl</th>
+          <th>Obs In</th>
+          <th>Obs Out</th>
         </tr>
       </thead>
       <tbody>
@@ -586,9 +740,18 @@ try {
           <td class="<?php echo rotPctClass((float)$row['pct_ever_rotated']); ?>">
             <?php echo $row['pct_ever_rotated']; ?>%
           </td>
+          <td>
+            <?php
+              echo ($row['cfg_expected_online_pct'] !== null && $row['cfg_expected_online_pct'] !== '')
+                ? $row['cfg_expected_online_pct'] . '%'
+                : '—';
+            ?>
+          </td>
           <td><?php echo $row['total_online']; ?></td>
           <td><?php echo $row['rotating_active']; ?></td>
           <td><?php echo $row['avg_level_rotating'] ?? '—'; ?></td>
+          <td><?php echo rotFormatSeconds($row['observed_avg_online_sec'] ?? null); ?></td>
+          <td><?php echo rotFormatSeconds($row['observed_avg_offline_sec'] ?? null); ?></td>
         </tr>
         <?php endforeach; ?>
       </tbody>
