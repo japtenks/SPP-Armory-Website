@@ -2,7 +2,7 @@
 
 .faction-columns {
   display: flex;
-  justify-content: space-between; /* push Horde & Alliance to edges */
+  justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 24px;
@@ -96,7 +96,6 @@
   }
   .faction-col {
     max-width: 90%;
-   
   }
 }
 select {
@@ -129,18 +128,18 @@ $rc = [];
 $num_chars = 0;
 
 try {
-$charData = $DB->select("
+  $charData = $DB->select("
     SELECT race, COUNT(*) AS total
     FROM {$realmDB}.characters
     WHERE NOT (level = 1 AND xp = 0)
     GROUP BY race
-");
+  ");
   foreach ($charData as $row) {
-      $rc[$row['race']] = $row['total'];
-      $num_chars += $row['total'];
+    $rc[$row['race']] = $row['total'];
+    $num_chars += $row['total'];
   }
 } catch (Exception $e) {
-  echo "<p style='color:#f66;'>Database error reading from {$realmDB}</p>";
+  echo "<p style='color:#f66;'>Database error reading from {$realmDB}: " . htmlspecialchars($e->getMessage()) . "</p>";
   $num_chars = 0;
 }
 
@@ -154,11 +153,10 @@ $num_horde = array_sum(array_intersect_key($rc, array_flip($horde_races)));
 if ($num_chars == 0) {
   $pc_ally = $pc_horde = 0;
 } else {
-  $pc_ally  = round(($num_ally / $num_chars) * 100, 1);
+  $pc_ally  = round(($num_ally  / $num_chars) * 100, 1);
   $pc_horde = round(($num_horde / $num_chars) * 100, 1);
 }
 
-// Race percentages
 foreach ($rc as $race => $count) {
   ${'pc_'.$race} = $num_chars > 0 ? round(($count / $num_chars) * 100, 1) : 0;
 }
@@ -169,21 +167,23 @@ foreach ($rc as $race => $count) {
 <?php else: ?>
 
   <?php
-$allianceMap = [1=>'human',3=>'dwarf',4=>'nightelf',7=>'gnome'];
-$hordeMap    = [2=>'orc',5=>'undead',6=>'tauren',8=>'troll'];
+  $allianceMap = [1=>'human',3=>'dwarf',4=>'nightelf',7=>'gnome'];
+  $hordeMap    = [2=>'orc',5=>'undead',6=>'tauren',8=>'troll'];
 
-if ($realmId >= 2) {  // TBC or higher
+  if ($realmId >= 2) {
     $allianceMap[11] = 'draenei';
     $hordeMap[10]    = 'be';
-}
-  $allianceRaces=[]; $hordeRaces=[];
+  }
 
-  foreach ($allianceMap as $id=>$key)
-    $allianceRaces[$id]=['count'=>$rc[$id]??0,'pc'=>${'pc_'.$id}??0];
-  foreach ($hordeMap as $id=>$key)
-    $hordeRaces[$id]=['count'=>$rc[$id]??0,'pc'=>${'pc_'.$id}??0];
+  $allianceRaces = [];
+  $hordeRaces    = [];
 
-  $hasDK=!empty($rc[12]);
+  foreach ($allianceMap as $id => $key)
+    $allianceRaces[$id] = ['count' => $rc[$id] ?? 0, 'pc' => ${'pc_'.$id} ?? 0];
+  foreach ($hordeMap as $id => $key)
+    $hordeRaces[$id]    = ['count' => $rc[$id] ?? 0, 'pc' => ${'pc_'.$id} ?? 0];
+
+  $hasDK = !empty($rc[12]);
   ?>
 
   <div class="faction-columns">
@@ -193,7 +193,7 @@ if ($realmId >= 2) {  // TBC or higher
       <div class="faction-text">
         Horde: <strong><?php echo $num_horde; ?></strong> (<?php echo $pc_horde; ?>%)
       </div>
-      <?php foreach ($hordeRaces as $id=>$data): ?>
+      <?php foreach ($hordeRaces as $id => $data): ?>
         <div class="race-line">
           <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
           <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
@@ -207,7 +207,7 @@ if ($realmId >= 2) {  // TBC or higher
       <div class="faction-text">
         Alliance: <strong><?php echo $num_ally; ?></strong> (<?php echo $pc_ally; ?>%)
       </div>
-      <?php foreach ($allianceRaces as $id=>$data): ?>
+      <?php foreach ($allianceRaces as $id => $data): ?>
         <div class="race-line">
           <img src="<?php echo $currtmp; ?>/images/icon/race/<?php echo $id; ?>-0.jpg" alt="">
           <span><?php echo $data['count']; ?> (<?php echo $data['pc']; ?>%)</span>
@@ -231,72 +231,41 @@ if ($realmId >= 2) {  // TBC or higher
 <?php
 /* ============================================================
    BOT ROTATION PANEL
-   Append this block to server_statistic.php after the
-   closing <?php builddiv_end(); ?> of the faction block,
-   or paste directly inside the same page before the final
-   builddiv_end() call.
    ============================================================ */
 
 /* ---------- Bot rotation query ---------- */
-$rotationData = null;
+$rotationData    = null;
+$rotationError   = null;
+
 try {
-  $rotationData = $DB->selectRow("
+  $rotRows = $DB->select("
     SELECT
-      COUNT(*)                                                                      AS total_bots,
-      SUM(CASE WHEN online = 1 THEN 1 ELSE 0 END)                                 AS total_online,
-      SUM(CASE WHEN online = 1 AND xp > 0 THEN 1 ELSE 0 END)                     AS rotating_active,
-      SUM(CASE WHEN online = 1 AND xp = 0 THEN 1 ELSE 0 END)                     AS online_idle,
-      SUM(CASE WHEN online = 0 AND xp > 0 THEN 1 ELSE 0 END)                     AS cycled_off_progressed,
-      SUM(CASE WHEN online = 0 AND xp = 0 THEN 1 ELSE 0 END)                     AS never_progressed,
+      COUNT(*)                                                                    AS total_bots,
+      SUM(CASE WHEN online = 1 THEN 1 ELSE 0 END)                               AS total_online,
+      SUM(CASE WHEN online = 1 AND xp > 0 THEN 1 ELSE 0 END)                   AS rotating_active,
+      SUM(CASE WHEN online = 1 AND xp = 0 THEN 1 ELSE 0 END)                   AS online_idle,
+      SUM(CASE WHEN online = 0 AND xp > 0 THEN 1 ELSE 0 END)                   AS cycled_off_progressed,
+      SUM(CASE WHEN online = 0 AND xp = 0 THEN 1 ELSE 0 END)                   AS never_progressed,
       ROUND(
         SUM(CASE WHEN xp > 0 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) * 100
-      , 1)                                                                          AS pct_ever_rotated,
+      , 1)                                                                        AS pct_ever_rotated,
       ROUND(
         SUM(CASE WHEN online = 1 AND xp > 0 THEN 1 ELSE 0 END) /
         NULLIF(SUM(CASE WHEN online = 1 THEN 1 ELSE 0 END), 0) * 100
-      , 1)                                                                          AS pct_online_rotating,
-      ROUND(AVG(CASE WHEN xp > 0 THEN level END), 1)                              AS avg_level_rotating,
-      MAX(CASE WHEN xp > 0 THEN level END)                                         AS highest_level
+      , 1)                                                                        AS pct_online_rotating,
+      ROUND(AVG(CASE WHEN xp > 0 THEN level END), 1)                            AS avg_level_rotating,
+      MAX(CASE WHEN xp > 0 THEN level END)                                       AS highest_level
     FROM {$realmDB}.characters
     WHERE account IN (
       SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%'
     )
   ");
+  $rotationData = !empty($rotRows) ? $rotRows[0] : null;
 } catch (Exception $e) {
-  $rotationData = null;
+  $rotationError = $e->getMessage();
 }
 
-/* ---------- History log (optional - requires the log table) ----------
-   Run this once on your DB to enable trending:
-
-   CREATE TABLE IF NOT EXISTS classicrealmd.bot_rotation_log (
-     id                  INT AUTO_INCREMENT PRIMARY KEY,
-     realm               TINYINT NOT NULL DEFAULT 1,
-     snapshot_time       DATETIME NOT NULL,
-     total_bots          INT,
-     total_online        INT,
-     rotating_active     INT,
-     pct_online_rotating DECIMAL(5,1),
-     pct_ever_rotated    DECIMAL(5,1),
-     avg_level_rotating  DECIMAL(5,1),
-     highest_level       INT
-   );
-
-   Then add this cron on the DB container (every 30 min):
-   */30 * * * * mariadb -u root -e "
-     INSERT INTO classicrealmd.bot_rotation_log
-       (realm,snapshot_time,total_bots,total_online,rotating_active,
-        pct_online_rotating,pct_ever_rotated,avg_level_rotating,highest_level)
-     SELECT 1,NOW(),COUNT(*),SUM(online=1),SUM(online=1 AND xp>0),
-       ROUND(SUM(online=1 AND xp>0)/NULLIF(SUM(online=1),0)*100,1),
-       ROUND(SUM(xp>0)/COUNT(*)*100,1),
-       ROUND(AVG(CASE WHEN xp>0 THEN level END),1),
-       MAX(CASE WHEN xp>0 THEN level END)
-     FROM classiccharacters.characters
-     WHERE account IN (SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%%');
-   "
-   ------------------------------------------------------------------ */
-
+/* ---------- History ---------- */
 $historyRows = [];
 $hasHistory  = false;
 try {
@@ -310,12 +279,12 @@ try {
   ");
   $hasHistory = !empty($historyRows);
 } catch (Exception $e) {
+  /* table doesn't exist yet — silently ignore, show setup hint */
   $hasHistory = false;
 }
 ?>
 
 <style>
-/* ── Rotation panel ─────────────────────────────────────── */
 .rot-panel {
   width: 100%;
   max-width: 1100px;
@@ -327,7 +296,6 @@ try {
   padding: 20px 24px 24px;
   color: #ddd;
 }
-
 .rot-title {
   font-size: 1.15rem;
   font-weight: 700;
@@ -338,15 +306,22 @@ try {
   border-bottom: 1px solid #2a2a2a;
   padding-bottom: 10px;
 }
-
-/* ── Stat grid ─────────────────────────────────────────── */
+.rot-error {
+  background: rgba(255,60,60,0.08);
+  border: 1px solid #5a1a1a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #f88;
+  font-size: 0.82rem;
+  margin-bottom: 12px;
+  font-family: monospace;
+}
 .rot-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 20px;
 }
-
 .rot-stat {
   flex: 1 1 140px;
   background: rgba(255,255,255,0.03);
@@ -355,13 +330,11 @@ try {
   padding: 12px 14px;
   text-align: center;
 }
-
 .rot-stat .val {
   font-size: 1.6rem;
   font-weight: 700;
   line-height: 1.1;
 }
-
 .rot-stat .lbl {
   font-size: 0.72rem;
   color: #888;
@@ -369,18 +342,12 @@ try {
   letter-spacing: 0.06em;
   margin-top: 4px;
 }
-
 .rot-stat.highlight .val { color: #e8c96a; }
 .rot-stat.good  .val     { color: #4caf81; }
 .rot-stat.info  .val     { color: #79a9ff; }
 .rot-stat.warn  .val     { color: #ff8c42; }
 .rot-stat.muted .val     { color: #888; }
-
-/* ── Gauge bar ─────────────────────────────────────────── */
-.rot-gauge-wrap {
-  margin-bottom: 20px;
-}
-
+.rot-gauge-wrap  { margin-bottom: 20px; }
 .rot-gauge-label {
   display: flex;
   justify-content: space-between;
@@ -388,12 +355,7 @@ try {
   color: #999;
   margin-bottom: 5px;
 }
-
-.rot-gauge-label span:last-child {
-  color: #e8c96a;
-  font-weight: 700;
-}
-
+.rot-gauge-label span:last-child { color: #e8c96a; font-weight: 700; }
 .rot-gauge-track {
   height: 10px;
   background: #1a1a1a;
@@ -401,23 +363,14 @@ try {
   overflow: hidden;
   border: 1px solid #2a2a2a;
 }
-
 .rot-gauge-fill {
   height: 100%;
   border-radius: 6px;
   transition: width 0.8s ease;
   background: linear-gradient(90deg, #3a6b4a, #4caf81);
 }
-
-.rot-gauge-fill.warn {
-  background: linear-gradient(90deg, #7a4a1a, #ff8c42);
-}
-
-/* ── Breakdown bar ──────────────────────────────────────── */
-.rot-breakdown {
-  margin-bottom: 20px;
-}
-
+.rot-gauge-fill.warn { background: linear-gradient(90deg, #7a4a1a, #ff8c42); }
+.rot-breakdown        { margin-bottom: 20px; }
 .rot-breakdown-label {
   font-size: 0.78rem;
   color: #888;
@@ -425,7 +378,6 @@ try {
   letter-spacing: 0.05em;
   margin-bottom: 6px;
 }
-
 .rot-breakdown-bar {
   display: flex;
   height: 22px;
@@ -434,7 +386,6 @@ try {
   border: 1px solid #2a2a2a;
   font-size: 0.7rem;
 }
-
 .rot-breakdown-bar .seg {
   display: flex;
   align-items: center;
@@ -445,17 +396,11 @@ try {
   white-space: nowrap;
   overflow: hidden;
 }
-
-.seg.rotating  { background: #2e6e47; }
-.seg.idle      { background: #5a4a1a; }
-.seg.cycled    { background: #1a3d6b; }
-.seg.cold      { background: #222; color: #555; }
-
-/* ── History table ──────────────────────────────────────── */
-.rot-history {
-  margin-top: 4px;
-}
-
+.seg.rotating { background: #2e6e47; }
+.seg.idle     { background: #5a4a1a; }
+.seg.cycled   { background: #1a3d6b; }
+.seg.cold     { background: #222; color: #555; }
+.rot-history        { margin-top: 4px; }
 .rot-history-title {
   font-size: 0.8rem;
   color: #777;
@@ -463,13 +408,7 @@ try {
   letter-spacing: 0.06em;
   margin-bottom: 8px;
 }
-
-.rot-history-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
-}
-
+.rot-history-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .rot-history-table th {
   color: #666;
   font-weight: 600;
@@ -480,64 +419,60 @@ try {
   text-align: left;
   border-bottom: 1px solid #222;
 }
-
 .rot-history-table td {
   padding: 4px 8px;
   border-bottom: 1px solid #1a1a1a;
   color: #bbb;
 }
-
-.rot-history-table tr:hover td {
-  background: rgba(255,255,255,0.02);
-}
-
-.pct-good  { color: #4caf81; font-weight: 600; }
-.pct-ok    { color: #e8c96a; font-weight: 600; }
-.pct-warn  { color: #ff8c42; font-weight: 600; }
-.pct-bad   { color: #f44; font-weight: 600; }
-
-.rot-no-history {
-  font-size: 0.78rem;
-  color: #555;
-  font-style: italic;
-  padding: 6px 0;
-}
+.rot-history-table tr:hover td { background: rgba(255,255,255,0.02); }
+.pct-good { color: #4caf81; font-weight: 600; }
+.pct-ok   { color: #e8c96a; font-weight: 600; }
+.pct-warn { color: #ff8c42; font-weight: 600; }
+.pct-bad  { color: #f44;    font-weight: 600; }
+.rot-no-history { font-size: 0.78rem; color: #555; font-style: italic; padding: 6px 0; }
 </style>
-
-<?php if ($rotationData): ?>
-<?php
-  $total        = (int)$rotationData['total_bots'];
-  $online       = (int)$rotationData['total_online'];
-  $rotating     = (int)$rotationData['rotating_active'];
-  $idle         = (int)$rotationData['online_idle'];
-  $cycled       = (int)$rotationData['cycled_off_progressed'];
-  $cold         = (int)$rotationData['never_progressed'];
-  $pctLive      = (float)$rotationData['pct_online_rotating'];
-  $pctEver      = (float)$rotationData['pct_ever_rotated'];
-  $avgLvl       = $rotationData['avg_level_rotating'] ?? '—';
-  $maxLvl       = $rotationData['highest_level'] ?? '—';
-
-  // Colour thresholds for live rotation %
-  $gaugeWarn    = $pctLive < 20;
-
-  // Breakdown bar widths (% of total bots)
-  $wRotating = $total > 0 ? round($rotating / $total * 100, 1) : 0;
-  $wIdle     = $total > 0 ? round($idle     / $total * 100, 1) : 0;
-  $wCycled   = $total > 0 ? round($cycled   / $total * 100, 1) : 0;
-  $wCold     = $total > 0 ? round($cold     / $total * 100, 1) : 0;
-
-  function rotPctClass($v) {
-    if ($v >= 30) return 'pct-good';
-    if ($v >= 20) return 'pct-ok';
-    if ($v >= 10) return 'pct-warn';
-    return 'pct-bad';
-  }
-?>
 
 <div class="rot-panel">
   <div class="rot-title">⚙ Bot Rotation Health</div>
 
-  <!-- Key stats -->
+  <?php if ($rotationError): ?>
+    <div class="rot-error">
+      Query error: <?php echo htmlspecialchars($rotationError); ?>
+    </div>
+  <?php elseif (!$rotationData || (int)$rotationData['total_bots'] === 0): ?>
+    <div class="rot-error">
+      No bot accounts found. Confirm bot accounts match username pattern
+      <strong>RNDBOT%</strong> in <code>classicrealmd.account</code>.
+    </div>
+  <?php else: ?>
+
+  <?php
+    $total    = (int)$rotationData['total_bots'];
+    $online   = (int)$rotationData['total_online'];
+    $rotating = (int)$rotationData['rotating_active'];
+    $idle     = (int)$rotationData['online_idle'];
+    $cycled   = (int)$rotationData['cycled_off_progressed'];
+    $cold     = (int)$rotationData['never_progressed'];
+    $pctLive  = (float)$rotationData['pct_online_rotating'];
+    $pctEver  = (float)$rotationData['pct_ever_rotated'];
+    $avgLvl   = $rotationData['avg_level_rotating'] ?? '—';
+    $maxLvl   = $rotationData['highest_level']      ?? '—';
+
+    $gaugeWarn = $pctLive < 20;
+
+    $wRotating = $total > 0 ? round($rotating / $total * 100, 1) : 0;
+    $wIdle     = $total > 0 ? round($idle     / $total * 100, 1) : 0;
+    $wCycled   = $total > 0 ? round($cycled   / $total * 100, 1) : 0;
+    $wCold     = $total > 0 ? round($cold     / $total * 100, 1) : 0;
+
+    function rotPctClass($v) {
+      if ($v >= 30) return 'pct-good';
+      if ($v >= 20) return 'pct-ok';
+      if ($v >= 10) return 'pct-warn';
+      return 'pct-bad';
+    }
+  ?>
+
   <div class="rot-stats">
     <div class="rot-stat highlight">
       <div class="val"><?php echo $pctLive; ?>%</div>
@@ -573,7 +508,6 @@ try {
     </div>
   </div>
 
-  <!-- Live rotation gauge -->
   <div class="rot-gauge-wrap">
     <div class="rot-gauge-label">
       <span>Live Rotation Rate (online bots actively gaining XP)</span>
@@ -585,7 +519,6 @@ try {
     </div>
   </div>
 
-  <!-- Population breakdown bar -->
   <div class="rot-breakdown">
     <div class="rot-breakdown-label">Bot population breakdown</div>
     <div class="rot-breakdown-bar">
@@ -622,7 +555,6 @@ try {
     </div>
   </div>
 
-  <!-- History table -->
   <div class="rot-history">
     <div class="rot-history-title">Recent Snapshots
       <?php if (!$hasHistory): ?>
@@ -666,5 +598,5 @@ try {
     <?php endif; ?>
   </div>
 
+  <?php endif; ?>
 </div><!-- .rot-panel -->
-<?php endif; ?>
