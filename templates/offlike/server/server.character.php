@@ -352,6 +352,348 @@ function spp_character_faction_name($raceId) {
     return in_array((int)$raceId, array(1, 3, 4, 7, 11, 22, 25, 29), true) ? 'Alliance' : 'Horde';
 }
 
+function spp_character_quest_template_fields(PDO $worldPdo) {
+    static $cache = array();
+    $key = spl_object_hash($worldPdo);
+    if (isset($cache[$key])) return $cache[$key];
+    $columns = spp_character_columns($worldPdo, 'quest_template');
+    $pick = function (array $candidates) use ($columns) {
+        foreach ($candidates as $candidate) {
+            if (isset($columns[$candidate])) return $candidate;
+        }
+        return null;
+    };
+    return $cache[$key] = array(
+        'entry' => $pick(array('entry', 'Entry')),
+        'title' => $pick(array('Title', 'title', 'LogTitle', 'QuestTitle')),
+        'level' => $pick(array('QuestLevel', 'questlevel', 'MinLevel', 'Min_Level')),
+        'details' => $pick(array('Details', 'details', 'LogDescription', 'logdescription', 'ObjectiveText1', 'Objectives', 'objectives')),
+        'objectives_text' => $pick(array('Objectives', 'objectives', 'QuestDescription', 'questdescription')),
+        'objective_text_1' => $pick(array('ObjectiveText1', 'objectiveText1', 'ObjectiveText_1')),
+        'objective_text_2' => $pick(array('ObjectiveText2', 'objectiveText2', 'ObjectiveText_2')),
+        'objective_text_3' => $pick(array('ObjectiveText3', 'objectiveText3', 'ObjectiveText_3')),
+        'objective_text_4' => $pick(array('ObjectiveText4', 'objectiveText4', 'ObjectiveText_4')),
+        'req_creature_count_1' => $pick(array('ReqCreatureOrGOCount1', 'ReqCreatureOrGOcount1')),
+        'req_creature_count_2' => $pick(array('ReqCreatureOrGOCount2', 'ReqCreatureOrGOcount2')),
+        'req_creature_count_3' => $pick(array('ReqCreatureOrGOCount3', 'ReqCreatureOrGOcount3')),
+        'req_creature_count_4' => $pick(array('ReqCreatureOrGOCount4', 'ReqCreatureOrGOcount4')),
+        'req_creature_or_go_id_1' => $pick(array('ReqCreatureOrGOId1', 'ReqCreatureOrGOid1')),
+        'req_creature_or_go_id_2' => $pick(array('ReqCreatureOrGOId2', 'ReqCreatureOrGOid2')),
+        'req_creature_or_go_id_3' => $pick(array('ReqCreatureOrGOId3', 'ReqCreatureOrGOid3')),
+        'req_creature_or_go_id_4' => $pick(array('ReqCreatureOrGOId4', 'ReqCreatureOrGOid4')),
+        'req_item_id_1' => $pick(array('ReqItemId1', 'ReqItemid1')),
+        'req_item_id_2' => $pick(array('ReqItemId2', 'ReqItemid2')),
+        'req_item_id_3' => $pick(array('ReqItemId3', 'ReqItemid3')),
+        'req_item_id_4' => $pick(array('ReqItemId4', 'ReqItemid4')),
+        'req_item_count_1' => $pick(array('ReqItemCount1', 'ReqItemcount1')),
+        'req_item_count_2' => $pick(array('ReqItemCount2', 'ReqItemcount2')),
+        'req_item_count_3' => $pick(array('ReqItemCount3', 'ReqItemcount3')),
+        'req_item_count_4' => $pick(array('ReqItemCount4', 'ReqItemcount4')),
+        'rew_choice_item_1' => $pick(array('RewChoiceItemId1')),
+        'rew_choice_item_2' => $pick(array('RewChoiceItemId2')),
+        'rew_choice_item_3' => $pick(array('RewChoiceItemId3')),
+        'rew_choice_item_4' => $pick(array('RewChoiceItemId4')),
+        'rew_choice_item_5' => $pick(array('RewChoiceItemId5')),
+        'rew_choice_item_6' => $pick(array('RewChoiceItemId6')),
+        'rew_choice_count_1' => $pick(array('RewChoiceItemCount1')),
+        'rew_choice_count_2' => $pick(array('RewChoiceItemCount2')),
+        'rew_choice_count_3' => $pick(array('RewChoiceItemCount3')),
+        'rew_choice_count_4' => $pick(array('RewChoiceItemCount4')),
+        'rew_choice_count_5' => $pick(array('RewChoiceItemCount5')),
+        'rew_choice_count_6' => $pick(array('RewChoiceItemCount6')),
+        'rew_item_1' => $pick(array('RewItemId1')),
+        'rew_item_2' => $pick(array('RewItemId2')),
+        'rew_item_3' => $pick(array('RewItemId3')),
+        'rew_item_4' => $pick(array('RewItemId4')),
+        'rew_item_count_1' => $pick(array('RewItemCount1')),
+        'rew_item_count_2' => $pick(array('RewItemCount2')),
+        'rew_item_count_3' => $pick(array('RewItemCount3')),
+        'rew_item_count_4' => $pick(array('RewItemCount4')),
+        'rew_money' => $pick(array('RewOrReqMoney', 'RewMoneyMaxLevel', 'RewardMoney')),
+    );
+}
+
+function spp_character_fetch_quest_meta(PDO $worldPdo, array $questIds) {
+    $questIds = array_values(array_unique(array_filter(array_map('intval', $questIds))));
+    if (empty($questIds) || !spp_character_table_exists($worldPdo, 'quest_template')) return array();
+    $fields = spp_character_quest_template_fields($worldPdo);
+    if (!$fields['entry'] || !$fields['title']) return array();
+    $select = array(
+        '`' . $fields['entry'] . '` AS `entry`',
+        '`' . $fields['title'] . '` AS `title`',
+    );
+    $aliases = array(
+        'level' => 'quest_level',
+        'details' => 'quest_description',
+        'objectives_text' => 'objectives_text',
+        'objective_text_1' => 'objective_text_1',
+        'objective_text_2' => 'objective_text_2',
+        'objective_text_3' => 'objective_text_3',
+        'objective_text_4' => 'objective_text_4',
+        'req_creature_count_1' => 'req_creature_count_1',
+        'req_creature_count_2' => 'req_creature_count_2',
+        'req_creature_count_3' => 'req_creature_count_3',
+        'req_creature_count_4' => 'req_creature_count_4',
+        'req_creature_or_go_id_1' => 'req_creature_or_go_id_1',
+        'req_creature_or_go_id_2' => 'req_creature_or_go_id_2',
+        'req_creature_or_go_id_3' => 'req_creature_or_go_id_3',
+        'req_creature_or_go_id_4' => 'req_creature_or_go_id_4',
+        'req_item_id_1' => 'req_item_id_1',
+        'req_item_id_2' => 'req_item_id_2',
+        'req_item_id_3' => 'req_item_id_3',
+        'req_item_id_4' => 'req_item_id_4',
+        'req_item_count_1' => 'req_item_count_1',
+        'req_item_count_2' => 'req_item_count_2',
+        'req_item_count_3' => 'req_item_count_3',
+        'req_item_count_4' => 'req_item_count_4',
+        'rew_choice_item_1' => 'rew_choice_item_1',
+        'rew_choice_item_2' => 'rew_choice_item_2',
+        'rew_choice_item_3' => 'rew_choice_item_3',
+        'rew_choice_item_4' => 'rew_choice_item_4',
+        'rew_choice_item_5' => 'rew_choice_item_5',
+        'rew_choice_item_6' => 'rew_choice_item_6',
+        'rew_choice_count_1' => 'rew_choice_count_1',
+        'rew_choice_count_2' => 'rew_choice_count_2',
+        'rew_choice_count_3' => 'rew_choice_count_3',
+        'rew_choice_count_4' => 'rew_choice_count_4',
+        'rew_choice_count_5' => 'rew_choice_count_5',
+        'rew_choice_count_6' => 'rew_choice_count_6',
+        'rew_item_1' => 'rew_item_1',
+        'rew_item_2' => 'rew_item_2',
+        'rew_item_3' => 'rew_item_3',
+        'rew_item_4' => 'rew_item_4',
+        'rew_item_count_1' => 'rew_item_count_1',
+        'rew_item_count_2' => 'rew_item_count_2',
+        'rew_item_count_3' => 'rew_item_count_3',
+        'rew_item_count_4' => 'rew_item_count_4',
+        'rew_money' => 'rew_money',
+    );
+    foreach ($aliases as $fieldKey => $alias) {
+        if (!empty($fields[$fieldKey])) $select[] = '`' . $fields[$fieldKey] . '` AS `' . $alias . '`';
+    }
+    $placeholders = implode(',', array_fill(0, count($questIds), '?'));
+    $stmt = $worldPdo->prepare('SELECT ' . implode(', ', $select) . ' FROM `quest_template` WHERE `' . $fields['entry'] . '` IN (' . $placeholders . ')');
+    $stmt->execute($questIds);
+    $meta = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $questId = (int)($row['entry'] ?? 0);
+        if ($questId <= 0) continue;
+        $meta[$questId] = array(
+            'title' => trim((string)($row['title'] ?? ('Quest #' . $questId))),
+            'quest_level' => isset($row['quest_level']) ? (int)$row['quest_level'] : null,
+            'description' => trim((string)($row['quest_description'] ?? '')),
+            'objectives_text' => trim((string)($row['objectives_text'] ?? '')),
+            'objective_texts' => array(
+                trim((string)($row['objective_text_1'] ?? '')),
+                trim((string)($row['objective_text_2'] ?? '')),
+                trim((string)($row['objective_text_3'] ?? '')),
+                trim((string)($row['objective_text_4'] ?? '')),
+            ),
+            'required_counts' => array(
+                max((int)($row['req_creature_count_1'] ?? 0), (int)($row['req_item_count_1'] ?? 0)),
+                max((int)($row['req_creature_count_2'] ?? 0), (int)($row['req_item_count_2'] ?? 0)),
+                max((int)($row['req_creature_count_3'] ?? 0), (int)($row['req_item_count_3'] ?? 0)),
+                max((int)($row['req_creature_count_4'] ?? 0), (int)($row['req_item_count_4'] ?? 0)),
+            ),
+            'required_entity_ids' => array(
+                (int)($row['req_creature_or_go_id_1'] ?? 0),
+                (int)($row['req_creature_or_go_id_2'] ?? 0),
+                (int)($row['req_creature_or_go_id_3'] ?? 0),
+                (int)($row['req_creature_or_go_id_4'] ?? 0),
+            ),
+            'required_item_ids' => array(
+                (int)($row['req_item_id_1'] ?? 0),
+                (int)($row['req_item_id_2'] ?? 0),
+                (int)($row['req_item_id_3'] ?? 0),
+                (int)($row['req_item_id_4'] ?? 0),
+            ),
+            'reward_choice_ids' => array((int)($row['rew_choice_item_1'] ?? 0), (int)($row['rew_choice_item_2'] ?? 0), (int)($row['rew_choice_item_3'] ?? 0), (int)($row['rew_choice_item_4'] ?? 0), (int)($row['rew_choice_item_5'] ?? 0), (int)($row['rew_choice_item_6'] ?? 0)),
+            'reward_choice_counts' => array((int)($row['rew_choice_count_1'] ?? 0), (int)($row['rew_choice_count_2'] ?? 0), (int)($row['rew_choice_count_3'] ?? 0), (int)($row['rew_choice_count_4'] ?? 0), (int)($row['rew_choice_count_5'] ?? 0), (int)($row['rew_choice_count_6'] ?? 0)),
+            'reward_item_ids' => array((int)($row['rew_item_1'] ?? 0), (int)($row['rew_item_2'] ?? 0), (int)($row['rew_item_3'] ?? 0), (int)($row['rew_item_4'] ?? 0)),
+            'reward_item_counts' => array((int)($row['rew_item_count_1'] ?? 0), (int)($row['rew_item_count_2'] ?? 0), (int)($row['rew_item_count_3'] ?? 0), (int)($row['rew_item_count_4'] ?? 0)),
+            'reward_money' => (int)($row['rew_money'] ?? 0),
+        );
+    }
+    return $meta;
+}
+
+function spp_character_build_quest_progress(array $row) {
+    $parts = array();
+    for ($i = 1; $i <= 4; $i++) {
+        $mob = (int)($row['mobcount' . $i] ?? 0);
+        $item = (int)($row['itemcount' . $i] ?? 0);
+        if ($mob > 0) $parts[] = 'Mob ' . $i . ': ' . $mob;
+        if ($item > 0) $parts[] = 'Item ' . $i . ': ' . $item;
+    }
+    if (!empty($row['explored'])) $parts[] = 'Explored';
+    if (!empty($row['timer'])) $parts[] = 'Timed';
+    return $parts;
+}
+
+function spp_character_fetch_item_summaries(PDO $worldPdo, PDO $armoryPdo, array $itemIds) {
+    $itemIds = array_values(array_unique(array_filter(array_map('intval', $itemIds))));
+    if (empty($itemIds) || !spp_character_table_exists($worldPdo, 'item_template')) return array();
+    $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
+    $stmt = $worldPdo->prepare('SELECT `entry`, `name`, `Quality`, `displayid` FROM `item_template` WHERE `entry` IN (' . $placeholders . ')');
+    $stmt->execute($itemIds);
+    $itemMap = array();
+    $displayIds = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $itemRow) {
+        $itemMap[(int)$itemRow['entry']] = $itemRow;
+        if (!empty($itemRow['displayid'])) $displayIds[(int)$itemRow['displayid']] = true;
+    }
+    $iconMap = array();
+    if (!empty($displayIds) && spp_character_table_exists($armoryPdo, 'dbc_itemdisplayinfo')) {
+        $placeholders = implode(',', array_fill(0, count($displayIds), '?'));
+        $stmt = $armoryPdo->prepare('SELECT `id`, `name` FROM `dbc_itemdisplayinfo` WHERE `id` IN (' . $placeholders . ')');
+        $stmt->execute(array_keys($displayIds));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $displayRow) {
+            $iconMap[(int)$displayRow['id']] = (string)$displayRow['name'];
+        }
+    }
+    $items = array();
+    foreach ($itemMap as $entry => $itemRow) {
+        $items[$entry] = array(
+            'entry' => (int)$entry,
+            'name' => (string)$itemRow['name'],
+            'quality' => (int)$itemRow['Quality'],
+            'icon' => spp_character_icon_url($iconMap[(int)($itemRow['displayid'] ?? 0)] ?? ''),
+        );
+    }
+    return $items;
+}
+
+function spp_character_fetch_quest_objective_names(PDO $worldPdo, array $entityIds, array $itemIds) {
+    $names = array('entities' => array(), 'items' => array());
+    $entityIds = array_values(array_unique(array_filter(array_map('intval', $entityIds))));
+    $itemIds = array_values(array_unique(array_filter(array_map('intval', $itemIds))));
+
+    $creatureIds = array();
+    $gameobjectIds = array();
+    foreach ($entityIds as $entityId) {
+        if ($entityId > 0) $creatureIds[] = $entityId;
+        if ($entityId < 0) $gameobjectIds[] = abs($entityId);
+    }
+
+    if (!empty($creatureIds) && spp_character_table_exists($worldPdo, 'creature_template')) {
+        $placeholders = implode(',', array_fill(0, count($creatureIds), '?'));
+        $stmt = $worldPdo->prepare('SELECT `entry`, `name` FROM `creature_template` WHERE `entry` IN (' . $placeholders . ')');
+        $stmt->execute($creatureIds);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $names['entities'][(int)$row['entry']] = trim((string)($row['name'] ?? ''));
+        }
+    }
+
+    if (!empty($gameobjectIds) && spp_character_table_exists($worldPdo, 'gameobject_template')) {
+        $placeholders = implode(',', array_fill(0, count($gameobjectIds), '?'));
+        $stmt = $worldPdo->prepare('SELECT `entry`, `name` FROM `gameobject_template` WHERE `entry` IN (' . $placeholders . ')');
+        $stmt->execute($gameobjectIds);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $names['entities'][-(int)$row['entry']] = trim((string)($row['name'] ?? ''));
+        }
+    }
+
+    if (!empty($itemIds) && spp_character_table_exists($worldPdo, 'item_template')) {
+        $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
+        $stmt = $worldPdo->prepare('SELECT `entry`, `name` FROM `item_template` WHERE `entry` IN (' . $placeholders . ')');
+        $stmt->execute($itemIds);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $names['items'][(int)$row['entry']] = trim((string)($row['name'] ?? ''));
+        }
+    }
+
+    return $names;
+}
+
+function spp_character_build_quest_objectives(array $meta, array $row) {
+    $objectives = array();
+    $objectiveTexts = $meta['objective_texts'] ?? array();
+    $requiredCounts = $meta['required_counts'] ?? array();
+    $requiredEntityIds = $meta['required_entity_ids'] ?? array();
+    $requiredItemIds = $meta['required_item_ids'] ?? array();
+    $objectiveNames = $meta['objective_names'] ?? array('entities' => array(), 'items' => array());
+    for ($i = 0; $i < 4; $i++) {
+        $label = trim((string)($objectiveTexts[$i] ?? ''));
+        $target = (int)($requiredCounts[$i] ?? 0);
+        $current = max((int)($row['mobcount' . ($i + 1)] ?? 0), (int)($row['itemcount' . ($i + 1)] ?? 0));
+        if ($label !== '') {
+            $objectives[] = $target > 0 ? ($label . ': ' . $current . '/' . $target) : $label;
+            continue;
+        }
+        $itemId = (int)($requiredItemIds[$i] ?? 0);
+        if ($itemId > 0) {
+            $itemName = trim((string)($objectiveNames['items'][$itemId] ?? ''));
+            if ($itemName !== '') {
+                $objectives[] = ($target > 0 ? 'Collect ' . $itemName . ': ' . $current . '/' . $target : 'Collect ' . $itemName);
+                continue;
+            }
+        }
+        $entityId = (int)($requiredEntityIds[$i] ?? 0);
+        if ($entityId !== 0) {
+            $entityName = trim((string)($objectiveNames['entities'][$entityId] ?? ''));
+            if ($entityName !== '') {
+                $verb = $entityId < 0 ? 'Use' : 'Kill';
+                $objectives[] = ($target > 0 ? $verb . ' ' . $entityName . ': ' . $current . '/' . $target : $verb . ' ' . $entityName);
+                continue;
+            }
+        }
+        if ($target > 0) {
+            $objectives[] = 'Objective ' . ($i + 1) . ': ' . $current . '/' . $target;
+        }
+    }
+    if (empty($objectives) && !empty($meta['objectives_text'])) {
+        $objectives[] = trim((string)$meta['objectives_text']);
+    }
+    if (empty($objectives)) {
+        $objectives = spp_character_build_quest_progress($row);
+    }
+    return array_values(array_filter(array_map('trim', $objectives)));
+}
+
+function spp_character_build_quest_rewards(array $meta, array $itemSummaries) {
+    $rewards = array('choice' => array(), 'guaranteed' => array(), 'money' => 0);
+    foreach (($meta['reward_choice_ids'] ?? array()) as $index => $itemId) {
+        $itemId = (int)$itemId;
+        if ($itemId <= 0 || empty($itemSummaries[$itemId])) continue;
+        $rewards['choice'][] = $itemSummaries[$itemId] + array('count' => max(1, (int)(($meta['reward_choice_counts'][$index] ?? 0))));
+    }
+    foreach (($meta['reward_item_ids'] ?? array()) as $index => $itemId) {
+        $itemId = (int)$itemId;
+        if ($itemId <= 0 || empty($itemSummaries[$itemId])) continue;
+        $rewards['guaranteed'][] = $itemSummaries[$itemId] + array('count' => max(1, (int)(($meta['reward_item_counts'][$index] ?? 0))));
+    }
+    $rewards['money'] = (int)($meta['reward_money'] ?? 0);
+    return $rewards;
+}
+
+function spp_character_format_quest_status(array $row) {
+    if (!empty($row['rewarded'])) return 'Completed';
+    $status = (int)($row['status'] ?? 0);
+    if ($status >= 1) return 'In Progress';
+    return 'Accepted';
+}
+
+function spp_character_render_quest_text($text, $fallbackName = 'adventurer') {
+    $text = (string)$text;
+    if (trim($text) === '') return '';
+    $replacements = array(
+        '$B' => "\n\n",
+        '$b' => "\n",
+        '$N' => $fallbackName,
+        '$n' => $fallbackName,
+        '$C' => 'adventurer',
+        '$c' => 'adventurer',
+        '$R' => '',
+        '$r' => '',
+    );
+    $text = strtr($text, $replacements);
+    $text = preg_replace('/\|c[0-9a-fA-F]{8}/', '', $text);
+    $text = str_replace('|r', '', $text);
+    $text = preg_replace("/\r\n?/", "\n", $text);
+    $text = preg_replace("/\n{3,}/", "\n\n", trim($text));
+    return nl2br(htmlspecialchars($text), false);
+}
+
 function spp_character_rep_rank($standing) {
     $lengths = array(36000, 3000, 3000, 3000, 6000, 12000, 21000, 1000);
     $labels = array('Hated', 'Hostile', 'Unfriendly', 'Neutral', 'Friendly', 'Honored', 'Revered', 'Exalted');
@@ -369,7 +711,7 @@ function spp_character_rep_rank($standing) {
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $tab = strtolower(trim((string)($_GET['tab'] ?? 'overview')));
-$tabs = array('overview', 'talents', 'reputation', 'skills', 'professions', 'achievements');
+$tabs = array('overview', 'talents', 'reputation', 'skills', 'professions', 'quest log', 'achievements');
 if (!in_array($tab, $tabs, true)) $tab = 'overview';
 
 $classNames = array(1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest', 6 => 'Death Knight', 7 => 'Shaman', 8 => 'Mage', 9 => 'Warlock', 11 => 'Druid');
@@ -390,6 +732,8 @@ $professionRecipesBySkillId = array();
 $knownCharacterSpells = array();
 $achievementSummary = array('supported' => false, 'count' => 0, 'points' => 0, 'recent' => array(), 'groups' => array());
 $recentGear = array();
+$activeQuestLog = array();
+$completedQuestHistory = array();
 $lastInstance = '';
 $lastInstanceDate = 0;
 $currentMapName = 'Unknown zone';
@@ -409,7 +753,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
         $worldPdo = spp_get_pdo('world', $realmId);
         $armoryPdo = spp_get_pdo('armory', $realmId);
         $characterColumns = spp_character_columns($charsPdo, 'characters');
-        $selectColumns = array('guid', 'name', 'race', 'class', 'gender', 'level', 'zone', 'map', 'online', 'totaltime');
+        $selectColumns = array('guid', 'name', 'race', 'class', 'gender', 'level', 'zone', 'map', 'online', 'totaltime', 'leveltime');
         foreach (array('health', 'power1', 'power2', 'stored_honorable_kills', 'stored_honor_rating', 'honor_highest_rank', 'totalKills', 'totalHonorPoints') as $columnName) {
             if (isset($characterColumns[$columnName])) $selectColumns[] = $columnName;
         }
@@ -468,6 +812,59 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                     'icon' => spp_character_icon_url($iconMap[(int)$itemRow['displayid']] ?? ''),
                 );
             }
+        }
+
+        if (spp_character_table_exists($charsPdo, 'character_queststatus')) {
+            $stmt = $charsPdo->prepare('SELECT * FROM `character_queststatus` WHERE `guid` = ? ORDER BY `rewarded` ASC, `quest` ASC');
+            $stmt->execute(array($characterGuid));
+            $questRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $questIds = array();
+            foreach ($questRows as $questRow) {
+                $questId = (int)($questRow['quest'] ?? 0);
+                if ($questId > 0) $questIds[] = $questId;
+            }
+            $questMeta = spp_character_fetch_quest_meta($worldPdo, $questIds);
+            $questRewardItemIds = array();
+            $questObjectiveEntityIds = array();
+            $questObjectiveItemIds = array();
+            foreach ($questMeta as $meta) {
+                foreach (($meta['reward_choice_ids'] ?? array()) as $itemId) {
+                    if ((int)$itemId > 0) $questRewardItemIds[(int)$itemId] = true;
+                }
+                foreach (($meta['reward_item_ids'] ?? array()) as $itemId) {
+                    if ((int)$itemId > 0) $questRewardItemIds[(int)$itemId] = true;
+                }
+                foreach (($meta['required_entity_ids'] ?? array()) as $entityId) {
+                    if ((int)$entityId !== 0) $questObjectiveEntityIds[(int)$entityId] = true;
+                }
+                foreach (($meta['required_item_ids'] ?? array()) as $itemId) {
+                    if ((int)$itemId > 0) $questObjectiveItemIds[(int)$itemId] = true;
+                }
+            }
+            $questRewardItems = spp_character_fetch_item_summaries($worldPdo, $armoryPdo, array_keys($questRewardItemIds));
+            $questObjectiveNames = spp_character_fetch_quest_objective_names($worldPdo, array_keys($questObjectiveEntityIds), array_keys($questObjectiveItemIds));
+            foreach ($questRows as $questRow) {
+                $questId = (int)($questRow['quest'] ?? 0);
+                if ($questId <= 0) continue;
+                $meta = $questMeta[$questId] ?? array();
+                $meta['objective_names'] = $questObjectiveNames;
+                $entry = array(
+                    'quest' => $questId,
+                    'title' => $meta['title'] ?? ('Quest #' . $questId),
+                    'quest_level' => $meta['quest_level'] ?? null,
+                    'description' => $meta['description'] ?? '',
+                    'status_label' => spp_character_format_quest_status($questRow),
+                    'progress_parts' => spp_character_build_quest_objectives($meta, $questRow),
+                    'rewards' => spp_character_build_quest_rewards($meta, $questRewardItems),
+                );
+                if (!empty($questRow['rewarded'])) {
+                    $completedQuestHistory[] = $entry;
+                } else {
+                    $activeQuestLog[] = $entry;
+                }
+            }
+            $completedQuestHistory = array_slice(array_reverse($completedQuestHistory), 0, 8);
+            $activeQuestLog = array_slice($activeQuestLog, 0, 50);
         }
 
         $talentMetaPdo = spp_character_pick_dbc_pdo(array($worldPdo, $armoryPdo), 'dbc_talenttab') ?: $armoryPdo;
@@ -1213,6 +1610,10 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-sheet-statrow strong{color:#fff}
 .character-fact-link{align-items:flex-start}
 .character-fact-link .character-fact-sub{margin-top:2px}
+.character-fact-list{gap:10px}
+.character-fact-link{padding:10px 12px;border-radius:14px;border:1px solid rgba(255,204,72,.1);background:rgba(255,255,255,.03);font-size:1rem;font-weight:800;letter-spacing:.02em}
+.character-fact-link img{width:26px;height:26px}
+.character-fact-link.is-quest{padding:6px 0;border:0;background:transparent;color:#ffe6af;font-size:1.04rem;line-height:1.35}
 @media (max-width:1100px){.character-grid.character-grid-overview,.character-grid.character-grid-sheet{grid-template-columns:1fr}}
 @media (max-width:720px){.character-sheet-grid,.character-sheet-stats{grid-template-columns:1fr}.character-sheet-bar-row{grid-template-columns:1fr}.character-gear-stage{width:100%;min-height:auto;display:grid;gap:18px}.character-gear-stage > .character-gear-column:first-child,.character-gear-stage > .character-gear-column:nth-child(3),.character-gear-center,.character-gear-bottom{position:relative;inset:auto;left:auto;right:auto;bottom:auto;transform:none}.character-gear-center{order:-1}.character-gear-column,.character-gear-bottom{grid-template-columns:repeat(4,64px);justify-content:center}.character-gear-portrait-wrap{max-width:220px}}
 </style>
@@ -1354,6 +1755,51 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .rep-honored .character-reputation-rank,.rep-honored .character-reputation-fill{background:linear-gradient(90deg,#00735d,#00a884);color:#d8fff5}
 .rep-revered .character-reputation-rank,.rep-revered .character-reputation-fill{background:linear-gradient(90deg,#005f96,#2397df);color:#e0f5ff}
 .rep-exalted .character-reputation-rank,.rep-exalted .character-reputation-fill{background:linear-gradient(90deg,#0084a8,#20d0e8);color:#e1fdff}
+.character-quest-list{display:grid;gap:12px}
+.character-quest-item{padding:16px 18px;border-radius:16px;border:1px solid rgba(255,204,72,.1);background:rgba(255,255,255,.02)}
+.character-quest-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.character-quest-title{margin:0;color:#f7edd0;font-size:1.08rem;font-weight:800}
+.character-quest-status{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#ffe39a;background:rgba(255,204,72,.08)}
+.character-quest-meta{margin-top:6px;color:#aa9870;font-size:.9rem}
+.character-quest-progress{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.character-quest-chip{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.14);background:rgba(255,204,72,.06);color:#f6e5b2;font-size:.8rem;font-weight:700}
+.character-quest-disclosure{border:1px solid rgba(255,196,0,.16);border-radius:18px;background:rgba(5,8,18,.38);overflow:hidden}
+.character-quest-disclosure[open]{background:rgba(5,8,18,.5)}
+.character-quest-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;cursor:pointer;list-style:none;color:#ffe39a;font-size:1.15rem;font-weight:800}
+.character-quest-summary::-webkit-details-marker{display:none}
+.character-quest-summary::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}
+.character-quest-disclosure[open] > .character-quest-summary::after{content:'-'}
+.character-quest-disclosure-body{padding:0 18px 18px;display:grid;gap:12px}
+.character-questlog-shell{display:grid;grid-template-columns:minmax(280px,.82fr) minmax(0,1.35fr);gap:18px;align-items:start}
+.character-questlog-sidebar,.character-questlog-detail{border-radius:18px;border:1px solid rgba(255,196,0,.16);background:rgba(5,8,18,.45)}
+.character-questlog-sidebar{padding:14px}
+.character-questlog-detail{padding:20px 22px;background:linear-gradient(180deg,rgba(52,35,14,.32),rgba(13,11,9,.92)),radial-gradient(circle at top,rgba(255,215,140,.12),transparent 58%)}
+.character-questlog-heading{margin:0 0 12px;color:#ffe39a;font-size:.86rem;letter-spacing:.12em;text-transform:uppercase}
+.character-questlog-list{display:grid;gap:8px}
+.character-questlog-entry{display:grid;gap:4px;width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,204,72,.1);background:rgba(255,255,255,.02);color:#f7edd0;text-align:left;cursor:pointer}
+.character-questlog-entry.is-active{border-color:rgba(255,204,72,.34);background:linear-gradient(180deg,rgba(255,212,95,.18),rgba(255,212,95,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.character-questlog-entry-title{font-size:1rem;font-weight:800;color:#f7edd0}
+.character-questlog-entry-meta{color:#bca87a;font-size:.85rem}
+.character-questlog-entry-status{color:#ffe39a;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+.character-questlog-panel{display:none}
+.character-questlog-panel.is-active{display:block}
+.character-questlog-status{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#ffe39a;background:rgba(255,204,72,.08)}
+.character-questlog-title{margin:12px 0 10px;color:#fff0c8;font-size:1.7rem;line-height:1.1}
+.character-questlog-level{color:#c8b78c;font-size:.9rem;letter-spacing:.08em;text-transform:uppercase}
+.character-questlog-body{margin-top:18px;padding:18px;border-radius:16px;border:1px solid rgba(255,204,72,.1);background:rgba(255,245,220,.05);color:#f2e4bf;font-size:1.02rem;line-height:1.7}
+.character-questlog-section{margin-top:18px}
+.character-questlog-section-title{margin:0 0 10px;color:#ffe39a;font-size:.84rem;letter-spacing:.12em;text-transform:uppercase}
+.character-questlog-objectives{display:grid;gap:8px}
+.character-questlog-objective{padding:10px 12px;border-radius:12px;border:1px solid rgba(255,204,72,.12);background:rgba(255,255,255,.03);color:#f6e5b2}
+.character-questlog-empty{color:#bda877;font-style:italic}
+.character-questlog-rewards{display:grid;gap:10px}
+.character-questlog-reward-group{display:grid;gap:8px}
+.character-questlog-reward-label{color:#c8b78c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}
+.character-questlog-reward-items{display:grid;gap:8px}
+.character-questlog-reward-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,204,72,.12);background:rgba(255,255,255,.03);color:#f7edd0;text-decoration:none}
+.character-questlog-reward-item img{width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}
+.character-questlog-reward-money{padding:10px 12px;border-radius:12px;border:1px solid rgba(255,204,72,.12);background:rgba(255,255,255,.03);color:#f6e5b2}
+@media (max-width:900px){.character-questlog-shell{grid-template-columns:1fr}.character-questlog-detail{padding:18px}}
 .character-skill-sections{display:grid;gap:18px}
 .character-skill-section{padding:18px 22px;border-radius:18px;border:1px solid rgba(255,196,0,.16);background:rgba(5,8,18,.5)}
 .character-skill-section-title{margin:0 0 14px;color:#ffe39a;font-size:1.28rem}
@@ -1532,7 +1978,7 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
       </div>
     </div>
     <div class="character-hero-grid">
-      <div class="character-stat-card"><span class="character-stat-label">Play Time</span><div class="character-stat-value"><?php echo htmlspecialchars(spp_character_format_playtime($character['totaltime'] ?? 0)); ?></div></div>
+      <div class="character-stat-card"><span class="character-stat-label">Play Time</span><div class="character-stat-value"><?php echo htmlspecialchars(spp_character_format_playtime($character['totaltime'] ?? 0)); ?></div><div class="character-fact-sub"><?php echo !empty($character['online']) ? 'Online' : 'Offline'; ?></div></div>
       <div class="character-stat-card"><span class="character-stat-label">Achievement Points</span><div class="character-stat-value"><?php echo (int)$achievementSummary['points']; ?></div></div>
       <div class="character-stat-card"><span class="character-stat-label">Honorable Kills</span><div class="character-stat-value"><?php echo number_format($honorableKills, 0, '.', ','); ?></div></div>
       <div class="character-stat-card"><span class="character-stat-label">Honor Points</span><div class="character-stat-value"><?php echo number_format($honorPoints, 0, '.', ','); ?></div></div>
@@ -1547,7 +1993,7 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
 
   <?php if ($tab === 'overview'): ?>
     <section class="character-grid character-grid-overview">
-      <div class="character-panel"><div class="character-facts"><div class="character-fact"><span>Realm</span><strong><?php echo htmlspecialchars($realmLabel); ?></strong></div><div class="character-fact"><span>Guild</span><strong><?php echo $guildName !== "" ? htmlspecialchars($guildName) : "Unaffiliated"; ?></strong></div><div class="character-fact"><span>Gear Rank</span><strong><?php echo htmlspecialchars($gearRank); ?></strong><?php if ($averageItemLevel > 0): ?><div class="character-fact-sub">Average item level <?php echo number_format($averageItemLevel, 1); ?></div><?php endif; ?></div><div class="character-fact"><span>Recent Gear</span><?php if (!empty($recentGear)): ?><div class="character-fact-list"><?php foreach ($recentGear as $item): ?><a class="character-fact-link quality-<?php echo (int)$item['quality']; ?>" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$item['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$item['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($item['icon']); ?>" alt=""><span><?php echo htmlspecialchars($item['name']); ?></span></a><?php endforeach; ?></div><?php else: ?><strong>No recent gear recorded.</strong><?php endif; ?></div><div class="character-fact"><span>Last Instance</span><strong><?php echo $lastInstance !== "" ? htmlspecialchars($lastInstance) : "No recorded run"; ?></strong><?php if ($lastInstanceDate > 0): ?><div class="character-fact-sub"><?php echo gmdate('M j, Y', $lastInstanceDate); ?></div><?php endif; ?></div></div></div>
+      <div class="character-panel"><div class="character-facts"><div class="character-fact"><span>Realm</span><strong><?php echo htmlspecialchars($realmLabel); ?></strong></div><div class="character-fact"><span>Guild</span><strong><?php echo $guildName !== "" ? htmlspecialchars($guildName) : "Unaffiliated"; ?></strong></div><div class="character-fact"><span>Time At Level</span><strong><?php echo htmlspecialchars(spp_character_format_playtime((int)($character['leveltime'] ?? 0))); ?></strong></div><div class="character-fact"><span>Gear Rank</span><strong><?php echo htmlspecialchars($gearRank); ?></strong><?php if ($averageItemLevel > 0): ?><div class="character-fact-sub">Average item level <?php echo number_format($averageItemLevel, 1); ?></div><?php endif; ?></div><div class="character-fact"><span>Recent Gear</span><?php if (!empty($recentGear)): ?><div class="character-fact-list"><?php foreach ($recentGear as $item): ?><a class="character-fact-link quality-<?php echo (int)$item['quality']; ?>" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$item['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$item['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($item['icon']); ?>" alt=""><span><?php echo htmlspecialchars($item['name']); ?></span></a><?php endforeach; ?></div><?php else: ?><strong>No recent gear recorded.</strong><?php endif; ?></div><div class="character-fact"><span>Recently Completed Quests</span><?php if (!empty($completedQuestHistory)): ?><div class="character-fact-list"><?php foreach (array_slice($completedQuestHistory, 0, 5) as $quest): ?><div class="character-fact-link is-quest"><?php echo htmlspecialchars($quest['title']); ?></div><?php endforeach; ?></div><?php else: ?><strong>No completed quests recorded.</strong><?php endif; ?></div><div class="character-fact"><span>Last Instance</span><strong><?php echo $lastInstance !== "" ? htmlspecialchars($lastInstance) : "No recorded run"; ?></strong><?php if ($lastInstanceDate > 0): ?><div class="character-fact-sub"><?php echo gmdate('M j, Y', $lastInstanceDate); ?></div><?php endif; ?></div></div></div>
       <section class="character-panel character-gear-showcase">
          <div class="character-gear-stage character-paperdoll-modern">
           <div class="character-gear-column character-gear-column-left">
@@ -1648,49 +2094,228 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
   <?php if ($tab === 'talents'): ?><div style="margin-top:4px;"><?php $__savedGet = $_GET; $_GET['realm'] = (string)$realmId; $_GET['character'] = (string)$characterName; $_GET['mode'] = 'profile'; $_GET['embed'] = '1'; unset($_GET['class']); include($siteRoot . '/templates/offlike/server/server.talents.php'); $_GET = $__savedGet; ?></div><?php endif; ?>
   <?php if ($tab === 'reputation'): ?><section class="character-panel"><h2 class="character-panel-title">Reputation</h2><?php if (!empty($reputationSections)): ?><div class="character-reputation-sections"><?php foreach ($reputationSections as $sectionLabel => $sectionReputations): ?><section class="character-reputation-section"><h3 class="character-reputation-section-title"><?php echo htmlspecialchars($sectionLabel); ?></h3><div class="character-reputation-list"><?php foreach ($sectionReputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier']); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php elseif (!empty($reputations)): ?><div class="character-reputation-list"><?php foreach ($reputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier'] ?? spp_character_reputation_tier($reputation['label'] ?? 'neutral')); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div><?php else: ?><div class="character-empty">No visible reputations were found for this character.</div><?php endif; ?></section><?php endif; ?>
   <?php if ($tab === 'skills'): ?><section class="character-panel"><h2 class="character-panel-title">Skills</h2><?php if (!empty($skillsByCategory)): ?><div class="character-skill-sections"><?php foreach ($skillsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No non-class skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
-  <?php if ($tab === 'professions'): ?><section class="character-panel"><h2 class="character-panel-title">Professions</h2><?php if (!empty($professionsByCategory)): ?><div class="character-skill-sections"><?php foreach ($professionsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if (!empty($skill['specializations'])): ?><div class="character-skill-specialization"><?php echo htmlspecialchars(implode(' / ', $skill['specializations'])); ?></div><?php endif; ?><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['rank_label'] ?? ($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max']))); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div><?php if (!empty($skill['recipes'])): ?><?php $recipeListId = 'recipe-list-' . preg_replace('/[^a-z0-9]+/i', '-', strtolower(($skill['name'] ?? 'skill') . '-' . ($skill['skill_id'] ?? 0))); ?><details class="character-profession-recipes"><summary><strong>Known Special Recipes</strong><span><?php echo (int)count($skill['recipes']); ?> tracked</span></summary><?php if (!empty($skill['recipe_filters'])): ?><div class="character-recipe-filters"><?php foreach ($skill['recipe_filters'] as $filterIndex => $filter): ?><button type="button" class="character-recipe-filter<?php echo $filterIndex === 0 ? ' is-active' : ''; ?>" onclick="sppRecipeFilter(this, '<?php echo htmlspecialchars($recipeListId); ?>', '<?php echo htmlspecialchars($filter['key']); ?>')"><?php echo htmlspecialchars($filter['label']); ?><?php if (!empty($filter['count']) && $filter['key'] !== 'all'): ?> <span>(<?php echo (int)$filter['count']; ?>)</span><?php endif; ?></button><?php endforeach; ?></div><?php endif; ?><div class="character-recipe-list" id="<?php echo htmlspecialchars($recipeListId); ?>"><?php foreach ($skill['recipes'] as $recipe): ?><a class="character-recipe-row quality-<?php echo (int)$recipe['quality']; ?>" data-tags="|<?php echo htmlspecialchars(implode('|', $recipe['tags'] ?? array('all'))); ?>|" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$recipe['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$recipe['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($recipe['icon']); ?>" alt="<?php echo htmlspecialchars($recipe['name']); ?>"><div><strong><?php echo htmlspecialchars($recipe['name']); ?></strong><?php if (($recipe['source'] ?? '') !== ''): ?><div class="character-recipe-source"><?php echo htmlspecialchars($recipe['source']); ?></div><?php endif; ?><div class="character-recipe-badges"><?php if (!empty($recipe['tag_map']['faction'])): ?><span class="character-recipe-badge is-faction">Faction</span><?php endif; ?><?php if (!empty($recipe['tag_map']['rare-drop'])): ?><span class="character-recipe-badge is-rare-drop">Rare Drop</span><?php endif; ?><?php if (!empty($recipe['tag_map']['endgame'])): ?><span class="character-recipe-badge is-endgame">300 Skill</span><?php endif; ?><?php if (!empty($recipe['tag_map']['flask'])): ?><span class="character-recipe-badge is-flask">Flask</span><?php endif; ?></div></div></a><?php endforeach; ?></div></details><?php elseif (stripos((string)$categoryName, 'profession') !== false || stripos((string)$categoryName, 'secondary') !== false): ?><div class="character-profession-recipes"><div class="character-recipe-empty">No tracked special recipes yet. Trainer-learned basics are still covered by the profession rank above.</div></div><?php endif; ?></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No professions or secondary skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
-  <?php if ($tab === 'achievements'): ?><section class="character-panel"><h2 class="character-panel-title">Achievements</h2><?php if ($achievementSummary['supported']): ?><div class="character-hero-grid" style="margin-bottom:18px;"><div class="character-stat-card"><span class="character-stat-label">Completed</span><div class="character-stat-value"><?php echo (int)$achievementSummary['count']; ?></div></div><div class="character-stat-card"><span class="character-stat-label">Points</span><div class="character-stat-value"><?php echo (int)$achievementSummary['points']; ?></div></div></div><?php if (!empty($achievementSummary['recent'])): ?><section class="character-achievement-section" style="margin-bottom:22px;"><h3 class="character-achievement-section-title">Recent Earned</h3><div class="character-achievement-list"><?php foreach ($achievementSummary['recent'] as $achievement): ?><article class="character-achievement-item"><img class="character-achievement-icon" src="<?php echo htmlspecialchars($achievement['icon']); ?>" alt=""><div><div class="character-achievement-title"><?php echo htmlspecialchars($achievement['name']); ?></div><?php if (($achievement['description'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['description']); ?></div><?php endif; ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['category'] ?? ''); ?><?php if (($achievement['date_label'] ?? '') !== ''): ?> • <?php echo htmlspecialchars($achievement['date_label']); ?><?php endif; ?></div></div><div class="character-achievement-points-badge">+<?php echo (int)($achievement['points'] ?? 0); ?></div></article><?php endforeach; ?></div></section><?php endif; ?><?php if (!empty($achievementSummary['groups'])): ?><div class="character-achievement-sections"><?php foreach ($achievementSummary['groups'] as $groupName => $subgroups): ?><section class="character-achievement-section"><h3 class="character-achievement-section-title"><?php echo htmlspecialchars($groupName !== '' ? $groupName : 'Other'); ?></h3><?php foreach ($subgroups as $subgroupName => $achievements): ?><?php if ($subgroupName !== ''): ?><h4 class="character-achievement-subtitle"><?php echo htmlspecialchars($subgroupName); ?></h4><?php endif; ?><div class="character-achievement-grid"><?php foreach ($achievements as $achievement): ?><article class="character-achievement-item"><img class="character-achievement-icon" src="<?php echo htmlspecialchars($achievement['icon']); ?>" alt=""><div><div class="character-achievement-title"><?php echo htmlspecialchars($achievement['name']); ?></div><?php if (($achievement['description'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['description']); ?></div><?php endif; ?><?php if (($achievement['date_label'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['date_label']); ?></div><?php endif; ?></div><div class="character-achievement-points-badge">+<?php echo (int)($achievement['points'] ?? 0); ?></div></article><?php endforeach; ?></div><?php endforeach; ?></section><?php endforeach; ?></div><?php elseif (empty($achievementSummary['recent'])): ?><div class="character-empty">This character has no recorded achievements yet.</div><?php endif; ?><?php else: ?><div class="character-empty">Achievements are not available for this realm ruleset or database layout yet.</div><?php endif; ?></section><?php endif; ?>
+<?php if ($tab === 'professions'): ?><section class="character-panel"><h2 class="character-panel-title">Professions</h2><?php if (!empty($professionsByCategory)): ?><div class="character-skill-sections"><?php foreach ($professionsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if (!empty($skill['specializations'])): ?><div class="character-skill-specialization"><?php echo htmlspecialchars(implode(' / ', $skill['specializations'])); ?></div><?php endif; ?><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['rank_label'] ?? ($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max']))); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div><?php if (!empty($skill['recipes'])): ?><?php $recipeListId = 'recipe-list-' . preg_replace('/[^a-z0-9]+/i', '-', strtolower(($skill['name'] ?? 'skill') . '-' . ($skill['skill_id'] ?? 0))); ?><details class="character-profession-recipes"><summary><strong>Known Special Recipes</strong><span><?php echo (int)count($skill['recipes']); ?> tracked</span></summary><?php if (!empty($skill['recipe_filters'])): ?><div class="character-recipe-filters"><?php foreach ($skill['recipe_filters'] as $filterIndex => $filter): ?><button type="button" class="character-recipe-filter<?php echo $filterIndex === 0 ? ' is-active' : ''; ?>" onclick="sppRecipeFilter(this, '<?php echo htmlspecialchars($recipeListId); ?>', '<?php echo htmlspecialchars($filter['key']); ?>')"><?php echo htmlspecialchars($filter['label']); ?><?php if (!empty($filter['count']) && $filter['key'] !== 'all'): ?> <span>(<?php echo (int)$filter['count']; ?>)</span><?php endif; ?></button><?php endforeach; ?></div><?php endif; ?><div class="character-recipe-list" id="<?php echo htmlspecialchars($recipeListId); ?>"><?php foreach ($skill['recipes'] as $recipe): ?><a class="character-recipe-row quality-<?php echo (int)$recipe['quality']; ?>" data-tags="|<?php echo htmlspecialchars(implode('|', $recipe['tags'] ?? array('all'))); ?>|" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$recipe['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$recipe['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($recipe['icon']); ?>" alt="<?php echo htmlspecialchars($recipe['name']); ?>"><div><strong><?php echo htmlspecialchars($recipe['name']); ?></strong><?php if (($recipe['source'] ?? '') !== ''): ?><div class="character-recipe-source"><?php echo htmlspecialchars($recipe['source']); ?></div><?php endif; ?><div class="character-recipe-badges"><?php if (!empty($recipe['tag_map']['faction'])): ?><span class="character-recipe-badge is-faction">Faction</span><?php endif; ?><?php if (!empty($recipe['tag_map']['rare-drop'])): ?><span class="character-recipe-badge is-rare-drop">Rare Drop</span><?php endif; ?><?php if (!empty($recipe['tag_map']['endgame'])): ?><span class="character-recipe-badge is-endgame">300 Skill</span><?php endif; ?><?php if (!empty($recipe['tag_map']['flask'])): ?><span class="character-recipe-badge is-flask">Flask</span><?php endif; ?></div></div></a><?php endforeach; ?></div></details><?php elseif (stripos((string)$categoryName, 'profession') !== false || stripos((string)$categoryName, 'secondary') !== false): ?><div class="character-profession-recipes"><div class="character-recipe-empty">No tracked special recipes yet. Trainer-learned basics are still covered by the profession rank above.</div></div><?php endif; ?></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No professions or secondary skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
+<?php if ($tab === 'quest log'): ?>
+  <?php
+    $questLogItems = array();
+    foreach ($activeQuestLog as $index => $quest) {
+        $quest['panel_id'] = 'quest-panel-active-' . $index;
+        $quest['entry_id'] = 'quest-entry-active-' . $index;
+        $quest['group_label'] = 'Active';
+        $questLogItems[] = $quest;
+    }
+    foreach ($completedQuestHistory as $index => $quest) {
+        $quest['panel_id'] = 'quest-panel-completed-' . $index;
+        $quest['entry_id'] = 'quest-entry-completed-' . $index;
+        $quest['group_label'] = 'Completed';
+        $questLogItems[] = $quest;
+    }
+    $initialQuestPanel = $questLogItems[0]['panel_id'] ?? '';
+  ?>
+  <section class="character-panel">
+    <h2 class="character-panel-title">Quest Log</h2>
+    <?php if (!empty($questLogItems)): ?>
+      <div class="character-questlog-shell" data-questlog>
+        <aside class="character-questlog-sidebar">
+          <h3 class="character-questlog-heading">Active Quests</h3>
+          <?php if (!empty($activeQuestLog)): ?>
+            <div class="character-questlog-list">
+              <?php foreach ($activeQuestLog as $index => $quest): $panelId = 'quest-panel-active-' . $index; ?>
+                <button type="button" class="character-questlog-entry<?php echo $panelId === $initialQuestPanel ? ' is-active' : ''; ?>" data-quest-target="<?php echo htmlspecialchars($panelId); ?>">
+                  <span class="character-questlog-entry-title"><?php echo htmlspecialchars($quest['title']); ?></span>
+                  <span class="character-questlog-entry-meta"><?php echo !empty($quest['quest_level']) ? 'Level ' . (int)$quest['quest_level'] : 'Quest'; ?></span>
+                  <span class="character-questlog-entry-status"><?php echo htmlspecialchars($quest['status_label']); ?></span>
+                </button>
+              <?php endforeach; ?>
+            </div>
+          <?php else: ?>
+            <div class="character-questlog-empty">No active quests were found for this character.</div>
+          <?php endif; ?>
+
+          <?php if (!empty($completedQuestHistory)): ?>
+            <details class="character-quest-disclosure" style="margin-top:16px;">
+              <summary class="character-quest-summary">Completed</summary>
+              <div class="character-quest-disclosure-body">
+                <div class="character-questlog-list">
+                  <?php foreach ($completedQuestHistory as $index => $quest): $panelId = 'quest-panel-completed-' . $index; ?>
+                    <button type="button" class="character-questlog-entry<?php echo $panelId === $initialQuestPanel ? ' is-active' : ''; ?>" data-quest-target="<?php echo htmlspecialchars($panelId); ?>">
+                      <span class="character-questlog-entry-title"><?php echo htmlspecialchars($quest['title']); ?></span>
+                      <span class="character-questlog-entry-status">Completed</span>
+                    </button>
+                  <?php endforeach; ?>
+                </div>
+                <div class="character-fact-sub">Completion timestamps are not available in this table, so this uses rewarded quest history.</div>
+              </div>
+            </details>
+          <?php endif; ?>
+        </aside>
+
+        <section class="character-questlog-detail">
+          <?php foreach ($activeQuestLog as $index => $quest): $panelId = 'quest-panel-active-' . $index; ?>
+            <article class="character-questlog-panel<?php echo $panelId === $initialQuestPanel ? ' is-active' : ''; ?>" data-quest-panel="<?php echo htmlspecialchars($panelId); ?>">
+              <span class="character-questlog-status"><?php echo htmlspecialchars($quest['status_label']); ?></span>
+              <h3 class="character-questlog-title"><?php echo htmlspecialchars($quest['title']); ?></h3>
+              <div class="character-questlog-level"><?php echo !empty($quest['quest_level']) ? 'Level ' . (int)$quest['quest_level'] : 'Active Quest'; ?></div>
+              <div class="character-questlog-body"><?php echo spp_character_render_quest_text($quest['description'] ?? '', $character['name'] ?? 'adventurer') ?: '<span class="character-questlog-empty">No quest text is available for this quest entry.</span>'; ?></div>
+              <div class="character-questlog-section">
+                <h4 class="character-questlog-section-title">Objectives</h4>
+                <?php if (!empty($quest['progress_parts'])): ?>
+                  <div class="character-questlog-objectives">
+                    <?php foreach ($quest['progress_parts'] as $part): ?>
+                      <div class="character-questlog-objective"><?php echo htmlspecialchars($part); ?></div>
+                    <?php endforeach; ?>
+                  </div>
+                <?php else: ?>
+                  <div class="character-questlog-empty">No tracked objective counters are available yet.</div>
+                <?php endif; ?>
+              </div>
+              <?php if (!empty($quest['rewards']['choice']) || !empty($quest['rewards']['guaranteed']) || !empty($quest['rewards']['money'])): ?>
+                <div class="character-questlog-section">
+                  <h4 class="character-questlog-section-title">Rewards</h4>
+                  <div class="character-questlog-rewards">
+                    <?php if (!empty($quest['rewards']['choice'])): ?>
+                      <div class="character-questlog-reward-group">
+                        <div class="character-questlog-reward-label">Choose One</div>
+                        <div class="character-questlog-reward-items">
+                          <?php foreach ($quest['rewards']['choice'] as $reward): ?>
+                            <a class="character-questlog-reward-item quality-<?php echo (int)$reward['quality']; ?>" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$reward['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$reward['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($reward['icon']); ?>" alt=""><span><?php echo htmlspecialchars($reward['name']); ?><?php if ((int)$reward['count'] > 1): ?> x<?php echo (int)$reward['count']; ?><?php endif; ?></span></a>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                    <?php endif; ?>
+                    <?php if (!empty($quest['rewards']['guaranteed'])): ?>
+                      <div class="character-questlog-reward-group">
+                        <div class="character-questlog-reward-label">You Will Receive</div>
+                        <div class="character-questlog-reward-items">
+                          <?php foreach ($quest['rewards']['guaranteed'] as $reward): ?>
+                            <a class="character-questlog-reward-item quality-<?php echo (int)$reward['quality']; ?>" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$reward['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$reward['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($reward['icon']); ?>" alt=""><span><?php echo htmlspecialchars($reward['name']); ?><?php if ((int)$reward['count'] > 1): ?> x<?php echo (int)$reward['count']; ?><?php endif; ?></span></a>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                    <?php endif; ?>
+                    <?php if (!empty($quest['rewards']['money']) && (int)$quest['rewards']['money'] > 0): ?>
+                      <div class="character-questlog-reward-group">
+                        <div class="character-questlog-reward-label">Money</div>
+                        <div class="character-questlog-reward-money"><?php echo number_format((int)$quest['rewards']['money']); ?> copper</div>
+                      </div>
+                    <?php endif; ?>
+                  </div>
+                </div>
+              <?php endif; ?>
+            </article>
+          <?php endforeach; ?>
+
+          <?php foreach ($completedQuestHistory as $index => $quest): $panelId = 'quest-panel-completed-' . $index; ?>
+            <article class="character-questlog-panel<?php echo $panelId === $initialQuestPanel ? ' is-active' : ''; ?>" data-quest-panel="<?php echo htmlspecialchars($panelId); ?>">
+              <span class="character-questlog-status">Completed</span>
+              <h3 class="character-questlog-title"><?php echo htmlspecialchars($quest['title']); ?></h3>
+              <div class="character-questlog-level"><?php echo !empty($quest['quest_level']) ? 'Level ' . (int)$quest['quest_level'] : 'Completed Quest'; ?></div>
+              <div class="character-questlog-body"><?php echo spp_character_render_quest_text($quest['description'] ?? '', $character['name'] ?? 'adventurer') ?: '<span class="character-questlog-empty">No quest text is available for this quest entry.</span>'; ?></div>
+              <?php if (!empty($quest['rewards']['choice']) || !empty($quest['rewards']['guaranteed']) || !empty($quest['rewards']['money'])): ?>
+                <div class="character-questlog-section">
+                  <h4 class="character-questlog-section-title">Rewards</h4>
+                  <div class="character-questlog-rewards">
+                    <?php if (!empty($quest['rewards']['choice'])): ?>
+                      <div class="character-questlog-reward-group">
+                        <div class="character-questlog-reward-label">Choose One</div>
+                        <div class="character-questlog-reward-items">
+                          <?php foreach ($quest['rewards']['choice'] as $reward): ?>
+                            <a class="character-questlog-reward-item quality-<?php echo (int)$reward['quality']; ?>" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$reward['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$reward['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($reward['icon']); ?>" alt=""><span><?php echo htmlspecialchars($reward['name']); ?><?php if ((int)$reward['count'] > 1): ?> x<?php echo (int)$reward['count']; ?><?php endif; ?></span></a>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                    <?php endif; ?>
+                    <?php if (!empty($quest['rewards']['guaranteed'])): ?>
+                      <div class="character-questlog-reward-group">
+                        <div class="character-questlog-reward-label">You Will Receive</div>
+                        <div class="character-questlog-reward-items">
+                          <?php foreach ($quest['rewards']['guaranteed'] as $reward): ?>
+                            <a class="character-questlog-reward-item quality-<?php echo (int)$reward['quality']; ?>" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$reward['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$reward['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($reward['icon']); ?>" alt=""><span><?php echo htmlspecialchars($reward['name']); ?><?php if ((int)$reward['count'] > 1): ?> x<?php echo (int)$reward['count']; ?><?php endif; ?></span></a>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                    <?php endif; ?>
+                    <?php if (!empty($quest['rewards']['money']) && (int)$quest['rewards']['money'] > 0): ?>
+                      <div class="character-questlog-reward-group">
+                        <div class="character-questlog-reward-label">Money</div>
+                        <div class="character-questlog-reward-money"><?php echo number_format((int)$quest['rewards']['money']); ?> copper</div>
+                      </div>
+                    <?php endif; ?>
+                  </div>
+                </div>
+              <?php endif; ?>
+            </article>
+          <?php endforeach; ?>
+        </section>
+      </div>
+    <?php else: ?>
+      <div class="character-empty">No quest data was found for this character.</div>
+    <?php endif; ?>
+  </section>
+<?php endif; ?>
+<?php if ($tab === 'achievements'): ?><section class="character-panel"><h2 class="character-panel-title">Achievements</h2><?php if ($achievementSummary['supported']): ?><div class="character-hero-grid" style="margin-bottom:18px;"><div class="character-stat-card"><span class="character-stat-label">Completed</span><div class="character-stat-value"><?php echo (int)$achievementSummary['count']; ?></div></div><div class="character-stat-card"><span class="character-stat-label">Points</span><div class="character-stat-value"><?php echo (int)$achievementSummary['points']; ?></div></div></div><?php if (!empty($achievementSummary['recent'])): ?><section class="character-achievement-section" style="margin-bottom:22px;"><h3 class="character-achievement-section-title">Recent Earned</h3><div class="character-achievement-list"><?php foreach ($achievementSummary['recent'] as $achievement): ?><article class="character-achievement-item"><img class="character-achievement-icon" src="<?php echo htmlspecialchars($achievement['icon']); ?>" alt=""><div><div class="character-achievement-title"><?php echo htmlspecialchars($achievement['name']); ?></div><?php if (($achievement['description'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['description']); ?></div><?php endif; ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['category'] ?? ''); ?><?php if (($achievement['date_label'] ?? '') !== ''): ?> • <?php echo htmlspecialchars($achievement['date_label']); ?><?php endif; ?></div></div><div class="character-achievement-points-badge">+<?php echo (int)($achievement['points'] ?? 0); ?></div></article><?php endforeach; ?></div></section><?php endif; ?><?php if (!empty($achievementSummary['groups'])): ?><div class="character-achievement-sections"><?php foreach ($achievementSummary['groups'] as $groupName => $subgroups): ?><section class="character-achievement-section"><h3 class="character-achievement-section-title"><?php echo htmlspecialchars($groupName !== '' ? $groupName : 'Other'); ?></h3><?php foreach ($subgroups as $subgroupName => $achievements): ?><?php if ($subgroupName !== ''): ?><h4 class="character-achievement-subtitle"><?php echo htmlspecialchars($subgroupName); ?></h4><?php endif; ?><div class="character-achievement-grid"><?php foreach ($achievements as $achievement): ?><article class="character-achievement-item"><img class="character-achievement-icon" src="<?php echo htmlspecialchars($achievement['icon']); ?>" alt=""><div><div class="character-achievement-title"><?php echo htmlspecialchars($achievement['name']); ?></div><?php if (($achievement['description'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['description']); ?></div><?php endif; ?><?php if (($achievement['date_label'] ?? '') !== ''): ?><div class="character-achievement-meta"><?php echo htmlspecialchars($achievement['date_label']); ?></div><?php endif; ?></div><div class="character-achievement-points-badge">+<?php echo (int)($achievement['points'] ?? 0); ?></div></article><?php endforeach; ?></div><?php endforeach; ?></section><?php endforeach; ?></div><?php elseif (empty($achievementSummary['recent'])): ?><div class="character-empty">This character has no recorded achievements yet.</div><?php endif; ?><?php else: ?><div class="character-empty">Achievements are not available for this realm ruleset or database layout yet.</div><?php endif; ?></section><?php endif; ?>
 <?php endif; ?>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var achievementPanel = document.querySelector('.character-panel');
-  if (!achievementPanel) return;
-  var heading = achievementPanel.querySelector('.character-panel-title');
-  if (!heading || heading.textContent.trim() !== 'Achievements') return;
+  document.querySelectorAll('[data-questlog]').forEach(function (questLog) {
+    var entries = questLog.querySelectorAll('[data-quest-target]');
+    var panels = questLog.querySelectorAll('[data-quest-panel]');
+    if (!entries.length || !panels.length) return;
 
-  var sections = achievementPanel.querySelectorAll('.character-achievement-section');
-  sections.forEach(function (section) {
-    var title = section.querySelector(':scope > .character-achievement-section-title');
-    if (!title) return;
-
-    var body = document.createElement('div');
-    body.className = 'character-achievement-section-body';
-
-    while (title.nextSibling) {
-      body.appendChild(title.nextSibling);
-    }
-
-    if (!body.children.length) return;
-
-    section.appendChild(body);
-    section.classList.add('is-collapsible');
-
-    title.tabIndex = 0;
-    title.setAttribute('role', 'button');
-    title.setAttribute('aria-expanded', 'false');
-
-    var toggle = function () {
-      var isOpen = section.classList.toggle('is-open');
-      title.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    var activate = function (targetId) {
+      entries.forEach(function (entry) {
+        entry.classList.toggle('is-active', entry.getAttribute('data-quest-target') === targetId);
+      });
+      panels.forEach(function (panel) {
+        panel.classList.toggle('is-active', panel.getAttribute('data-quest-panel') === targetId);
+      });
     };
 
-    title.addEventListener('click', toggle);
-    title.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        toggle();
+    entries.forEach(function (entry) {
+      entry.addEventListener('click', function () {
+        activate(entry.getAttribute('data-quest-target'));
+      });
+    });
+  });
+
+  document.querySelectorAll('.character-panel').forEach(function (panel) {
+    var heading = panel.querySelector('.character-panel-title');
+    if (!heading || heading.textContent.trim() !== 'Achievements') return;
+
+    var sections = panel.querySelectorAll('.character-achievement-section');
+    sections.forEach(function (section) {
+      var title = section.querySelector(':scope > .character-achievement-section-title');
+      if (!title) return;
+
+      var body = document.createElement('div');
+      body.className = 'character-achievement-section-body';
+
+      while (title.nextSibling) {
+        body.appendChild(title.nextSibling);
       }
+
+      if (!body.children.length) return;
+
+      section.appendChild(body);
+      section.classList.add('is-collapsible');
+
+      title.tabIndex = 0;
+      title.setAttribute('role', 'button');
+      title.setAttribute('aria-expanded', 'false');
+
+      var toggle = function () {
+        var isOpen = section.classList.toggle('is-open');
+        title.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      };
+
+      title.addEventListener('click', toggle);
+      title.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggle();
+        }
+      });
     });
   });
 });
