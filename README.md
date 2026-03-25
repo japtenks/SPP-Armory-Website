@@ -1,8 +1,12 @@
-\# SPP-Armory-Website 2025 Refresh
-**New Front Page**
+# SPP-Armory-Website 2026 Refresh
+**Site Redesign**
+
+<video src="img/WebShowcase.mp4" controls width="800"></video>
+
 ![Front Page](img/website08.png)
 
-Website for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos).
+Website for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cmangos). Windows \
+Website for the [SPProxmox launcher](https://github.com/japtenks/spp-cmangos-prox) Proxmox
 
 \# Features
 
@@ -19,11 +23,6 @@ Website for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cm
 
 -Armor set pages, bot command page, character page redesign and much more. 
 
--Start to total revamp 
-
-
-
-
 ---
 
 
@@ -31,50 +30,33 @@ Website for the [SPP Classics Repack](https://github.com/celguar/spp-classics-cm
 \## Installation
 
 
-1\. Download the most recent code. `https://github.com/japtenks/SPP-Armory-Website/archive/refs/heads/main.zip`
+1\. Download the most recent code. 
+```
+https://github.com/japtenks/SPP-Armory-Website/releases/tag/v1.1
+```
+or clone the git respository
 
 2\. Extract and copy over the currently installed website located at `.\Server\website` 
 Ensure the web server is shutdown.
 
-3\. Using Heidi or similar. Open and run `Armory_Tooltip_Updates.sql` and `Armory_bot_command_SQL.sql` on your `classicarmory` or `tbcmarmory` database . (Files are located in `website\DB updates`.
+3\. Using Heidi or similar. Open and run the associated DB updates files are located in `website\DB updates`.
 
-3.1\. Refresh the website.
+4\. Verify Database connection infomation in `\website\config\config-protected.php`
+```
+$db = [
+    'host' => '127.0.0.1',
+    'port' => 3301,
+    'user' => 'root',
+    'pass' => '123456'
+];
+```
+5\. Refresh the website.
 
 
 
 
 
 ---
-
-
-
-\### Talent Trees
-
-**Shaman**
-![Shaman Talent Trees](img/talents01.jpg)
-
-**Hunter**
-![Hunter Talent Trees](img/talents02.jpg)
-
-**Paladin**
-![Paladin Talent Trees](img/talents03.jpg)
-
-**Updated Banner - Talents**
-![Paladin Talent Trees](img/website02.png)
-
-**Talent Calculator - Paladin**
-![Paladin Talent Trees](img/website01.png)
-Can import the same hash from WowHead's talent calculator.
-The share build, will pull the hash code for the current build.
-There is a /w botname spot, with the command to have a bot use this talent build. 
-
-**Start page with new Links under Workshop and Gameguide**
-![Paladin Talent Trees](img/website04.png)
-Talents - Takes you to your selected account character. (If logged in)
-Talent Calculator - Take you to new character talent calculator.
-
-**New Link under the Armory dropdown**
-![Paladin Talent Trees](img/website03.png)
 
 **New registration page - no more fuss with questions**
 ![New registration page](img/website05.png)
@@ -91,14 +73,6 @@ Talent Calculator - Take you to new character talent calculator.
 **New**
 ![Server Stats](img/website10.png)
 ---
-
-
-
-\## Notes
-
-\- The `img/` folder is \*\*not included\*\* in release zips (set via `.gitattributes`).
-
-
 
 
 
