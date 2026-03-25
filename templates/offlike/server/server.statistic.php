@@ -668,11 +668,11 @@ try {
     </div>
     <div class="rot-stat info">
       <div class="val"><?php echo (int)$obsOnlineSessions; ?></div>
-      <div class="lbl">Completed Online Sessions</div>
+      <div class="lbl">Observed Logoffs</div>
     </div>
     <div class="rot-stat info">
       <div class="val"><?php echo (int)$obsOfflineSessions; ?></div>
-      <div class="lbl">Completed Offline Sessions</div>
+      <div class="lbl">Observed Returns</div>
     </div>
   </div>
 
