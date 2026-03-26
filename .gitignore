@@ -22,3 +22,6 @@ armory/configuration/mysql.php
 /templates/offlike/cache
 /core/cache
 /xfer/assets/images
+CLAUDE.md
+.claude/settings.local.json
+LEGACY.md

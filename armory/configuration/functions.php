@@ -468,7 +468,7 @@ function GetArenaTeamEmblem($teamId = 0) {
 }
 function initialize_realm($realm_force = 0)
 {
-	global $realms, $realmd_DB, $mangosd_DB, $characters_DB, $armory_DB, $playerbot_DB, $DB, $WSDB, $CHDB, $ARDB, $PBDB;
+	global $realms;
 	$resolvedRealmName = '';
 
 	if (isset($_GET["realm"])) {
@@ -494,61 +494,11 @@ function initialize_realm($realm_force = 0)
 	} else {
 		define("REALM_NAME", DefaultRealmName);
 	}
-	//switchConnection("armory", REALM_NAME);
 
-    $needed_db = $realmd_DB[$realms[REALM_NAME][0]];
-// DB layer documentation at http://en.dklab.ru/lib/DbSimple/
-    $DB = dbsimple_Generic::connect( "mysql://" . $needed_db[1] .
-        ":" . $needed_db[2] . "@" . $needed_db[0] .
-        "/" . $needed_db[3] . "" ) ;
-// Set error handler for $DB.
-    $DB->setErrorHandler( 'databaseErrorHandler' ) ;
-// Also set to default encoding for $DB
-    $DB->query( "SET NAMES UTF8;" ) ;
-
-//Connects to WORLD DB
-    unset($needed_db);
-    $needed_db = $mangosd_DB[$realms[REALM_NAME][2]];
-    $WSDB = dbsimple_Generic::connect( "mysql://" . $needed_db[1] .
-        ":" . $needed_db[2] . "@" . $needed_db[0] .
-        "/" . $needed_db[3] . "" ) ;
-    if ( $WSDB )
-        $WSDB->setErrorHandler( 'databaseErrorHandler' ) ;
-    if ( $WSDB )
-        $WSDB->query( "SET NAMES UTF8;" ) ;
-
-    unset($needed_db);
-    $needed_db = $characters_DB[$realms[REALM_NAME][1]];
-    $CHDB = dbsimple_Generic::connect( "mysql://" . $needed_db[1] .
-        ":" . $needed_db[2] . "@" . $needed_db[0] .
-        "/" . $needed_db[3] . "" ) ;
-    if ( $CHDB )
-        $CHDB->setErrorHandler( 'databaseErrorHandler' ) ;
-    if ( $CHDB )
-        $CHDB->query( "SET NAMES UTF8;" ) ;
-
-    unset($needed_db);
-    $needed_db = $armory_DB[$realms[REALM_NAME][3]];
-    $ARDB = dbsimple_Generic::connect( "mysql://" . $needed_db[1] .
-        ":" . $needed_db[2] . "@" . $needed_db[0] .
-        "/" . $needed_db[3] . "" ) ;
-    if ( $ARDB )
-        $ARDB->setErrorHandler( 'databaseErrorHandler' ) ;
-    if ( $ARDB )
-        $ARDB->query( "SET NAMES UTF8;" ) ;
-
-    /*unset($needed_db);
-    $needed_db = $playerbot_DB[$realms[REALM_NAME][4]];
-    $PBDB = dbsimple_Generic::connect( "mysql://" . $needed_db[1] .
-        ":" . $needed_db[2] . "@" . $needed_db[0] .
-        "/" . $needed_db[3] . "" ) ;
-    if ( $PBDB )
-        $PBDB->setErrorHandler( 'databaseErrorHandler' ) ;
-    if ( $PBDB )
-        $PBDB->query( "SET NAMES UTF8;" ) ;*/
-
-    define("CLIENT", $ARDB->selectCell("SELECT `value` FROM `conf_client` LIMIT 1"));
-    define("LANGUAGE", $ARDB->selectCell("SELECT `value` FROM `conf_lang` LIMIT 1"));
+    $realmId = isset($realms[REALM_NAME]) ? (int)$realms[REALM_NAME][0] : 1;
+    $armoryPdo = spp_get_pdo('armory', $realmId);
+    define("CLIENT",   $armoryPdo->query("SELECT `value` FROM `conf_client` LIMIT 1")->fetchColumn());
+    define("LANGUAGE", $armoryPdo->query("SELECT `value` FROM `conf_lang` LIMIT 1")->fetchColumn());
 }
 function emblem_color_convert($color)
 {

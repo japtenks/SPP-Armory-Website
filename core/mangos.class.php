@@ -17,7 +17,7 @@ class Mangos{
         $this->charDataField = $mangos_field;
         unset($mangos_field);
     }
-	
+
 public function construct_zoneByID(){
 		$this->zoneByID = array(
 			36 => 'Alterac Mountains',
@@ -262,16 +262,20 @@ public function construct_zoneByID(){
      *       $admin_send = If admin is true paypal is not involved and you can use this as a send function.
      */
     public function mail_item_donation($donate_item_id, $character_item_id, $txnid=false,$admin_send = false){
-        global $WSDB;
-        global $DB;
-        global $CHDB;
+        global $realmDbMap;
+        $realmId = isset($realmDbMap) ? spp_resolve_realm_id($realmDbMap) : 1;
+        $realmPdo = spp_get_pdo('realmd', $realmId);
+        $worldPdo = spp_get_pdo('world',  $realmId);
+        $charPdo  = spp_get_pdo('chars',  $realmId);
 
         #Constants
         $error_output = 0; // Inizializer for error outputing
-        $donateid = $donate_item_id; // The donation ID in table donation_template
-        $guid = $character_item_id; // The character that is getting the item(s)
+        $donateid = (int)$donate_item_id; // The donation ID in table donation_template
+        $guid = (int)$character_item_id; // The character that is getting the item(s)
         $offset_mail_guid = 30000; // Offset guid to start at. This is recommanded to be as high! Also to high may cause problems , around 10000 to 40000 is nice. It really depends on your server if it has like 1000 users on all the time its recommanded to have it to 500000. Notice, to high will cause mangos server to crash.
-        $donation_template = $DB->selectRow("SELECT * FROM `donations_template` WHERE id='".$donateid."'");
+        $stmtDt = $realmPdo->prepare("SELECT * FROM `donations_template` WHERE id=?");
+        $stmtDt->execute([$donateid]);
+        $donation_template = $stmtDt->fetch(PDO::FETCH_ASSOC);
         $ROUNDS = 0; // Rounds is to check how many times loop goes. NOT CHANGE THIS!
         $items = explode(",", $donation_template['items']);
 
@@ -279,7 +283,9 @@ public function construct_zoneByID(){
         $items_itemset = explode(",", $donation_template['itemset']);
         if ($items_itemset[0] != ''){
             foreach($items_itemset as $itemset_id){
-                $qray = $WSDB->select("SELECT entry FROM `item_template` WHERE itemset='".$itemset_id."'");
+                $stmtIs = $worldPdo->prepare("SELECT entry FROM `item_template` WHERE itemset=?");
+                $stmtIs->execute([(int)$itemset_id]);
+                $qray = $stmtIs->fetchAll(PDO::FETCH_ASSOC);
                 foreach($qray as $d){
                     $items[] = $d['entry'];
                 }
@@ -293,16 +299,16 @@ public function construct_zoneByID(){
 
         foreach ($items as $item_id){
 
-
-            $data = $WSDB->selectRow("SELECT * FROM `item_template` WHERE entry='".$item_id."'");
+            $stmtIt = $worldPdo->prepare("SELECT * FROM `item_template` WHERE entry=?");
+            $stmtIt->execute([(int)$item_id]);
+            $data = $stmtIt->fetch(PDO::FETCH_ASSOC);
 
             // We need to get a unquie guid for char_inv. Problem is that mangos is caching and not updated on sql.
             // Therefor we need to create a offset guid.
 
-
             $ROUNDS++;
             // If this is the first loop we must check if we MUST increment with offset or if we can just apply id +1
-            $new_guid = $this->mangos_newguid('item_instance');
+            $new_guid = $this->mangos_newguid('item_instance', $realmId);
             $item = $new_guid['new_guid'];
             $WE_DID_OFFSET_ID = $new_guid['incr'];
 
@@ -338,42 +344,52 @@ public function construct_zoneByID(){
 
 
             ## // ## Main operation ## \\ ##
-				
+
             $additem_code = implode($item_instance_value, ' ');
             $data_field = $additem_code;
-				
+
 			// Here we count how many of the current item the user has
-			$count_insert1 = $CHDB->select("SELECT data FROM `item_instance` WHERE guid='$item' AND owner_guid='$guid'");
-			$count1 = count($count_insert1);
-			$insert1 = $CHDB->query("INSERT INTO `item_instance` (guid, owner_guid, data) VALUES('".$item."', '".$guid."', '".$data_field."')");
-				
+            $stmtCi1 = $charPdo->prepare("SELECT data FROM `item_instance` WHERE guid=? AND owner_guid=?");
+            $stmtCi1->execute([$item, $guid]);
+            $count_insert1 = $stmtCi1->fetchAll(PDO::FETCH_ASSOC);
+            $count1 = count($count_insert1);
+            $stmtCi2 = $charPdo->prepare("INSERT INTO `item_instance` (guid, owner_guid, data) VALUES(?,?,?)");
+            $stmtCi2->execute([$item, $guid, $data_field]);
+
 			// Lets check to see if our query was successful
-			$check_insert1 = $CHDB->select("SELECT data FROM `item_instance` WHERE guid='$item' AND owner_guid='$guid'");
-			$check_finalcount = count($check_insert1);
-				
+            $stmtCiChk = $charPdo->prepare("SELECT data FROM `item_instance` WHERE guid=? AND owner_guid=?");
+            $stmtCiChk->execute([$item, $guid]);
+            $check_insert1 = $stmtCiChk->fetchAll(PDO::FETCH_ASSOC);
+            $check_finalcount = count($check_insert1);
+
 			// If the user has more of the item he selected, then when we started, then success!
             if ($check_finalcount > $count1){
 
-                $new_guid = $this->mangos_newguid('mail');
+                $new_guid = $this->mangos_newguid('mail', $realmId);
                 $mail_id = $new_guid['new_guid'];
                 $WE_DID_OFFSET_ID = $new_guid['incr'];
 
 				// case active. We need to add slash if its Some other in db who has ' "
 				## Constants
-				$insertitem = str_replace("'","\'", $data['name']);
+				$insertitem = $data['name'];
 				$timestampplus_start = date('YmdHis', time());
 				$startitemnow_unix = strtotime($timestampplus_start);
-					
+
 				// Here we create the mail message for the item, and check to see if the query was successfull. If the mail message exists, then we move on
-				$insert2 = $CHDB->query("INSERT INTO mail (id, messageType, stationery, sender, receiver, subject, body, has_items, expire_time, deliver_time, money, cod, checked)
-                    VALUES('".$mail_id."','0','41','1','".$guid."','".$insertitem."','Thank you for your donation!','1','32495688732','".$startitemnow_unix."','0','0','0')");
-				$check_insert2 = $CHDB->select("SELECT id FROM mail WHERE id='$mail_id' AND receiver='$guid'");
-				if (count($check_insert2) > 0){
-				
+                $stmtMail = $charPdo->prepare("INSERT INTO mail (id, messageType, stationery, sender, receiver, subject, body, has_items, expire_time, deliver_time, money, cod, checked) VALUES(?,0,41,1,?,?,'Thank you for your donation!',1,32495688732,?,0,0,0)");
+                $stmtMail->execute([$mail_id, $guid, $insertitem, $startitemnow_unix]);
+                $stmtMailChk = $charPdo->prepare("SELECT id FROM mail WHERE id=? AND receiver=?");
+                $stmtMailChk->execute([$mail_id, $guid]);
+                $check_insert2 = $stmtMailChk->fetchAll(PDO::FETCH_ASSOC);
+                if (count($check_insert2) > 0){
+
 					// Lets check to see if the placing of the item, in the mail message was successfull
-					$insert3 = $CHDB->query("INSERT INTO mail_items (mail_id, item_guid, item_template, receiver) VALUES ('".$mail_id."','".$item."','".$data['entry']."','".$guid."')");
-					$check_insert3 = $CHDB->select("SELECT mail_id FROM mail_items WHERE mail_id='$mail_id' AND receiver='$guid'");
-					if (count($check_insert3) > 0){
+                    $stmtMi = $charPdo->prepare("INSERT INTO mail_items (mail_id, item_guid, item_template, receiver) VALUES (?,?,?,?)");
+                    $stmtMi->execute([$mail_id, $item, $data['entry'], $guid]);
+                    $stmtMiChk = $charPdo->prepare("SELECT mail_id FROM mail_items WHERE mail_id=? AND receiver=?");
+                    $stmtMiChk->execute([$mail_id, $guid]);
+                    $check_insert3 = $stmtMiChk->fetchAll(PDO::FETCH_ASSOC);
+                    if (count($check_insert3) > 0){
 					echo "<font color='blue'><br />Success!&nbsp</font>";
 					}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem inserting item into mail.</font><br />"; }
 				}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem creating mail message.</font><br />"; }
@@ -399,27 +415,31 @@ public function construct_zoneByID(){
      *   Return values, [New_guid], [(bool) If we did increment or not]
      *   $database defined in World database and table world_entrys in REALM database
      */
-    public function mangos_newguid($database){
-        global $WSDB,$DB, $CHDB;
+    public function mangos_newguid($database, $realmId = 1){
+        $realmPdo = spp_get_pdo('realmd', $realmId);
+        $charPdo  = spp_get_pdo('chars',  $realmId);
+
         // We check here for processtimes and checks with mangos.
-        $highest_mangostime = $DB->selectCell("SELECT `starttime` FROM `uptime` ORDER BY starttime DESC LIMIT 0,1");
+        $highest_mangostime = (int)$realmPdo->query("SELECT `starttime` FROM `uptime` ORDER BY starttime DESC LIMIT 0,1")->fetchColumn();
 
         // We store timestamps and incre info in database.
-        $last_increment = $DB->selectCell("SELECT last_inc FROM `world_entrys` WHERE db_name='".$database."'");
+        $stmtLi = $realmPdo->prepare("SELECT last_inc FROM `world_entrys` WHERE db_name=?");
+        $stmtLi->execute([$database]);
+        $last_increment = (int)$stmtLi->fetchColumn();
 
         // We find the max guid of the wanted table.
         // Maybe some tables have other name of "guid" example: "id". Also define the Id we want to increase with.
         switch($database){
             case 'character':
-                $last_id_cell_maxguid = $CHDB->selectCell("SELECT MAX(guid) FROM `".$database."s`");
+                $last_id_cell_maxguid = (int)$charPdo->query("SELECT MAX(guid) FROM `characters`")->fetchColumn();
                 $offset_incre_guid = 0;
             break;
             case 'item_instance':
-                $last_id_cell_maxguid = $CHDB->selectCell("SELECT MAX(guid) FROM `".$database."`");
+                $last_id_cell_maxguid = (int)$charPdo->query("SELECT MAX(guid) FROM `item_instance`")->fetchColumn();
                 $offset_incre_guid = 20000;
             break;
             case 'mail':
-                $last_id_cell_maxguid = $CHDB->selectCell("SELECT MAX(id) FROM `".$database."`");
+                $last_id_cell_maxguid = (int)$charPdo->query("SELECT MAX(id) FROM `mail`")->fetchColumn();
                 $offset_incre_guid = 5000;
             break;
         }
@@ -431,7 +451,8 @@ public function construct_zoneByID(){
         // Now we need to find out Whenever we want to create new High ids or not.
         // If mangos START stamp is higher then lastest transfer we must increase ID with offset. Else we can just go on.
         if ($last_increment < $highest_mangostime || $last_increment == ''){
-            $DB->query("UPDATE `world_entrys` SET last_inc='".time()."',last_id='".$last_id_cell_maxguid."' WHERE db_name='".$database."'");
+            $stmtUpWe = $realmPdo->prepare("UPDATE `world_entrys` SET last_inc=?,last_id=? WHERE db_name=?");
+            $stmtUpWe->execute([time(), $last_id_cell_maxguid, $database]);
             $last_id_cell = $last_id_cell_maxguid + $offset_incre_guid+1;
             $WE_DID_OFFSET_ID = TRUE;
         }else{

@@ -6,7 +6,8 @@ $oldInactiveTime = 3600*24*7;
 if($_GET['id'] > 0){
     if(!$_GET['action']){
         $profile = $auth->getprofile($_GET['id']);
-        $allgroups = $DB->selectCol("SELECT g_id AS ARRAY_KEY, g_title FROM website_account_groups");
+        $realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+        $allgroups = $realmPdo->query("SELECT g_id, g_title FROM website_account_groups")->fetchAll(PDO::FETCH_KEY_PAIR);
 
         $pathway_info[] = array('title'=>$lang['users_manage'],'link'=>$com_links['sub_members']);
         $pathway_info[] = array('title'=>$profile['username'],'link'=>'');
@@ -28,28 +29,36 @@ if($_GET['id'] > 0){
 }else{
     $pathway_info[] = array('title'=>$lang['userlist'],'link'=>'');
 	//===== Filter ==========//
+    $filterParams = [];
     $filters = array("LOWER(`username`) NOT LIKE 'rndbot%'");
      if($_GET['char'] && preg_match("/[a-z]/",$_GET['char'])){
-
-        $filters[] = "`username` LIKE '".escape_string($_GET['char'])."%'";
+        $filters[] = "`username` LIKE ?";
+        $filterParams[] = $_GET['char'] . '%';
      }elseif($_GET['char']==1){
-
         $filters[] = "`username` REGEXP '^[^A-Za-z]'";
     }
     $filter = 'WHERE '.implode(' AND ', $filters);
 	//===== Calc pages =====//
     $items_per_pages = (int)$MW->getConfig->generic->users_per_page;
-    $itemnum = $DB->selectCell("SELECT count(*) FROM account $filter");
+    $realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+
+    $stmtCount = $realmPdo->prepare("SELECT count(*) FROM account $filter");
+    $stmtCount->execute($filterParams);
+    $itemnum = $stmtCount->fetchColumn();
+
     $pnum = ceil($itemnum/$items_per_pages);
     $pages_str = default_paginate($pnum, $p, "index.php?n=account&sub=userlist&char=".$_GET['char']);
-    $limit_start = ($p-1)*$items_per_pages;
+    $limit_start = (int)(($p-1)*$items_per_pages);
+    $items_per_pages = (int)$items_per_pages;
 
-    $items = $DB->select("
+    $stmtItems = $realmPdo->prepare("
         SELECT * FROM account
         LEFT JOIN website_accounts ON account.id=website_accounts.account_id
         $filter
         ORDER BY username
         LIMIT $limit_start,$items_per_pages");
+    $stmtItems->execute($filterParams);
+    $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
 }
 ##   output_message('alert',$itemnum);
 ?>

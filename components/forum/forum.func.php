@@ -2,47 +2,53 @@
 
 
 function get_forum_byid($id){
-  global $DB;
-  $result = $DB->selectRow("SELECT * FROM f_forums WHERE forum_id=?d",$id);
-  return $result;
+    $realmId = isset($GLOBALS['realmDbMap']) ? spp_resolve_realm_id($GLOBALS['realmDbMap']) : 1;
+    $pdo  = spp_get_pdo('realmd', $realmId);
+    $stmt = $pdo->prepare("SELECT * FROM f_forums WHERE forum_id=?");
+    $stmt->execute([(int)$id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 function get_topic_byid($id){
-  global $DB;
-  $result = $DB->selectRow("SELECT * FROM f_topics WHERE topic_id=?d",$id);
-  return $result;
+    $realmId = isset($GLOBALS['realmDbMap']) ? spp_resolve_realm_id($GLOBALS['realmDbMap']) : 1;
+    $pdo  = spp_get_pdo('realmd', $realmId);
+    $stmt = $pdo->prepare("SELECT * FROM f_topics WHERE topic_id=?");
+    $stmt->execute([(int)$id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 function get_post_byid($id){
-  global $DB;
-  $result = $DB->selectRow("SELECT * FROM f_posts WHERE post_id=?d",$id);
-  return $result;
+    $realmId = isset($GLOBALS['realmDbMap']) ? spp_resolve_realm_id($GLOBALS['realmDbMap']) : 1;
+    $pdo  = spp_get_pdo('realmd', $realmId);
+    $stmt = $pdo->prepare("SELECT * FROM f_posts WHERE post_id=?");
+    $stmt->execute([(int)$id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 function get_last_forum_topic($id){
-  global $DB;
-  $result = $DB->selectRow("SELECT * FROM f_topics WHERE forum_id=?d ORDER BY last_post DESC LIMIT 1",$id);
-  return $result;
+    $realmId = isset($GLOBALS['realmDbMap']) ? spp_resolve_realm_id($GLOBALS['realmDbMap']) : 1;
+    $pdo  = spp_get_pdo('realmd', $realmId);
+    $stmt = $pdo->prepare("SELECT * FROM f_topics WHERE forum_id=? ORDER BY last_post DESC LIMIT 1");
+    $stmt->execute([(int)$id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 function get_last_topic_post($id){
-  global $DB;
-  $result = $DB->selectRow("SELECT * FROM f_posts WHERE topic_id=?d ORDER BY posted DESC LIMIT 1",$id);
-  return $result;
+    $realmId = isset($GLOBALS['realmDbMap']) ? spp_resolve_realm_id($GLOBALS['realmDbMap']) : 1;
+    $pdo  = spp_get_pdo('realmd', $realmId);
+    $stmt = $pdo->prepare("SELECT * FROM f_posts WHERE topic_id=? ORDER BY posted DESC LIMIT 1");
+    $stmt->execute([(int)$id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 function get_post_pos($tid,$pid){
-  global $DB;
-  $result = $DB->selectCell("SELECT count(*) FROM f_posts WHERE topic_id=?d AND post_id<?d ORDER BY posted",$tid,$pid);
-    /*
-  foreach($result as $result_id){
-    $post_c++;
-        if($result_id==$pid)return $post_c;
-  }
-    */
-  return $result;
+    $realmId = isset($GLOBALS['realmDbMap']) ? spp_resolve_realm_id($GLOBALS['realmDbMap']) : 1;
+    $pdo  = spp_get_pdo('realmd', $realmId);
+    $stmt = $pdo->prepare("SELECT count(*) FROM f_posts WHERE topic_id=? AND post_id<? ORDER BY posted");
+    $stmt->execute([(int)$tid, (int)$pid]);
+    return $stmt->fetchColumn();
 }
 
 function declension($int, $expressions)
 {
     /*
      * Choost russion word declension based on numeric.
-     */ 
+     */
     if (count($expressions) < 3) $expressions[2] = $expressions[1];
     settype($int, "integer");
     $count = $int % 100;
@@ -84,8 +90,7 @@ function isValidChar($user, $realmId = null)
         }
     }
 
-    return ($GLOBALS['CHDB']->selectCell('SELECT COUNT(1) AS cnt FROM `characters` WHERE `guid`=?d AND name=? AND account=?d',
-                                         $user['character_id'], $user['character_name'], $user['id']) == 1);
+    return false;
 }
 
 function resolve_forum_character_for_realm(array $user, int $realmId)
@@ -162,4 +167,5 @@ function get_character_portrait_path($guid, $gender, $race, $class)
 $yesterday_ts = mktime(0, 0, 0, date("m")  , date("d")-1, date("Y"));
 
 ?>
+
 

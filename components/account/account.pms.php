@@ -29,6 +29,7 @@ $items          = array();
 $items_per_page = 16;
 $page           = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $limit_start    = ($page - 1) * $items_per_page;
+$pmsPdo         = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
 
 // ========================================================
 // VIEW INBOX / OUTBOX
@@ -40,41 +41,49 @@ if ($_GET['action'] == 'view') {
         $pathway_info[] = array('title' => $lang['inbox'], 'link' => '');
 
 
-        $itemnum = $DB->selectCell("
+        $stmt = $pmsPdo->prepare("
             SELECT COUNT(1)
             FROM website_pms
-            WHERE owner_id = ?d
-        ", $user['id']);
+            WHERE owner_id = ?
+        ");
+        $stmt->execute([(int)$user['id']]);
+        $itemnum = $stmt->fetchColumn();
         $pnum = ceil($itemnum / $items_per_page);
 
-        $items = $DB->select("
+        $stmt = $pmsPdo->prepare("
             SELECT pms.*, s.username AS sender
             FROM website_pms AS pms
             LEFT JOIN account AS s ON pms.sender_id = s.id
-            WHERE pms.owner_id = ?d
+            WHERE pms.owner_id = ?
             ORDER BY posted DESC
-            LIMIT ?d, ?d
-        ", $user['id'], $limit_start, $items_per_page);
+            LIMIT " . (int)$limit_start . "," . (int)$items_per_page . "
+        ");
+        $stmt->execute([(int)$user['id']]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     } elseif ($_GET['dir'] == 'out') {
         // --- OUTBOX ---
         $pathway_info[] = array('title' => $lang['outbox'], 'link' => '');
 
-        $itemnum = $DB->selectCell("
+        $stmt = $pmsPdo->prepare("
             SELECT COUNT(1)
             FROM website_pms
-            WHERE sender_id = ?d
-        ", $user['id']);
+            WHERE sender_id = ?
+        ");
+        $stmt->execute([(int)$user['id']]);
+        $itemnum = $stmt->fetchColumn();
         $pnum = ceil($itemnum / $items_per_page);
 
-        $items = $DB->select("
+        $stmt = $pmsPdo->prepare("
             SELECT pms.*, r.username AS `for`
             FROM website_pms AS pms
             LEFT JOIN account AS r ON pms.owner_id = r.id
-            WHERE pms.sender_id = ?d
+            WHERE pms.sender_id = ?
             ORDER BY posted DESC
-            LIMIT ?d, ?d
-        ", $user['id'], $limit_start, $items_per_page);
+            LIMIT " . (int)$limit_start . "," . (int)$items_per_page . "
+        ");
+        $stmt->execute([(int)$user['id']]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 

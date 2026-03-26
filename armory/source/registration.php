@@ -68,28 +68,49 @@ foreach($realms as $key => $data)
 <?php
 if(isset($_POST["reg"]) && isset($_POST["name"]) && isset($_POST["pass"]) && isset($_POST["email"]))
 {
-	switchConnection("realmd", urldecode($_POST["realm"]));
-	if(mysql_num_rows(execute_query("SELECT `ip` from `ip_banned` WHERE `ip` = '".$_SERVER["REMOTE_ADDR"]."' LIMIT 1")))
-		echo "<center>",$lang["ip"]," ",$_SERVER["REMOTE_ADDR"]," ",$lang["banned"],"</center>";
-	else if($config["LockReg"] && mysql_num_rows(execute_query("SELECT `last_ip` from `account` WHERE `last_ip` = '".$_SERVER["REMOTE_ADDR"]."'")) >= $config["LockReg"])
-		echo "<center>",$lang["max_ip"]," (",$config["LockReg"],")</center>";
-	else
-	{
-		$username = strtoupper(trim(stripslashes($_POST["name"])));
-		$pass = trim(stripslashes($_POST["pass"]));
-		$email = trim(stripslashes($_POST["email"]));
-		$name_len = strlen($username);
-		$pass_len = strlen($pass);
-		if($name_len > 4 && $name_len < 25 && $pass_len > 5 && $pass_len < 30 && preg_match("|^[0-9a-z_.]+@[0-9a-z_^\.]+\.[a-z]{2,10}$|i", $email))
-		{
-			if(mysql_num_rows(execute_query("SELECT `username` FROM `account` WHERE `username` = '".mysql_real_escape_string($username)."' LIMIT 1")))
-				echo "<center>",$lang["name_exist"],".<center>";
-			else
-			{
-				$sha_pass_hash = sha1(strtoupper($username.':'.$pass));
-				execute_query("INSERT INTO `account` (`username`, `sha_pass_hash`, `gmlevel`, `email`, `locked`, `last_ip`, `expansion`)
-					VALUES ('".mysql_real_escape_string($username)."', '".$sha_pass_hash."', ".$config["GmLevel"].", '".mysql_real_escape_string($email)."', ".$config["LockAcc"].", '".$_SERVER["REMOTE_ADDR"]."', ".$_POST["expansion"].")");
-				echo "<center>",$lang["acc_created"]," ",$username," ",$lang["complete"],".</center>";
+	$realmName = urldecode($_POST["realm"]);
+	$realmId   = isset($realms[$realmName]) ? $realms[$realmName][0] : null;
+	if (!$realmId) {
+		echo "<center>Invalid realm selected.</center>";
+	} else {
+		$pdo     = spp_get_pdo('realmd', $realmId);
+		$banned  = false;
+		$locked  = false;
+
+		$stmt = $pdo->prepare("SELECT `ip` FROM `ip_banned` WHERE `ip` = ? LIMIT 1");
+		$stmt->execute([$_SERVER["REMOTE_ADDR"]]);
+		if ($stmt->fetch()) {
+			echo "<center>", $lang["ip"], " ", $_SERVER["REMOTE_ADDR"], " ", $lang["banned"], "</center>";
+			$banned = true;
+		}
+
+		if (!$banned && $config["LockReg"]) {
+			$stmt = $pdo->prepare("SELECT COUNT(*) FROM `account` WHERE `last_ip` = ?");
+			$stmt->execute([$_SERVER["REMOTE_ADDR"]]);
+			if ((int)$stmt->fetchColumn() >= $config["LockReg"]) {
+				echo "<center>", $lang["max_ip"], " (", $config["LockReg"], ")</center>";
+				$locked = true;
+			}
+		}
+
+		if (!$banned && !$locked) {
+			$username = strtoupper(trim(stripslashes($_POST["name"])));
+			$pass     = trim(stripslashes($_POST["pass"]));
+			$email    = trim(stripslashes($_POST["email"]));
+			$name_len = strlen($username);
+			$pass_len = strlen($pass);
+			if ($name_len > 4 && $name_len < 25 && $pass_len > 5 && $pass_len < 30 && preg_match("|^[0-9a-z_.]+@[0-9a-z_^\.]+\.[a-z]{2,10}$|i", $email)) {
+				$stmt = $pdo->prepare("SELECT `username` FROM `account` WHERE `username` = ? LIMIT 1");
+				$stmt->execute([$username]);
+				if ($stmt->fetch()) {
+					echo "<center>", $lang["name_exist"], ".<center>";
+				} else {
+					$sha_pass_hash = sha1(strtoupper($username . ':' . $pass));
+					$expansion     = (int)$_POST["expansion"];
+					$stmt = $pdo->prepare("INSERT INTO `account` (`username`, `sha_pass_hash`, `gmlevel`, `email`, `locked`, `last_ip`, `expansion`) VALUES (?, ?, ?, ?, ?, ?, ?)");
+					$stmt->execute([$username, $sha_pass_hash, $config["GmLevel"], $email, $config["LockAcc"], $_SERVER["REMOTE_ADDR"], $expansion]);
+					echo "<center>", $lang["acc_created"], " ", $username, " ", $lang["complete"], ".</center>";
+				}
 			}
 		}
 	}

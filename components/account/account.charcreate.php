@@ -9,7 +9,11 @@ $pathway_info[] = array('title'=>$lang['charcreate'],'link'=>'');
 $account_id = $user['id'];
 $rid = $user['cur_selected_realmd'];
 $char_points = (int)$MW->getConfig->character_copy_config->points;
-$your_points = $DB->selectCell("SELECT `points` FROM `voting_points` WHERE id=?d",$account_id);
+$realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$charPdo   = spp_get_pdo('chars',  (int)$rid);
+$stmtPts = $realmPdo->prepare("SELECT `points` FROM `voting_points` WHERE id=?");
+$stmtPts->execute([$account_id]);
+$your_points = $stmtPts->fetchColumn();
 if($user['id'] > 0){
 /*************** START LEVLEUP ACTION ****************/
     if(!$_GET['action'])
@@ -34,7 +38,9 @@ if($user['id'] > 0){
         $WE_DID_OFFSET_ID = $new_guid['incr'];
 
         //Checks if wanted name exsits.
-        $name_check = $CHDB->selectCell("SELECT guid from `characters` WHERE name='".$name."'");
+        $stmtNc = $charPdo->prepare("SELECT guid FROM `characters` WHERE name=?");
+        $stmtNc->execute([$name]);
+        $name_check = $stmtNc->fetchColumn();
         if ($name_check == FALSE){
             $classexists = false;
         }else{
@@ -43,13 +49,19 @@ if($user['id'] > 0){
 
 
         //Checks if user is logged on
-        $loggedin = $DB->selectCell("SELECT online FROM account WHERE id=?d",$account_id);
+        $stmtLi = $realmPdo->prepare("SELECT online FROM account WHERE id=?");
+        $stmtLi->execute([$account_id]);
+        $loggedin = $stmtLi->fetchColumn();
         //Another check if user is logged on.
         if ($loggedin == '0'){
-            $loggedin = $CHDB->selectCell("SELECT online FROM `characters` WHERE account=?d",$account_id);
+            $stmtLi2 = $charPdo->prepare("SELECT online FROM `characters` WHERE account=?");
+            $stmtLi2->execute([$account_id]);
+            $loggedin = $stmtLi2->fetchColumn();
         }
         //Checks if user has MAX players.
-        $numchars = $DB->selectCell("SELECT numchars FROM realmcharacters WHERE acctid=?d AND realmid=?d",$account_id,$rid);
+        $stmtNc2 = $realmPdo->prepare("SELECT numchars FROM realmcharacters WHERE acctid=? AND realmid=?");
+        $stmtNc2->execute([$account_id, $rid]);
+        $numchars = $stmtNc2->fetchColumn();
 
 
         /******** FORM CHECKS ********/
@@ -94,26 +106,35 @@ if($user['id'] > 0){
 
         /*    Make array's   From copy char */
         /*Character*/
-        $COPY_character = $CHDB->selectRow("SELECT * FROM `characters` WHERE guid=?d",$character_copy_to);
+        $s = $charPdo->prepare("SELECT * FROM `characters` WHERE guid=?"); $s->execute([(int)$character_copy_to]);
+        $COPY_character = $s->fetch(PDO::FETCH_ASSOC);
         /*`character_action` */
-        $COPY_character_action = $CHDB->select("SELECT * FROM `character_action` WHERE guid=?d",$character_copy_to);
+        $s = $charPdo->prepare("SELECT * FROM `character_action` WHERE guid=?"); $s->execute([(int)$character_copy_to]);
+        $COPY_character_action = $s->fetchAll(PDO::FETCH_ASSOC);
         /*`character_homebind` */
-        $COPY_character_homebind = $CHDB->select("SELECT * FROM `character_homebind` WHERE guid=?d",$character_copy_to);
+        $s = $charPdo->prepare("SELECT * FROM `character_homebind` WHERE guid=?"); $s->execute([(int)$character_copy_to]);
+        $COPY_character_homebind = $s->fetchAll(PDO::FETCH_ASSOC);
         /*`character_reputation` */
-        $COPY_character_reputation = $CHDB->select("SELECT * FROM `character_reputation` WHERE guid=?d",$character_copy_to);
+        $s = $charPdo->prepare("SELECT * FROM `character_reputation` WHERE guid=?"); $s->execute([(int)$character_copy_to]);
+        $COPY_character_reputation = $s->fetchAll(PDO::FETCH_ASSOC);
 		/*`character_skills` */
-		$COPY_character_skills = $CHDB->select("SELECT * FROM `character_skills` WHERE guid=?d",$character_copy_to);
+		$s = $charPdo->prepare("SELECT * FROM `character_skills` WHERE guid=?"); $s->execute([(int)$character_copy_to]);
+		$COPY_character_skills = $s->fetchAll(PDO::FETCH_ASSOC);
         /*`character_spell` */
-        $COPY_character_spell = $CHDB->select("SELECT * FROM `character_spell` WHERE guid=?d",$character_copy_to);
-        
+        $s = $charPdo->prepare("SELECT * FROM `character_spell` WHERE guid=?"); $s->execute([(int)$character_copy_to]);
+        $COPY_character_spell = $s->fetchAll(PDO::FETCH_ASSOC);
+
         /*``character_inventory` ` */ /* Also ``item_instance``*/
-        $MAIN_COPY_item_instance = $CHDB->select("SELECT * FROM `item_instance` WHERE owner_guid=?d",$character_copy_to);
+        $s = $charPdo->prepare("SELECT * FROM `item_instance` WHERE owner_guid=?"); $s->execute([(int)$character_copy_to]);
+        $MAIN_COPY_item_instance = $s->fetchAll(PDO::FETCH_ASSOC);
         $ROUNDS = 0;
         $ARRAY_INCREMENT = 0;
         $ARRAY_BAG_INCREMENT = 0;
         foreach($MAIN_COPY_item_instance as $MAIN_COPY_SUB_item_instance){
 
-            $character_inventory = $CHDB->selectRow("SELECT * FROM `character_inventory` WHERE item=?d",$MAIN_COPY_SUB_item_instance['guid']);
+            $stmtCi = $charPdo->prepare("SELECT * FROM `character_inventory` WHERE item=?");
+            $stmtCi->execute([(int)$MAIN_COPY_SUB_item_instance['guid']]);
+            $character_inventory = $stmtCi->fetch(PDO::FETCH_ASSOC);
                 $bag = $character_inventory['bag'];
                 $slot = $character_inventory['slot'];
                 $item_template = $character_inventory['item_template'];
@@ -201,7 +222,7 @@ if($user['id'] > 0){
           
 				  }
 
-            $CHDB->query("INSERT INTO `item_instance` (
+            $charPdo->exec("INSERT INTO `item_instance` (
             `guid`,
             `owner_guid`,
             `data`)
@@ -211,7 +232,7 @@ if($user['id'] > 0){
             }
 
             foreach($COPY_item_instance as $COPY_SUB_item_instance){
-            $CHDB->query("INSERT INTO `item_instance` (
+            $charPdo->exec("INSERT INTO `item_instance` (
             `guid`,
             `owner_guid`,
             `data`)
@@ -220,7 +241,7 @@ if($user['id'] > 0){
             }
 
             foreach($COPY_character_inventory as $COPY_SUB_character_inventory){
-            $CHDB->query("INSERT INTO `character_inventory` (
+            $charPdo->exec("INSERT INTO `character_inventory` (
             `guid`,
             `bag`,
             `slot`,
@@ -239,7 +260,7 @@ if($user['id'] > 0){
                     // NOT USE - Mangos changes field all time | $COPY_character['data']['1420'] = (int)$MW->getConfig->character_copy_config->general->Player_Start_Level;
                     // NOT USE - Mangos changes field all time | $COPY_character['data']['1244'] = (int)$MW->getConfig->character_copy_config->general->Player_Start_Level-9;
                   $COPY_character['data'] = implode(' ', $COPY_character['data']);
-            $CHDB->query("INSERT INTO `characters` (
+            $charPdo->exec("INSERT INTO `characters` (
             `guid`,
             `account`,
             `name`,
@@ -320,7 +341,7 @@ if($user['id'] > 0){
 
         /* Character_action */
         foreach($COPY_character_action as $COPY_SUB_character_action){
-            $CHDB->query("INSERT INTO `character_action` (
+            $charPdo->exec("INSERT INTO `character_action` (
             `guid`,
 			`spec`,
             `button`,
@@ -331,7 +352,7 @@ if($user['id'] > 0){
         }
         /* Character_homebind */
         foreach($COPY_character_homebind as $COPY_SUB_character_homebind){
-            $CHDB->query("INSERT INTO `character_homebind` (
+            $charPdo->exec("INSERT INTO `character_homebind` (
             `guid`,
             `map`,
             `zone`,
@@ -345,7 +366,7 @@ if($user['id'] > 0){
 
         /* Character_reputation */
         foreach($COPY_character_reputation as $COPY_SUB_character_reputation){
-            $CHDB->query("INSERT INTO `character_reputation` (
+            $charPdo->exec("INSERT INTO `character_reputation` (
             `guid`,
             `faction`,
             `standing`,
@@ -355,7 +376,7 @@ if($user['id'] > 0){
         }
         /*  Character_spell  */
         foreach($COPY_character_spell as $COPY_SUB_character_spell){
-            $CHDB->query("INSERT INTO `character_spell` (
+            $charPdo->exec("INSERT INTO `character_spell` (
             `guid`,
             `spell`,
             `active`,
@@ -365,8 +386,8 @@ if($user['id'] > 0){
         }
 
         // update points
-        $query = $DB->query("UPDATE `voting_points` SET `points`=(`points` - ".$char_points."), `points_spent`=(`points_spent` + ".$char_points.")
-		WHERE id=?d",$account_id);
+        $stmtUpd = $realmPdo->prepare("UPDATE `voting_points` SET `points`=(`points` - ?), `points_spent`=(`points_spent` + ?) WHERE id=?");
+        $stmtUpd->execute([$char_points, $char_points, $account_id]);
 
         //Gogo message
         output_message('notice','<b><h1>'.$lang['congratulations'].'</h1>, '.$lang['charcreate_charcreated'].'<br/>'.$lang['redirecting_wait'].'</b><meta http-equiv=refresh content="5;url=index.php?n=account&sub=charcreate">');

@@ -81,7 +81,6 @@ if (!is_array($realmMap) || empty($realmMap)) {
 }
 
 $realmId = spp_resolve_realm_id($realmMap);
-$realmDB = $realmMap[$realmId]['chars'];
 $armoryRealm = spp_get_armory_realm_name($realmId) ?? '';
 
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
@@ -100,7 +99,8 @@ $allianceRaces = [1, 3, 4, 7, 11, 22, 25, 29];
 
 $MANG = new Mangos();
 
-$rows = $DB->select("
+$charPdo = spp_get_pdo('chars', $realmId);
+$rows = $charPdo->query("
   SELECT
     c.guid,
     c.name,
@@ -112,10 +112,10 @@ $rows = $DB->select("
     COALESCE(c.stored_dishonorable_kills, 0) AS dishonorable_kills,
     COALESCE(c.stored_honor_rating, 0) AS honor_points,
     COALESCE(c.honor_highest_rank, 0) AS rank_id
-  FROM {$realmDB}.characters c
+  FROM characters c
   WHERE COALESCE(c.stored_honorable_kills, 0) > 0
   ORDER BY honor_points DESC, honorable_kills DESC, level DESC, name ASC
-");
+")->fetchAll(PDO::FETCH_ASSOC);
 
 $characters = [];
 foreach ($rows as $row) {

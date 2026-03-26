@@ -36,30 +36,6 @@ $com_content['forum'] = array(
         0
     )
 );
-switch ($sub) {
-    case 'index':
-        include('forum/index.php');
-        break;
 
-    case 'viewforum':
-        include('forum/viewforum.php');
-        break;
-
-    case 'viewtopic':
-        include('forum/viewtopic.php');
-        break;
-
-    case 'post':
-        include('forum/post.php');
-        break;
-
-    case 'attach':
-        include('forum/attach.php');
-        break;
-
-    default:
-        include('forum/index.php');
-        break;
-}
 
 ?>

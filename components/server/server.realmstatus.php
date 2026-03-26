@@ -4,8 +4,8 @@ if(INCLUDED!==true)exit;
 $pathway_info[] = array('title'=>$lang['realms_status'],'link'=>'');
 // ==================== //
 
-$items = array();
-$items = $DB->select("SELECT * FROM `realmlist` ORDER BY `name`");
+$realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$items = $realmPdo->query("SELECT * FROM `realmlist` ORDER BY `name`")->fetchAll(PDO::FETCH_ASSOC);
 $i = 0;
 foreach($items as $i => $result)
 {
@@ -16,7 +16,11 @@ foreach($items as $i => $result)
     //$dbinfo_mangos = explode(';', $result['dbinfo']);  // username;password;port;host;DBName
     if ($result['id'] == 1)
     {
-        $dbinfo_mangos = $DB->selectRow( "SELECT * FROM `realm_settings` WHERE id_realm=?d", $result['id'] ) ;
+        try {
+            $stmtRs = $realmPdo->prepare("SELECT * FROM `realm_settings` WHERE id_realm=?");
+            $stmtRs->execute([(int)$result['id']]);
+            $dbinfo_mangos = $stmtRs->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) { $dbinfo_mangos = []; }
         if((int)$MW->getConfig->generic->use_archaeic_dbinfo_format) {
             //alternate config - for users upgrading from Modded MaNGOS Web
             //DBinfo column:  host;port;username;password;WorldDBname;CharDBname
@@ -64,8 +68,11 @@ foreach($items as $i => $result)
     if($result['realmflags'] != 1 && ($result['realmflags'] & 2) != 2)
     {
         $res_img = './templates/tbc/images/uparrow2.gif';
-        if ($realm_num == 1)
-            $population = $CHDB->selectCell("SELECT count(*) FROM `characters` WHERE online=1");
+        if ($realm_num == 1) {
+            try {
+                $population = (int)spp_get_pdo('chars', 1)->query("SELECT count(*) FROM `characters` WHERE online=1")->fetchColumn();
+            } catch (PDOException $e) { $population = 0; }
+        }
         else {
             if ($result['population'] < 2)
                 $population = 200;
@@ -75,8 +82,13 @@ foreach($items as $i => $result)
                 $population = 1000;
             else $population = 1500;
         }
-        if ($realm_num == 1)
-            $uptime = time () - $DB->selectCell("SELECT starttime FROM uptime WHERE `realmid`='$realm_num' ORDER BY `starttime` DESC LIMIT 1");
+        if ($realm_num == 1) {
+            try {
+                $stmtUp = $realmPdo->prepare("SELECT starttime FROM uptime WHERE `realmid`=? ORDER BY `starttime` DESC LIMIT 1");
+                $stmtUp->execute([$realm_num]);
+                $uptime = time() - (int)$stmtUp->fetchColumn();
+            } catch (PDOException $e) { $uptime = 0; }
+        }
         else
             $uptime = 1;
     }

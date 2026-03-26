@@ -170,7 +170,6 @@ if (!is_array($realmMap) || empty($realmMap)) {
 }
 
 $realmId = spp_resolve_realm_id($realmMap);
-$realmDB = $realmMap[$realmId]['chars'];
 $realmWorldDB = $realmMap[$realmId]['world'];
 $armoryRealm = spp_get_armory_realm_name($realmId) ?? '';
 
@@ -193,7 +192,8 @@ if ($sortDir !== 'ASC' && $sortDir !== 'DESC') {
     $sortDir = 'DESC';
 }
 
-$guilds = $DB->select("
+$charPdo = spp_get_pdo('chars', $realmId);
+$guilds = $charPdo->query("
   SELECT
     g.guildid,
     g.name,
@@ -205,13 +205,13 @@ $guilds = $DB->select("
     COUNT(gm.guid) AS member_count,
     COALESCE(AVG(c.level), 0) AS avg_level,
     COALESCE(MAX(c.level), 0) AS max_level
-  FROM {$realmDB}.guild g
-  LEFT JOIN {$realmDB}.guild_member gm ON g.guildid = gm.guildid
-  LEFT JOIN {$realmDB}.characters c ON gm.guid = c.guid
-  LEFT JOIN {$realmDB}.characters leader ON g.leaderguid = leader.guid
+  FROM guild g
+  LEFT JOIN guild_member gm ON g.guildid = gm.guildid
+  LEFT JOIN characters c ON gm.guid = c.guid
+  LEFT JOIN characters leader ON g.leaderguid = leader.guid
   GROUP BY g.guildid, g.name, g.motd, leader.guid, leader.name, leader.race, leader.class
   ORDER BY member_count DESC, g.name ASC
-");
+")->fetchAll(PDO::FETCH_ASSOC);
 
 $guildIds = array_values(array_filter(array_map(static function ($guild) {
     return (int)($guild['guildid'] ?? 0);
@@ -221,14 +221,14 @@ $guildGearStats = array();
 if (!empty($guildIds)) {
     $guildIdSql = implode(',', $guildIds);
     try {
-        $gearRows = $DB->select("
+        $gearRows = $charPdo->query("
           SELECT
             gm.guildid,
             c.guid,
             ROUND(AVG(it.ItemLevel), 1) AS avg_item_level
-          FROM {$realmDB}.guild_member gm
-          INNER JOIN {$realmDB}.characters c ON c.guid = gm.guid
-          INNER JOIN {$realmDB}.character_inventory ci ON ci.guid = c.guid
+          FROM guild_member gm
+          INNER JOIN characters c ON c.guid = gm.guid
+          INNER JOIN character_inventory ci ON ci.guid = c.guid
           INNER JOIN {$realmWorldDB}.item_template it ON it.entry = ci.item_template
           WHERE gm.guildid IN ({$guildIdSql})
             AND ci.bag = 0
@@ -236,7 +236,7 @@ if (!empty($guildIds)) {
             AND ci.slot NOT IN (3, 18)
             AND ci.item_template > 0
           GROUP BY gm.guildid, c.guid
-        ");
+        ")->fetchAll(PDO::FETCH_ASSOC);
 
         if (is_array($gearRows)) {
             foreach ($gearRows as $gearRow) {

@@ -8,12 +8,19 @@ $hl = '';
 if((int)$MW->getConfig->generic_values->forum->news_forum_id == 0)
     output_message('alert', 'Please define forum id for news (in config/config.xml)');
 
-$alltopics = $DB->select("
+$realmId  = spp_resolve_realm_id($realmDbMap);
+$realmPdo = spp_get_pdo('realmd', $realmId);
+
+$stmtTopics = $realmPdo->prepare("
     SELECT f_topics.*,(SELECT message FROM f_posts WHERE f_topics.topic_id=f_posts.topic_id ORDER BY f_posts.posted LIMIT 1) as message
     FROM f_topics
-    WHERE f_topics.forum_id=?d
+    WHERE f_topics.forum_id=?
     ORDER BY topic_posted DESC
-    LIMIT ?d,?d", (int)$MW->getConfig->generic_values->forum->news_forum_id, 0, (int)$MW->getConfig->generic_values->news->items_per_page);
+    LIMIT 0," . (int)$MW->getConfig->generic_values->news->items_per_page);
+$stmtTopics->execute([
+    (int)$MW->getConfig->generic_values->forum->news_forum_id,
+]);
+$alltopics = $stmtTopics->fetchAll(PDO::FETCH_ASSOC);
 
 if ((int)$MW->getConfig->components->right_section->hitcounter){
     $count_my_page = "templates/offlike/hitcounter.txt";
@@ -23,56 +30,15 @@ if ((int)$MW->getConfig->components->right_section->hitcounter){
 }
 
 $servers = array();
-$multirealms = $DB->select("SELECT * FROM `realmlist` ORDER BY id ASC");
+$multirealms = $realmPdo->query("SELECT * FROM `realmlist` ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
 foreach ($multirealms as $realmnow_arr){
     if((int)$MW->getConfig->components->right_section->server_information){
-        $data = $DB->selectRow("SELECT address, port, timezone, icon, name FROM realmlist WHERE id = ? LIMIT 1", $realmnow_arr['id']);
+        $stmtData = $realmPdo->prepare("SELECT address, port, timezone, icon, name FROM realmlist WHERE id = ? LIMIT 1");
+        $stmtData->execute([(int)$realmnow_arr['id']]);
+        $data = $stmtData->fetch(PDO::FETCH_ASSOC);
 
-        //$realm_data_explode = explode(';', $data['dbinfo']);
-        $realm_data = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $realmnow_arr['id'] ) ;
-
-        // skip nonexistent realms
-        if (!$realm_data)
+        if (!$data)
             continue;
-
-        $mangosALL = array();
-        if((int)$MW->getConfig->generic->use_archaeic_dbinfo_format){
-            //alternate config - for users upgrading from Modded MaNGOS Web
-            //DBinfo column:  host;port;username;password;WorldDBname;CharDBname
-            $mangosALL = array(
-                'db_type' => 'mysql',
-                'db_host' => $realm_data['dbhost'],  //ip of db world
-                'db_port' => $realm_data['dbport'], //port
-                'db_username' => $realm_data['dbuser'], //world user
-                'db_password' => $realm_data['dbpass'], //world password
-                'db_name' => $realm_data['dbname'],  //world db name
-                'db_char' => $realm_data['chardbname'], //character db name
-                'db_encoding' => 'utf8'
-            );
-        }else{
-            //normal config, as outlined in how-to
-            //DBinfo column:  username;password;port;host;WorldDBname;CharDBname
-            $mangosALL = array(
-                'db_type' => 'mysql',
-                'db_host' => $realm_data['dbhost'],  //ip of db world
-                'db_port' => $realm_data['dbport'], //port
-                'db_username' => $realm_data['dbuser'], //world user
-                'db_password' => $realm_data['dbpass'], //world password
-                'db_name' => $realm_data['dbname'],  //world db name
-                'db_char' => $realm_data['chardbname'], //character db name
-                'db_encoding' => 'utf8'
-            );
-        }
-        unset($realm_data_explode);
-
-        if((int)$MW->getConfig->generic->use_alternate_mangosdb_port){
-            $mangosALL['db_port'] = (int)$MW->getConfig->generic->use_alternate_mangosdb_port;
-        }
-
-        $CHDB_EXTRA = DbSimple_Generic::connect("" . $mangosALL['db_type'] . "://" . $mangosALL['db_username'] . ":" . $mangosALL['db_password'] . "@" . $mangosALL['db_host'] . ":" . $mangosALL['db_port'] . "/" . $mangosALL['db_char'] . "");
-        if($CHDB_EXTRA)
-            $CHDB_EXTRA->query("SET NAMES " . $mangosALL['db_encoding']);
-        unset($mangosALL); // Free up memory.
 
         $server = array();
         $server['name'] = $data['name'];
@@ -81,12 +47,23 @@ foreach ($multirealms as $realmnow_arr){
             $server['realm_status'] = check_port_status($checkaddress, $data['port']);
         }
         $changerealmtoparam = array("changerealm_to" => $realmnow_arr['id']);
-        if((int)$MW->getConfig->components->server_information->online){
-            $server['playersonline'] = $CHDB_EXTRA->selectCell("SELECT count(1) FROM `characters` WHERE online=1 AND account<=504");
-            $server['onlineurl'] = mw_url('server', 'playersonline', $changerealmtoparam);
-			//new code for humans 
-			$server['realplayersonline'] = $CHDB_EXTRA->selectCell("SELECT count(1) FROM `characters` WHERE online=1 AND account>504");	
-        }
+
+        try {
+            $charPdo = spp_get_pdo('chars', (int)$realmnow_arr['id']);
+            if((int)$MW->getConfig->components->server_information->online){
+                $server['playersonline'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1 AND account<=504")->fetchColumn();
+                $server['onlineurl'] = mw_url('server', 'playersonline', $changerealmtoparam);
+                //new code for humans
+                $server['realplayersonline'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1 AND account>504")->fetchColumn();
+            }
+            if((int)$MW->getConfig->components->server_information->population){
+                $server['population'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1")->fetchColumn();
+            }
+            if((int)$MW->getConfig->components->server_information->characters){
+                $server['characters'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE account>504")->fetchColumn();
+            }
+        } catch (PDOException $e) { /* realm chars DB not available */ }
+
         if((int)$MW->getConfig->components->left_section->Playermap){
             $server['playermapurl'] = mw_url('server', 'playermap', $changerealmtoparam);
         }
@@ -99,26 +76,23 @@ foreach ($multirealms as $realmnow_arr){
         if((int)$MW->getConfig->components->server_information->language){
             $server['language'] = $realm_timezone_def[$data['timezone']];
         }
-        if((int)$MW->getConfig->components->server_information->population){
-            $server['population'] = $CHDB_EXTRA->selectCell("SELECT count(1) FROM `characters` WHERE online=1");
-        }
         if((int)$MW->getConfig->components->server_information->accounts){
-            //$server['accounts'] = $DB->selectCell("SELECT count(*) FROM `account`"); old counts bots as well
-			  $server['accounts']= $DB->selectCell("SELECT count(1) FROM `account` WHERE id>504");
+            //$server['accounts'] = count all accounts; old counts bots as well
+            $server['accounts'] = (int)$realmPdo->query("SELECT count(1) FROM `account` WHERE id>504")->fetchColumn();
         }
         //updated code to current
-		if((int)$MW->getConfig->components->server_information->active_accounts){
-            $server['active_accounts'] = $DB->selectCell("SELECT count(DISTINCT accountId) FROM `account_logons` WHERE `loginTime` > ?", date("Y-m-d H:i:s", strtotime("-2 week")) . " 00:00:00");
-			$server['active_login'] = $DB->selectCell("SELECT count(*) FROM `account_logons` WHERE `loginTime` > ?", date("Y-m-d H:i:s", strtotime("-2 week")) . " 00:00:00");
+        if((int)$MW->getConfig->components->server_information->active_accounts){
+            $activeDate = date("Y-m-d H:i:s", strtotime("-2 week")) . " 00:00:00";
+            $stmtAA = $realmPdo->prepare("SELECT count(DISTINCT accountId) FROM `account_logons` WHERE `loginTime` > ?");
+            $stmtAA->execute([$activeDate]);
+            $server['active_accounts'] = (int)$stmtAA->fetchColumn();
+            $stmtAL = $realmPdo->prepare("SELECT count(*) FROM `account_logons` WHERE `loginTime` > ?");
+            $stmtAL->execute([$activeDate]);
+            $server['active_login'] = (int)$stmtAL->fetchColumn();
         }
-        if((int)$MW->getConfig->components->server_information->characters){
-            //$server['characters'] = $CHDB_EXTRA->selectCell("SELECT count(1) FROM `characters`"); doess not remove bots
-			  $server['characters'] = $CHDB_EXTRA->selectCell("SELECT count(1) FROM `characters` WHERE account>504");
-        }
-        unset($CHDB_EXTRA, $data); // Free up memory.
+        unset($data);
         $init = 'id_' . $realmnow_arr['id'];
         if((int)$MW->getConfig->components->right_section->server_rates && (string)$MW->getConfig->mangos_conf_external->$init->mangos_world_conf != ''){
-
             $server['rates'] = getMangosConfig($MW->getConfig->mangos_conf_external->$init->mangos_world_conf);
         }
         $server['moreinfo'] = (int)$MW->getConfig->components->server_information->more_info && (string)$MW->getConfig->mangos_conf_external->$init->mangos_world_conf != '';
@@ -128,5 +102,5 @@ foreach ($multirealms as $realmnow_arr){
 unset($multirealms);
 
 if((int)$MW->getConfig->components->right_section->users_on_homepage){
-    $usersonhomepage = $DB->selectCell("SELECT count(1) FROM `online`");
+    $usersonhomepage = (int)$realmPdo->query("SELECT count(1) FROM `online`")->fetchColumn();
 }

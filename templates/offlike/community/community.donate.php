@@ -88,12 +88,21 @@
 </table>
 <?php
 //          End Templates  Start Content         //
+$donateRealmId = spp_resolve_realm_id($realmDbMap);
+$donatePdo     = spp_get_pdo('realmd', $donateRealmId);
+$donateCharPdo = spp_get_pdo('chars',  $donateRealmId);
+$donateWorldPdo= spp_get_pdo('world',  $donateRealmId);
+
 if (isset($_GET['pay']) && $_GET['pay'] == 'finish'){
     $MANG = new Mangos;
-    $ep = $CHDB->select("SELECT * FROM `characters` WHERE account='".$user['id']."'");
+    $stmtEp = $donateCharPdo->prepare("SELECT * FROM `characters` WHERE account=?");
+    $stmtEp->execute([(int)$user['id']]);
+    $ep = $stmtEp->fetchAll(PDO::FETCH_ASSOC);
     foreach($ep as $ap){
-        $charid = $ap["guid"];
-	      $q = $DB->select("SELECT * FROM `paypal_payment_info` WHERE itemname='".$charid."' AND 	item_given != '1'");
+        $charid = (int)$ap["guid"];
+        $stmtQ = $donatePdo->prepare("SELECT * FROM `paypal_payment_info` WHERE itemname=? AND item_given != '1'");
+        $stmtQ->execute([$charid]);
+        $q = $stmtQ->fetchAll(PDO::FETCH_ASSOC);
 
         if(count($q) > 0){
             foreach($q as $data){
@@ -101,7 +110,9 @@ if (isset($_GET['pay']) && $_GET['pay'] == 'finish'){
                 if ($data['item_given'] != 1){
 
                     // Aditional payment checks can be done here.
-                    $donations_template = $DB->selectRow("SELECT * FROM `donations_template` WHERE id='".$data['itemnumber']."'");
+                    $stmtDt = $donatePdo->prepare("SELECT * FROM `donations_template` WHERE id=?");
+                    $stmtDt->execute([(int)$data['itemnumber']]);
+                    $donations_template = $stmtDt->fetch(PDO::FETCH_ASSOC);
                     // Ok, we must check if we actually got the money that we asked for.
                     if ($donations_template['donation'] > $data['mc_gross']){
                     	$NOT_MAIL = TRUE;
@@ -111,7 +122,8 @@ if (isset($_GET['pay']) && $_GET['pay'] == 'finish'){
 
                     if ($NOT_MAIL == FALSE){
                         if ($MANG->mail_item_donation($data['itemnumber'], $ap['guid'],$ap['txnid']) == TRUE){
-							$DB->query("UPDATE `paypal_payment_info` SET item_given='1' WHERE txnid='".$data[txnid]."'");
+                            $stmtUpPay = $donatePdo->prepare("UPDATE `paypal_payment_info` SET item_given='1' WHERE txnid=?");
+                            $stmtUpPay->execute([$data['txnid']]);
                             echo $lang['items_sent']."<br /><ul><li>".$lang['username'].": ".$user['username']."</li><li>".$lang['charname'].": ".$ap['name']."</li><li>".$lang['donate']." ".$lang['l_delkey_id'].": ".$data['itemnumber']."</li><li>".$lang['paymentstatus'].": ".$data['paymentstatus']."</li></ul>";
 	                    }else{
 												echo $lang['items_could_not_be_sent'];
@@ -152,17 +164,19 @@ $rnm = $realm_info_new['name'];
 <?php echo $lang['donation_page_desc'];?><br /><br /><center>Packages for your chosen realm: <?php echo $rnm ?><center>
 <br />
 <?php
-$q = $DB->select("SELECT * FROM `donations_template` WHERE realm='$rid' OR realm=0 ORDER BY id");
+$stmtDtl = $donatePdo->prepare("SELECT * FROM `donations_template` WHERE realm=? OR realm=0 ORDER BY id");
+$stmtDtl->execute([(int)$rid]);
+$q = $stmtDtl->fetchAll(PDO::FETCH_ASSOC);
 foreach($q as $data){
 	  $id = $data['id'];
 ?>
 <?php write_metalborder_header(); ?>
     <table cellpadding='3' cellspacing='0' width='100%'>
     <tbody>
-    <tr> 
+    <tr>
       <td class="rankingHeader" align="center" colspan='2' nowrap="nowrap">
 	  <?php echo $lang['donation_num']; echo $data['id']; if ($data['description'] == TRUE){ echo " :: <font size=2 color=green>".$data['description']."</font> ::"; } ?>
-	  </td>          
+	  </td>
     </tr>
     <tr>
       <td class="rankingHeader" align="center" nowrap="nowrap">Item Description&nbsp;</td>
@@ -173,23 +187,27 @@ foreach($q as $data){
 	  <?php
 		echo "Item(s) included in this donation package:";
 		$items = explode(',',$data['items']);
-		foreach($items as $item){ 
-        $qray = $WSDB->select("SELECT name FROM `item_template` WHERE entry='".$item."'");
-        foreach($qray as $d){
-			      echo "<li><a href='http://www.wowhead.com/?item=".$item."' target='_blank'>".$d['name']."</a></li>";
+		foreach($items as $item){
+            $stmtItN = $donateWorldPdo->prepare("SELECT name FROM `item_template` WHERE entry=?");
+            $stmtItN->execute([(int)$item]);
+            $qray = $stmtItN->fetchAll(PDO::FETCH_ASSOC);
+            foreach($qray as $d){
+			      echo "<li><a href='http://www.wowhead.com/?item=".$item."' target='_blank'>".htmlspecialchars($d['name'])."</a></li>";
+            }
         }
-    }
 		// item sets
 		$items_itemset = explode(",", $data['itemset']);
 		if ($items_itemset[0] != ''){
 		foreach($items_itemset as $itemset_id){
-        $qray = $WSDB->select("SELECT name,entry FROM `item_template` WHERE itemset='".$itemset_id."'");
-        foreach($qray as $d){
-            echo "<li><a href='http://www.wowhead.com/?item=".$d['entry']."' target='_blank'>".$d['name']."</a></li>";
+            $stmtIs2 = $donateWorldPdo->prepare("SELECT name,entry FROM `item_template` WHERE itemset=?");
+            $stmtIs2->execute([(int)$itemset_id]);
+            $qray = $stmtIs2->fetchAll(PDO::FETCH_ASSOC);
+            foreach($qray as $d){
+                echo "<li><a href='http://www.wowhead.com/?item=".$d['entry']."' target='_blank'>".htmlspecialchars($d['name'])."</a></li>";
             }
         }
     }
-?>  
+?>
 	  </center></font></a></td>
       <td class="serverStatus1" align="center" width="30%">
 	    <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
@@ -201,9 +219,11 @@ foreach($q as $data){
 		<?php echo $lang['donation_pick_character'];?>&nbsp;&nbsp;&nbsp;
 		<select name="item_name">
 		<?php
-		$qray = $CHDB->select("SELECT * FROM `characters` WHERE account='$user[id]'");
+        $stmtChars = $donateCharPdo->prepare("SELECT * FROM `characters` WHERE account=?");
+        $stmtChars->execute([(int)$user['id']]);
+        $qray = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
 		foreach($qray as $d){
-			echo "<option value='".$d['guid']."'>".$d['name']."</option>";
+			echo "<option value='".(int)$d['guid']."'>".htmlspecialchars($d['name'])."</option>";
 		} ?>
 		</select>
 		<br /><br /><font size="-2">Cost: <?php echo $data['donation']." ".$data['currency']; ?></font><br />

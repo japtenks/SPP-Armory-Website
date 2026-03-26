@@ -38,6 +38,9 @@ $bgswitch = '2';
   $pnum = ceil($itemnum/$items_per_pages);
   $limit_start = ($p-1)*$items_per_pages;
 
+$forumPdo = spp_get_pdo('realmd', $realmId);
+$charPdoVt = spp_get_pdo('chars', $realmId);
+
 if($_GETVARS['to']=='lastpost'){
   redirect($this_topic['linktothis']."&p=".$pnum."#post".$this_topic['last_post_id'],1);
 }elseif(is_numeric($_GETVARS['to'])){
@@ -48,14 +51,13 @@ if($_GETVARS['to']=='lastpost'){
     // MARKREAD //
     if($user['id']>0){
         $topicsmark = array();
-        $mark = $DB->selectRow("
-            SELECT * FROM f_markread
-            WHERE marker_member_id=?d AND marker_forum_id=?d
-            ",$user['id'],$this_forum['forum_id']);
-        if(!$mark)$DB->query("
-            INSERT INTO f_markread
-            SET marker_member_id=?d,marker_forum_id=?d,marker_topics_read=?
-            ",$user['id'],$this_forum['forum_id'],serialize(array()));
+        $stmtMr = $forumPdo->prepare("SELECT * FROM f_markread WHERE marker_member_id=? AND marker_forum_id=?");
+        $stmtMr->execute([(int)$user['id'], (int)$this_forum['forum_id']]);
+        $mark = $stmtMr->fetch(PDO::FETCH_ASSOC);
+        if(!$mark){
+            $stmtIns = $forumPdo->prepare("INSERT INTO f_markread SET marker_member_id=?,marker_forum_id=?,marker_topics_read=?");
+            $stmtIns->execute([(int)$user['id'], (int)$this_forum['forum_id'], serialize(array())]);
+        }
         if($mark['marker_topics_read'])$topicsmark = unserialize($mark['marker_topics_read']);
         //  output_message('debug','<pre>'.print_r($topicsmark,true).'</pre>');
         $time_check = $topicsmark[$this_topic['topic_id']]>$mark['marker_last_cleared']?$topicsmark[$this_topic['topic_id']]:$mark['marker_last_cleared'];
@@ -72,10 +74,10 @@ if($_GETVARS['to']=='lastpost'){
             $unread = $mark['marker_unread'] - 1;
             $topicsmark[$this_topic['topic_id']] = $_SERVER['REQUEST_TIME'];
             if($unread <= 0){
-                $count = $DB->selectRow("
-                SELECT count(*) as count,MIN(last_post) as min_last_post FROM f_topics
-                WHERE last_post>?d AND topic_id NOT IN (?a) AND forum_id=?d
-                ",$mark['marker_last_cleared'],$read_topics_tid,$this_forum['forum_id']);
+                $inPlaceholders = implode(',', array_fill(0, count($read_topics_tid), '?'));
+                $stmtCnt = $forumPdo->prepare("SELECT count(*) as count,MIN(last_post) as min_last_post FROM f_topics WHERE last_post>? AND topic_id NOT IN ($inPlaceholders) AND forum_id=?");
+                $stmtCnt->execute(array_merge([(int)$mark['marker_last_cleared']], array_map('intval', $read_topics_tid), [(int)$this_forum['forum_id']]));
+                $count = $stmtCnt->fetch(PDO::FETCH_ASSOC);
                 $unread = $count['count'];
                 if( $unread > 0 AND ( is_array( $topicsmark ) and count( $topicsmark ) ) ){
                     $read_cutoff = $count['min_last_post'] - 1;
@@ -90,22 +92,22 @@ if($_GETVARS['to']=='lastpost'){
                 $save_markers = serialize($topicsmark);
             }
 
-            $DB->query("
-                UPDATE f_markread
-                SET marker_topics_read=?,marker_last_update=?d,marker_unread=?d,marker_last_cleared=?d
-                WHERE marker_member_id=?d AND marker_forum_id=?d
-            ",$save_markers,$_SERVER['REQUEST_TIME'],$unread,$mark['marker_last_cleared'],$user['id'],$this_forum['forum_id']);
+            $stmtUpMr = $forumPdo->prepare("UPDATE f_markread SET marker_topics_read=?,marker_last_update=?,marker_unread=?,marker_last_cleared=? WHERE marker_member_id=? AND marker_forum_id=?");
+            $stmtUpMr->execute([$save_markers, (int)$_SERVER['REQUEST_TIME'], (int)$unread, (int)$mark['marker_last_cleared'], (int)$user['id'], (int)$this_forum['forum_id']]);
         }
     }
-  $DB->query("UPDATE f_topics SET num_views=num_views+1 WHERE topic_id=?d LIMIT 1",$this_topic['topic_id']);
+    $stmtView = $forumPdo->prepare("UPDATE f_topics SET num_views=num_views+1 WHERE topic_id=? LIMIT 1");
+    $stmtView->execute([(int)$this_topic['topic_id']]);
 }
 
-$result = $DB->select("
+$stmtPosts = $forumPdo->prepare("
     SELECT * FROM f_posts
     LEFT JOIN account ON f_posts.poster_id=account.id
     LEFT JOIN website_accounts ON f_posts.poster_id=website_accounts.account_id
     LEFT JOIN website_account_groups ON website_accounts.g_id = website_account_groups.g_id
-    WHERE topic_id=?d ORDER BY posted LIMIT ?d,?d",$this_topic['topic_id'],$limit_start,$items_per_pages);
+    WHERE topic_id=? ORDER BY posted LIMIT " . (int)$limit_start . "," . (int)$items_per_pages);
+$stmtPosts->execute([(int)$this_topic['topic_id']]);
+$result = $stmtPosts->fetchAll(PDO::FETCH_ASSOC);
 foreach($result as $cur_post)
 {
     unset($result['password']);
@@ -117,16 +119,15 @@ foreach($result as $cur_post)
     $cur_post['linktoedit'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=editpost&post='.$cur_post['post_id'];
     $cur_post['linktodelete'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletepost&post='.$cur_post['post_id'];
     // ================================================= //
-	
-    $charDbName = $realmMap[$realmId]['chars'];
 
-$charinfo = $DB->selectRow("
+    $stmtCi = $charPdoVt->prepare("
     SELECT c.race, c.class, c.level, c.gender, g.name as guild
-    FROM {$charDbName}.characters c
-    LEFT JOIN {$charDbName}.guild_member gm ON c.guid = gm.guid
-    LEFT JOIN {$charDbName}.guild g ON gm.guildid = g.guildid
-    WHERE c.guid = ?d
-", $cur_post["poster_character_id"]);
+    FROM characters c
+    LEFT JOIN guild_member gm ON c.guid = gm.guid
+    LEFT JOIN guild g ON gm.guildid = g.guildid
+    WHERE c.guid = ?");
+    $stmtCi->execute([(int)$cur_post["poster_character_id"]]);
+    $charinfo = $stmtCi->fetch(PDO::FETCH_ASSOC);
 
   
 	$cur_post['avatar'] = get_character_portrait_path(

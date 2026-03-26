@@ -155,6 +155,92 @@ if (!$guild) {
     return;
 }
 
+$selectedWebsiteCharacterId = 0;
+if (isset($user['id']) && (int)$user['id'] > 0) {
+    $selectedWebsiteCharacterId = (int)$DB->selectCell(
+        "SELECT character_id FROM website_accounts WHERE account_id=?d",
+        (int)$user['id']
+    );
+}
+$selectedGuildMember = null;
+if ($selectedWebsiteCharacterId > 0) {
+    $selectedGuildMember = $DB->selectRow(
+        "SELECT gm.guid, gm.rank, COALESCE(gr.rights, 0) AS rank_rights
+         FROM {$realmDB}.guild_member gm
+         LEFT JOIN {$realmDB}.guild_rank gr ON gr.guildid = gm.guildid AND gr.rid = gm.rank
+         WHERE gm.guildid=?d AND gm.guid=?d",
+        $guildId,
+        $selectedWebsiteCharacterId
+    );
+}
+$isSelectedGuildLeader = $selectedWebsiteCharacterId > 0 && $selectedWebsiteCharacterId === (int)$guild['leaderguid'];
+$selectedGuildRankRights = isset($selectedGuildMember['rank_rights']) ? (int)$selectedGuildMember['rank_rights'] : 0;
+$guildSetMotdRight = 4096;
+$canEditGuildNotes = $isSelectedGuildLeader;
+$canEditGuildMotd = $isSelectedGuildLeader || (($selectedGuildRankRights & $guildSetMotdRight) === $guildSetMotdRight);
+$guildNoteFeedback = '';
+$guildNoteError = '';
+$guildMotdFeedback = '';
+$guildMotdError = '';
+$guildReturnUrl = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : ('index.php?n=server&sub=guild&realm=' . $realmId . '&guildid=' . $guildId);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_motd_action']) && $_POST['guild_motd_action'] === 'save_guild_motd') {
+    if (!$canEditGuildMotd) {
+        $guildMotdError = 'Your selected guild character does not have permission to update the guild MOTD.';
+    } else {
+        $newMotd = substr(trim((string)($_POST['guild_motd'] ?? '')), 0, 128);
+        $DB->query(
+            "UPDATE {$realmDB}.guild SET motd=?s WHERE guildid=?d",
+            $newMotd,
+            $guildId
+        );
+        $redirectUrl = preg_replace('/([?&])guild_motd_saved=1(&|$)/', '$1', $guildReturnUrl);
+        $redirectUrl = rtrim((string)$redirectUrl, '?&');
+        $redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 'guild_motd_saved=1';
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_note_action']) && $_POST['guild_note_action'] === 'save_member_note') {
+    if (!$canEditGuildNotes) {
+        $guildNoteError = 'Only the selected guild leader can update guild notes from the website.';
+    } else {
+        $noteGuid = isset($_POST['note_guid']) ? (int)$_POST['note_guid'] : 0;
+        $publicNote = substr(trim((string)($_POST['pnote'] ?? '')), 0, 31);
+        $officerNote = substr(trim((string)($_POST['offnote'] ?? '')), 0, 31);
+        $memberExists = (int)$DB->selectCell(
+            "SELECT COUNT(*) FROM {$realmDB}.guild_member WHERE guildid=?d AND guid=?d",
+            $guildId,
+            $noteGuid
+        );
+
+        if ($noteGuid <= 0 || $memberExists <= 0) {
+            $guildNoteError = 'That guild member could not be found.';
+        } else {
+            $DB->query(
+                "UPDATE {$realmDB}.guild_member SET pnote=?s, offnote=?s WHERE guildid=?d AND guid=?d",
+                $publicNote,
+                $officerNote,
+                $guildId,
+                $noteGuid
+            );
+            $redirectUrl = preg_replace('/([?&])guild_note_(saved|error)=1(&|$)/', '$1', $guildReturnUrl);
+            $redirectUrl = rtrim((string)$redirectUrl, '?&');
+            $redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 'guild_note_saved=1';
+            header('Location: ' . $redirectUrl);
+            exit;
+        }
+    }
+}
+
+if (isset($_GET['guild_note_saved']) && (int)$_GET['guild_note_saved'] === 1) {
+    $guildNoteFeedback = 'Guild notes updated.';
+}
+if (isset($_GET['guild_motd_saved']) && (int)$_GET['guild_motd_saved'] === 1) {
+    $guildMotdFeedback = 'Guild MOTD updated.';
+}
+
 $guildEstablishedLabel = 'Unknown';
 try {
     $createdColumn = null;
@@ -224,6 +310,8 @@ $members = $DB->select("
       c.level,
       c.gender,
       gm.rank,
+      gm.pnote,
+      gm.offnote,
       gr.rname AS rank_name
     FROM {$realmDB}.guild_member gm
     LEFT JOIN {$realmDB}.characters c ON gm.guid = c.guid
@@ -504,6 +592,19 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   color: #ffcc66;
   font-weight: 700;
 }
+.guild-note-banner {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 204, 72, 0.22);
+  background: rgba(255, 204, 72, 0.08);
+  color: #ffe39a;
+}
+.guild-note-banner.is-error {
+  border-color: rgba(255, 122, 122, 0.3);
+  background: rgba(95, 16, 16, 0.4);
+  color: #ffd5d5;
+}
 .guild-roster {
   width: 100%;
   border-collapse: collapse;
@@ -530,8 +631,68 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   border-bottom: 1px solid rgba(255, 204, 72, 0.14);
   vertical-align: middle;
 }
+.guild-roster tbody td.guild-notes-cell {
+  min-width: 260px;
+}
 .guild-roster tbody tr:nth-child(odd) {
   background: rgba(255, 255, 255, 0.03);
+}
+.guild-note-stack {
+  display: grid;
+  gap: 8px;
+}
+.guild-note-line {
+  display: grid;
+  gap: 4px;
+}
+.guild-note-label {
+  color: #c4b27c;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.guild-note-value {
+  color: #f3e6bf;
+  line-height: 1.4;
+}
+.guild-note-value.is-empty {
+  color: #8f7d57;
+  font-style: italic;
+}
+.guild-note-form {
+  display: grid;
+  gap: 10px;
+}
+.guild-note-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  color: #f8f1d4;
+  background: rgba(4, 6, 16, 0.94);
+  border: 1px solid rgba(255, 196, 0, 0.4);
+  border-radius: 10px;
+}
+.guild-note-help {
+  color: #9f8b60;
+  font-size: 0.84rem;
+}
+.guild-note-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.guild-note-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 204, 72, 0.3);
+  background: linear-gradient(180deg, #ffd87a, #d9a63d);
+  color: #120d03;
+  font-weight: 800;
+  cursor: pointer;
 }
 .guild-member {
   display: flex;
@@ -555,6 +716,59 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   margin: 0;
   line-height: 1.55;
   color: #d9c99a;
+}
+.guild-motd-form {
+  display: grid;
+  gap: 12px;
+}
+.guild-motd-input {
+  width: 100%;
+  min-height: 92px;
+  padding: 12px 14px;
+  color: #f8f1d4;
+  background: rgba(4, 6, 16, 0.94);
+  border: 1px solid rgba(255, 196, 0, 0.4);
+  border-radius: 14px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.guild-motd-input:focus {
+  outline: none;
+  border-color: rgba(255, 220, 112, 0.8);
+  box-shadow: 0 0 0 2px rgba(255, 196, 0, 0.12);
+}
+.guild-motd-help {
+  display: grid;
+  gap: 8px;
+  color: #d7c28e;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.guild-motd-help strong {
+  color: #ffe39a;
+}
+.guild-motd-example {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 196, 0, 0.18);
+  background: rgba(255, 204, 72, 0.08);
+  color: #fff0bf;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.9rem;
+}
+.guild-motd-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.guild-motd-status {
+  color: #cdbb8b;
+  font-size: 0.88rem;
+}
+.guild-motd-current {
+  margin: 0 0 12px;
 }
 .guild-divider {
   margin-top: 18px;
@@ -693,6 +907,8 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
         </form>
 
       <div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo $totalMembers; ?> members</div>
+      <?php if ($guildNoteFeedback !== ''): ?><div class="guild-note-banner"><?php echo htmlspecialchars($guildNoteFeedback); ?></div><?php endif; ?>
+      <?php if ($guildNoteError !== ''): ?><div class="guild-note-banner is-error"><?php echo htmlspecialchars($guildNoteError); ?></div><?php endif; ?>
 
 
 
@@ -705,6 +921,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
             <th><a class="<?php echo $sortBy === 'level' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'level', $sortBy, $sortDir)); ?>">Level<?php echo $sortBy === 'level' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
             <th><a class="<?php echo $sortBy === 'ilvl' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'ilvl', $sortBy, $sortDir)); ?>">Avg iLvl<?php echo $sortBy === 'ilvl' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
             <th><a class="<?php echo $sortBy === 'rank' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guild_roster_sort_url($baseUrl, 'rank', $sortBy, $sortDir)); ?>">Guild Rank<?php echo $sortBy === 'rank' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></th>
+            <th>Guild Notes</th>
           </tr>
         </thead>
         <tbody>
@@ -728,10 +945,41 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
                 <td><?php echo (int)$member['level']; ?></td>
                 <td><?php echo !empty($memberAverageItemLevels[(int)$member['guid']]) ? number_format((float)$memberAverageItemLevels[(int)$member['guid']], 1) : '-'; ?></td>
                 <td class="guild-rank"><?php echo htmlspecialchars(!empty($member['rank_name']) ? $member['rank_name'] : ('Rank ' . (int)$member['rank'])); ?></td>
+                <td class="guild-notes-cell">
+                  <?php if ($canEditGuildNotes): ?>
+                    <form method="post" class="guild-note-form">
+                      <input type="hidden" name="guild_note_action" value="save_member_note">
+                      <input type="hidden" name="note_guid" value="<?php echo (int)$member['guid']; ?>">
+                      <div class="guild-note-line">
+                        <label class="guild-note-label" for="pnote-<?php echo (int)$member['guid']; ?>">Public Note</label>
+                        <input class="guild-note-input" id="pnote-<?php echo (int)$member['guid']; ?>" type="text" name="pnote" maxlength="31" value="<?php echo htmlspecialchars((string)($member['pnote'] ?? '')); ?>">
+                      </div>
+                      <div class="guild-note-line">
+                        <label class="guild-note-label" for="offnote-<?php echo (int)$member['guid']; ?>">Officer Note</label>
+                        <input class="guild-note-input" id="offnote-<?php echo (int)$member['guid']; ?>" type="text" name="offnote" maxlength="31" value="<?php echo htmlspecialchars((string)($member['offnote'] ?? '')); ?>">
+                      </div>
+                      <div class="guild-note-actions">
+                        <button class="guild-note-save" type="submit">Save Notes</button>
+                        <span class="guild-note-help">Writes to the live in-game guild notes.</span>
+                      </div>
+                    </form>
+                  <?php else: ?>
+                    <div class="guild-note-stack">
+                      <div class="guild-note-line">
+                        <div class="guild-note-label">Public Note</div>
+                        <div class="guild-note-value<?php echo trim((string)($member['pnote'] ?? '')) === '' ? ' is-empty' : ''; ?>"><?php echo trim((string)($member['pnote'] ?? '')) !== '' ? htmlspecialchars((string)$member['pnote']) : 'No public note'; ?></div>
+                      </div>
+                      <div class="guild-note-line">
+                        <div class="guild-note-label">Officer Note</div>
+                        <div class="guild-note-value<?php echo trim((string)($member['offnote'] ?? '')) === '' ? ' is-empty' : ''; ?>"><?php echo trim((string)($member['offnote'] ?? '')) !== '' ? htmlspecialchars((string)$member['offnote']) : 'No officer note'; ?></div>
+                      </div>
+                    </div>
+                  <?php endif; ?>
+                </td>
               </tr>
             <?php endforeach; ?>
           <?php else: ?>
-            <tr><td colspan="6">No roster members matched the current filter.</td></tr>
+            <tr><td colspan="7">No roster members matched the current filter.</td></tr>
           <?php endif; ?>
         </tbody>
       </table>
@@ -744,7 +992,36 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
     <div class="guild-side-stack">
       <section class="guild-section guild-motd-panel">
         <h3 class="guild-side-title">Message Of The Day</h3>
-        <p class="guild-side-copy"><?php echo htmlspecialchars($motd); ?></p>
+        <?php if ($guildMotdFeedback !== ''): ?>
+          <div class="guild-note-banner"><?php echo htmlspecialchars($guildMotdFeedback); ?></div>
+        <?php endif; ?>
+        <?php if ($guildMotdError !== ''): ?>
+          <div class="guild-note-banner is-error"><?php echo htmlspecialchars($guildMotdError); ?></div>
+        <?php endif; ?>
+
+        <?php if ($canEditGuildMotd): ?>
+          <form class="guild-motd-form" method="post">
+            <input type="hidden" name="guild_motd_action" value="save_guild_motd">
+            <textarea class="guild-motd-input" name="guild_motd" maxlength="128"><?php echo htmlspecialchars((string)($guild['motd'] ?? '')); ?></textarea>
+            <div class="guild-motd-actions">
+              <button class="guild-note-save" type="submit">Save MOTD</button>
+              <span class="guild-motd-status">Writes to the live in-game guild MOTD.</span>
+            </div>
+            <div class="guild-motd-help">
+              <div><strong>Guild meetings format:</strong> <code>Meeting:[location] [start time] [end time]</code></div>
+              <p class="guild-motd-example">Meeting:Stormwind City 15:00 18:00</p>
+              <p class="guild-motd-example">Meeting:Stormwind City 3:00pm 6:00pm</p>
+              <div>Bots begin traveling 30 minutes before the start time and stay until the end time.</div>
+            </div>
+          </form>
+        <?php else: ?>
+          <p class="guild-side-copy guild-motd-current"><?php echo htmlspecialchars($motd); ?></p>
+          <div class="guild-motd-help">
+            <div><strong>Guild meetings format:</strong> <code>Meeting:[location] [start time] [end time]</code></div>
+            <p class="guild-motd-example">Meeting:Stormwind City 15:00 18:00</p>
+            <div>Set by the guild leader in-game or from the website to direct bot meetings.</div>
+          </div>
+        <?php endif; ?>
       </section>
 
       <section class="guild-section guild-insights-panel">

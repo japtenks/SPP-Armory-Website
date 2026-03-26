@@ -2,19 +2,17 @@
 if (INCLUDED !== true) exit;
 
 $pathway_info[] = array('title' => $lang['bot_commands'], 'link' => '');
-$userlevel = ($user['gmlevel'] != '' ? $user['gmlevel'] : 0);
-
-/* ---------- Verify DB ---------- */
-if (!isset($DB)) {
-  echo "<div style='color:red;padding:8px;'>[ERROR] No DB connection.</div>";
-  return;
-}
+$userlevel = (int)($user['gmlevel'] != '' ? $user['gmlevel'] : 0);
 
 /* ---------- Load Commands ---------- */
-$botCommands = $DB->select("
+$realmId   = spp_resolve_realm_id($realmDbMap);
+$armoryPdo = spp_get_pdo('armory', $realmId);
+$stmt = $armoryPdo->prepare("
   SELECT name, security, help, category, subcategory
-  FROM tbcarmory.bot_command
-  WHERE security <= $userlevel
+  FROM bot_command
+  WHERE security <= ?
   ORDER BY category, subcategory, name ASC
 ");
+$stmt->execute([$userlevel]);
+$botCommands = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>

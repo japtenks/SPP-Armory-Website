@@ -1,8 +1,13 @@
 <?php
 if(INCLUDED!==true)exit;
 $MANG = new Mangos;
-$realm = $DB->selectRow("SELECT * FROM realmlist WHERE id=?d LIMIT 1",$user['cur_selected_realmd']);
-$honor = $CHDB->select("SELECT * FROM character_kill ORDER BY guid");
+$realmId  = (int)($user['cur_selected_realmd'] ?? 1);
+$realmPdo = spp_get_pdo('realmd', $realmId);
+$charPdo  = spp_get_pdo('chars',  $realmId);
+$stmtRealm = $realmPdo->prepare("SELECT * FROM realmlist WHERE id=? LIMIT 1");
+$stmtRealm->execute([$realmId]);
+$realm = $stmtRealm->fetch(PDO::FETCH_ASSOC);
+$honor = $charPdo->query("SELECT * FROM character_kill ORDER BY guid")->fetchAll(PDO::FETCH_ASSOC);
 foreach($honor as $res_row)
 {
     if($res_row['type']==1){
@@ -17,7 +22,11 @@ arsort($honor_arr);
 $honor_arr = array_slice($honor_arr,0,40,true);
 $charinfo_arr = array();
 $allhonor = array();
-$charinfo_arr = $CHDB->select("SELECT characters.guid,characters.data,characters.name,characters.race,characters.class FROM `characters` WHERE guid IN(?a)",array_keys($honor_arr));
+$honorKeys = array_keys($honor_arr);
+$honorPlaceholders = implode(',', array_fill(0, count($honorKeys), '?'));
+$stmtCi = $charPdo->prepare("SELECT guid,data,name,race,class FROM `characters` WHERE guid IN($honorPlaceholders)");
+$stmtCi->execute($honorKeys);
+$charinfo_arr = $stmtCi->fetchAll(PDO::FETCH_ASSOC);
 // Prepair for sending data ...
 foreach($charinfo_arr as $charinfo_item){
     $char_data = explode(' ',$charinfo_item['data']);

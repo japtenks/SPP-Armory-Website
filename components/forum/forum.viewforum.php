@@ -8,25 +8,25 @@ $this_forum['linktomarkread'] = $MW->getConfig->temp->site_href.'index.php?n=for
 // ==================== //
 $pathway_info[] = array('title'=>$this_forum['forum_name'],'link'=>'');
 // ==================== //
+
+$vfRealmId = spp_resolve_realm_id($realmDbMap);
+$vfPdo = spp_get_pdo('realmd', $vfRealmId);
+
 // MARKREAD //
 if($user['id']>0){
     $topicsmark = array();
     if($_GETVARS['markread']==1){
-        $DB->query("
-            UPDATE f_markread 
-            SET marker_topics_read=?,marker_last_update=?d,marker_unread=0,marker_last_cleared=?d 
-            WHERE marker_member_id=?d AND marker_forum_id=?d
-            ",serialize($topicsmark),$_SERVER['REQUEST_TIME'],$_SERVER['REQUEST_TIME'],$user['id'],$this_forum['forum_id']);
+        $stmtMr = $vfPdo->prepare("UPDATE f_markread SET marker_topics_read=?,marker_last_update=?,marker_unread=0,marker_last_cleared=? WHERE marker_member_id=? AND marker_forum_id=?");
+        $stmtMr->execute([serialize($topicsmark), (int)$_SERVER['REQUEST_TIME'], (int)$_SERVER['REQUEST_TIME'], (int)$user['id'], (int)$this_forum['forum_id']]);
         redirect($MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewforum&fid='.$this_forum['forum_id'],1);
     }
-    $mark = $DB->selectRow("
-        SELECT * FROM f_markread 
-        WHERE marker_member_id=?d AND marker_forum_id=?d
-        ",$user['id'],$this_forum['forum_id']);
-    if(!$mark)$DB->query("
-        INSERT INTO f_markread 
-        SET marker_member_id=?d,marker_forum_id=?d,marker_topics_read=?"
-        ,$user['id'],$this_forum['forum_id'],serialize(array()));
+    $stmtGetMr = $vfPdo->prepare("SELECT * FROM f_markread WHERE marker_member_id=? AND marker_forum_id=?");
+    $stmtGetMr->execute([(int)$user['id'], (int)$this_forum['forum_id']]);
+    $mark = $stmtGetMr->fetch(PDO::FETCH_ASSOC);
+    if(!$mark){
+        $stmtInsMr = $vfPdo->prepare("INSERT INTO f_markread SET marker_member_id=?,marker_forum_id=?,marker_topics_read=?");
+        $stmtInsMr->execute([(int)$user['id'], (int)$this_forum['forum_id'], serialize(array())]);
+    }
     if($mark['marker_topics_read'])$topicsmark = unserialize($mark['marker_topics_read']);
 }
 //===== Calc pages =====//
@@ -37,14 +37,16 @@ $limit_start = ($p-1)*$items_per_pages;
 $this_forum['pnum'] = $pnum;
 
 $topics = array();
-$alltopics = $DB->select("
+$stmtAt = $vfPdo->prepare("
     SELECT f_topics.*,account.username,
            COALESCE(NULLIF(f_topics.topic_poster, ''), account.username) AS topic_author_display
-    FROM f_topics 
-    LEFT JOIN account ON f_topics.topic_poster_id=account.id 
-    WHERE forum_id=?d 
-    ORDER BY sticky DESC,last_post DESC 
-    LIMIT ?d,?d",$this_forum['forum_id'],$limit_start,$items_per_pages);
+    FROM f_topics
+    LEFT JOIN account ON f_topics.topic_poster_id=account.id
+    WHERE forum_id=?
+    ORDER BY sticky DESC,last_post DESC
+    LIMIT " . (int)$limit_start . "," . (int)$items_per_pages);
+$stmtAt->execute([(int)$this_forum['forum_id']]);
+$alltopics = $stmtAt->fetchAll(PDO::FETCH_ASSOC);
 foreach($alltopics as $cur_topic)
 {
     if($user['id']>0 && $cur_topic['last_post'] > $mark['marker_last_cleared']){
@@ -57,7 +59,7 @@ foreach($alltopics as $cur_topic)
     }else{
         $cur_topic['isnew']=false;
     }
-    
+
     $pnum = ceil($cur_topic['num_replies']/(int)$MW->getConfig->generic->posts_per_page);
     if($pnum>1){
         $cur_topic['pages_str'] = '&laquo; ';
@@ -68,19 +70,20 @@ foreach($alltopics as $cur_topic)
     if(date('d',$cur_topic['topic_posted'])==date('d') && $_SERVER['REQUEST_TIME']-$cur_topic['topic_posted']<86400)$cur_topic['topic_posted'] = $lang['today_at'].date('H:i',$cur_topic['topic_posted']);
     elseif(date('d',$cur_topic['topic_posted'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$cur_topic['topic_posted']<2*86400)$cur_topic['topic_posted'] = $lang['yesterday_at'].date('H:i',$cur_topic['topic_posted']);
     else $cur_topic['topic_posted'] = date('d-m-Y, H:i',$cur_topic['topic_posted']);
-    
+
     if(date('d',$cur_topic['last_post'])==date('d') && $_SERVER['REQUEST_TIME']-$cur_topic['last_post']<86400)$cur_topic['last_post'] = $lang['today_at'].date('H:i',$cur_topic['last_post']);
     elseif(date('d',$cur_topic['last_post'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$cur_topic['last_post']<2*86400)$cur_topic['last_post'] = $lang['yesterday_at'].date('H:i',$cur_topic['last_post']);
     else $cur_topic['last_post'] = date('d-m-Y, H:i',$cur_topic['last_post']);
-    
+
     $cur_topic['linktothis'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$cur_topic['topic_id'].'';
     $cur_topic['linktolastpost'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$cur_topic['topic_id'].'&to=lastpost';
     $cur_topic['linktoprofile1'] = $MW->getConfig->temp->site_href.'index.php?n=account&sub=view&action=find&name='.$cur_topic['username'].'';
     $cur_topic['linktoprofile2'] = $MW->getConfig->temp->site_href.'index.php?n=account&sub=view&action=find&name='.$cur_topic['last_poster'].'';
-    
+
     $topics[] = $cur_topic;
 }
 unset($alltopics);
 ?>
+
 
 

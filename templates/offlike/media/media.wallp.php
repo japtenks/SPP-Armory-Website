@@ -17,20 +17,25 @@
      echo ("<br/>");
      exit;
      }
-     if($DB->selectCell("SELECT count(*) FROM `gallery` WHERE img=? AND cat='wallpaper'", $img)){
+      $galleryPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+     $stmtGc = $galleryPdo->prepare("SELECT count(*) FROM `gallery` WHERE img=? AND cat='wallpaper'");
+     $stmtGc->execute([$img]);
+     if($stmtGc->fetchColumn()){
      echo $lang['ErrorFilename'];
      exit;
      }
      if(copy($_FILES["filename"]["tmp_name"],
      "./images/wallpapers/".$_FILES["filename"]["name"])) {
      $comment = "wallpaper";
-     $DB->query("INSERT INTO gallery (img,comment,autor,date,cat) VALUES(?,?,'$autor','$date','wallpaper')",$img,$comment);
+     $stmtGi = $galleryPdo->prepare("INSERT INTO gallery (img,comment,autor,date,cat) VALUES(?,?,?,?,'wallpaper')");
+     $stmtGi->execute([$img, $comment, $autor, $date]);
      } else {
      echo $lang['Uploaderror']; }
     }
 ?>
 <?php
-$gal_count = $DB->selectCell("SELECT count(*) FROM `gallery` WHERE cat='wallpaper'");
+if (!isset($galleryPdo)) $galleryPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$gal_count = (int)$galleryPdo->query("SELECT count(*) FROM `gallery` WHERE cat='wallpaper'")->fetchColumn();
 ?>
 
 
@@ -57,7 +62,9 @@ if ($gal_count) {
 <table border=0>
 <tr>
 <?php
-$sql = $DB->select("SELECT * FROM gallery WHERE cat='wallpaper' LIMIT ".$limit_start.",".(int)$MW->getConfig->generic->images_per_page);
+$stmtGl = $galleryPdo->prepare("SELECT * FROM gallery WHERE cat='wallpaper' LIMIT ".(int)$limit_start.",?"  );
+$stmtGl->execute([(int)$MW->getConfig->generic->images_per_page]);
+$sql = $stmtGl->fetchAll(PDO::FETCH_ASSOC);
 foreach($sql as $tablerows){
 ?>
 
@@ -110,7 +117,7 @@ src="show_picture.php?filename=<?php echo  $tablerows['img'];?>&gallery=wallp&wi
 else {
 	echo "No Wallpapers in gallery. Upload a wallpaper.";
 }
-mysql_close(); ?>
+?>
 </tr>
 </table>
 </center>

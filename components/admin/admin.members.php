@@ -4,8 +4,8 @@ if(INCLUDED !== true)exit;
 $oldInactiveTime = 3600 * 24 * 7;
 // ==================== //
 if($_POST['search_member'] == TRUE){
-    $s_string = mysql_real_escape_string($_POST['search_member']);
-    $st = $DB->selectCell("SELECT id FROM account WHERE username='" . $s_string . "'");
+    $s_string = trim($_POST['search_member']);
+    $st = $DB->selectCell("SELECT id FROM account WHERE username=?s", $s_string);
     if($st != ''){
         redirect('index.php?n=admin&sub=members&id=' . $st, 0);
     }else{

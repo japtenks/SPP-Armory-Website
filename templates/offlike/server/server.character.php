@@ -1290,11 +1290,12 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                 $iconId = (int)($achievementRow[$achievementIconIdField] ?? 0);
                 if ($iconId > 0) $achievementIconIds[$iconId] = true;
             }
-            if (!empty($achievementIconIds) && spp_character_table_exists($armoryPdo, 'dbc_spellicon')) {
-                $spellIconFields = spp_character_spellicon_fields($armoryPdo);
+            $achievementIconPdo = spp_character_pick_dbc_pdo(array($achievementSourcePdo, $worldPdo, $armoryPdo), 'dbc_spellicon') ?: $armoryPdo;
+            if (!empty($achievementIconIds) && $achievementIconPdo && spp_character_table_exists($achievementIconPdo, 'dbc_spellicon')) {
+                $spellIconFields = spp_character_spellicon_fields($achievementIconPdo);
                 if ($spellIconFields['id'] && $spellIconFields['name']) {
-                $placeholders = implode(',', array_fill(0, count($achievementIconIds), '?'));
-                    $stmt = $armoryPdo->prepare('SELECT `' . $spellIconFields['id'] . '` AS `id`, `' . $spellIconFields['name'] . '` AS `name` FROM `dbc_spellicon` WHERE `' . $spellIconFields['id'] . '` IN (' . $placeholders . ')');
+                    $placeholders = implode(',', array_fill(0, count($achievementIconIds), '?'));
+                    $stmt = $achievementIconPdo->prepare('SELECT `' . $spellIconFields['id'] . '` AS `id`, `' . $spellIconFields['name'] . '` AS `name` FROM `dbc_spellicon` WHERE `' . $spellIconFields['id'] . '` IN (' . $placeholders . ')');
                     $stmt->execute(array_keys($achievementIconIds));
                     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $iconRow) $achievementIconMap[(int)$iconRow['id']] = (string)$iconRow['name'];
                 }

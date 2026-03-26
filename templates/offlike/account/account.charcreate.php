@@ -17,7 +17,10 @@
     if ($exit == TRUE){
        echo "<p><b>".$lang['not_copy_realm_choose_other']."</b><ul>";
        foreach($usable_realm as $rm){
-           $realmname = $DB->selectCell("SELECT name FROM `realmlist` WHERE id='".$rm."'");
+           $realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+       $stmtRn = $realmPdo->prepare("SELECT name FROM `realmlist` WHERE id=?");
+       $stmtRn->execute([(int)$rm]);
+       $realmname = $stmtRn->fetchColumn();
            echo "<li><a href='index.php?n=account&sub=charcreate&changerealm_to=".$rm."'>".$realmname."</a></li>";
        }
        echo "</ul></p>";
@@ -104,7 +107,10 @@ if ((int)$MW->getConfig->character_copy_config->enable == 1){
     $MANG = new Mangos;
 
 		// Main Get and assign values to inputs.
-		$available_points = $DB->selectCell("SELECT `points` FROM `voting_points` WHERE id=?d",$userid);
+		$realmdPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+		$stmtPts = $realmdPdo->prepare("SELECT `points` FROM `voting_points` WHERE id=?");
+		$stmtPts->execute([(int)$userid]);
+		$available_points = $stmtPts->fetchColumn();
 		if($char_points > $available_points){
 			$disabled = disabled;
 			echo "<font color=\"red\"><center>You do not have enough points to copy a character!!</center></font>";
@@ -114,7 +120,10 @@ if ((int)$MW->getConfig->character_copy_config->enable == 1){
 		}
     $alliance_cop = (int)$MW->getConfig->character_copy_config->accounts->alliance;
     $horde_cop = (int)$MW->getConfig->character_copy_config->accounts->horde;
-    $query = $CHDB->select("SELECT * FROM `characters` WHERE account='$alliance_cop' or account='$horde_cop'  ORDER BY account");
+    $charPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
+    $stmtChars = $charPdo->prepare("SELECT * FROM `characters` WHERE account=? OR account=? ORDER BY account");
+    $stmtChars->execute([(int)$alliance_cop, (int)$horde_cop]);
+    $query = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
 
     if ($query == FALSE){
       echo $lang[no_char_create];

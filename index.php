@@ -84,6 +84,7 @@ $_SERVER['REQUEST_TIME'] = time() ;
 // Initialize config's.
 include ( 'core/class.mangosweb.php' ) ;
 $MW = new mangosweb ; // Super global.
+$realmDbMap = $GLOBALS['realmDbMap'] ?? [] ;
 
 // Site functions & classes ...
 include 	( 'core/common.php' ) ;
@@ -179,8 +180,10 @@ if ( $user['id'] == -1 )
 	$currtmp = "templates/".( string ) $MW->getConfig->generic->default_template ;
 } else
 {
-	$currtmp = $DB->selectCell( "SELECT theme FROM `website_accounts` WHERE account_id=?d",
-		$user['id'] ) ;
+	$_pdoTheme = spp_get_pdo('realmd', 1);
+	$_stmtTheme = $_pdoTheme->prepare("SELECT theme FROM `website_accounts` WHERE account_id=?");
+	$_stmtTheme->execute([$user['id']]);
+	$currtmp = $_stmtTheme->fetchColumn();
 	foreach ( $MW->getConfig->templates->template as $template )
 	{
 		$currtmp2[] = $template ;

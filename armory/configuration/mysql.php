@@ -48,30 +48,30 @@ if ($defaultRealm) {
 }
 
 function execute_query($db_name, $query, $method = 0, $error = ""){
-    global $DB, $WSDB, $CHDB, $ARDB, $PBDB;
-    $query_result = false;
-    if ($method == 0) {
-        if ($db_name == "realm")      $query_result = $DB->query($query);
-        elseif ($db_name == "armory") $query_result = $ARDB->query($query);
-        elseif ($db_name == "char")   $query_result = $CHDB->query($query);
-        elseif ($db_name == "world")  $query_result = $WSDB->query($query);
-        elseif ($db_name == "bots")   $query_result = $PBDB->query($query);
-    } elseif ($method == 1) {
-        if ($db_name == "realm")      $query_result = $DB->selectRow($query);
-        elseif ($db_name == "armory") $query_result = $ARDB->selectRow($query);
-        elseif ($db_name == "char")   $query_result = $CHDB->selectRow($query);
-        elseif ($db_name == "world")  $query_result = $WSDB->selectRow($query);
-        elseif ($db_name == "bots")   $query_result = $PBDB->selectRow($query);
-    } elseif ($method == 2) {
-        if ($db_name == "realm")      $query_result = $DB->selectCell($query);
-        elseif ($db_name == "armory") $query_result = $ARDB->selectCell($query);
-        elseif ($db_name == "char")   $query_result = $CHDB->selectCell($query);
-        elseif ($db_name == "world")  $query_result = $WSDB->selectCell($query);
-        elseif ($db_name == "bots")   $query_result = $PBDB->selectCell($query);
+    global $realms;
+    $realmId = defined('REALM_NAME') && isset($realms[REALM_NAME]) ? (int)$realms[REALM_NAME][0] : 1;
+    $target_map = [
+        'realm' => 'realmd',
+        'char'  => 'chars',
+        'world' => 'world',
+        'armory'=> 'armory',
+        'bots'  => 'bots',
+    ];
+    $target = $target_map[$db_name] ?? null;
+    if (!$target) die($error . "Database not chosen");
+    try {
+        $pdo  = spp_get_pdo($target, $realmId);
+        $stmt = $pdo->query($query);
+        if (!$stmt) {
+            if ($error) die($error);
+            return false;
+        }
+        if ($method == 1) return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
+        if ($method == 2) return $stmt->fetchColumn();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        if ($error) die($error);
+        return false;
     }
-    if (!$db_name) die($error . "Database not chosen");
-    if ($query_result) return $query_result;
-    elseif (!$query_result && $error) { die($error); return false; }
-    return false;
 }
 ?>

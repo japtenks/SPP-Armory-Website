@@ -21,7 +21,7 @@ foreach($realmz as $aaa) {
 $realmzlist .= "<option value='".$aaa['id']."'>".$aaa['name']."</option>";
 }
 if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
-    $character_item_id = $CHDB->selectCell("SELECT guid FROM `characters` WHERE name='".mysql_real_escape_string($_POST['donate_username'])."'");
+    $character_item_id = $CHDB->selectCell("SELECT guid FROM `characters` WHERE name=?s", $_POST['donate_username']);
     if ($character_item_id != '' && $_POST['donate_username'] != '' && $_POST['donate_items'] != ''){
         $MANG = new Mangos;
         if($MANG->mail_item_donation($_POST['donate_items'], $character_item_id,false,true) == TRUE){

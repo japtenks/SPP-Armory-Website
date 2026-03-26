@@ -6,12 +6,14 @@ define('DATE_RFC822_FIXED', 'D, d M Y H:i:s O');
 include('core/class.mangosweb.php');
 $MW = new mangosweb; // Super global.
 
-// Load and connect the database
-include('core/dbsimple/Generic.php');
-$DB = dbsimple_Generic::connect("".$MW->getDbInfo['db_type']."://".$MW->getDbInfo['db_username'].":".$MW->getDbInfo['db_password']."@".$MW->getDbInfo['db_host'].":".$MW->getDbInfo['db_port']."/".$MW->getDbInfo['db_name']."");
+// Load PDO helpers
+require_once('config/config-protected.php');
+require_once('config/config-helper.php');
+
+$rssPdo = spp_get_pdo('realmd', 1);
 
 // Get the last time someone added a post (used to determine wheter we should write a new xml or not)
-$last_posted_time = $DB->selectCell("SELECT posted FROM `f_posts` ORDER BY posted DESC LIMIT 0,1");
+$last_posted_time = (int)$rssPdo->query("SELECT posted FROM `f_posts` ORDER BY posted DESC LIMIT 0,1")->fetchColumn();
 
 // Switch for wanted xml document.
 // We use $_GET['type']. Default type will ( none ) Will print news.xml.
@@ -25,8 +27,12 @@ switch($type)
 		// IF we need to write a new xml, compose a new one
 		if($write_new_file)
 		{
-	        $f_forums = $DB->selectRow("SELECT * FROM `f_forums` WHERE forum_id='".(int)$MW->getConfig->generic_values->forum->news_forum_id."'");
-	        $f_topics = $DB->select("SELECT * FROM `f_topics` WHERE forum_id='".(int)$MW->getConfig->generic_values->forum->news_forum_id."'");
+	        $stmtFf = $rssPdo->prepare("SELECT * FROM `f_forums` WHERE forum_id=?");
+	        $stmtFf->execute([(int)$MW->getConfig->generic_values->forum->news_forum_id]);
+	        $f_forums = $stmtFf->fetch(PDO::FETCH_ASSOC);
+	        $stmtFt = $rssPdo->prepare("SELECT * FROM `f_topics` WHERE forum_id=?");
+	        $stmtFt->execute([(int)$MW->getConfig->generic_values->forum->news_forum_id]);
+	        $f_topics = $stmtFt->fetchAll(PDO::FETCH_ASSOC);
 
 	        $write_file = array();
 	        $write_file[] = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>";
@@ -40,7 +46,9 @@ switch($type)
 
 			foreach($f_topics as $topic)
 			{
-				$f_posts = $DB->select("SELECT * FROM `f_posts` WHERE topic_id='".$topic['topic_id']."' ORDER BY posted ASC LIMIT 1");
+				$stmtFp = $rssPdo->prepare("SELECT * FROM `f_posts` WHERE topic_id=? ORDER BY posted ASC LIMIT 1");
+				$stmtFp->execute([(int)$topic['topic_id']]);
+				$f_posts = $stmtFp->fetchAll(PDO::FETCH_ASSOC);
 				foreach($f_posts as $f_post)
 				{
 	                $write_file[] = "        <item>";
@@ -63,7 +71,7 @@ switch($type)
 		// IF we need to write a new xml, compose a new one
 		if($write_new_file)
 		{
-			$f_topics = $DB->select("SELECT t.* FROM f_topics t LEFT JOIN f_forums f ON t.forum_id=f.forum_id WHERE f.hidden=0");
+			$f_topics = $rssPdo->query("SELECT t.* FROM f_topics t LEFT JOIN f_forums f ON t.forum_id=f.forum_id WHERE f.hidden=0")->fetchAll(PDO::FETCH_ASSOC);
 
 			$write_file = array();
 			$write_file[] = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>";
@@ -76,7 +84,9 @@ switch($type)
 			$write_file[] = "        <language>en-us</language>";
 			foreach($f_topics as $topic)
 			{
-				$f_posts = $DB->select("SELECT * FROM `f_posts` WHERE topic_id='".$topic['topic_id']."' ORDER BY posted ASC");
+				$stmtFp2 = $rssPdo->prepare("SELECT * FROM `f_posts` WHERE topic_id=? ORDER BY posted ASC");
+				$stmtFp2->execute([(int)$topic['topic_id']]);
+				$f_posts = $stmtFp2->fetchAll(PDO::FETCH_ASSOC);
 
 				foreach($f_posts as $f_post)
 				{

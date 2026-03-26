@@ -17,19 +17,24 @@
      echo ("<br/>");
      exit;
      }
-     if($DB->selectCell("SELECT count(*) FROM `gallery` WHERE img=? AND cat='screenshot'", $img)){
+     $galleryPdoSc = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+     $stmtScCheck = $galleryPdoSc->prepare("SELECT count(*) FROM `gallery` WHERE img=? AND cat='screenshot'");
+     $stmtScCheck->execute([$img]);
+     if($stmtScCheck->fetchColumn()){
      echo $lang['ErrorFilename'];
      exit;
      }
      if(copy($_FILES["filename"]["tmp_name"],
      "./images/screenshots/".$_FILES["filename"]["name"])) {
-     $DB->query("INSERT INTO gallery (img,comment,autor,date,cat) VALUES(?,?,'$autor','$date','screenshot')",$img,$comment);
+     $stmtScIns = $galleryPdoSc->prepare("INSERT INTO gallery (img,comment,autor,date,cat) VALUES(?,?,?,?,'screenshot')");
+     $stmtScIns->execute([$img, $comment, $autor, $date]);
      } else {
      echo $lang['Uploaderror']; }
     }
 ?>
 <?php
-$gal_count = $DB->selectCell("SELECT count(*) FROM `gallery` WHERE cat='screenshot'");
+if (!isset($galleryPdoSc)) $galleryPdoSc = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$gal_count = (int)$galleryPdoSc->query("SELECT count(*) FROM `gallery` WHERE cat='screenshot'")->fetchColumn();
 ?>
 
 
@@ -56,7 +61,9 @@ if ($gal_count) {
 <table border=0>
 <tr>
 <?php
-$sql = $DB->select("SELECT * FROM gallery WHERE cat='screenshot' LIMIT ".$limit_start.",".(int)$MW->getConfig->generic->images_per_page);
+$stmtScList = $galleryPdoSc->prepare("SELECT * FROM gallery WHERE cat='screenshot' LIMIT ".(int)$limit_start.",?");
+$stmtScList->execute([(int)$MW->getConfig->generic->images_per_page]);
+$sql = $stmtScList->fetchAll(PDO::FETCH_ASSOC);
 foreach($sql as $tablerows){
 ?>
 

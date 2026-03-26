@@ -321,10 +321,6 @@ function escape_string($string)
 {
     global $DB;
 
-    if (get_magic_quotes_gpc()) {
-        $string = stripslashes($string);
-    }
-
     return $DB->escape($string);
 
     //return mysqli_real_escape_string($string);
@@ -337,9 +333,6 @@ function quote_smart($value)
     if( is_array($value) ) {
         return array_map("quote_smart", $value);
     } else {
-        if( get_magic_quotes_gpc() ) {
-            $value = stripslashes($value);
-        }
         if( $value == '' ) {
             $value = 'NULL';
         } if( !is_numeric($value) || $value[0] == '0' ) {
@@ -620,9 +613,6 @@ function send_email($to_email,$to_name,$theme,$text_text,$text_html=''){
 }
 
 function strip_if_magic_quotes($value){
-    if (get_magic_quotes_gpc()) {
-        $value = stripslashes($value);
-    }
     return $value;
 }
 
@@ -938,6 +928,129 @@ function get_realm_byid($id){
     }
 
     return $search_q;
+}
+
+function spp_get_realm_soap_settings($realmId) {
+    $realm = get_realm_byid((int)$realmId);
+    if (!is_array($realm) || empty($realm)) {
+        return null;
+    }
+
+    $soapAddress = isset($realm['soap_address']) ? trim((string)$realm['soap_address']) : '';
+    $soapPort = isset($realm['soap_port']) ? (int)$realm['soap_port'] : 0;
+    $soapUser = isset($realm['soap_user']) ? trim((string)$realm['soap_user']) : '';
+    $soapPass = isset($realm['soap_pass']) ? (string)$realm['soap_pass'] : '';
+
+    if ($soapAddress === '' || $soapPort <= 0 || $soapUser === '' || $soapPass === '') {
+        return null;
+    }
+
+    return array(
+        'address' => $soapAddress,
+        'port' => $soapPort,
+        'user' => $soapUser,
+        'pass' => $soapPass,
+    );
+}
+
+function spp_mangos_soap_execute_command($realmId, $command, &$errorMessage = '') {
+    $settings = spp_get_realm_soap_settings((int)$realmId);
+    if ($settings === null) {
+        $errorMessage = 'SOAP is not configured for this realm.';
+        return false;
+    }
+
+    $command = trim((string)$command);
+    if ($command === '') {
+        $errorMessage = 'SOAP command is empty.';
+        return false;
+    }
+
+    $endpoint = 'http://' . $settings['address'] . ':' . $settings['port'] . '/';
+    $soapEnvelope =
+        '<?xml version="1.0" encoding="UTF-8"?>' .
+        '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:MaNGOS">' .
+            '<SOAP-ENV:Body>' .
+                '<ns1:executeCommand>' .
+                    '<command>' . htmlspecialchars($command, ENT_XML1 | ENT_COMPAT, 'UTF-8') . '</command>' .
+                '</ns1:executeCommand>' .
+            '</SOAP-ENV:Body>' .
+        '</SOAP-ENV:Envelope>';
+
+    $headers = array(
+        'Content-Type: text/xml; charset=utf-8',
+        'SOAPAction: "urn:MaNGOS#executeCommand"',
+        'Content-Length: ' . strlen($soapEnvelope),
+    );
+
+    $responseBody = false;
+    $httpCode = 0;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($endpoint);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $soapEnvelope);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        curl_setopt($ch, CURLOPT_USERPWD, $settings['user'] . ':' . $settings['pass']);
+        $responseBody = curl_exec($ch);
+        if ($responseBody === false) {
+            $errorMessage = 'SOAP request failed: ' . curl_error($ch);
+            curl_close($ch);
+            return false;
+        }
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+    } else {
+        $context = stream_context_create(array(
+            'http' => array(
+                'method' => 'POST',
+                'header' => implode("\r\n", array_merge(
+                    $headers,
+                    array('Authorization: Basic ' . base64_encode($settings['user'] . ':' . $settings['pass']))
+                )),
+                'content' => $soapEnvelope,
+                'timeout' => 8,
+                'ignore_errors' => true,
+            ),
+        ));
+        $responseBody = @file_get_contents($endpoint, false, $context);
+        if ($responseBody === false) {
+            $errorMessage = 'SOAP request failed.';
+            return false;
+        }
+        if (isset($http_response_header) && is_array($http_response_header)) {
+            foreach ($http_response_header as $headerLine) {
+                if (preg_match('/^HTTP\/\S+\s+(\d+)/', $headerLine, $matches)) {
+                    $httpCode = (int)$matches[1];
+                    break;
+                }
+            }
+        }
+    }
+
+    if ($httpCode >= 400) {
+        $errorMessage = 'SOAP request returned HTTP ' . $httpCode . '.';
+        return false;
+    }
+
+    if (stripos($responseBody, '<faultcode>') !== false || stripos($responseBody, '<SOAP-ENV:Fault>') !== false) {
+        $errorMessage = 'SOAP command faulted.';
+        if (preg_match('/<faultstring>(.*?)<\/faultstring>/si', $responseBody, $matches)) {
+            $errorMessage = trim(html_entity_decode(strip_tags($matches[1]), ENT_QUOTES, 'UTF-8'));
+        }
+        return false;
+    }
+
+    $result = '';
+    if (preg_match('/<return>(.*?)<\/return>/si', $responseBody, $matches) || preg_match('/<result>(.*?)<\/result>/si', $responseBody, $matches)) {
+        $result = trim(html_entity_decode(strip_tags($matches[1]), ENT_QUOTES, 'UTF-8'));
+    }
+
+    return $result;
 }
 
 function check_port_status($ip, $port){

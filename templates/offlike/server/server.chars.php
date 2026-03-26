@@ -180,7 +180,6 @@ if (!is_array($realmMap) || empty($realmMap)) {
 }
 
 $realmId = spp_resolve_realm_id($realmMap);
-$realmDB = $realmMap[$realmId]['chars'];
 $armoryRealm = spp_get_armory_realm_name($realmId) ?? '';
 
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
@@ -194,14 +193,15 @@ $baseWhere[] = $includeBots ? 'account >= 1' : 'account > 504';
 $baseWhere[] = '(xp > 0 OR level > 1)';
 $baseWhereSql = implode(' AND ', $baseWhere);
 
-$rawCharacters = $DB->select("
+$charPdo = spp_get_pdo('chars', $realmId);
+$rawCharacters = $charPdo->query("
   SELECT c.guid, c.account, c.name, c.race, c.class, c.gender, c.level, c.zone, g.guildid AS guild_id, g.name AS guild_name
-  FROM {$realmDB}.characters c
-  LEFT JOIN {$realmDB}.guild_member gm ON c.guid = gm.guid
-  LEFT JOIN {$realmDB}.guild g ON gm.guildid = g.guildid
+  FROM characters c
+  LEFT JOIN guild_member gm ON c.guid = gm.guid
+  LEFT JOIN guild g ON gm.guildid = g.guildid
   WHERE {$baseWhereSql}
   ORDER BY c.level DESC, c.name ASC
-");
+")->fetchAll(PDO::FETCH_ASSOC);
 
 $classNames = [
   1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest',

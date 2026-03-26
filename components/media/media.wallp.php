@@ -5,7 +5,9 @@ $pathway_info[] = array('title'=>$lang['GallWalp'],'link'=>'');
 	//===== Calc pages1 =====//
 	$items_per_pages = (int)$MW->getConfig->generic->images_per_page;
  	$limit_start = ($p-1)*$items_per_pages;
-    $cc= $DB->selectCell("SELECT count(*) FROM `gallery` WHERE cat='wallpaper'");
+$realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$stmt = $realmPdo->query("SELECT count(*) FROM `gallery` WHERE cat='wallpaper'");
+$cc = (int)$stmt->fetchColumn();
 	//===== Calc pages2 =====//
 	$pnum = ceil($cc/$items_per_pages);
 	$pages_str = default_paginate($pnum, $p, "index.php?n=media&sub=wallp");

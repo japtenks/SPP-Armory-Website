@@ -6,6 +6,7 @@ $pathway_info[] = array('title'=>$lang['accediting'],'link'=>'');
 if($user['id']<=0){
     redirect('index.php?n=account&sub=login',1);
 }else{
+    $managePdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
     if(!$_GET['action']){
         $profile = $auth->getprofile($user['id']);
         $profile['signature'] = str_replace('<br />','',$profile['signature']);
@@ -13,11 +14,16 @@ if($user['id']<=0){
         $newemail = trim($_POST['new_email']);
         if($auth->isvalidemail($newemail)){
             if($auth->isavailableemail($newemail)){
-                if($DB->query("UPDATE account SET email=? WHERE id=?d LIMIT 1",$newemail,$user['id'])===true){
+                $stmt = $managePdo->prepare("UPDATE account SET email=? WHERE id=? LIMIT 1");
+                $stmt->execute([$newemail, (int)$user['id']]);
+                if($stmt->rowCount() > 0){
                     if((int)$MW->getConfig->generic->use_purepass_table) {
-                        $count_occur = $DB->selectCell("SELECT count(*) FROM account_pass WHERE id=?d", $user['id']);
+                        $stmt = $managePdo->prepare("SELECT count(*) FROM account_pass WHERE id=?");
+                        $stmt->execute([(int)$user['id']]);
+                        $count_occur = $stmt->fetchColumn();
                         if($count_occur) {
-                            $DB->query("UPDATE account_pass SET email=? WHERE id=?d LIMIT 1",$newemail,$user['id']);
+                            $stmt = $managePdo->prepare("UPDATE account_pass SET email=? WHERE id=? LIMIT 1");
+                            $stmt->execute([$newemail, (int)$user['id']]);
                         }
                     }
                     output_message('notice','<b>'.$lang['change_mail'].'</b><meta http-equiv=refresh content="2;url=index.php?n=account&sub=manage">');

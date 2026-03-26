@@ -39,7 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($username) < 3 || strlen($password) < 3) {
         $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username and password must be at least 3 characters long.</div>";
     } else {
-        $exists = $DB->selectCell("SELECT id FROM account WHERE LOWER(username)=LOWER(?)", $username);
+        $realmdPdo2 = spp_get_pdo('realmd', $registerRealmId);
+        $stmtEx = $realmdPdo2->prepare("SELECT id FROM account WHERE LOWER(username)=LOWER(?)");
+        $stmtEx->execute([$username]);
+        $exists = $stmtEx->fetchColumn();
 
         if ($exists) {
             $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username already exists. Please choose another.</div>";

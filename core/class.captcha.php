@@ -38,7 +38,8 @@ class Captcha
 
 	function delold()
 	{
-	    global $DB;
+		$pdo = spp_get_pdo('realmd', 1);
+		$stmt = $pdo->prepare("DELETE FROM acc_creation_captcha WHERE filename=?");
 		$handle=opendir($this->tmpfolder);
 		while ($file = readdir ($handle))
 		{
@@ -47,9 +48,7 @@ class Captcha
 				if ( filemtime($this->tmpfolder.$file) <= time()-$this->maxold )
 				{
 					unlink($this->tmpfolder.$file);
-					$qry="DELETE FROM acc_creation_captcha WHERE filename='".$this->tmpfolder.$file."'";
-					$DB->query($qry);
-//					echo "<p>$qry</p>";
+					$stmt->execute([$this->tmpfolder.$file]);
 				}
 			}
 		}

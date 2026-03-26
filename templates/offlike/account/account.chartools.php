@@ -42,9 +42,11 @@ div.errorMsg { width: 60%; height: 30px; line-height: 30px; font-size: 10pt; bor
     <select name="name">
 <?php
 
-$qray = $CHDB->select("SELECT * FROM `characters` WHERE account='$user[id]'");
+$stmtCt1 = $charPdoCt->prepare("SELECT * FROM `characters` WHERE account=?");
+$stmtCt1->execute([(int)$user['id']]);
+$qray = $stmtCt1->fetchAll(PDO::FETCH_ASSOC);
 foreach($qray as $c){
-        echo "<option value='".$c['name']."'>".$c['name']."</option>";
+        echo "<option value='".htmlspecialchars($c['name'])."'>".htmlspecialchars($c['name'])."</option>";
 }
 
 ?>
@@ -60,9 +62,11 @@ foreach($qray as $c){
 <?php
 if (isset($_POST['unstuck'])) {
     $name = $_POST['name'];
-	$race = $CHDB->SelectCell("SELECT race FROM characters WHERE name LIKE '$name'");
+    $stmtRace = $charPdoCt->prepare("SELECT race FROM characters WHERE name=?");
+    $stmtRace->execute([$name]);
+    $race = $stmtRace->fetchColumn();
     $isalliance = isAlliance($race);
-    $status = check_if_online($name);
+    $status = check_if_online($name, $charPdoCt);
     if ($status == -1) {
         echo "<p align='center'><font color='red'>The character doesnt exsist
                 </font></p>";
@@ -72,11 +76,13 @@ if (isset($_POST['unstuck'])) {
 		echo "<p align='center'><font color='red'>This character is online. Please try again later</font></p>";
 	else {
 		if($isalliance==true) {
-			$CHDB->query("UPDATE characters SET position_x = -8913.23, position_y = 554.633, position_z = 93.7944, map = 0, zone = 1519 WHERE name LIKE '$name'");
-			echo "<p align='center'><font color='blue'>Success! Character " .$name." Has been teleported to Stormwind</font></p>";
+			$stmtUs1 = $charPdoCt->prepare("UPDATE characters SET position_x = -8913.23, position_y = 554.633, position_z = 93.7944, map = 0, zone = 1519 WHERE name=?");
+			$stmtUs1->execute([$name]);
+			echo "<p align='center'><font color='blue'>Success! Character " .htmlspecialchars($name)." Has been teleported to Stormwind</font></p>";
 		}else{
-			$CHDB->query("UPDATE characters SET position_x = 1440.45, position_y = -4422.78, position_z = 25.4634, map = 1, zone = 1637 WHERE name LIKE '$name'");
-			echo "<p align='center'><font color='blue'>Success! Character " .$name." Has been teleported to Orgrimar</font></p>";
+			$stmtUs2 = $charPdoCt->prepare("UPDATE characters SET position_x = 1440.45, position_y = -4422.78, position_z = 25.4634, map = 1, zone = 1637 WHERE name=?");
+			$stmtUs2->execute([$name]);
+			echo "<p align='center'><font color='blue'>Success! Character " .htmlspecialchars($name)." Has been teleported to Orgrimar</font></p>";
 		}
 	}
 }
@@ -121,7 +127,7 @@ if ($show_rename == false){
 			echo "<font color=\"red\"><center>You do not have enough points to rename a character!!</center></font>";
 		}else{
 			$disabledr = 0;
-			
+
 		}
 ?>
 <table width="300" border="0" cellpadding="2px">
@@ -131,9 +137,11 @@ if ($show_rename == false){
     <select name="name">
 <?php
 
-$qray = $CHDB->select("SELECT * FROM `characters` WHERE account='$user[id]'");
+$stmtCt2 = $charPdoCt->prepare("SELECT * FROM `characters` WHERE account=?");
+$stmtCt2->execute([(int)$user['id']]);
+$qray = $stmtCt2->fetchAll(PDO::FETCH_ASSOC);
 foreach($qray as $c){
-        echo "<option value='".$c['name']."'>".$c['name']."</option>";
+        echo "<option value='".htmlspecialchars($c['name'])."'>".htmlspecialchars($c['name'])."</option>";
 }
 
 ?>
@@ -169,8 +177,8 @@ if (isset($_POST['rename'])) {
         }
         $name = $_POST['name'];
         $newname = ucfirst(strtolower(trim($_POST['newname'])));
-        $status = check_if_online($name, $CHDB);
-        $newname_exist = check_if_name_exist($newname, $CHDB);
+        $status = check_if_online($name, $charPdoCt);
+        $newname_exist = check_if_name_exist($newname, $charPdoCt);
         if ($status == -1) {
             echo "<p align='center'><font color='red'>The character doesnt exsist
                 </font></p>";
@@ -183,10 +191,10 @@ if (isset($_POST['rename'])) {
     if ($status == 1)
         echo "<p align='center'><font color='red'>This character is online. Please try again later</font></p>";
     else {
-            change_name($name, $newname, $CHDB, $DB);
-			$DB->query("UPDATE `voting_points` SET `points`=(`points` - ".$char_rename_points."), `points_spent`=(`points_spent` + ".$char_rename_points.")
-			WHERE id=?d",$account_id);
-        echo "<p align='center'><font color='blue'>Success! Character " .$name." renamed to " .$newname. "</font></p>";
+            change_name($name, $newname, $account_id, $charPdoCt);
+            $stmtRnPts = $realmPdoCt->prepare("UPDATE `voting_points` SET `points`=(`points` - ?), `points_spent`=(`points_spent` + ?) WHERE id=?");
+            $stmtRnPts->execute([$char_rename_points, $char_rename_points, (int)$account_id]);
+        echo "<p align='center'><font color='blue'>Success! Character " .htmlspecialchars($name)." renamed to " .htmlspecialchars($newname). "</font></p>";
     }
 }
 ?>
@@ -228,7 +236,7 @@ if ($show_custom == false){
 			echo "<font color=\"red\"><center>You do not have enough points to re-customize a character!!</center></font>";
 		}else{
 			$disabledc = 0;
-			
+
 		}
 ?>
 <table width="250" border="0" cellpadding="2px">
@@ -238,9 +246,11 @@ if ($show_custom == false){
     <select name="char_c_name">
 <?php
 
-$qray = $CHDB->select("SELECT * FROM `characters` WHERE account='$user[id]'");
+$stmtCt3 = $charPdoCt->prepare("SELECT * FROM `characters` WHERE account=?");
+$stmtCt3->execute([(int)$user['id']]);
+$qray = $stmtCt3->fetchAll(PDO::FETCH_ASSOC);
 foreach($qray as $c){
-        echo "<option value='".$c['name']."'>".$c['name']."</option>";
+        echo "<option value='".htmlspecialchars($c['name'])."'>".htmlspecialchars($c['name'])."</option>";
 }
 
 ?>
@@ -270,7 +280,7 @@ foreach($qray as $c){
 if (isset($_POST['customize'])) {
 
         $name = $_POST['char_c_name'];
-        $status = check_if_online($name, $CHDB);
+        $status = check_if_online($name, $charPdoCt);
         if ($status == -1) {
             echo "<p align='center'><font color='red'>The character doesnt exsist!
                 </font></p>";
@@ -279,9 +289,9 @@ if (isset($_POST['customize'])) {
 		if ($status == 1)
         echo "<p align='center'><font color='red'>This character is online. Please try again later</font></p>";
 		else {
-            customize($name, $CHDB, $DB);
-			$DB->query("UPDATE `voting_points` SET `points`=(`points` - ".$char_custom_points."), `points_spent`=(`points_spent` + ".$char_custom_points.")
-			WHERE id=?d",$account_id);
+            customize($name, $charPdoCt, $account_id);
+            $stmtCusPts = $realmPdoCt->prepare("UPDATE `voting_points` SET `points`=(`points` - ?), `points_spent`=(`points_spent` + ?) WHERE id=?");
+            $stmtCusPts->execute([$char_custom_points, $char_custom_points, (int)$account_id]);
         echo "<p align='center'><font color='blue'>Success! You are able to customize you character at next login!</font></p>";
     }
 }
@@ -309,16 +319,18 @@ if($show_changer == true) {
 	if($char_faction_points > $your_points){
 		$disabledf = 1;
 	}else{
-		$disabledf = 0;			
+		$disabledf = 0;
 	}
 // Step two (Step one is under step 3)
-if ($_POST['step2']) { 
+if ($_POST['step2']) {
 if (!$_POST['char_f_name']) {
 	die('Error!<br /><br />No character was selected. Please try again');
 	}
 echo "<center>Step 2/3</center>";
 $name = $_POST['char_f_name'];
-$pre = $CHDB->select("SELECT `guid`, `race`, `class`, `gender`, `level`,`zone` FROM characters WHERE name LIKE '$name'");
+$stmtPre = $charPdoCt->prepare("SELECT `guid`, `race`, `class`, `gender`, `level`,`zone` FROM characters WHERE name=?");
+$stmtPre->execute([$name]);
+$pre = $stmtPre->fetchAll(PDO::FETCH_ASSOC);
 foreach($pre as $row) {
 $guid1 = $row['guid'];
 $preoldrace = $row['race'];
@@ -332,8 +344,8 @@ $pos = $MANG->get_zone_name($row['zone']);
 <?php write_metalborder_header(); ?>
     <table cellpadding='3' cellspacing='0' width='100%'>
     <tbody>
-    <tr> 
-      <td class="rankingHeader" align="center" colspan='5' nowrap="nowrap">Current Selected Character</td>          
+    <tr>
+      <td class="rankingHeader" align="center" colspan='5' nowrap="nowrap">Current Selected Character</td>
     </tr>
     <tr>
       <td class="rankingHeader" align="center" nowrap="nowrap"><?php echo $lang['name'];?>&nbsp;</td>
@@ -358,12 +370,12 @@ $pos = $MANG->get_zone_name($row['zone']);
 <form action="index.php?n=account&sub=chartools" method="post">
 <table width="540" border="0" cellpadding="2px" cellspacing="5px">
 <tr>
-	<td align="center" colspan="2"><font color="red">Warning!</font> Make sure you select a race that goes with your current class. Failure to do so will result in 
+	<td align="center" colspan="2"><font color="red">Warning!</font> Make sure you select a race that goes with your current class. Failure to do so will result in
 	an error. You will be returned to this screen.
 	</td>
 </tr>
 <tr>
-	<td colspan="2" align="center"><?php if ($allow_faction_change == false) echo "<font color='red'>Faction Change Disabled. Please select a race current with your faction.</font>"; 
+	<td colspan="2" align="center"><?php if ($allow_faction_change == false) echo "<font color='red'>Faction Change Disabled. Please select a race current with your faction.</font>";
 	else echo "<font color='blue'>Faction Change is Enabled</font>"; ?>
 	</td>
 </tr>
@@ -393,9 +405,9 @@ $pos = $MANG->get_zone_name($row['zone']);
 </tr>
 </table>
 </form>
-<?php } 
+<?php }
 // Step three
-elseif ($_POST['step3']) { 
+elseif ($_POST['step3']) {
 if (!$_POST['newrace']) {
 	die('Error!<br /><br />No character was selected. Please try again');
 	}
@@ -409,12 +421,12 @@ if (!$_POST['guid']) {
 	die('Error!<br /><br />Error #4. Please try again');
 	}
 echo "<center>Step 3/3</center?";
-$newrace = $_POST['newrace'];
-$oldrace = $_POST['oldrace'];
-$class = $_POST['oldclass'];
+$newrace = (int)$_POST['newrace'];
+$oldrace = (int)$_POST['oldrace'];
+$class = (int)$_POST['oldclass'];
 $name = $_POST['name'];
-$guid = $_POST['guid'];
-echo $name;
+$guid = (int)$_POST['guid'];
+echo htmlspecialchars($name);
 ?><br />
 <table width="540" border="0" cellpadding="2px" cellspacing="5px">
 <tr>
@@ -422,37 +434,42 @@ echo $name;
 <?php
 // Start
 // If the admin has faction change dis-abled, this code is produced
-$online_status = check_if_online($name, $CHDB);
-$check_guild = check_guild($guid);
+$online_status = check_if_online($name, $charPdoCt);
+$check_guild = check_guild($guid, $charPdoCt);
 if ($allow_faction_change == false) {
 if ($newrace > 0 && $newrace < 12 && $newrace != 9) {
     if ($newrace != $oldrace) {
         if ((isAlliance($newrace) && isAlliance($oldrace)) || (!isAlliance($newrace) && !isAlliance($oldrace))) {
 			if($online_status == 0) {
 				if (isGood($newrace,$class)) {
-					delMounts($guid,$oldrace);
-					addMounts($guid,$newrace);
+					delMounts($guid,$oldrace, $charPdoCt);
+					addMounts($guid,$newrace, $charPdoCt);
 					$oldrepfunction = rep($oldrace);
 					$newrepfunction = rep($newrace);
-					$result5 = $CHDB->select("SELECT * FROM character_reputation WHERE guid='$guid' AND faction='$oldrepfunction'");
-					foreach($result5 as $result6) {
-					$oldRep = $result6['standing'];
-					}
-					$result7= $CHDB->select("SELECT * FROM character_reputation WHERE guid='$guid' and faction='$newrepfunction'");
-					foreach($result7 as $result8) {
-					$newRep = $result8['standing'];
-					}
+					$stmtR5 = $charPdoCt->prepare("SELECT * FROM character_reputation WHERE guid=? AND faction=?");
+					$stmtR5->execute([$guid, $oldrepfunction]);
+					$result5 = $stmtR5->fetchAll(PDO::FETCH_ASSOC);
+					foreach($result5 as $result6) { $oldRep = $result6['standing']; }
+					$stmtR7 = $charPdoCt->prepare("SELECT * FROM character_reputation WHERE guid=? AND faction=?");
+					$stmtR7->execute([$guid, $newrepfunction]);
+					$result7 = $stmtR7->fetchAll(PDO::FETCH_ASSOC);
+					foreach($result7 as $result8) { $newRep = $result8['standing']; }
 					if (isAlliance($oldrace)) {
-						$CHDB->query("UPDATE character_achievement_progress SET counter=10500 WHERE guid='$guid' AND (criteria=2030 or criteria=2031 or criteria=2032 or criteria=2033 or criteria=2034)");
-						} else {
-							$CHDB->query("UPDATE character_achievement_progress SET counter=10500 WHERE guid='$guid' AND (criteria=992 or criteria=993 or criteria=994 or criteria=995 or criteria=996)");
-                        }
-					$CHDB->query("UPDATE character_reputation SET standing='$oldRep' WHERE guid='$guid' AND faction='$newrepfunction'");
-					$CHDB->query("UPDATE character_reputation SET standing='$newRep' WHERE guid='$guid' AND faction='$oldrepfunction'");
-					$CHDB->query("UPDATE characters SET race='$newrace' ,at_login=8 ,playerBytes=1 WHERE guid='$guid'");
-					$DB->query("UPDATE `voting_points` SET `points`=(`points` - ".$char_faction_points."), `points_spent`=(`points_spent` + ".$char_faction_points.") 
-					WHERE id=?d",$account_id);
-					echo "<font color='blue'><center>Success! Race successfully changed</center></font>";	
+						$stmtAp1 = $charPdoCt->prepare("UPDATE character_achievement_progress SET counter=10500 WHERE guid=? AND (criteria=2030 or criteria=2031 or criteria=2032 or criteria=2033 or criteria=2034)");
+						$stmtAp1->execute([$guid]);
+					} else {
+						$stmtAp2 = $charPdoCt->prepare("UPDATE character_achievement_progress SET counter=10500 WHERE guid=? AND (criteria=992 or criteria=993 or criteria=994 or criteria=995 or criteria=996)");
+						$stmtAp2->execute([$guid]);
+					}
+					$stmtRu1 = $charPdoCt->prepare("UPDATE character_reputation SET standing=? WHERE guid=? AND faction=?");
+					$stmtRu1->execute([$oldRep, $guid, $newrepfunction]);
+					$stmtRu2 = $charPdoCt->prepare("UPDATE character_reputation SET standing=? WHERE guid=? AND faction=?");
+					$stmtRu2->execute([$newRep, $guid, $oldrepfunction]);
+					$stmtRc = $charPdoCt->prepare("UPDATE characters SET race=? ,at_login=8 ,playerBytes=1 WHERE guid=?");
+					$stmtRc->execute([$newrace, $guid]);
+					$stmtFcPts = $realmPdoCt->prepare("UPDATE `voting_points` SET `points`=(`points` - ?), `points_spent`=(`points_spent` + ?) WHERE id=?");
+					$stmtFcPts->execute([$char_faction_points, $char_faction_points, (int)$account_id]);
+					echo "<font color='blue'><center>Success! Race successfully changed</center></font>";
 				} else { echo "<center>Error: Your class cant be the chosen race! Please try again.</center>"; }
 			} else { echo "<center>Error: This character is online. Please try again later</center>"; }
 		} else { echo "<center>Error: The admin has disabled faction changes. Please select a friendly race</center>"; }
@@ -466,69 +483,62 @@ if ($newrace > 0 && $newrace < 12 && $newrace != 9) {
 		if ($online_status == 0) {
 			if (isGood($newrace,$class)) {
 				if((((isAlliance($newrace) && !isAlliance($oldrace)) || (!isAlliance($newrace) && isAlliance($oldrace))) && $check_guild == 0)||((isAlliance($newrace) && isAlliance($oldrace)) || (!isAlliance($newrace) && !isAlliance($oldrace)))){
-					delMounts($guid,$oldrace);
-					addMounts($guid,$newrace);
-					$aone = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=72");
-					$atwo = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=47");
-					$athree = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=69");
-					$afour = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=54");
-					$afive = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=930");
-					$hone = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=76");
-					$htwo = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=68");
-					$hthree = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=81");
-					$hfour = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=530");
-					$hfive = $CHDB->selectCell("SELECT `standing` FROM `character_reputation` WHERE guid='$guid' AND faction=911");
+					delMounts($guid,$oldrace, $charPdoCt);
+					addMounts($guid,$newrace, $charPdoCt);
+					$stmtRep = $charPdoCt->prepare("SELECT `standing` FROM `character_reputation` WHERE guid=? AND faction=?");
+					$stmtRep->execute([$guid, 72]); $aone = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 47]); $atwo = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 69]); $athree = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 54]); $afour = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 930]); $afive = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 76]); $hone = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 68]); $htwo = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 81]); $hthree = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 530]); $hfour = $stmtRep->fetchColumn();
+					$stmtRep->execute([$guid, 911]); $hfive = $stmtRep->fetchColumn();
 					// If staying the same race, change main reputaion to match new race
 					$oldrepfunction = rep($oldrace);
 					$newrepfunction = rep($newrace);
-					$result5 = $CHDB->select("SELECT * FROM character_reputation WHERE guid='$guid' AND faction='$oldrepfunction'");
-					foreach($result5 as $result6) {
-					$oldRep = $result6['standing'];
-					}
-					$result7= $CHDB->select("SELECT * FROM character_reputation WHERE guid='$guid' and faction='$newrepfunction'");
-					foreach($result7 as $result8) {
-					$newRep = $result8['standing'];
-					}
+					$stmtR5b = $charPdoCt->prepare("SELECT * FROM character_reputation WHERE guid=? AND faction=?");
+					$stmtR5b->execute([$guid, $oldrepfunction]);
+					$result5 = $stmtR5b->fetchAll(PDO::FETCH_ASSOC);
+					foreach($result5 as $result6) { $oldRep = $result6['standing']; }
+					$stmtR7b = $charPdoCt->prepare("SELECT * FROM character_reputation WHERE guid=? AND faction=?");
+					$stmtR7b->execute([$guid, $newrepfunction]);
+					$result7 = $stmtR7b->fetchAll(PDO::FETCH_ASSOC);
+					foreach($result7 as $result8) { $newRep = $result8['standing']; }
 					if (isAlliance($oldrace)) {
-						$CHDB->query("UPDATE character_achievement_progress SET counter=10500 WHERE guid='$guid' AND (criteria=2030 or criteria=2031 or criteria=2032 or criteria=2033 or criteria=2034)");
-						} else {
-                         $CHDB->query("UPDATE character_achievement_progress SET counter=10500 WHERE guid='$guid' AND (criteria=992 or criteria=993 or criteria=994 or criteria=995 or criteria=996)");
-                        }
-					if (isAlliance($newrace) && !isAlliance($oldrace)) // Sets position to Stormwind if new faction is Alliance and old is Horde
-						$CHDB->query("UPDATE characters SET position_x = -8913.23, position_y = 554.633, position_z = 93.7944, map = 0 WHERE guid='$guid'");
-					if (!isAlliance($newrace) && isAlliance($oldrace)) // Sets position to Orgrimmar if new faction is Horde and old is Alliance
-						$CHDB->query("UPDATE characters SET position_x = 1440.45, position_y = -4422.78, position_z = 25.4634, map = 1 WHERE guid='$guid'");
+						$stmtAp3 = $charPdoCt->prepare("UPDATE character_achievement_progress SET counter=10500 WHERE guid=? AND (criteria=2030 or criteria=2031 or criteria=2032 or criteria=2033 or criteria=2034)");
+						$stmtAp3->execute([$guid]);
+					} else {
+						$stmtAp4 = $charPdoCt->prepare("UPDATE character_achievement_progress SET counter=10500 WHERE guid=? AND (criteria=992 or criteria=993 or criteria=994 or criteria=995 or criteria=996)");
+						$stmtAp4->execute([$guid]);
+					}
+					if (isAlliance($newrace) && !isAlliance($oldrace))
+						{ $stmtPos1 = $charPdoCt->prepare("UPDATE characters SET position_x = -8913.23, position_y = 554.633, position_z = 93.7944, map = 0 WHERE guid=?"); $stmtPos1->execute([$guid]); }
+					if (!isAlliance($newrace) && isAlliance($oldrace))
+						{ $stmtPos2 = $charPdoCt->prepare("UPDATE characters SET position_x = 1440.45, position_y = -4422.78, position_z = 25.4634, map = 1 WHERE guid=?"); $stmtPos2->execute([$guid]); }
+					$stmtRuu = $charPdoCt->prepare("UPDATE character_reputation SET standing=? WHERE guid=? AND faction=?");
 					if ((isAlliance($newrace) && isAlliance($oldrace)) || (!isAlliance($newrace) && !isAlliance($oldrace))) {
-					$CHDB->query("UPDATE character_reputation SET standing='$oldRep' WHERE guid='$guid' AND faction='$newrepfunction'");
-					$CHDB->query("UPDATE character_reputation SET standing='$newRep' WHERE guid='$guid' AND faction='$oldrepfunction'");
+						$stmtRuu->execute([$oldRep, $guid, $newrepfunction]);
+						$stmtRuu->execute([$newRep, $guid, $oldrepfunction]);
 					}else{
 						if ($newrace == 1 || $newrace == 3 || $newrace == 4 || $newrace == 7 || $newrace == 11) {
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$hone', `flags`=17 WHERE guid='$guid' AND faction=72");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$htwo', `flags`=17 WHERE guid='$guid' AND faction=47");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$hthree', `flags`=17 WHERE guid='$guid' AND faction=69");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$hfour', `flags`=17 WHERE guid='$guid' AND faction=54");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$hfive', `flags`=17 WHERE guid='$guid' AND faction=930");				
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=76");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=68");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=81");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=530");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=911");
+							$stmtRuF = $charPdoCt->prepare("UPDATE `character_reputation` SET `standing`=?, `flags`=17 WHERE guid=? AND faction=?");
+							foreach([[72,$hone],[47,$htwo],[69,$hthree],[54,$hfour],[930,$hfive]] as $r) { $stmtRuF->execute([$r[1],$guid,$r[0]]); }
+							$stmtRuF6 = $charPdoCt->prepare("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid=? AND faction=?");
+							foreach([76,68,81,530,911] as $f) { $stmtRuF6->execute([$guid,$f]); }
 						}else{
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$aone', `flags`=17 WHERE guid='$guid' AND faction=76");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$atwo', `flags`=17 WHERE guid='$guid' AND faction=68");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$athree', `flags`=17 WHERE guid='$guid' AND faction=81");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$afour', `flags`=17 WHERE guid='$guid' AND faction=530");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`='$afive', `flags`=17 WHERE guid='$guid' AND faction=911");				
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=72");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=47");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=69");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=54");
-							$CHDB->query("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid='$guid' AND faction=930");
+							$stmtRuH = $charPdoCt->prepare("UPDATE `character_reputation` SET `standing`=?, `flags`=17 WHERE guid=? AND faction=?");
+							foreach([[76,$aone],[68,$atwo],[81,$athree],[530,$afour],[911,$afive]] as $r) { $stmtRuH->execute([$r[1],$guid,$r[0]]); }
+							$stmtRuH6 = $charPdoCt->prepare("UPDATE `character_reputation` SET `standing`=150, `flags`=6 WHERE guid=? AND faction=?");
+							foreach([72,47,69,54,930] as $f) { $stmtRuH6->execute([$guid,$f]); }
 						}
 					}
-					$CHDB->query("UPDATE characters SET race='$newrace' ,at_login=8 ,playerBytes=1 WHERE guid='$guid'");
-					$DB->query("UPDATE `voting_points` SET `points`=(`points` - ".$char_faction_points."), `points_spent`=(`points_spent` + ".$char_faction_points.") 
-					WHERE id=?d",$account_id);
+					$stmtRcF = $charPdoCt->prepare("UPDATE characters SET race=? ,at_login=8 ,playerBytes=1 WHERE guid=?");
+					$stmtRcF->execute([$newrace, $guid]);
+					$stmtFcPtsF = $realmPdoCt->prepare("UPDATE `voting_points` SET `points`=(`points` - ?), `points_spent`=(`points_spent` + ?) WHERE id=?");
+					$stmtFcPtsF->execute([$char_faction_points, $char_faction_points, (int)$account_id]);
 					echo "<font color='blue'><center>Success! Race successfully changed</center></font>";
 				} else { echo "<center>Error: When changing factions, you must first leave your guild!</center>"; }
             } else { echo "<center>Error: Your class cant be the chosen race! Please try again.</center>"; }
@@ -555,9 +565,11 @@ if ($newrace > 0 && $newrace < 12 && $newrace != 9) {
   <td align="left">
     <select name="char_f_name">
 <?php
-$qray = $CHDB->select("SELECT * FROM `characters` WHERE account='$user[id]'");
+$stmtCt4 = $charPdoCt->prepare("SELECT * FROM `characters` WHERE account=?");
+$stmtCt4->execute([(int)$user['id']]);
+$qray = $stmtCt4->fetchAll(PDO::FETCH_ASSOC);
 foreach($qray as $c){
-        echo "<option value='".$c['name']."'>".$c['name']."</option>";
+        echo "<option value='".htmlspecialchars($c['name'])."'>".htmlspecialchars($c['name'])."</option>";
 }
 ?>
 </td>
@@ -575,7 +587,7 @@ foreach($qray as $c){
 </tr>
 </table>
 </form>
-<?php } 
+<?php }
 }else{ ?>
 <center>
 <div class="errorMsg"><b><?php echo $lang['chat_disable'] ?></b></div>

@@ -31,12 +31,9 @@ if ($activeForumCharacter) {
         setcookie('cur_selected_character', $user['character_id'], time() + 86400, '/');
         setcookie('cur_selected_realm', $realmId, time() + 86400, '/');
         setcookie('cur_selected_realmd', $realmId, time() + 86400, '/');
-        $DB->query(
-            "UPDATE website_accounts SET character_id=?d, character_name=? WHERE account_id=?d",
-            $user['character_id'],
-            $user['character_name'],
-            $user['id']
-        );
+        $forumUpdatePdo = spp_get_pdo('realmd', $realmId);
+        $stmtWa = $forumUpdatePdo->prepare("UPDATE website_accounts SET character_id=?, character_name=? WHERE account_id=?");
+        $stmtWa->execute([$user['character_id'], $user['character_name'], $user['id']]);
     }
 }
 
@@ -213,26 +210,30 @@ if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
 }
 
 if (!empty($this_topic['topic_id'])) {
-    $result = $DB->select(
+    $forumReadPdo = spp_get_pdo('realmd', $realmId);
+    $stmtPosts = $forumReadPdo->prepare(
         "SELECT * FROM f_posts
          LEFT JOIN account ON f_posts.poster_id=account.id
          LEFT JOIN website_accounts ON f_posts.poster_id=website_accounts.account_id
          LEFT JOIN website_account_groups ON website_accounts.g_id = website_account_groups.g_id
-         WHERE topic_id=?d
-         ORDER BY posted",
-        $this_topic['topic_id']
+         WHERE topic_id=?
+         ORDER BY posted"
     );
+    $stmtPosts->execute([(int)$this_topic['topic_id']]);
+    $result = $stmtPosts->fetchAll(PDO::FETCH_ASSOC);
 
+    $charReadPdo = spp_get_pdo('chars', $realmId);
     $postIndex = 0;
     foreach ($result as $cur_post) {
-        $charinfo = $DB->selectRow(
+        $stmtChar = $charReadPdo->prepare(
             "SELECT c.race, c.class, c.level, c.gender, g.name AS guild
-             FROM {$charDbName}.characters c
-             LEFT JOIN {$charDbName}.guild_member gm ON c.guid = gm.guid
-             LEFT JOIN {$charDbName}.guild g ON gm.guildid = g.guildid
-             WHERE c.guid = ?d",
-            $cur_post['poster_character_id']
+             FROM characters c
+             LEFT JOIN guild_member gm ON c.guid = gm.guid
+             LEFT JOIN guild g ON gm.guildid = g.guildid
+             WHERE c.guid = ?"
         );
+        $stmtChar->execute([(int)$cur_post['poster_character_id']]);
+        $charinfo = $stmtChar->fetch(PDO::FETCH_ASSOC);
 
         if (!empty($charinfo)) {
             $cur_post['avatar'] = get_character_portrait_path(

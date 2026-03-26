@@ -305,8 +305,12 @@ else
 		  log_error("Account creation: On account registrer the key ".$_POST['r_key']." was not valid.");
             }
       }
+      $registerRealmId = spp_resolve_realm_id($realmDbMap);
+      $registerPdo = spp_get_pdo('realmd', $registerRealmId);
       if((int)$MW->getConfig->generic->max_accounts_per_ip>0){
-            $count_ip = $DB->selectCell("SELECT count(*) FROM account_extend WHERE registration_ip=?",$_SERVER['REMOTE_ADDR']);
+            $stmtIp = $registerPdo->prepare("SELECT count(*) FROM account_extend WHERE registration_ip=?");
+            $stmtIp->execute([$_SERVER['REMOTE_ADDR']]);
+            $count_ip = $stmtIp->fetchColumn();
             if($count_ip>=(int)$MW->getConfig->generic->max_accounts_per_ip){
                   output_message('alert',$lang['reg_acclimit']);
                   $allow_reg = false;
@@ -320,9 +324,14 @@ else
       {
             if($allow_reg === true)
             {
-                  $query=$DB->select("SELECT id, username FROM account WHERE LOWER(username)=LOWER('".$_SESSION['CA_u']."')");
-                  if (strlen($_SESSION['CA_em']) > 1)
-                        $queryb=$DB->select("SELECT id FROM account WHERE LOWER(email)=LOWER('".$_SESSION['CA_em']."')");
+                  $stmtUn = $registerPdo->prepare("SELECT id FROM account WHERE LOWER(username)=LOWER(?)");
+                  $stmtUn->execute([$_SESSION['CA_u']]);
+                  $query = $stmtUn->fetch(PDO::FETCH_ASSOC);
+                  if (strlen($_SESSION['CA_em']) > 1){
+                        $stmtEm = $registerPdo->prepare("SELECT id FROM account WHERE LOWER(email)=LOWER(?)");
+                        $stmtEm->execute([$_SESSION['CA_em']]);
+                        $queryb = $stmtEm->fetch(PDO::FETCH_ASSOC);
+                  }
 
                   if (!$query and ((strlen($_SESSION['CA_em']) > 1 && !$queryb) || strlen($_SESSION['CA_em']) < 1) and $_SESSION['CA_accountset']!="" and /*$_SESSION['CA_userset']!="" and $_SESSION['CA_valcode']!="" and */!$err_array[1])
                   {
@@ -403,8 +412,9 @@ if ($_POST['update']=="valcode" and $_POST['save']=="true") {
 
       if ((int)$MW->getConfig->generic_values->account_registrer->enable_image_verfication){
             $image_key = $_POST['image_key'];
-            $filename=quote_smart($_POST['filename_image']);
-            $correctkey = $DB->selectCell("SELECT `filekey` FROM `website_captcha` WHERE `filename`=".$filename);
+            $stmtCap = $registerPdo->prepare("SELECT `filekey` FROM `website_captcha` WHERE `filename`=?");
+            $stmtCap->execute([trim($_POST['filename_image'])]);
+            $correctkey = $stmtCap->fetchColumn();
             if (strtolower($correctkey) != strtolower($image_key) || $image_key == ''){
                   //$notreturn = TRUE;
                   $err_array[] = "Inputted text for Image Verification was incorrect.";
@@ -515,7 +525,9 @@ if ($_POST['update']=="valcode" and $_POST['save']=="true") {
             if (alphanum($_POST['u'],true,true,'_')==false) {
                   $err_array[] = "Invalid chars on Account Name field.<br>";
             } else {
-                  $query=$DB->selectCell("SELECT username FROM account WHERE LOWER(username)=LOWER('".$_POST['u']."')");
+                  $stmtUnAi = $registerPdo->prepare("SELECT username FROM account WHERE LOWER(username)=LOWER(?)");
+                  $stmtUnAi->execute([$_POST['u']]);
+                  $query = $stmtUnAi->fetchColumn();
                   if ($query) {
                         $err_array[] = "Account Name already exists.<br>";
                   }
@@ -571,9 +583,9 @@ if ($_POST['update']=="valcode" and $_POST['save']=="true") {
                   // Ext 1.
                   if ((int)$MW->getConfig->generic_values->account_registrer->enable_image_verfication){
                         $image_key =& $_POST['image_key'];
-                        $filename=quote_smart($_POST['filename_image']);
-                        
-                        $correctkey = $DB->selectCell("SELECT website_captcha.key FROM website_captcha WHERE filename=".$filename);
+                        $stmtCap2 = $registerPdo->prepare("SELECT `key` FROM website_captcha WHERE filename=?");
+                        $stmtCap2->execute([trim($_POST['filename_image'])]);
+                        $correctkey = $stmtCap2->fetchColumn();
                         if (strtolower($correctkey) != strtolower($image_key) || $image_key == ''){
                               $notreturn = TRUE;
                               $err_array[] = "Inputted text for Image Verification was incorrect.";

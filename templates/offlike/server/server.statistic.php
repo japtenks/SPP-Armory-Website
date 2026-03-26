@@ -128,18 +128,19 @@ $rc = [];
 $num_chars = 0;
 
 try {
-  $charData = $DB->select("
+  $statCharPdo = spp_get_pdo('chars', $realmId);
+  $charData = $statCharPdo->query("
     SELECT race, COUNT(*) AS total
-    FROM {$realmDB}.characters
+    FROM characters
     WHERE NOT (level = 1 AND xp = 0)
     GROUP BY race
-  ");
+  ")->fetchAll(PDO::FETCH_ASSOC);
   foreach ($charData as $row) {
     $rc[$row['race']] = $row['total'];
     $num_chars += $row['total'];
   }
 } catch (Exception $e) {
-  echo "<p style='color:#f66;'>Database error reading from {$realmDB}: " . htmlspecialchars($e->getMessage()) . "</p>";
+  echo "<p style='color:#f66;'>Database error: " . htmlspecialchars($e->getMessage()) . "</p>";
   $num_chars = 0;
 }
 
@@ -182,6 +183,28 @@ function rotFormatSeconds($seconds) {
   }
   if ($seconds >= 60) {
     return round($seconds / 60, 1) . 'm';
+  }
+  return $seconds . 's';
+}
+
+function rotFormatUptimeSeconds($seconds) {
+  if ($seconds === null || $seconds === '' || !is_numeric($seconds) || $seconds <= 0) {
+    return 'N/A';
+  }
+
+  $seconds = (int)floor((float)$seconds);
+  $days    = intdiv($seconds, 86400);
+  $hours   = intdiv($seconds % 86400, 3600);
+  $minutes = intdiv($seconds % 3600, 60);
+
+  if ($days > 0) {
+    return $days . 'd ' . $hours . 'h';
+  }
+  if ($hours > 0) {
+    return $hours . 'h ' . $minutes . 'm';
+  }
+  if ($minutes > 0) {
+    return $minutes . 'm';
   }
   return $seconds . 's';
 }
@@ -259,14 +282,16 @@ function rotFormatSeconds($seconds) {
    ============================================================ */
 
 /* ---------- Bot rotation query ---------- */
-$rotationData    = null;
-$rotationError   = null;
-$rotationConfig  = null;
-$latestHistory   = null;
-$realmdDB        = $GLOBALS['realmd']['db_name'] ?? 'classicrealmd';
+$rotationData      = null;
+$rotationError     = null;
+$rotationConfig    = null;
+$latestHistory     = null;
+$topBotData        = null;
+$totalServerUptime = 'N/A';
+$realmdDB          = $GLOBALS['realmd']['db_name'] ?? 'classicrealmd';
 
 try {
-  $rotRows = $DB->select("
+  $stmtRot = $statCharPdo->prepare("
     SELECT
       COUNT(*)                                                                    AS total_bots,
       SUM(CASE WHEN online = 1 THEN 1 ELSE 0 END)                               AS total_online,
@@ -282,44 +307,90 @@ try {
         NULLIF(SUM(CASE WHEN online = 1 THEN 1 ELSE 0 END), 0) * 100
       , 1)                                                                        AS pct_online_rotating,
       ROUND(AVG(CASE WHEN xp > 0 THEN level END), 1)                            AS avg_level_rotating,
-      MAX(CASE WHEN xp > 0 THEN level END)                                       AS highest_level
-    FROM {$realmDB}.characters
+      MAX(CASE WHEN xp > 0 THEN level END)                                       AS highest_level,
+      ROUND(AVG(CASE
+        WHEN online = 0
+         AND logout_time > 0
+         AND NOT (level = 1 AND xp = 0)
+        THEN UNIX_TIMESTAMP() - logout_time
+      END), 1)                                                                   AS current_avg_offline_sec,
+      MAX(CASE
+        WHEN online = 0
+         AND logout_time > 0
+         AND NOT (level = 1 AND xp = 0)
+        THEN UNIX_TIMESTAMP() - logout_time
+      END)                                                                       AS current_max_offline_sec
+    FROM characters
     WHERE account IN (
       SELECT id FROM {$realmdDB}.account WHERE username LIKE 'RNDBOT%'
     )
   ");
+  $stmtRot->execute();
+  $rotRows = $stmtRot->fetchAll(PDO::FETCH_ASSOC);
   $rotationData = !empty($rotRows) ? $rotRows[0] : null;
+
+  $stmtTopBot = $statCharPdo->prepare("
+    SELECT name, level, xp, totaltime
+    FROM characters
+    WHERE xp > 0
+      AND account IN (
+        SELECT id FROM {$realmdDB}.account WHERE username LIKE 'RNDBOT%'
+      )
+    ORDER BY level DESC, xp DESC, totaltime DESC, name ASC
+    LIMIT 1
+  ");
+  $stmtTopBot->execute();
+  $topBotData = $stmtTopBot->fetch(PDO::FETCH_ASSOC) ?: null;
 } catch (Exception $e) {
   $rotationError = $e->getMessage();
 }
 
+$statRealmPdo = spp_get_pdo('realmd', $realmId);
 try {
-  $cfgRows = $DB->select("
-    SELECT *
-    FROM {$realmdDB}.bot_rotation_config
-    WHERE realm = {$realmId}
-    LIMIT 1
-  ");
-  $rotationConfig = !empty($cfgRows) ? $cfgRows[0] : null;
+  $stmtCfg = $statRealmPdo->prepare("SELECT * FROM bot_rotation_config WHERE realm = ? LIMIT 1");
+  $stmtCfg->execute([$realmId]);
+  $rotationConfig = $stmtCfg->fetch(PDO::FETCH_ASSOC) ?: null;
 } catch (Exception $e) {
   $rotationConfig = null;
+}
+
+try {
+  $stmtUptime = $statRealmPdo->prepare("
+    SELECT
+      COALESCE(SUM(uptime), 0) AS stored_uptime,
+      MAX(starttime) AS latest_starttime
+    FROM uptime
+    WHERE realmid = ?
+  ");
+  $stmtUptime->execute([$realmId]);
+  $uptimeRow = $stmtUptime->fetch(PDO::FETCH_ASSOC) ?: null;
+  if ($uptimeRow) {
+    $storedUptime = isset($uptimeRow['stored_uptime']) ? (int)$uptimeRow['stored_uptime'] : 0;
+    $latestStart  = isset($uptimeRow['latest_starttime']) ? (int)$uptimeRow['latest_starttime'] : 0;
+    $currentRun   = ($latestStart > 0) ? max(0, time() - $latestStart) : 0;
+    $totalServerUptime = rotFormatUptimeSeconds($storedUptime + $currentRun);
+  }
+} catch (Exception $e) {
+  $totalServerUptime = 'N/A';
 }
 
 /* ---------- History ---------- */
 $historyRows = [];
 $hasHistory  = false;
 try {
-  $historyRows = $DB->select("
+  $stmtHist = $statRealmPdo->prepare("
     SELECT snapshot_time, pct_online_rotating, pct_ever_rotated,
            total_online, rotating_active, avg_level_rotating,
            cfg_expected_online_pct, cfg_avg_in_world_sec, cfg_avg_offline_sec,
            observed_avg_online_sec, observed_avg_offline_sec,
            observed_online_sessions, observed_offline_sessions
-    FROM {$realmdDB}.bot_rotation_log
-    WHERE realm = {$realmId}
+    FROM bot_rotation_log
+    WHERE realm = ?
     ORDER BY snapshot_time DESC
     LIMIT 48
   ");
+  $stmtHist->execute([$realmId]);
+  $historyRows = $stmtHist->fetchAll(PDO::FETCH_ASSOC);
   $hasHistory = !empty($historyRows);
   $latestHistory = $hasHistory ? $historyRows[0] : null;
 } catch (Exception $e) {
@@ -385,6 +456,12 @@ try {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-top: 4px;
+}
+.rot-stat .meta {
+  font-size: 0.72rem;
+  color: #999;
+  margin-top: 6px;
+  line-height: 1.35;
 }
 .rot-stat.highlight .val { color: #e8c96a; }
 .rot-stat.good  .val     { color: #4caf81; }
@@ -541,6 +618,18 @@ try {
     $obsAvgOffline      = $latestHistory['observed_avg_offline_sec']  ?? null;
     $obsOnlineSessions  = $latestHistory['observed_online_sessions']  ?? 0;
     $obsOfflineSessions = $latestHistory['observed_offline_sessions'] ?? 0;
+    $liveAvgOffline     = $rotationData['current_avg_offline_sec']    ?? null;
+    $liveMaxOffline     = $rotationData['current_max_offline_sec']    ?? null;
+    if ($liveAvgOffline !== null && is_numeric($liveAvgOffline)) {
+      $liveAvgOffline = (float)$liveAvgOffline;
+    }
+    if ($liveMaxOffline !== null && is_numeric($liveMaxOffline)) {
+      $liveMaxOffline = (float)$liveMaxOffline;
+    }
+    if ($liveAvgOffline !== null && $liveMaxOffline !== null && $liveAvgOffline > $liveMaxOffline) {
+      $liveAvgOffline = $liveMaxOffline;
+    }
+    $topBotPlaytime     = $topBotData ? rotFormatUptimeSeconds($topBotData['totaltime'] ?? null) : 'N/A';
   ?>
 
   <div class="rot-stats">
@@ -575,6 +664,11 @@ try {
     <div class="rot-stat good">
       <div class="val"><?php echo $maxLvl; ?></div>
       <div class="lbl">Highest Level</div>
+      <div class="meta">Playtime: <?php echo htmlspecialchars($topBotPlaytime); ?></div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo htmlspecialchars($totalServerUptime); ?></div>
+      <div class="lbl">Total Uptime</div>
     </div>
   </div>
 
@@ -658,6 +752,14 @@ try {
     Calculated from snapshot-to-snapshot online/offline state changes in <code>bot_rotation_state</code>. These are observed transition averages, not the core's internal timer values.
   </div>
   <div class="rot-stats">
+    <div class="rot-stat good">
+      <div class="val"><?php echo rotFormatSeconds($liveAvgOffline); ?></div>
+      <div class="lbl">Current Avg Offline</div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo rotFormatSeconds($liveMaxOffline); ?></div>
+      <div class="lbl">Longest Offline Now</div>
+    </div>
     <div class="rot-stat good">
       <div class="val"><?php echo rotFormatSeconds($obsAvgOnline); ?></div>
       <div class="lbl">Observed Avg In World</div>

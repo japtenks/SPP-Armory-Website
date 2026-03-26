@@ -476,9 +476,12 @@ function build_pathway(){
 build_pathway();
 
 function load_banners($type){
-    global $DB;
-    $result = $DB->select("SELECT * FROM banners WHERE type=?d ORDER BY num_click DESC",$type);
-    return $result;
+    $realmMap = $GLOBALS['realmDbMap'] ?? [];
+    $realmId  = is_array($realmMap) && !empty($realmMap) ? spp_resolve_realm_id($realmMap) : 1;
+    $pdo = spp_get_pdo('realmd', $realmId);
+    $stmt = $pdo->prepare("SELECT * FROM banners WHERE type=? ORDER BY num_click DESC");
+    $stmt->execute([(int)$type]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function paginate($num_pages, $cur_page, $link_to){
@@ -533,14 +536,13 @@ function builddiv_start($type = 0, $title = "No title set", $realm = 0, $forumna
 
     // === Optional Realm Selector ===
     if ($realm == 1) {
-        global $DB;
-
         $realmMap = $GLOBALS['realmDbMap'] ?? array();
         $realmId = is_array($realmMap) && !empty($realmMap) ? spp_resolve_realm_id($realmMap) : (int)($_GET['realm'] ?? 1);
         $availableRealms = array();
 
         if (is_array($realmMap) && !empty($realmMap)) {
-            $realmRows = $DB->select("SELECT id, name FROM realmlist ORDER BY id ASC");
+            $realmPdoInner = spp_get_pdo('realmd', $realmId);
+            $realmRows = $realmPdoInner->query("SELECT id, name FROM realmlist ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
             if (is_array($realmRows)) {
                 foreach ($realmRows as $realmRow) {
                     $candidateRealmId = (int)($realmRow['id'] ?? 0);
