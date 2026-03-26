@@ -196,8 +196,8 @@ $GLOBALS['server_talent_profile_mode'] = $isProfileMode;
 $talentBaseParams = $GLOBALS['talent_calc_base_url'];
 echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script>';
 ?>
-<?php if (!$isProfileMode): ?>
 <link rel="stylesheet" href="/armory/css/talents-calc.css?v=modern-server">
+<?php if (!$isProfileMode): ?>
 <script defer src="/armory/js/talents-calc.js?v=modern-server"></script>
 <?php endif; ?>
 <style>
@@ -248,7 +248,7 @@ echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script
   display: none !important;
 }
 .server-talents-shell.is-profile .tc-header {
-  margin-bottom: 16px;
+  display: none !important;
 }
 .server-talents-shell.is-profile .tc-subtitle {
   font-size: 1.2rem;
@@ -271,6 +271,6 @@ echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script
 <?php
 if (!$isEmbedMode) builddiv_start(1, $isProfileMode ? 'Talent Build' : 'Talent Calculator', 1);
 echo '<div class="server-talents-shell' . ($isProfileMode ? ' is-profile' : '') . ($isEmbedMode ? ' is-embed' : '') . '">';
-include($siteRoot . ($isProfileMode ? '/armory/source/character-talents.php' : '/armory/source/talent-calc.php'));
+include($siteRoot . '/armory/source/talent-calc.php');
 echo '</div>';
 if (!$isEmbedMode) builddiv_end();

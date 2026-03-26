@@ -929,6 +929,10 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 
 ?>
 
+<?php
+$isProfileTalentView = !empty($GLOBALS['server_talent_profile_mode']);
+?>
+
 <?php if (!$isEmbedMode): ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -941,7 +945,9 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
     $jsPath  = $_SERVER['DOCUMENT_ROOT'].'/armory/js/talents.js';
   ?>
   <link rel="stylesheet" href="/armory/css/talents.css<?= is_file($cssPath) ? '?v='.filemtime($cssPath) : '' ?>">
+  <?php if (!$isProfileTalentView): ?>
   <script defer src="/armory/js/talents.js<?= is_file($jsPath) ? '?v='.filemtime($jsPath) : '' ?>"></script>
+  <?php endif; ?>
 </head>
 <body>
 
@@ -957,7 +963,9 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
   $jsPath  = $_SERVER['DOCUMENT_ROOT'].'/armory/js/talents.js';
 ?>
 <link rel="stylesheet" href="/armory/css/talents.css<?= is_file($cssPath) ? '?v='.filemtime($cssPath) : '' ?>">
+<?php if (!$isProfileTalentView): ?>
 <script defer src="/armory/js/talents.js<?= is_file($jsPath) ? '?v='.filemtime($jsPath) : '' ?>"></script>
+<?php endif; ?>
 <?php endif; ?>
 <?php if (empty($tabs)): ?>
   <!-- If no talent tabs are available for this class, show a fallback message -->
@@ -1046,7 +1054,8 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 									  <div class="talent-flex">
 										<?php
 										  $cols = 4;
-										  for ($r = 0; $r <= $maxRow; $r++) {							//row loop
+										  $rows = 7;
+										  for ($r = 0; $r < $rows; $r++) {							//row loop
 											for ($c = 0; $c < $cols; $c++) {							//col loop	
 												if (!isset($byPos["$r:$c"])) {										
 												echo '<div class="talent-cell placeholder"></div>';
@@ -1078,6 +1087,8 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 
 											  // Render cell
 											  echo '<div class="'.$cellClass.'" style="background-image:url(\''.$iconQ.'\')"
+														data-current="'.(int)$cur.'"
+														data-max="'.(int)$max.'"
 														data-tt-title="'.$title.'"
 														data-tt-desc="'.$desc.'">
 													  <span class="talent-rank">'.(int)$cur.'/'.(int)$max.'</span>
@@ -1097,6 +1108,76 @@ $hasCharSpell = tbl_exists('char', 'character_spell');
 </body>
 </html>
 <?php endif; ?>
+
+<script>
+(function(){
+  const tt = document.createElement('div');
+  tt.className = 'talent-tt';
+  tt.style.display = 'none';
+  document.body.appendChild(tt);
+
+  let showTimer = null;
+  let anchorEl = null;
+
+  function render(el){
+    const title = el.getAttribute('data-tt-title') || '';
+    const desc  = el.getAttribute('data-tt-desc')  || '';
+    tt.innerHTML = '<h5>' + title + '</h5><p>' + desc + '</p>';
+  }
+
+  function placeToTopRight(el){
+    const pad = 8;
+    const vw = window.innerWidth;
+
+    const rEl = el.getBoundingClientRect();
+    const rTT = tt.getBoundingClientRect();
+
+    let left = rEl.right + pad;
+    let top  = rEl.top - rTT.height - pad;
+
+    if (left + rTT.width > vw - 6) left = vw - rTT.width - 6;
+    if (left < 6) left = 6;
+    if (top < 6) top = rEl.bottom + pad;
+
+    tt.style.left = left + 'px';
+    tt.style.top  = top + 'px';
+  }
+
+  function show(el){
+    anchorEl = el;
+    render(el);
+    tt.style.display = 'block';
+    placeToTopRight(el);
+  }
+
+  function hide(){
+    clearTimeout(showTimer);
+    tt.style.display = 'none';
+    anchorEl = null;
+  }
+
+  document.addEventListener('mouseover', function(e){
+    const el = e.target.closest('.talent-cell[data-tt-title]');
+    if (!el) return;
+    clearTimeout(showTimer);
+    showTimer = setTimeout(function(){ show(el); }, 60);
+  });
+
+  document.addEventListener('mouseout', function(e){
+    const el = e.target.closest('.talent-cell[data-tt-title]');
+    if (!el) return;
+    if (!e.relatedTarget || !el.contains(e.relatedTarget)) hide();
+  });
+
+  document.addEventListener('scroll', function(){
+    if (tt.style.display !== 'none' && anchorEl) placeToTopRight(anchorEl);
+  }, {passive:true});
+
+  window.addEventListener('resize', function(){
+    if (tt.style.display !== 'none' && anchorEl) placeToTopRight(anchorEl);
+  });
+})();
+</script>
 
 
 

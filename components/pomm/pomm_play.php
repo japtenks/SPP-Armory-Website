@@ -139,8 +139,6 @@ if (!count($arr) && !test_realm()) {
     $res['online'] = $arr;
 }
 
-echo "<div style='color:yellow;font-weight:bold;'>PLAY FILE REALMID: {$realm_id}</div>";
-
 if ($show_status) {
 $query = $realm_db->query("
         SELECT UNIX_TIMESTAMP(), `starttime`, `maxplayers`

@@ -7,6 +7,7 @@ $DB_HOST = $db['host'];
 $DB_PORT = $db['port'];
 $DB_USER = $db['user'];
 $DB_PASS = $db['pass'];
+$GAME_HOST = !empty($clientConnectionHost) ? $clientConnectionHost : '127.0.0.1';
 
 $WORLD_NAMES = array_map(function ($r) { return $r['world']; }, $realmDbMap);
 $CHAR_NAMES  = array_map(function ($r) { return $r['chars']; }, $realmDbMap);
@@ -40,11 +41,10 @@ $realm_db = [
     'encoding' => 'utf8'
 ];
 
-$server = [
-    1 => ['addr' => '127.0.0.1', 'game_port' => 8085],
-    2 => ['addr' => '127.0.0.1', 'game_port' => 8085],
-    3 => ['addr' => '127.0.0.1', 'game_port' => 8085],
-];
+$server = [];
+foreach (array_keys($realmDbMap) as $id) {
+    $server[$id] = ['addr' => $GAME_HOST, 'game_port' => 8085];
+}
 
 $gm_online = true;
 $gm_online_count = 100;
