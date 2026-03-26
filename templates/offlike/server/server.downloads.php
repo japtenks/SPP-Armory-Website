@@ -3,6 +3,8 @@ builddiv_start(1, 'Downloads', 0);
 
 $siteRoot = realpath(__DIR__ . '/../../../');
 $downloadsRoot = $siteRoot . DIRECTORY_SEPARATOR . 'downloads';
+$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
+$downloadsRealmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $sections = array(
     'addons' => array(
         'title' => 'Addon Packs',
@@ -167,6 +169,28 @@ if (!function_exists('downloads_collect_files')) {
 .downloads-link:hover {
   color: #ffcc66;
 }
+.downloads-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.downloads-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 193, 7, 0.24);
+  background: rgba(255, 193, 7, 0.08);
+  color: #ffe39a;
+  font-weight: 700;
+  text-decoration: none;
+}
+.downloads-action:hover {
+  background: rgba(255, 193, 7, 0.16);
+  color: #fff0bf;
+}
 @media (max-width: 980px) {
   .downloads-grid {
     grid-template-columns: 1fr;
@@ -186,6 +210,12 @@ if (!function_exists('downloads_collect_files')) {
       <div class="downloads-card">
         <h3><?php echo htmlspecialchars($section['title']); ?></h3>
         <p><?php echo htmlspecialchars($section['description']); ?></p>
+
+        <?php if ($key === 'tools'): ?>
+          <div class="downloads-actions">
+            <a class="downloads-action" href="<?php echo htmlspecialchars('download-realmlist.php?realm=' . (int)$downloadsRealmId); ?>">Download realmlist.wtf</a>
+          </div>
+        <?php endif; ?>
 
         <?php if ($files): ?>
           <div class="downloads-file-list">

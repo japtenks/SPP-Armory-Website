@@ -267,6 +267,184 @@ if (!function_exists('spp_modern_item_cache_source')) {
     }
 }
 
+if (!function_exists('spp_modern_item_random_properties')) {
+    function spp_modern_item_random_properties(PDO $worldPdo, PDO $armoryPdo, array $itemRow) {
+        $randomGroupId = (int)($itemRow['RandomProperty'] ?? 0);
+        if ($randomGroupId <= 0) {
+            return [];
+        }
+
+        $stmt = $worldPdo->prepare('SELECT `ench`, `chance` FROM `item_enchantment_template` WHERE `entry` = ? ORDER BY `chance` DESC, `ench` ASC');
+        $stmt->execute([$randomGroupId]);
+        $templateRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!$templateRows) {
+            return [];
+        }
+
+        $propertyIds = [];
+        foreach ($templateRows as $templateRow) {
+            $propertyId = (int)($templateRow['ench'] ?? 0);
+            if ($propertyId > 0) {
+                $propertyIds[] = $propertyId;
+            }
+        }
+        $propertyIds = array_values(array_unique($propertyIds));
+        if (!$propertyIds) {
+            return [];
+        }
+
+        $propertyPlaceholders = implode(',', array_fill(0, count($propertyIds), '?'));
+        $propertyStmt = $armoryPdo->prepare('SELECT * FROM `dbc_itemrandomproperties` WHERE `id` IN (' . $propertyPlaceholders . ')');
+        $propertyStmt->execute($propertyIds);
+        $propertyMap = [];
+        $enchantIds = [];
+        foreach ($propertyStmt->fetchAll(PDO::FETCH_ASSOC) as $propertyRow) {
+            $propertyId = (int)($propertyRow['id'] ?? 0);
+            $propertyMap[$propertyId] = $propertyRow;
+            for ($i = 1; $i <= 3; $i++) {
+                $enchantId = (int)($propertyRow['ref_spellitemenchantment_' . $i] ?? 0);
+                if ($enchantId > 0) {
+                    $enchantIds[] = $enchantId;
+                }
+            }
+        }
+
+        $enchantMap = [];
+        $enchantIds = array_values(array_unique($enchantIds));
+        if ($enchantIds) {
+            $enchantPlaceholders = implode(',', array_fill(0, count($enchantIds), '?'));
+            $enchantStmt = $armoryPdo->prepare('SELECT `id`, `name` FROM `dbc_spellitemenchantment` WHERE `id` IN (' . $enchantPlaceholders . ')');
+            $enchantStmt->execute($enchantIds);
+            foreach ($enchantStmt->fetchAll(PDO::FETCH_ASSOC) as $enchantRow) {
+                $enchantMap[(int)$enchantRow['id']] = trim((string)($enchantRow['name'] ?? ''));
+            }
+        }
+
+        $results = [];
+        foreach ($templateRows as $templateRow) {
+            $propertyId = (int)($templateRow['ench'] ?? 0);
+            if ($propertyId <= 0 || empty($propertyMap[$propertyId])) {
+                continue;
+            }
+            $propertyRow = $propertyMap[$propertyId];
+            $statLines = [];
+            for ($i = 1; $i <= 3; $i++) {
+                $enchantId = (int)($propertyRow['ref_spellitemenchantment_' . $i] ?? 0);
+                $enchantName = $enchantId > 0 ? trim((string)($enchantMap[$enchantId] ?? '')) : '';
+                if ($enchantName !== '') {
+                    $statLines[] = $enchantName;
+                }
+            }
+            $results[] = [
+                'id' => $propertyId,
+                'name' => trim((string)($propertyRow['name'] ?? ('Property #' . $propertyId))),
+                'chance' => (float)($templateRow['chance'] ?? 0),
+                'stats' => $statLines,
+            ];
+        }
+
+        $grouped = [];
+        foreach ($results as $result) {
+            $name = (string)$result['name'];
+            if (!isset($grouped[$name])) {
+                $grouped[$name] = [
+                    'id' => (int)$result['id'],
+                    'name' => $name,
+                    'chance' => 0.0,
+                    'stat_map' => [],
+                    'stat_order' => [],
+                ];
+            }
+
+            $grouped[$name]['chance'] += (float)$result['chance'];
+
+            foreach ((array)$result['stats'] as $statLine) {
+                $statLine = trim((string)$statLine);
+                if ($statLine === '') {
+                    continue;
+                }
+
+                if (preg_match('/^\+(\d+)\s+(.+)$/', $statLine, $matches)) {
+                    $amount = (int)$matches[1];
+                    $label = trim((string)$matches[2]);
+                    if (!isset($grouped[$name]['stat_map'][$label])) {
+                        $grouped[$name]['stat_map'][$label] = [
+                            'min' => $amount,
+                            'max' => $amount,
+                        ];
+                        $grouped[$name]['stat_order'][] = $label;
+                    } else {
+                        $grouped[$name]['stat_map'][$label]['min'] = min($grouped[$name]['stat_map'][$label]['min'], $amount);
+                        $grouped[$name]['stat_map'][$label]['max'] = max($grouped[$name]['stat_map'][$label]['max'], $amount);
+                    }
+                } else {
+                    if (!isset($grouped[$name]['stat_map'][$statLine])) {
+                        $grouped[$name]['stat_map'][$statLine] = [
+                            'min' => null,
+                            'max' => null,
+                        ];
+                        $grouped[$name]['stat_order'][] = $statLine;
+                    }
+                }
+            }
+        }
+
+        $collapsed = [];
+        foreach ($grouped as $group) {
+            $collapsedStats = [];
+            foreach ($group['stat_order'] as $label) {
+                $range = $group['stat_map'][$label];
+                if ($range['min'] === null || $range['max'] === null) {
+                    $collapsedStats[] = spp_modern_item_random_stat_label($label);
+                } elseif ($range['min'] === $range['max']) {
+                    $collapsedStats[] = '+' . $range['min'] . ' ' . spp_modern_item_random_stat_label($label);
+                } else {
+                    $collapsedStats[] = '+' . $range['min'] . '-' . $range['max'] . ' ' . spp_modern_item_random_stat_label($label);
+                }
+            }
+
+            $collapsed[] = [
+                'id' => (int)$group['id'],
+                'name' => (string)$group['name'],
+                'chance' => (float)$group['chance'],
+                'stats' => $collapsedStats,
+            ];
+        }
+
+        usort($collapsed, function ($a, $b) {
+            if ((float)$a['chance'] === (float)$b['chance']) {
+                return strcmp((string)$a['name'], (string)$b['name']);
+            }
+            return ((float)$b['chance'] <=> (float)$a['chance']);
+        });
+
+        return $collapsed;
+    }
+}
+
+if (!function_exists('spp_modern_item_random_stat_label')) {
+    function spp_modern_item_random_stat_label($label) {
+        $label = trim((string)$label);
+        $map = [
+            'Strength' => 'Str',
+            'Agility' => 'Agi',
+            'Stamina' => 'Stm',
+            'Intellect' => 'Int',
+            'Spirit' => 'Spr',
+            'Defense' => 'Def',
+            'Healing Spells' => 'Healing',
+            'Ranged Attack Power' => 'RAP',
+            'Arcane Spell Damage' => 'Arcane',
+            'Fire Spell Damage' => 'Fire',
+            'Frost Spell Damage' => 'Frost',
+            'Shadow Spell Damage' => 'Shadow',
+            'Nature Spell Damage' => 'Nature',
+            'Holy Spell Damage' => 'Holy',
+        ];
+        return $map[$label] ?? $label;
+    }
+}
+
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $realmLabel = spp_get_armory_realm_name($realmId) ?? '';
@@ -278,6 +456,7 @@ $allianceRaces = [1, 3, 4, 7, 11, 22, 25, 29];
 
 $item = null;
 $itemSet = null;
+$randomProperties = [];
 $owners = [];
 $pageError = '';
 $legacyRealmName = '';
@@ -346,6 +525,8 @@ if ($itemId <= 0) {
                 'class_name' => spp_modern_item_class_name((int)($itemRow['class'] ?? 0), (int)($itemRow['subclass'] ?? 0)),
                 'source' => spp_modern_item_cache_source($worldPdo, $armoryPdo, $itemId, (($flags & 32768) === 32768)),
             ];
+
+            $randomProperties = spp_modern_item_random_properties($worldPdo, $armoryPdo, $itemRow);
 
             $itemSetId = (int)($itemRow['itemset'] ?? 0);
             if ($itemSetId > 0) {
@@ -461,6 +642,12 @@ builddiv_start(1, 'Item Detail', 0);
 .item-detail-tooltip-shell { min-height: 320px; }
 .item-detail-tooltip-shell .talent-tt, .item-detail-tooltip-shell .tt-item { max-width: none; }
 .item-detail-tooltip-loading { padding: 16px 18px; border-radius: 12px; border: 1px solid rgba(255, 196, 0, 0.24); background: rgba(1, 4, 10, 0.8); color: #f8e8af; }
+.item-random-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.item-random-card { padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255, 196, 0, 0.16); background: rgba(255,255,255,0.03); }
+.item-random-name { margin: 0 0 6px; color: #1eff00; font-size: 1.08rem; font-weight: 800; }
+.item-random-chance { color: #cdb88a; font-size: 0.92rem; }
+.item-random-stats { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.item-random-stats li { color: #f7edd0; }
 .item-owner-table { width: 100%; border-collapse: collapse; background: rgba(10, 10, 18, 0.72); }
 .item-owner-table thead th { padding: 14px 16px; text-align: left; font-size: 0.95rem; color: #ffc21c; border-bottom: 1px solid rgba(255, 204, 72, 0.28); }
 .item-owner-table tbody td { padding: 14px 16px; border-bottom: 1px solid rgba(255, 204, 72, 0.14); vertical-align: middle; }
@@ -547,6 +734,27 @@ document.addEventListener('DOMContentLoaded', function () {
         <div id="item-detail-tooltip-panel" data-item-id="<?php echo (int)$item['id']; ?>" data-realm-id="<?php echo (int)$realmId; ?>"><div class="item-detail-tooltip-loading">Loading full item details...</div></div>
       </div>
     </section>
+
+    <?php if (!empty($randomProperties)): ?>
+      <section class="item-detail-panel">
+        <h2 class="item-detail-panel-title">Possible Random Properties</h2>
+        <div class="item-random-grid">
+          <?php foreach ($randomProperties as $property): ?>
+            <article class="item-random-card">
+              <div class="item-random-name"><?php echo htmlspecialchars($property['name']); ?></div>
+              <div class="item-random-chance"><?php echo rtrim(rtrim(number_format((float)$property['chance'], 2, '.', ''), '0'), '.'); ?>% chance</div>
+              <?php if (!empty($property['stats'])): ?>
+                <ul class="item-random-stats">
+                  <?php foreach ($property['stats'] as $statLine): ?>
+                    <li><?php echo htmlspecialchars($statLine); ?></li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php endif; ?>
+            </article>
+          <?php endforeach; ?>
+        </div>
+      </section>
+    <?php endif; ?>
 
     <section class="item-detail-panel">
       <h2 class="item-detail-panel-title">Owned By Players</h2>

@@ -6,7 +6,15 @@ $host = '';
 
 require_once(__DIR__ . '/config/config-protected.php');
 
-if (function_exists('spp_get_pdo')) {
+if (!empty($clientConnectionHost)) {
+    $host = trim((string)$clientConnectionHost);
+}
+
+if ($host === '' && !empty($_SERVER['HTTP_HOST'])) {
+    $host = preg_replace('/:\d+$/', '', (string)$_SERVER['HTTP_HOST']);
+}
+
+if ($host === '' && function_exists('spp_get_pdo')) {
     try {
         $pdo = spp_get_pdo('realmd', $realmId);
         $stmt = $pdo->prepare('SELECT `address` FROM `realmlist` WHERE `id` = ? LIMIT 1');
@@ -16,12 +24,8 @@ if (function_exists('spp_get_pdo')) {
             $host = (string)$row['address'];
         }
     } catch (Throwable $e) {
-        // Fall back to server host below.
+        // Fall back below.
     }
-}
-
-if ($host === '') {
-    $host = preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? ''));
 }
 
 if ($host === '') {

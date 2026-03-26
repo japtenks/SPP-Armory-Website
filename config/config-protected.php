@@ -13,6 +13,8 @@ $db = [
     'pass' => 'mangos'
 ];
 
+$clientConnectionHost = '192.168.1.145';
+
 $realmDbMap = [
     1 => [
         'realmd'  => 'classicrealmd',
