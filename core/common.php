@@ -931,15 +931,41 @@ function get_realm_byid($id){
 }
 
 function spp_get_realm_soap_settings($realmId) {
+    $soapAddress = '';
+    $soapPort = 0;
+    $soapUser = '';
+    $soapPass = '';
+
+    if (function_exists('spp_get_realm_service_config')) {
+        $soapConfig = spp_get_realm_service_config('soap', (int)$realmId);
+        if (is_array($soapConfig)) {
+            $soapAddress = trim((string)($soapConfig['address'] ?? ''));
+            $soapPort = (int)($soapConfig['port'] ?? 0);
+            $soapUser = trim((string)($soapConfig['user'] ?? ''));
+            $soapPass = (string)($soapConfig['pass'] ?? '');
+        }
+    }
+
     $realm = get_realm_byid((int)$realmId);
     if (!is_array($realm) || empty($realm)) {
         return null;
     }
 
-    $soapAddress = isset($realm['soap_address']) ? trim((string)$realm['soap_address']) : '';
-    $soapPort = isset($realm['soap_port']) ? (int)$realm['soap_port'] : 0;
-    $soapUser = isset($realm['soap_user']) ? trim((string)$realm['soap_user']) : '';
-    $soapPass = isset($realm['soap_pass']) ? (string)$realm['soap_pass'] : '';
+    if ($soapAddress === '') {
+        $soapAddress = isset($realm['soap_address']) ? trim((string)$realm['soap_address']) : '';
+        if ($soapAddress === '') {
+            $soapAddress = isset($realm['address']) ? trim((string)$realm['address']) : '';
+        }
+    }
+    if ($soapPort <= 0) {
+        $soapPort = isset($realm['soap_port']) ? (int)$realm['soap_port'] : 0;
+    }
+    if ($soapUser === '') {
+        $soapUser = isset($realm['soap_user']) ? trim((string)$realm['soap_user']) : '';
+    }
+    if ($soapPass === '') {
+        $soapPass = isset($realm['soap_pass']) ? (string)$realm['soap_pass'] : '';
+    }
 
     if ($soapAddress === '' || $soapPort <= 0 || $soapUser === '' || $soapPass === '') {
         return null;

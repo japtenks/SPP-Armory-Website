@@ -120,6 +120,31 @@ if (!function_exists('spp_get_pdo')) {
     }
 }
 
+if (!function_exists('spp_get_realm_service_config')) {
+    function spp_get_realm_service_config($service, $realmId = null) {
+        $realmDbMap = $GLOBALS['realmDbMap'] ?? null;
+        $serviceDefaults = $GLOBALS['serviceDefaults'] ?? [];
+        if (!is_array($realmDbMap) || empty($realmDbMap)) {
+            return null;
+        }
+
+        $resolvedRealmId = spp_resolve_realm_id($realmDbMap, $realmId);
+        if (!isset($realmDbMap[$resolvedRealmId]) || !is_array($realmDbMap[$resolvedRealmId])) {
+            return null;
+        }
+
+        $service = strtolower(trim((string)$service));
+        $defaultConfig = isset($serviceDefaults[$service]) && is_array($serviceDefaults[$service]) ? $serviceDefaults[$service] : [];
+        $realmConfig = $realmDbMap[$resolvedRealmId][$service] ?? [];
+        if (!is_array($realmConfig)) {
+            $realmConfig = [];
+        }
+
+        $mergedConfig = array_merge($defaultConfig, $realmConfig);
+        return !empty($mergedConfig) ? $mergedConfig : null;
+    }
+}
+
 if (!function_exists('spp_get_armory_realm_name')) {
     function spp_get_armory_realm_name($realmId = null) {
         static $cache = [];

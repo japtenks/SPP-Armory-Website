@@ -13,7 +13,17 @@ $db = [
     'pass' => '123456'
 ];
 
+//update for address to autogen realmlist.wtf
 $clientConnectionHost = '127.0.0.1';
+
+//create a soap user then update this, use registraton page
+$serviceDefaults = [
+    'soap' => [
+        'port'    => 7878,
+        'user'    => 'admin',
+        'pass'    => 'password',
+    ],
+];
 
 $realmDbMap = [
     1 => [
@@ -73,6 +83,7 @@ $DB = [
     'db_encoding' => 'utf8',
 ];
 $GLOBALS['db'] = $db;
+$GLOBALS['serviceDefaults'] = $serviceDefaults;
 $GLOBALS['realmDbMap'] = $realmDbMap;
 $GLOBALS['activeRealmId'] = $activeRealmId;
 $GLOBALS['activeRealm'] = $activeRealm;
