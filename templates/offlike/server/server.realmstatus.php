@@ -43,6 +43,8 @@ function connect_realm_db($realmData, $dbName){
   }
 }
 
+$realmstatusDebug = !empty($_GET['debug']);
+
 /* ---------- Realm Data Build ---------- */
 $realm_flags_def=[0=>"Normal",1=>"PvP",4=>"RP",8=>"RPPvP"];
 $items=[];
@@ -65,6 +67,10 @@ foreach($realms as $r){
 
   $charDbName = $realmData['chardbname'] ?? '';
   $worldDbName = $realmData['dbname'] ?? '';
+  $dbPort = (int)($realmData['dbport'] ?? 0);
+  if ((int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port) {
+    $dbPort = (int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port;
+  }
   $CHDB_EXTRA = connect_realm_db($realmData, $charDbName);
   $WSDB_EXTRA = connect_realm_db($realmData, $worldDbName);
 
@@ -143,7 +149,15 @@ foreach($realms as $r){
     'id'=>$realm_id,'name'=>$realm_name,'type'=>$realm_type,'build'=>$build_ver,
     'exp'=>$exp,'pop'=>$pop,'alli'=>$alli,'horde'=>$horde,'uptime'=>$uptime,
     'avg_up'=>$avg_uptime,'restarts'=>$restart_count,'avg_lvl'=>$avg_lvl,'max_lvl'=>$max_lvl,
-    'state'=>$state,'res_color'=>$res_color,'status_label'=>$res_label,'img'=>$res_img
+    'state'=>$state,'res_color'=>$res_color,'status_label'=>$res_label,'img'=>$res_img,
+    'debug'=>[
+      'realm_host' => (string)($realmData['dbhost'] ?? ''),
+      'realm_port' => $dbPort,
+      'char_db' => (string)$charDbName,
+      'world_db' => (string)$worldDbName,
+      'char_ok' => $CHDB_EXTRA ? 1 : 0,
+      'world_ok' => $WSDB_EXTRA ? 1 : 0,
+    ],
   ];
 }
 ?>
@@ -235,11 +249,27 @@ foreach($realms as $r){
             <span class="<?php echo $r['state']['ICC']; ?>">ICC</span>
           <?php } ?>
         </div>
+
+        <?php if($realmstatusDebug): ?>
+        <div class="progression" style="margin-top:10px;">
+          <strong>Debug:</strong>
+          <div style="margin-top:6px;color:#cdb88a;font-size:.92rem;line-height:1.55;">
+            host=<?php echo htmlspecialchars($r['debug']['realm_host'] !== '' ? $r['debug']['realm_host'] : '(empty)'); ?>
+            |
+            port=<?php echo (int)$r['debug']['realm_port']; ?>
+            |
+            chars=<?php echo htmlspecialchars($r['debug']['char_db'] !== '' ? $r['debug']['char_db'] : '(empty)'); ?>
+            (<?php echo $r['debug']['char_ok'] ? 'ok' : 'fail'; ?>)
+            |
+            world=<?php echo htmlspecialchars($r['debug']['world_db'] !== '' ? $r['debug']['world_db'] : '(empty)'); ?>
+            (<?php echo $r['debug']['world_ok'] ? 'ok' : 'fail'; ?>)
+          </div>
+        </div>
+        <?php endif; ?>
       </div>
     </div>
     <?php endforeach; ?>
   </div>
 </div>
 <?php builddiv_end(); ?>
-
 
