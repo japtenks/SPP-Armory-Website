@@ -1,6 +1,7 @@
-﻿<?php
+<?php
 $itemId = isset($_GET['item']) ? (int)$_GET['item'] : 0;
 $realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 0;
+$itemGuid = isset($_GET['guid']) ? (int)$_GET['guid'] : 0;
 
 header('Content-Type: text/html; charset=UTF-8');
 
@@ -21,6 +22,8 @@ if (!$item) {
     http_response_code(404);
     exit('');
 }
+
+$item['guid'] = $itemGuid;
 
 $html = spp_render_item_tooltip_html($item);
 if ($html === '') {

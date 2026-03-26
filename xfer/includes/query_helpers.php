@@ -12,6 +12,7 @@ function armory_query($sql,$mode=0){
         'dbc_spell','dbc_spellicon','dbc_spellduration','dbc_spellradius',
         'dbc_itemset','dbc_talent','dbc_talenttab','dbc_itemdisplayinfo',
         'dbc_itemsubclass','dbc_itemrandomproperties','dbc_itemrandomsuffix',
+        'dbc_spellitemenchantment',
         'dbc_randproppoints'
     ]);
 
@@ -24,4 +25,14 @@ function world_query($sql,$mode=0){
     $sql = qualify_tables($sql,$WORLD_SCHEMA,['item_template']);
 
     return q($WSDB,$sql,$mode);
+}
+
+function char_query($sql,$mode=0){
+    global $CHDB,$db;
+
+    if (isset($db['chars']) && $db['chars']) {
+        $sql = qualify_tables($sql,$db['chars'],['item_instance','character_inventory','character_stats']);
+    }
+
+    return q($CHDB,$sql,$mode);
 }

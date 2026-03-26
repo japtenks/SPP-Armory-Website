@@ -68,6 +68,113 @@ if (!function_exists('spp_item_tooltip_render_rating_lines')) {
     }
 }
 
+if (!function_exists('spp_item_tooltip_render_weapon_lines')) {
+    function spp_item_tooltip_render_weapon_lines(array $row) {
+        $itemClass = (int)($row['class'] ?? 0);
+        $minDamage = (float)($row['dmg_min1'] ?? 0);
+        $maxDamage = (float)($row['dmg_max1'] ?? 0);
+        $delayMs = (int)($row['delay'] ?? 0);
+
+        if ($itemClass !== 2 || ($minDamage <= 0 && $maxDamage <= 0) || $delayMs <= 0) {
+            return '';
+        }
+
+        $speed = $delayMs / 1000;
+        $avgDamage = ($minDamage + $maxDamage) / 2;
+        $dps = $speed > 0 ? ($avgDamage / $speed) : 0;
+
+        $formatDamage = static function ($value) {
+            return rtrim(rtrim(number_format((float)$value, 1, '.', ''), '0'), '.');
+        };
+
+        $html  = '<div>' . $formatDamage($minDamage) . ' - ' . $formatDamage($maxDamage) . ' Damage</div>';
+        $html .= '<div>Speed ' . number_format($speed, 2, '.', '') . '</div>';
+        $html .= '<div style="color:#9d9d9d">(' . number_format($dps, 1, '.', '') . ' damage per second)</div>';
+
+        return $html;
+    }
+}
+
+if (!function_exists('spp_item_tooltip_generate_suffix_factor')) {
+    function spp_item_tooltip_generate_suffix_factor($itemLevel, $inventoryType, $itemQuality) {
+        $inventoryType = (int)$inventoryType;
+        $itemLevel = (int)$itemLevel;
+        $itemQuality = (int)$itemQuality;
+        switch ($inventoryType) {
+            case 1: case 4: case 5: case 7: case 17: case 20: $columnIndex = 1; break;
+            case 3: case 6: case 8: case 10: case 12: $columnIndex = 2; break;
+            case 2: case 9: case 11: case 14: case 16: case 23: $columnIndex = 3; break;
+            case 13: case 21: case 22: $columnIndex = 4; break;
+            case 15: case 25: case 26: $columnIndex = 5; break;
+            default: $columnIndex = 1; break;
+        }
+        switch ($itemQuality) {
+            case 2: $column = 'uncommon_' . $columnIndex; break;
+            case 3: $column = 'rare_' . $columnIndex; break;
+            case 4: $column = 'epic_' . $columnIndex; break;
+            default: return 0;
+        }
+        return (int)armory_query("SELECT `{$column}` FROM dbc_randproppoints WHERE item_level = {$itemLevel} LIMIT 1", 2);
+    }
+}
+
+if (!function_exists('spp_item_tooltip_render_instance_bonus_lines')) {
+    function spp_item_tooltip_render_instance_bonus_lines(array $row, $itemGuid, &$instanceNameSuffix = '', &$currentDurability = null) {
+        $itemGuid = (int)$itemGuid;
+        if ($itemGuid <= 0) {
+            return '';
+        }
+
+        $instance = char_query("SELECT `enchantments`, `randomPropertyId`, `durability` FROM `item_instance` WHERE `guid` = {$itemGuid} LIMIT 1", 1);
+        if (!$instance) {
+            return '';
+        }
+
+        $currentDurability = isset($instance['durability']) ? (int)$instance['durability'] : null;
+        $randomPropertyId = (int)($instance['randomPropertyId'] ?? 0);
+        if ($randomPropertyId === 0) {
+            return '';
+        }
+
+        $randomTable = $randomPropertyId < 0 ? 'dbc_itemrandomsuffix' : 'dbc_itemrandomproperties';
+        $randomEntry = abs($randomPropertyId);
+        $randomRow = armory_query("SELECT * FROM `{$randomTable}` WHERE `id` = {$randomEntry} LIMIT 1", 1);
+        if (!$randomRow) {
+            return '';
+        }
+
+        $instanceNameSuffix = trim((string)($randomRow['name'] ?? ''));
+        $armoryPdo = null;
+        if (function_exists('spp_get_pdo')) {
+            try {
+                $armoryPdo = spp_get_pdo('armory', isset($_GET['realm']) ? (int)$_GET['realm'] : null);
+            } catch (Exception $e) {
+                $armoryPdo = null;
+            }
+        }
+        $html = '';
+        for ($i = 1; $i <= 3; $i++) {
+            $enchantId = (int)($randomRow['ref_spellitemenchantment_' . $i] ?? 0);
+            if ($enchantId <= 0) continue;
+            $enchantName = '';
+            if ($armoryPdo instanceof PDO) {
+                $stmt = $armoryPdo->prepare('SELECT `name` FROM `dbc_spellitemenchantment` WHERE `id` = ? LIMIT 1');
+                $stmt->execute([$enchantId]);
+                $enchantName = trim((string)($stmt->fetchColumn() ?: ''));
+            }
+            if ($enchantName === '') continue;
+            if ($randomPropertyId < 0) {
+                $suffixFactor = spp_item_tooltip_generate_suffix_factor((int)($row['ItemLevel'] ?? 0), (int)($row['InventoryType'] ?? 0), (int)($row['Quality'] ?? 0));
+                $enchantValue = round($suffixFactor * ((int)($randomRow['enchvalue_' . $i] ?? 0) / 10000));
+                $enchantName = str_replace('$i', (string)$enchantValue, $enchantName);
+            }
+            $html .= '<div style="color:#1eff00">' . htmlspecialchars($enchantName) . '</div>';
+        }
+
+        return $html;
+    }
+}
+
 if (!function_exists('spp_item_tooltip_render_spell_effect')) {
     function spp_item_tooltip_render_spell_effect($spellId, $trigger, array $row = []) {
         $spellId = (int)$spellId;
@@ -206,6 +313,7 @@ if (!function_exists('spp_render_item_tooltip_html')) {
         $sql = "
             SELECT Quality, ItemLevel, InventoryType, class, subclass,
                    RequiredLevel, Armor, MaxDurability, AllowableClass, itemset,
+                   dmg_min1, dmg_max1, delay,
                    stat_type1, stat_value1,
                    stat_type2, stat_value2,
                    stat_type3, stat_value3,
@@ -238,9 +346,13 @@ if (!function_exists('spp_render_item_tooltip_html')) {
 
         $slotName = spp_item_tooltip_inventory_type_name((int)$row['InventoryType']);
         $className = spp_item_tooltip_item_class_name((int)$row['class'], (int)$row['subclass']);
+        $instanceNameSuffix = '';
+        $currentDurability = null;
+        $instanceBonusLines = spp_item_tooltip_render_instance_bonus_lines($row, (int)($item['guid'] ?? 0), $instanceNameSuffix, $currentDurability);
+        $displayName = trim((string)($item['name'] ?? 'Unknown Item') . ($instanceNameSuffix !== '' ? ' ' . $instanceNameSuffix : ''));
 
         $html  = '<div class="tt-item">';
-        $html .= '<h5 style="color:' . $qualityColor . '">' . htmlspecialchars((string)($item['name'] ?? 'Unknown Item')) . '</h5>';
+        $html .= '<h5 style="color:' . $qualityColor . '">' . htmlspecialchars($displayName) . '</h5>';
         $html .= '<div style="color:#ffd100">Item Level ' . (int)$row['ItemLevel'] . '</div>';
         $html .= '<div style="display:flex;justify-content:space-between;">'
               . '<div>' . htmlspecialchars($slotName) . '</div>'
@@ -250,6 +362,8 @@ if (!function_exists('spp_render_item_tooltip_html')) {
         if ((int)$row['Armor'] > 0) {
             $html .= '<div>' . (int)$row['Armor'] . ' Armor</div>';
         }
+
+        $html .= spp_item_tooltip_render_weapon_lines($row);
 
         for ($i = 1; $i <= 10; $i++) {
             $type = (int)($row['stat_type' . $i] ?? 0);
@@ -261,6 +375,8 @@ if (!function_exists('spp_render_item_tooltip_html')) {
                 }
             }
         }
+
+        $html .= $instanceBonusLines;
 
         $html .= spp_item_tooltip_render_rating_lines($row);
 
@@ -284,7 +400,8 @@ if (!function_exists('spp_render_item_tooltip_html')) {
         }
 
         if ((int)$row['MaxDurability'] > 0) {
-            $html .= '<div>Durability ' . (int)$row['MaxDurability'] . ' / ' . (int)$row['MaxDurability'] . '</div>';
+            $durabilityValue = $currentDurability !== null ? (int)$currentDurability : (int)$row['MaxDurability'];
+            $html .= '<div>Durability ' . $durabilityValue . ' / ' . (int)$row['MaxDurability'] . '</div>';
         }
 
         if ((int)$row['RequiredLevel'] > 0) {

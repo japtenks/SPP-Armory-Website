@@ -288,6 +288,8 @@ $rotationConfig    = null;
 $latestHistory     = null;
 $topBotData        = null;
 $totalServerUptime = 'N/A';
+$currentRunSec     = null;
+$restartsToday     = null;
 $realmdDB          = $GLOBALS['realmd']['db_name'] ?? 'classicrealmd';
 
 try {
@@ -368,15 +370,30 @@ try {
     $storedUptime = isset($uptimeRow['stored_uptime']) ? (int)$uptimeRow['stored_uptime'] : 0;
     $latestStart  = isset($uptimeRow['latest_starttime']) ? (int)$uptimeRow['latest_starttime'] : 0;
     $currentRun   = ($latestStart > 0) ? max(0, time() - $latestStart) : 0;
+    $currentRunSec = $currentRun;
     $totalServerUptime = rotFormatUptimeSeconds($storedUptime + $currentRun);
   }
+
+  $stmtRestartsToday = $statRealmPdo->prepare("
+    SELECT COUNT(*) AS restarts_today
+    FROM uptime
+    WHERE realmid = ?
+      AND FROM_UNIXTIME(starttime) >= CURDATE()
+  ");
+  $stmtRestartsToday->execute([$realmId]);
+  $restartRow = $stmtRestartsToday->fetch(PDO::FETCH_ASSOC) ?: null;
+  $restartsToday = isset($restartRow['restarts_today']) ? (int)$restartRow['restarts_today'] : null;
 } catch (Exception $e) {
   $totalServerUptime = 'N/A';
+  $currentRunSec = null;
+  $restartsToday = null;
 }
 
 /* ---------- History ---------- */
 $historyRows = [];
 $hasHistory  = false;
+$liveOnlineAvg = null;
+$liveOnlineMax = null;
 try {
   $stmtHist = $statRealmPdo->prepare("
     SELECT snapshot_time, pct_online_rotating, pct_ever_rotated,
@@ -396,6 +413,25 @@ try {
 } catch (Exception $e) {
   /* table doesn't exist yet — silently ignore, show setup hint */
   $hasHistory = false;
+}
+
+try {
+  $stmtLiveOnline = $statRealmPdo->prepare("
+    SELECT
+      ROUND(AVG(TIMESTAMPDIFF(SECOND, last_online_start, NOW())), 1) AS live_avg_online_sec,
+      MAX(TIMESTAMPDIFF(SECOND, last_online_start, NOW()))           AS live_max_online_sec
+    FROM bot_rotation_state
+    WHERE realm = ?
+      AND last_online = 1
+      AND last_online_start IS NOT NULL
+  ");
+  $stmtLiveOnline->execute([$realmId]);
+  $liveOnlineRow = $stmtLiveOnline->fetch(PDO::FETCH_ASSOC) ?: null;
+  $liveOnlineAvg = $liveOnlineRow['live_avg_online_sec'] ?? null;
+  $liveOnlineMax = $liveOnlineRow['live_max_online_sec'] ?? null;
+} catch (Exception $e) {
+  $liveOnlineAvg = null;
+  $liveOnlineMax = null;
 }
 ?>
 
@@ -618,8 +654,16 @@ try {
     $obsAvgOffline      = $latestHistory['observed_avg_offline_sec']  ?? null;
     $obsOnlineSessions  = $latestHistory['observed_online_sessions']  ?? 0;
     $obsOfflineSessions = $latestHistory['observed_offline_sessions'] ?? 0;
+    $liveAvgOnline      = $liveOnlineAvg;
+    $liveMaxOnline      = $liveOnlineMax;
     $liveAvgOffline     = $rotationData['current_avg_offline_sec']    ?? null;
     $liveMaxOffline     = $rotationData['current_max_offline_sec']    ?? null;
+    if ($liveAvgOnline !== null && is_numeric($liveAvgOnline)) {
+      $liveAvgOnline = (float)$liveAvgOnline;
+    }
+    if ($liveMaxOnline !== null && is_numeric($liveMaxOnline)) {
+      $liveMaxOnline = (float)$liveMaxOnline;
+    }
     if ($liveAvgOffline !== null && is_numeric($liveAvgOffline)) {
       $liveAvgOffline = (float)$liveAvgOffline;
     }
@@ -749,32 +793,51 @@ try {
 
   <div class="rot-subtitle">Observed Timing</div>
   <div class="rot-help">
-    Calculated from snapshot-to-snapshot online/offline state changes in <code>bot_rotation_state</code>. These are observed transition averages, not the core's internal timer values.
+    Current values reflect bots in their live state right now. Historical values are calculated from completed snapshot-to-snapshot transitions in <code>bot_rotation_state</code>, so they lag behind live tuning changes.
   </div>
   <div class="rot-stats">
     <div class="rot-stat good">
+      <div class="val"><?php echo rotFormatSeconds($liveAvgOnline); ?></div>
+      <div class="lbl">Current Avg In World</div>
+    </div>
+    <div class="rot-stat good">
+      <div class="val"><?php echo rotFormatSeconds($obsAvgOnline); ?></div>
+      <div class="lbl">Historical Avg In World</div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo rotFormatSeconds($liveMaxOnline); ?></div>
+      <div class="lbl">Longest In World Now</div>
+    </div>
+    <div class="rot-stat good">
       <div class="val"><?php echo rotFormatSeconds($liveAvgOffline); ?></div>
       <div class="lbl">Current Avg Offline</div>
+    </div>
+    <div class="rot-stat good">
+      <div class="val"><?php echo rotFormatSeconds($obsAvgOffline); ?></div>
+      <div class="lbl">Historical Avg Offline</div>
     </div>
     <div class="rot-stat info">
       <div class="val"><?php echo rotFormatSeconds($liveMaxOffline); ?></div>
       <div class="lbl">Longest Offline Now</div>
     </div>
-    <div class="rot-stat good">
-      <div class="val"><?php echo rotFormatSeconds($obsAvgOnline); ?></div>
-      <div class="lbl">Observed Avg In World</div>
+  </div>
+
+  <div class="rot-stats">
+    <div class="rot-stat info">
+      <div class="val"><?php echo $restartsToday !== null ? (int)$restartsToday : '—'; ?></div>
+      <div class="lbl">Restarts Today</div>
     </div>
-    <div class="rot-stat good">
-      <div class="val"><?php echo rotFormatSeconds($obsAvgOffline); ?></div>
-      <div class="lbl">Observed Avg Offline</div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo rotFormatSeconds($currentRunSec); ?></div>
+      <div class="lbl">Since Last Restart</div>
     </div>
     <div class="rot-stat info">
       <div class="val"><?php echo (int)$obsOnlineSessions; ?></div>
-      <div class="lbl">Observed Logoffs</div>
+      <div class="lbl">Historical Logoffs</div>
     </div>
     <div class="rot-stat info">
       <div class="val"><?php echo (int)$obsOfflineSessions; ?></div>
-      <div class="lbl">Observed Returns</div>
+      <div class="lbl">Historical Returns</div>
     </div>
   </div>
 
