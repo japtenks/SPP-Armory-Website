@@ -21,21 +21,22 @@ function print_time($t){
   echo implode(', ',$out);
 }
 
-function connect_realm_db($realmData, $dbName){
-  if (!$realmData || $dbName === '') {
+function connect_realm_db($target, $realmId){
+  if (!function_exists('spp_get_db_config')) {
     return null;
   }
 
-  $dbPort = (int)$realmData['dbport'];
-  if ((int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port) {
-    $dbPort = (int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port;
+  try {
+    $cfg = spp_get_db_config($target, $realmId);
+  } catch (Throwable $e) {
+    return null;
   }
 
   try {
     return new PDO(
-      'mysql:host='.$realmData['dbhost'].';port='.$dbPort.';dbname='.$dbName.';charset=utf8',
-      $realmData['dbuser'],
-      $realmData['dbpass'],
+      'mysql:host='.$cfg['host'].';port='.(int)$cfg['port'].';dbname='.$cfg['name'].';charset=utf8mb4',
+      $cfg['user'],
+      $cfg['pass'],
       [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
   } catch (PDOException $e) {
@@ -55,9 +56,6 @@ foreach($realms as $r){
   $realm_id=(int)$r['id'];
   $realm_name=$r['name'];
   $realm_type=$realm_flags_def[$r['realmflags']&0x0F]??"Normal";
-  $stmtRS = $realmPdo->prepare("SELECT * FROM `website_realm_settings` WHERE id_realm=?");
-  $stmtRS->execute([$realm_id]);
-  $realmData = $stmtRS->fetch(PDO::FETCH_ASSOC);
   $build_ver=trim($r['realmbuilds']);
 
   // Determine expansion by build version
@@ -65,14 +63,22 @@ foreach($realms as $r){
   if(preg_match('/8[6-9][0-9]{2}/',$build_ver))$exp="tbc";
   elseif(preg_match('/[12][0-9]{4}/',$build_ver))$exp="wotlk";
 
-  $charDbName = $realmData['chardbname'] ?? '';
-  $worldDbName = $realmData['dbname'] ?? '';
-  $dbPort = (int)($realmData['dbport'] ?? 0);
-  if ((int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port) {
-    $dbPort = (int)$GLOBALS['MW']->getConfig->generic->use_alternate_mangosdb_port;
-  }
-  $CHDB_EXTRA = connect_realm_db($realmData, $charDbName);
-  $WSDB_EXTRA = connect_realm_db($realmData, $worldDbName);
+  $charCfg = null;
+  $worldCfg = null;
+  try {
+    $charCfg = spp_get_db_config('chars', $realm_id);
+  } catch (Throwable $e) {}
+  try {
+    $worldCfg = spp_get_db_config('world', $realm_id);
+  } catch (Throwable $e) {}
+
+  $charDbName = $charCfg['name'] ?? '';
+  $worldDbName = $worldCfg['name'] ?? '';
+  $dbHost = $charCfg['host'] ?? ($worldCfg['host'] ?? '');
+  $dbPort = (int)($charCfg['port'] ?? ($worldCfg['port'] ?? 0));
+
+  $CHDB_EXTRA = connect_realm_db('chars', $realm_id);
+  $WSDB_EXTRA = connect_realm_db('world', $realm_id);
 
   // Use DB connectivity as the single online/offline source of truth.
   $is_online = ($CHDB_EXTRA || $WSDB_EXTRA) ? true : false;
@@ -151,7 +157,7 @@ foreach($realms as $r){
     'avg_up'=>$avg_uptime,'restarts'=>$restart_count,'avg_lvl'=>$avg_lvl,'max_lvl'=>$max_lvl,
     'state'=>$state,'res_color'=>$res_color,'status_label'=>$res_label,'img'=>$res_img,
     'debug'=>[
-      'realm_host' => (string)($realmData['dbhost'] ?? ''),
+      'realm_host' => (string)$dbHost,
       'realm_port' => $dbPort,
       'char_db' => (string)$charDbName,
       'world_db' => (string)$worldDbName,
@@ -272,4 +278,3 @@ foreach($realms as $r){
   </div>
 </div>
 <?php builddiv_end(); ?>
-

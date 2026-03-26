@@ -8,8 +8,8 @@ $DB_PORT = $db['port'];
 $DB_USER = $db['user'];
 $DB_PASS = $db['pass'];
 
-$WORLD_NAMES = array_map(fn($r) => $r['world'], $realmDbMap);
-$CHAR_NAMES  = array_map(fn($r) => $r['chars'], $realmDbMap);
+$WORLD_NAMES = array_map(function ($r) { return $r['world']; }, $realmDbMap);
+$CHAR_NAMES  = array_map(function ($r) { return $r['chars']; }, $realmDbMap);
 
 $site_encoding = "utf-8";
 $db_type = "MySQL";
@@ -36,7 +36,7 @@ $realm_db = [
     'addr' => $DB_HOST . ":" . $DB_PORT,
     'user' => $DB_USER,
     'pass' => $DB_PASS,
-    'name' => $activeRealm['dbs']['realmd'],
+    'name' => $activeRealm['realmd'],
     'encoding' => 'utf8'
 ];
 
