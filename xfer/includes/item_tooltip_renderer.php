@@ -5,6 +5,8 @@ if (!function_exists('spp_item_tooltip_item_class_name')) {
         $subclass = (int)$subclass;
 
         switch ($class) {
+            case 1:
+                return 'Bag';
             case 2:
                 $map = [
                     0 => 'Axe (1H)', 1 => 'Axe (2H)', 2 => 'Bow', 3 => 'Gun',
@@ -33,11 +35,25 @@ if (!function_exists('spp_item_tooltip_inventory_type_name')) {
         $map = [
             1 => 'Head', 2 => 'Neck', 3 => 'Shoulder', 5 => 'Chest', 6 => 'Waist', 7 => 'Legs',
             8 => 'Feet', 9 => 'Wrist', 10 => 'Hands', 11 => 'Finger', 12 => 'Trinket', 13 => 'One Hand',
-            14 => 'Shield', 15 => 'Weapon', 16 => 'Back', 17 => 'Two-Hand', 21 => 'Main Hand',
+            14 => 'Shield', 15 => 'Weapon', 16 => 'Back', 17 => 'Two-Hand', 18 => 'Bag', 21 => 'Main Hand',
             22 => 'Off Hand', 23 => 'Held In Off-hand'
         ];
         $inventoryType = (int)$inventoryType;
         return $map[$inventoryType] ?? ('Slot ' . $inventoryType);
+    }
+}
+
+if (!function_exists('spp_item_tooltip_container_size_label')) {
+    function spp_item_tooltip_container_size_label(array $row) {
+        $inventoryType = (int)($row['InventoryType'] ?? 0);
+        $itemClass = (int)($row['class'] ?? 0);
+        $slots = (int)($row['ContainerSlots'] ?? 0);
+
+        if ($slots <= 0 || ($inventoryType !== 18 && $itemClass !== 1)) {
+            return '';
+        }
+
+        return $slots . ' Slot Bag';
     }
 }
 
@@ -311,7 +327,7 @@ if (!function_exists('spp_render_item_tooltip_html')) {
         }
 
         $sql = "
-            SELECT Quality, ItemLevel, InventoryType, class, subclass,
+            SELECT Quality, ItemLevel, InventoryType, class, subclass, ContainerSlots,
                    RequiredLevel, Armor, MaxDurability, AllowableClass, itemset,
                    dmg_min1, dmg_max1, delay,
                    stat_type1, stat_value1,
@@ -346,6 +362,7 @@ if (!function_exists('spp_render_item_tooltip_html')) {
 
         $slotName = spp_item_tooltip_inventory_type_name((int)$row['InventoryType']);
         $className = spp_item_tooltip_item_class_name((int)$row['class'], (int)$row['subclass']);
+        $containerSizeLabel = spp_item_tooltip_container_size_label($row);
         $instanceNameSuffix = '';
         $currentDurability = null;
         $instanceBonusLines = spp_item_tooltip_render_instance_bonus_lines($row, (int)($item['guid'] ?? 0), $instanceNameSuffix, $currentDurability);
@@ -358,6 +375,10 @@ if (!function_exists('spp_render_item_tooltip_html')) {
               . '<div>' . htmlspecialchars($slotName) . '</div>'
               . '<div style="text-align:right;">' . htmlspecialchars($className) . '</div>'
               . '</div>';
+
+        if ($containerSizeLabel !== '') {
+            $html .= '<div>' . htmlspecialchars($containerSizeLabel) . '</div>';
+        }
 
         if ((int)$row['Armor'] > 0) {
             $html .= '<div>' . (int)$row['Armor'] . ' Armor</div>';
