@@ -453,6 +453,7 @@ $maxLevel = 0;
 $guildAverageItemLevelTotal = 0.0;
 $guildAverageItemLevelCount = 0;
 $classBreakdown = [];
+$classDisplayOrder = [1, 2, 3, 4, 5, 7, 8, 9, 11, 6];
 $rankOptions = [];
 
 foreach ($members as $member) {
@@ -479,6 +480,17 @@ foreach ($members as $member) {
 $avgLevel = $guildMembers > 0 ? round($avgLevel / $guildMembers, 1) : 0;
 $guildAverageItemLevel = $guildAverageItemLevelCount > 0 ? round($guildAverageItemLevelTotal / $guildAverageItemLevelCount, 1) : 0;
 $maxGuildRankId = !empty($rankOptions) ? max(array_keys($rankOptions)) : 0;
+$orderedClassBreakdown = [];
+foreach ($classDisplayOrder as $classId) {
+    if (!empty($classBreakdown[$classId])) {
+        $orderedClassBreakdown[$classId] = $classBreakdown[$classId];
+    }
+}
+foreach ($classBreakdown as $classId => $classCount) {
+    if (!isset($orderedClassBreakdown[$classId])) {
+        $orderedClassBreakdown[$classId] = $classCount;
+    }
+}
 $factionName = ($leader && in_array((int)$leader['race'], $allianceRaces, true)) ? 'Alliance' : 'Horde';
 $factionSlug = strtolower($factionName);
 $crest = 'templates/offlike/images/modern/logo-' . $factionSlug . '.png';
@@ -608,11 +620,11 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
 }
 .guild-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(340px, 0.95fr);
+  grid-template-columns: minmax(0, 1.75fr) minmax(320px, 0.95fr);
   gap: 18px;
   align-items: stretch;
   padding: 26px 24px 30px;
-
+  overflow: hidden;
   border-top: 0;
   border-radius: 0 0 18px 18px;
 }
@@ -620,6 +632,9 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  min-width: 0;
+  height: 100%;
+  align-self: stretch;
 }
 .guild-section {
   padding: 22px 24px 18px;
@@ -627,9 +642,14 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   border: 1px solid rgba(255, 204, 72, 0.18);
   border-radius: 16px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  min-width: 0;
 }
 .guild-roster-panel {
-  min-height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  align-self: stretch;
 }
 .guild-motd-panel {
   border-bottom-left-radius: 0;
@@ -689,6 +709,14 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   margin: 4px 0 14px;
   flex-wrap: wrap;
 }
+.guild-wip-note {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 204, 72, 0.2);
+  background: rgba(255, 204, 72, 0.08);
+  color: #d9c99a;
+  font-size: 0.92rem;
+}
 .guild-note-banner {
   margin: 0 0 14px;
   padding: 12px 14px;
@@ -704,10 +732,34 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
 }
 .guild-roster {
   width: 100%;
+  min-width: 1100px;
   border-collapse: collapse;
   background: rgba(10, 10, 18, 0.72);
 }
+.guild-roster-table-wrap {
+  flex: 1 1 auto;
+  max-width: 100%;
+  min-height: 0;
+  height: 620px;
+  max-height: 620px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 10px;
+  scrollbar-gutter: stable both-edges;
+}
+.guild-roster-table-wrap::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.guild-roster-table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(255, 204, 72, 0.28);
+  border-radius: 999px;
+}
 .guild-roster thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(10, 10, 18, 0.96);
   padding: 14px 16px;
   text-align: left;
   font-size: 0.95rem;
@@ -729,11 +781,11 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   vertical-align: middle;
 }
 .guild-roster tbody td.guild-notes-cell {
-  min-width: 260px;
+  min-width: 210px;
 }
 .guild-roster thead th.guild-note-col,
 .guild-roster tbody td.guild-note-col {
-  width: 220px;
+  width: 180px;
 }
 .guild-roster tbody tr:nth-child(odd) {
   background: rgba(255, 255, 255, 0.03);
@@ -772,9 +824,9 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   gap: 8px;
 }
 .guild-note-input {
-  width: 95%;
+  width: 10rem;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 22px;
   color: #f8f1d4;
   background: rgba(4, 6, 16, 0.94);
   border: 1px solid rgba(255, 196, 0, 0.4);
@@ -811,25 +863,36 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   width: 100%;
 }
 .guild-action-cell {
-  min-width: 180px;
+  min-width: 116px;
 }
 .guild-action-form {
   margin: 0;
 }
 .guild-action-buttons {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 .guild-action-btn {
   min-height: 34px;
-  padding: 0 12px;
+  min-width: 0;
+  padding: 0 8px;
   border-radius: 999px;
   border: 1px solid rgba(255, 204, 72, 0.26);
   background: rgba(255, 204, 72, 0.1);
   color: #ffe39a;
   font-weight: 700;
   cursor: pointer;
+  font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.guild-action-btn.is-symbol {
+  min-width: 40px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
 }
 .guild-action-btn:hover {
   background: rgba(255, 204, 72, 0.18);
@@ -871,7 +934,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   gap: 12px;
 }
 .guild-motd-input {
-  width: 100%;
+  width: 90%;
   min-height: 92px;
   padding: 12px 14px;
   color: #f8f1d4;
@@ -935,7 +998,8 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   align-items: center;
 }
 .guild-breakdown-label {
-  color: #e5d4a0;
+  color: var(--class-color, #e5d4a0);
+  font-weight: 700;
 }
 .guild-breakdown-bar {
   height: 14px;
@@ -946,29 +1010,41 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
 .guild-breakdown-fill {
   height: 100%;
   border-radius: 999px;
+  box-shadow: 0 0 14px rgba(var(--class-color-rgb, 255, 204, 72), 0.22);
 }
-.class-warrior { --class-color:#C79C6E; }
-.class-mage { --class-color:#69CCF0; }
-.class-priest { --class-color:#FFFFFF; }
-.class-hunter { --class-color:#ABD473; }
-.class-rogue { --class-color:#FFF569; }
-.class-warlock { --class-color:#9482C9; }
-.class-paladin { --class-color:#F58CBA; }
-.class-druid { --class-color:#FF7D0A; }
-.class-shaman { --class-color:#0070DE; }
-.class-deathknight { --class-color:#C41F3B; }
+.guild-breakdown-row > div:last-child {
+  color: var(--class-color, #f3e6bf);
+  font-weight: 700;
+}
+.class-warrior { --class-color:#C79C6E; --class-color-rgb:199,156,110; }
+.class-mage { --class-color:#69CCF0; --class-color-rgb:105,204,240; }
+.class-priest { --class-color:#FFFFFF; --class-color-rgb:255,255,255; }
+.class-hunter { --class-color:#ABD473; --class-color-rgb:171,212,115; }
+.class-rogue { --class-color:#FFF569; --class-color-rgb:255,245,105; }
+.class-warlock { --class-color:#9482C9; --class-color-rgb:148,130,201; }
+.class-paladin { --class-color:#F58CBA; --class-color-rgb:245,140,186; }
+.class-druid { --class-color:#FF7D0A; --class-color-rgb:255,125,10; }
+.class-shaman { --class-color:#0070DE; --class-color-rgb:0,112,222; }
+.class-deathknight { --class-color:#C41F3B; --class-color-rgb:196,31,59; }
+.class-priest .guild-breakdown-fill {
+  box-shadow: inset 0 0 0 1px rgba(12, 12, 18, 0.55), 0 0 14px rgba(255,255,255,0.28);
+}
 [class*="class-"] a {
   color: var(--class-color);
   text-decoration: none;
   font-weight: 700;
 }
-@media (max-width: 1080px) {
+@media (max-width: 1366px) {
   .guild-hero,
   .guild-shell {
     grid-template-columns: 1fr;
   }
   .guild-roster {
     min-width: 1000px;
+  }
+  .guild-roster-table-wrap {
+    height: 520px;
+    max-height: 520px;
   }
   .guild-side-stack {
     min-height: auto;
@@ -983,6 +1059,20 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
     margin-top: 18px;
+  }
+  .guild-roster thead th,
+  .guild-roster tbody td {
+    padding: 12px 10px;
+  }
+  .guild-roster tbody td.guild-notes-cell {
+    min-width: 170px;
+  }
+  .guild-roster thead th.guild-note-col,
+  .guild-roster tbody td.guild-note-col {
+    width: 150px;
+  }
+  .guild-action-cell {
+    min-width: 128px;
   }
 }
 @media (max-width: 760px) {
@@ -1061,7 +1151,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
       <div class="guild-roster-toolbar">
         <div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo $totalMembers; ?> members</div>
         <?php if ($canEditGuildNotes): ?>
-          <button class="guild-note-save" type="submit" form="guild-note-bulk-form" name="guild_submit_mode" value="all_notes">Save All Notes</button>
+          <span class="guild-wip-note">Guild notes and MOTD web saving are WIP.</span>
         <?php endif; ?>
       </div>
       <?php if ($guildNoteFeedback !== ''): ?><div class="guild-note-banner"><?php echo htmlspecialchars($guildNoteFeedback); ?></div><?php endif; ?>
@@ -1072,6 +1162,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
           <input type="hidden" name="guild_form_action" value="save_guild_data">
         </form>
       <?php endif; ?>
+      <div class="guild-roster-table-wrap">
       <table class="guild-roster">
         <thead>
           <tr>
@@ -1115,10 +1206,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
                 <td class="guild-rank"><?php echo htmlspecialchars(!empty($member['rank_name']) ? $member['rank_name'] : ('Rank ' . (int)$member['rank'])); ?></td>
                 <td class="guild-notes-cell guild-note-col">
                   <?php if ($canEditGuildNotes): ?>
-                    <div class="guild-note-card">
-                      <label class="guild-note-label" for="pnote-<?php echo (int)$member['guid']; ?>">Public Note</label>
-                      <input class="guild-note-input" id="pnote-<?php echo (int)$member['guid']; ?>" type="text" name="pnote[<?php echo (int)$member['guid']; ?>]" maxlength="31" value="<?php echo htmlspecialchars($publicNoteValue); ?>" form="guild-note-bulk-form">
-                    </div>
+                    <input class="guild-note-input" id="pnote-<?php echo (int)$member['guid']; ?>" type="text" name="pnote[<?php echo (int)$member['guid']; ?>]" maxlength="31" value="<?php echo htmlspecialchars($publicNoteValue); ?>" form="guild-note-bulk-form">
                   <?php else: ?>
                     <div class="guild-note-card">
                       <div class="guild-note-value<?php echo $publicNoteValue === '' ? ' is-empty' : ''; ?>"><?php echo $publicNoteValue !== '' ? htmlspecialchars($publicNoteValue) : 'No public note'; ?></div>
@@ -1128,10 +1216,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
                 <?php if ($canViewOfficerNotes): ?>
                   <td class="guild-notes-cell guild-note-col">
                     <?php if ($canEditGuildNotes): ?>
-                      <div class="guild-note-card">
-                        <label class="guild-note-label" for="offnote-<?php echo (int)$member['guid']; ?>">Officer Note</label>
-                        <input class="guild-note-input" id="offnote-<?php echo (int)$member['guid']; ?>" type="text" name="offnote[<?php echo (int)$member['guid']; ?>]" maxlength="31" value="<?php echo htmlspecialchars($officerNoteValue); ?>" form="guild-note-bulk-form">
-                      </div>
+                      <input class="guild-note-input" id="offnote-<?php echo (int)$member['guid']; ?>" type="text" name="offnote[<?php echo (int)$member['guid']; ?>]" maxlength="31" value="<?php echo htmlspecialchars($officerNoteValue); ?>" form="guild-note-bulk-form">
                     <?php else: ?>
                       <div class="guild-note-card">
                         <div class="guild-note-value<?php echo $officerNoteValue === '' ? ' is-empty' : ''; ?>"><?php echo $officerNoteValue !== '' ? htmlspecialchars($officerNoteValue) : 'No officer note'; ?></div>
@@ -1148,8 +1233,8 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
                         <input type="hidden" name="guild_roster_action" value="manage_member">
                         <input type="hidden" name="target_guid" value="<?php echo (int)$member['guid']; ?>">
                         <div class="guild-action-buttons">
-                          <button class="guild-action-btn" type="submit" name="guild_roster_action_type" value="rank_up"<?php echo (int)$member['rank'] <= 1 ? ' disabled' : ''; ?>>Rank Up</button>
-                          <button class="guild-action-btn" type="submit" name="guild_roster_action_type" value="rank_down"<?php echo (int)$member['rank'] >= $maxGuildRankId ? ' disabled' : ''; ?>>Rank Down</button>
+                          <button class="guild-action-btn is-symbol" type="submit" name="guild_roster_action_type" value="rank_up" title="Rank Up" aria-label="Rank Up"<?php echo (int)$member['rank'] <= 1 ? ' disabled' : ''; ?>>↑</button>
+                          <button class="guild-action-btn is-symbol" type="submit" name="guild_roster_action_type" value="rank_down" title="Rank Down" aria-label="Rank Down"<?php echo (int)$member['rank'] >= $maxGuildRankId ? ' disabled' : ''; ?>>↓</button>
                           <button class="guild-action-btn is-danger" type="submit" name="guild_roster_action_type" value="kick" onclick="return confirm('Kick <?php echo htmlspecialchars(addslashes((string)$member['name'])); ?> from the guild?');">Kick</button>
                         </div>
                       </form>
@@ -1163,6 +1248,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
           <?php endif; ?>
         </tbody>
       </table>
+      </div>
 
       <?php if ($pageCount > 1): ?>
         <div class="pagination-controls"><div class="page-links"><?php echo compact_paginate($p, $pageCount, $baseUrl); ?></div></div>
@@ -1226,7 +1312,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
         <div class="guild-divider">
           <h3 class="guild-side-title">Class Breakdown</h3>
           <div class="guild-breakdown">
-            <?php foreach($classBreakdown as $classId => $classCount): ?>
+            <?php foreach($orderedClassBreakdown as $classId => $classCount): ?>
               <?php
                 $breakClassName = $classNames[$classId] ?? ('Class ' . $classId);
                 $breakClassSlug = strtolower(str_replace(' ', '', $breakClassName));
@@ -1242,10 +1328,7 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
         </div>
       </section>
     </div>
-  </div>
 </div>
 </div>
-
-
-
+</div>
 

@@ -79,6 +79,8 @@ foreach($realms as $r){
 
   $CHDB_EXTRA = connect_realm_db('chars', $realm_id);
   $WSDB_EXTRA = connect_realm_db('world', $realm_id);
+  $hasCharData = $CHDB_EXTRA ? 1 : 0;
+  $hasWorldData = $WSDB_EXTRA ? 1 : 0;
 
   // Use DB connectivity as the single online/offline source of truth.
   $is_online = ($CHDB_EXTRA || $WSDB_EXTRA) ? true : false;
@@ -114,16 +116,40 @@ foreach($realms as $r){
  
 
   // player/faction/progression
-  $pop=0;$alli=0;$horde=0;$avg_lvl=0;$max_lvl=0;
+  $pop=0;$online=0;$alli=0;$horde=0;$avg_lvl=0;$max_lvl=0;$avg_ilvl=0;
   $progress=['MC','Ony','BWL','ZG','AQ','Naxx','Kara','SSC','TK','BT','SWP','Naxx25','Ulduar','ICC'];
   foreach($progress as $p)$state[$p]='uncleared';
 
     if($CHDB_EXTRA){
-      $pop=(int)$CHDB_EXTRA->query("SELECT COUNT(*) FROM `characters` WHERE online=1")->fetchColumn();
+      $pop=(int)$CHDB_EXTRA->query("SELECT COUNT(*) FROM `characters` WHERE xp > 0 AND level >= 1")->fetchColumn();
+      $online=(int)$CHDB_EXTRA->query("SELECT COUNT(*) FROM `characters` WHERE online=1")->fetchColumn();
       $alli=(int)$CHDB_EXTRA->query("SELECT COUNT(*) FROM `characters` WHERE online=1 AND race IN (1,3,4,7,11)")->fetchColumn();
       $horde=(int)$CHDB_EXTRA->query("SELECT COUNT(*) FROM `characters` WHERE online=1 AND race IN (2,5,6,8,10)")->fetchColumn();
       $avg_lvl=$CHDB_EXTRA->query("SELECT ROUND(AVG(level),1) FROM `characters` WHERE online=1")->fetchColumn();
       $max_lvl=(int)$CHDB_EXTRA->query("SELECT MAX(level) FROM `characters`")->fetchColumn();
+      if($worldDbName !== ''){
+        try {
+          $avg_ilvl = $CHDB_EXTRA->query("
+            SELECT ROUND(AVG(char_avg.avg_item_level), 1)
+            FROM (
+              SELECT
+                ci.guid,
+                AVG(it.ItemLevel) AS avg_item_level
+              FROM `character_inventory` ci
+              INNER JOIN `characters` c ON c.guid = ci.guid
+              INNER JOIN `".$worldDbName."`.`item_template` it ON it.entry = ci.item_template
+              WHERE c.online = 1
+                AND ci.bag = 0
+                AND ci.slot BETWEEN 0 AND 18
+                AND ci.slot NOT IN (3, 18)
+                AND ci.item_template > 0
+              GROUP BY ci.guid
+            ) AS char_avg
+          ")->fetchColumn();
+        } catch (Throwable $e) {
+          $avg_ilvl = 0;
+        }
+      }
 
       // ---- Progression checks per expansion ----
       if($exp=="classic"){
@@ -153,20 +179,29 @@ foreach($realms as $r){
 
   $items[]=[
     'id'=>$realm_id,'name'=>$realm_name,'type'=>$realm_type,'build'=>$build_ver,
-    'exp'=>$exp,'pop'=>$pop,'alli'=>$alli,'horde'=>$horde,'uptime'=>$uptime,
-    'avg_up'=>$avg_uptime,'restarts'=>$restart_count,'avg_lvl'=>$avg_lvl,'max_lvl'=>$max_lvl,
+    'exp'=>$exp,'pop'=>$pop,'online'=>$online,'alli'=>$alli,'horde'=>$horde,'uptime'=>$uptime,
+    'avg_up'=>$avg_uptime,'restarts'=>$restart_count,'avg_lvl'=>$avg_lvl,'max_lvl'=>$max_lvl,'avg_ilvl'=>$avg_ilvl,
     'state'=>$state,'res_color'=>$res_color,'status_label'=>$res_label,'img'=>$res_img,
     'debug'=>[
       'realm_host' => (string)$dbHost,
       'realm_port' => $dbPort,
       'char_db' => (string)$charDbName,
       'world_db' => (string)$worldDbName,
-      'char_ok' => $CHDB_EXTRA ? 1 : 0,
-      'world_ok' => $WSDB_EXTRA ? 1 : 0,
+      'char_ok' => $hasCharData,
+      'world_ok' => $hasWorldData,
     ],
+    'has_char_data' => $hasCharData,
   ];
 }
 ?>
+
+<style>
+.progression .avg-ilvl{
+  display:inline-block;
+  margin-left:14px;
+  color:#d8c99d;
+}
+</style>
 
 <?php builddiv_start(1,$lang['realm_status']); ?>
 <div class="modern-content">
@@ -206,9 +241,11 @@ foreach($realms as $r){
         <div><strong>Restarts Today:</strong> <?php echo $r['restarts']; ?></div>
         <div><strong><?php echo $lang['si_type']; ?>:</strong> <?php echo htmlspecialchars($r['type']); ?></div>
         <div><strong><?php echo $lang['si_pop']; ?>:</strong> 
-          <?php if($r['uptime']!=0)echo $r['pop']." (".population_view($r['pop']).")";else echo '-'; ?>
+          <?php if(!empty($r['has_char_data']))echo $r['pop']." (".population_view($r['pop']).")";else echo '-'; ?>
+        </div>
+        <div><strong>Online:</strong> <?php echo !empty($r['has_char_data']) ? (int)$r['online'] : '-'; ?></div>
 
-          <?php if($r['alli']+$r['horde']>0):
+          <?php if(!empty($r['has_char_data']) && $r['alli']+$r['horde']>0):
             $a=round(($r['alli']/max(1,($r['alli']+$r['horde'])))*100);
             $h=100-$a;
             $balanceClass='balanced';
@@ -254,6 +291,7 @@ foreach($realms as $r){
             <span class="<?php echo $r['state']['Ulduar']; ?>">Uld</span>
             <span class="<?php echo $r['state']['ICC']; ?>">ICC</span>
           <?php } ?>
+          <span class="avg-ilvl"><strong>Avg iLvl:</strong> <?php echo !empty($r['avg_ilvl']) ? number_format((float)$r['avg_ilvl'], 1) : '-'; ?></span>
         </div>
 
         <?php if($realmstatusDebug): ?>

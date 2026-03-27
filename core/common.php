@@ -920,9 +920,14 @@ function RemoveXSS($val) {
 }
 
 
+function get_realm_byid_raw($id){
+    global $DB;
+    return $DB->selectRow("SELECT * FROM `realmlist` WHERE `id`=?d",$id);
+}
+
 function get_realm_byid($id){
-    global $DB, $MW;
-    $search_q = $DB->selectRow("SELECT * FROM `realmlist` WHERE `id`=?d",$id);
+    global $MW;
+    $search_q = get_realm_byid_raw($id);
     if((int)$MW->getConfig->generic->use_local_ip_port_test) {
         $search_q['address'] = "127.0.0.1";
     }
@@ -946,7 +951,9 @@ function spp_get_realm_soap_settings($realmId) {
         }
     }
 
-    $realm = get_realm_byid((int)$realmId);
+    $realm = function_exists('get_realm_byid_raw')
+        ? get_realm_byid_raw((int)$realmId)
+        : get_realm_byid((int)$realmId);
     if (!is_array($realm) || empty($realm)) {
         return null;
     }
@@ -1045,7 +1052,11 @@ function spp_mangos_soap_execute_command($realmId, $command, &$errorMessage = ''
         ));
         $responseBody = @file_get_contents($endpoint, false, $context);
         if ($responseBody === false) {
-            $errorMessage = 'SOAP request failed.';
+            $lastError = error_get_last();
+            $errorMessage = 'SOAP request failed for ' . $endpoint . '.';
+            if (is_array($lastError) && !empty($lastError['message'])) {
+                $errorMessage .= ' ' . $lastError['message'];
+            }
             return false;
         }
         if (isset($http_response_header) && is_array($http_response_header)) {
@@ -1059,7 +1070,7 @@ function spp_mangos_soap_execute_command($realmId, $command, &$errorMessage = ''
     }
 
     if ($httpCode >= 400) {
-        $errorMessage = 'SOAP request returned HTTP ' . $httpCode . '.';
+        $errorMessage = 'SOAP request to ' . $endpoint . ' returned HTTP ' . $httpCode . '.';
         return false;
     }
 

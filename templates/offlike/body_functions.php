@@ -777,11 +777,13 @@ function render_page_size_form($items_per_page, $extra_params = [], $show_bots =
 ?>
 
 <?php
-function render_character_pagination($p, $pnum, $items_per_page, $realmId, $includeBots, $search = '', $urlBase = 'index.php?n=server&sub=chars') {
+function render_character_pagination($p, $pnum, $items_per_page, $realmId, $includeBots, $search = '', $onlineOnly = false, $factionFilter = 'all', $botCount = 0, $urlBase = 'index.php?n=server&sub=chars') {
     $urlstring = $urlBase
       . '&realm=' . $realmId
       . '&per_page=' . $items_per_page
       . '&show_bots=' . ($includeBots ? '1' : '0')
+      . '&online=' . ($onlineOnly ? '1' : '0')
+      . '&faction=' . urlencode($factionFilter)
       . ($search !== '' ? '&search=' . urlencode($search) : '');
     ?>
     <div class="pagination-controls">
@@ -795,6 +797,8 @@ function render_character_pagination($p, $pnum, $items_per_page, $realmId, $incl
           <input type="hidden" name="realm" value="<?php echo $realmId; ?>">
           <input type="hidden" name="p" value="1">
           <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
+          <input type="hidden" name="online" value="<?php echo $onlineOnly ? '1' : '0'; ?>">
+          <input type="hidden" name="faction" value="<?php echo htmlspecialchars($factionFilter); ?>">
 
           <label for="per_page">Show:</label>
           <select id="per_page" name="per_page" onchange="this.form.submit()">
@@ -806,12 +810,7 @@ function render_character_pagination($p, $pnum, $items_per_page, $realmId, $incl
           </select>
           <span>per page</span>
 
-          <label style="margin-left:10px;">
-            <input type="hidden" name="show_bots" value="0">
-            <input type="checkbox" name="show_bots" value="1"
-                   onchange="this.form.submit()" <?php echo $includeBots ? 'checked' : ''; ?>>
-            Include bots
-          </label>
+          <span style="margin-left:10px;">Bots: <?php echo (int)$botCount; ?></span>
         </form>
       </div>
     </div>
