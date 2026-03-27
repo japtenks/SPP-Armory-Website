@@ -269,11 +269,16 @@ if ( $defaultRealmId < 1 )
 $selectedRealmId = (int)$user['cur_selected_realmd'] ;
 $dbinfo_mangos = null ;
 $selectedRealmIsValid = ( $selectedRealmId > 0 ) ;
+$_realmPdo = spp_get_pdo('realmd', $defaultRealmId);
 
 if ( $selectedRealmIsValid )
 {
-	$realmExists = $DB->selectCell( "SELECT `id` FROM `realmlist` WHERE `id`=?d LIMIT 1", $selectedRealmId ) ;
-	$dbinfo_mangos = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $selectedRealmId ) ;
+	$_stmt = $_realmPdo->prepare("SELECT `id` FROM `realmlist` WHERE `id`=? LIMIT 1");
+	$_stmt->execute([(int)$selectedRealmId]);
+	$realmExists = $_stmt->fetchColumn();
+	$_stmt = $_realmPdo->prepare("SELECT * FROM `website_realm_settings` WHERE id_realm=?");
+	$_stmt->execute([(int)$selectedRealmId]);
+	$dbinfo_mangos = $_stmt->fetch(PDO::FETCH_ASSOC);
 	$selectedRealmIsValid = !empty( $realmExists ) && !empty( $dbinfo_mangos ) ;
 
 	if ( $selectedRealmIsValid && function_exists( 'spp_get_pdo' ) && isset( $GLOBALS['realmDbMap'][$selectedRealmId] ) )
@@ -295,7 +300,9 @@ if ( !$selectedRealmIsValid )
 	$user['cur_selected_realmd'] = $defaultRealmId ;
 	setcookie( "cur_selected_realmd", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
 	setcookie( "cur_selected_realm", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
-	$dbinfo_mangos = $DB->selectRow( "SELECT * FROM `website_realm_settings` WHERE id_realm=?d", $user['cur_selected_realmd'] ) ;
+	$_stmt = $_realmPdo->prepare("SELECT * FROM `website_realm_settings` WHERE id_realm=?");
+	$_stmt->execute([(int)$user['cur_selected_realmd']]);
+	$dbinfo_mangos = $_stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 // Make an array from `dbinfo` column for the selected realm..

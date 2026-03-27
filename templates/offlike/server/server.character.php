@@ -78,6 +78,131 @@ function spp_character_reputation_tier($label) {
     return preg_replace('/[^a-z0-9]+/', '-', $key);
 }
 
+function spp_character_float_or_null($value) {
+    if ($value === null || $value === '') return null;
+    return is_numeric($value) ? (float)$value : null;
+}
+
+function spp_character_build_ilvl_chart(array $historyRows, $width = 760, $height = 220) {
+    $count = count($historyRows);
+    if ($count === 0) {
+        return array(
+            'width' => $width,
+            'height' => $height,
+            'points' => array(),
+            'path' => '',
+            'area_path' => '',
+            'y_ticks' => array(),
+            'x_labels' => array(),
+            'min' => 0,
+            'max' => 0,
+        );
+    }
+
+    $paddingLeft = 52;
+    $paddingRight = 18;
+    $paddingTop = 16;
+    $paddingBottom = 30;
+    $plotWidth = max(1, $width - $paddingLeft - $paddingRight);
+    $plotHeight = max(1, $height - $paddingTop - $paddingBottom);
+
+    $values = array();
+    foreach ($historyRows as $row) {
+        $value = spp_character_float_or_null($row['avg_equipped_ilvl'] ?? null);
+        if ($value !== null) $values[] = $value;
+    }
+    if (empty($values)) {
+        return array(
+            'width' => $width,
+            'height' => $height,
+            'points' => array(),
+            'path' => '',
+            'area_path' => '',
+            'y_ticks' => array(),
+            'x_labels' => array(),
+            'min' => 0,
+            'max' => 0,
+        );
+    }
+
+    $minValue = floor(min($values));
+    $maxValue = ceil(max($values));
+    if ($maxValue <= $minValue) $maxValue = $minValue + 1;
+    $range = $maxValue - $minValue;
+
+    $points = array();
+    $pathParts = array();
+    foreach ($historyRows as $index => $row) {
+        $value = spp_character_float_or_null($row['avg_equipped_ilvl'] ?? null);
+        if ($value === null) continue;
+        $x = $count === 1
+            ? ($paddingLeft + ($plotWidth / 2))
+            : ($paddingLeft + (($index / ($count - 1)) * $plotWidth));
+        $y = $paddingTop + (($maxValue - $value) / $range) * $plotHeight;
+        $points[] = array(
+            'x' => round($x, 2),
+            'y' => round($y, 2),
+            'value' => $value,
+            'snapshot_time' => (string)($row['snapshot_time'] ?? ''),
+            'equipped_item_count' => isset($row['equipped_item_count']) ? (int)$row['equipped_item_count'] : 0,
+            'level' => isset($row['level']) ? (int)$row['level'] : 0,
+            'online' => !empty($row['online']),
+        );
+        $pathParts[] = ($index === 0 ? 'M' : 'L') . round($x, 2) . ' ' . round($y, 2);
+    }
+
+    $areaPath = '';
+    if (!empty($points)) {
+        $firstPoint = $points[0];
+        $lastPoint = $points[count($points) - 1];
+        $baselineY = $paddingTop + $plotHeight;
+        $areaPath = 'M' . $firstPoint['x'] . ' ' . $baselineY . ' ' .
+            implode(' ', $pathParts) . ' L' . $lastPoint['x'] . ' ' . $baselineY . ' Z';
+    }
+
+    $tickCount = min(4, max(2, $range + 1));
+    $yTicks = array();
+    for ($i = 0; $i < $tickCount; $i++) {
+        $tickValue = $minValue + ($range * ($i / ($tickCount - 1)));
+        $tickY = $paddingTop + (($maxValue - $tickValue) / $range) * $plotHeight;
+        $yTicks[] = array(
+            'label' => number_format($tickValue, 0),
+            'y' => round($tickY, 2),
+        );
+    }
+
+    $labelIndexes = array_unique(array(
+        0,
+        $count === 1 ? 0 : (int)floor(($count - 1) / 2),
+        $count - 1,
+    ));
+    sort($labelIndexes);
+    $xLabels = array();
+    foreach ($labelIndexes as $index) {
+        if (!isset($historyRows[$index])) continue;
+        $x = $count === 1
+            ? ($paddingLeft + ($plotWidth / 2))
+            : ($paddingLeft + (($index / ($count - 1)) * $plotWidth));
+        $labelTime = strtotime((string)($historyRows[$index]['snapshot_time'] ?? ''));
+        $xLabels[] = array(
+            'x' => round($x, 2),
+            'label' => $labelTime ? date('M j', $labelTime) : '',
+        );
+    }
+
+    return array(
+        'width' => $width,
+        'height' => $height,
+        'points' => $points,
+        'path' => implode(' ', $pathParts),
+        'area_path' => $areaPath,
+        'y_ticks' => $yTicks,
+        'x_labels' => $xLabels,
+        'min' => $minValue,
+        'max' => $maxValue,
+    );
+}
+
 
 function spp_character_columns(PDO $pdo, $tableName) {
     static $cache = array();
@@ -783,6 +908,22 @@ $currentMapName = 'Unknown zone';
 $displayLocation = 'Unknown zone';
 $combatHighlights = array();
 $factionIcon = '';
+$gearProgression = array(
+    'supported' => false,
+    'has_history' => false,
+    'rows' => array(),
+    'chart' => null,
+    'latest_ilvl' => null,
+    'first_ilvl' => null,
+    'peak_ilvl' => null,
+    'delta_ilvl' => null,
+    'latest_equipped_count' => null,
+    'latest_level' => null,
+    'latest_online' => null,
+    'snapshot_count' => 0,
+    'first_snapshot_label' => '',
+    'latest_snapshot_label' => '',
+);
 
 builddiv_start(1, 'Character Profile', 0);
 
@@ -808,6 +949,52 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
 
         $characterGuid = (int)$character['guid'];
         $characterName = (string)$character['name'];
+
+        try {
+            $realmdPdo = spp_get_pdo('realmd', $realmId);
+            if ($realmdPdo instanceof PDO && spp_character_table_exists($realmdPdo, 'bot_rotation_ilvl_log')) {
+                $gearProgression['supported'] = true;
+                $stmt = $realmdPdo->prepare(
+                    'SELECT `snapshot_time`, `level`, `online`, `avg_equipped_ilvl`, `equipped_item_count`
+                     FROM `bot_rotation_ilvl_log`
+                     WHERE `realm` = ? AND `bot_guid` = ?
+                     ORDER BY `snapshot_time` DESC
+                     LIMIT 240'
+                );
+                $stmt->execute(array($realmId, $characterGuid));
+                $gearRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($gearRows)) {
+                    $gearRows = array_reverse($gearRows);
+                    $gearProgression['rows'] = $gearRows;
+                    $gearProgression['has_history'] = true;
+                    $gearProgression['snapshot_count'] = count($gearRows);
+                    $firstRow = $gearRows[0];
+                    $latestRow = $gearRows[count($gearRows) - 1];
+                    $values = array();
+                    foreach ($gearRows as $gearRow) {
+                        $value = spp_character_float_or_null($gearRow['avg_equipped_ilvl'] ?? null);
+                        if ($value !== null) $values[] = $value;
+                    }
+                    $gearProgression['first_ilvl'] = spp_character_float_or_null($firstRow['avg_equipped_ilvl'] ?? null);
+                    $gearProgression['latest_ilvl'] = spp_character_float_or_null($latestRow['avg_equipped_ilvl'] ?? null);
+                    $gearProgression['peak_ilvl'] = !empty($values) ? max($values) : null;
+                    $gearProgression['delta_ilvl'] = (
+                        $gearProgression['first_ilvl'] !== null &&
+                        $gearProgression['latest_ilvl'] !== null
+                    ) ? ($gearProgression['latest_ilvl'] - $gearProgression['first_ilvl']) : null;
+                    $gearProgression['latest_equipped_count'] = isset($latestRow['equipped_item_count']) ? (int)$latestRow['equipped_item_count'] : null;
+                    $gearProgression['latest_level'] = isset($latestRow['level']) ? (int)$latestRow['level'] : null;
+                    $gearProgression['latest_online'] = !empty($latestRow['online']);
+                    $firstTime = strtotime((string)($firstRow['snapshot_time'] ?? ''));
+                    $latestTime = strtotime((string)($latestRow['snapshot_time'] ?? ''));
+                    $gearProgression['first_snapshot_label'] = $firstTime ? date('M j, Y', $firstTime) : '';
+                    $gearProgression['latest_snapshot_label'] = $latestTime ? date('M j, Y g:i A', $latestTime) : '';
+                    $gearProgression['chart'] = spp_character_build_ilvl_chart($gearRows);
+                }
+            }
+        } catch (Exception $e) {
+            error_log('[character-gear-progress] ' . $e->getMessage());
+        }
 
         if (spp_character_table_exists($charsPdo, 'character_stats')) {
             $stmt = $charsPdo->prepare('SELECT * FROM `character_stats` WHERE `guid` = ? LIMIT 1');
@@ -1600,6 +1787,20 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-hero>*{position:relative;z-index:1}.character-hero-mark{position:absolute;right:320px;top:34px;bottom:34px;width:min(360px,26vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}.character-hero-mark img{width:100%;max-width:340px;max-height:100%;object-fit:contain;opacity:.14;filter:drop-shadow(0 10px 24px rgba(0,0,0,.3))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45)}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img,.character-achievement-icon{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub,.character-achievement-meta{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}.character-achievement-list{gap:14px}.character-achievement-item{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:start}.character-achievement-icon{width:48px;height:48px;display:block}.character-achievement-title{color:#f7edd0;font-size:1.02rem;font-weight:800;line-height:1.2}.character-achievement-points-badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,204,72,.08);color:#ffd467;font-weight:800}.character-achievement-sections{display:grid;gap:18px}.character-achievement-section{display:grid;gap:12px}.character-achievement-disclosure{border:1px solid rgba(255,196,0,.16);border-radius:18px;background:rgba(5,8,18,.38)}.character-achievement-disclosure[open]{background:rgba(5,8,18,.5)}.character-achievement-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;cursor:pointer;list-style:none}.character-achievement-summary::-webkit-details-marker{display:none}.character-achievement-summary::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}.character-achievement-disclosure[open]>.character-achievement-summary::after{content:'-'}.character-achievement-summary-text{display:flex;flex-direction:column;gap:4px;min-width:0}.character-achievement-section-title{margin:0;color:#ffe39a;font-size:1.15rem}.character-achievement-count{color:#aa9870;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-disclosure-body{display:grid;gap:12px;padding:0 18px 18px}.character-achievement-subtitle{margin:0 0 4px;color:#c7b07b;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}.character-hero-mark{right:24px;top:auto;bottom:18px;width:min(300px,52vw);height:180px;justify-content:flex-end}.character-hero-mark img{max-width:220px;opacity:.1}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}.character-hero-mark{display:none}.character-achievement-item{grid-template-columns:40px minmax(0,1fr)}.character-achievement-points-badge{grid-column:2}.character-achievement-summary{padding:12px 14px}.character-achievement-disclosure-body{padding:0 14px 14px}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid,.character-achievement-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
 .character-grid.character-grid-overview{grid-template-columns:minmax(300px,.86fr) minmax(0,1.5fr)}
 .character-grid.character-grid-sheet{grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr)}
+.character-progress-panel{display:grid;gap:18px}
+.character-progress-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.character-progress-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}
+.character-progress-card-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}
+.character-progress-card-value{display:block;margin-top:8px;color:#fff3c4;font-size:1.45rem;font-weight:800;line-height:1.05}
+.character-progress-card-meta{margin-top:8px;color:#9ea8c7;font-size:.82rem}
+.character-progress-chart{position:relative;overflow:hidden;padding:16px 16px 10px;border-radius:18px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(9,13,24,.98),rgba(6,8,15,.96))}
+.character-progress-chart svg{display:block;width:100%;height:auto}
+.character-progress-grid line{stroke:rgba(255,255,255,.08);stroke-width:1}
+.character-progress-grid text,.character-progress-axis text{fill:#9ea8c7;font-size:11px}
+.character-progress-area{fill:url(#gearProgressFill)}
+.character-progress-line{fill:none;stroke:#ffd467;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 6px 10px rgba(255,212,103,.18))}
+.character-progress-dot{fill:#fff3c4;stroke:#c99524;stroke-width:2}
+.character-progress-caption{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px;color:#aa9870;font-size:.86rem}
 .character-achievement-section.is-collapsible{padding:0;border:1px solid rgba(255,196,0,.16);background:rgba(5,8,18,.38);overflow:hidden}
 .character-achievement-section.is-collapsible.is-open{background:rgba(5,8,18,.5)}
 .character-achievement-section.is-collapsible > .character-achievement-section-title{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;margin:0;cursor:pointer;user-select:none}
@@ -1610,6 +1811,8 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-achievement-section-pinned > .character-achievement-section-title{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .character-achievement-section-pinned > .character-achievement-section-title::after{content:none}
 @media (max-width:720px){.character-achievement-section.is-collapsible > .character-achievement-section-title{padding:12px 14px}.character-achievement-section-body{padding:0 14px 14px}}
+@media (max-width:720px){.character-progress-summary{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.character-progress-summary{grid-template-columns:1fr}}
 .character-gear-showcase{padding:24px 20px 30px;background:radial-gradient(circle at center,rgba(66,49,154,.18),transparent 30%),linear-gradient(180deg,rgba(2,6,18,.98),rgba(2,4,12,1));overflow:hidden}
 .character-gear-showcase .character-panel-title{text-align:center}
 .character-gear-stage{position:relative;width:540px;max-width:100%;min-height:880px;margin:0 auto}
@@ -2162,6 +2365,69 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
           </div>
         </div>
       </section>
+      <?php if (!empty($gearProgression['has_history']) && !empty($gearProgression['chart']) && !empty($gearProgression['chart']['points'])): ?>
+      <section class="character-panel character-progress-panel">
+        <div>
+          <h2 class="character-panel-title">Gear Progression</h2>
+          <div class="character-fact-sub">Snapshot-based equipped item level history from bot rotation logging.</div>
+        </div>
+        <div class="character-progress-summary">
+          <div class="character-progress-card">
+            <span class="character-progress-card-label">Current Avg iLvl</span>
+            <span class="character-progress-card-value"><?php echo number_format((float)$gearProgression['latest_ilvl'], 1); ?></span>
+            <div class="character-progress-card-meta">Last snapshot <?php echo htmlspecialchars($gearProgression['latest_snapshot_label']); ?></div>
+          </div>
+          <div class="character-progress-card">
+            <span class="character-progress-card-label">Net Change</span>
+            <span class="character-progress-card-value"><?php echo ($gearProgression['delta_ilvl'] >= 0 ? '+' : '') . number_format((float)$gearProgression['delta_ilvl'], 1); ?></span>
+            <div class="character-progress-card-meta">Since <?php echo htmlspecialchars($gearProgression['first_snapshot_label']); ?></div>
+          </div>
+          <div class="character-progress-card">
+            <span class="character-progress-card-label">Peak Avg iLvl</span>
+            <span class="character-progress-card-value"><?php echo number_format((float)$gearProgression['peak_ilvl'], 1); ?></span>
+            <div class="character-progress-card-meta"><?php echo (int)$gearProgression['snapshot_count']; ?> tracked snapshots</div>
+          </div>
+          <div class="character-progress-card">
+            <span class="character-progress-card-label">Latest Snapshot</span>
+            <span class="character-progress-card-value"><?php echo (int)($gearProgression['latest_level'] ?? 0); ?></span>
+            <div class="character-progress-card-meta"><?php echo (int)($gearProgression['latest_equipped_count'] ?? 0); ?> equipped items averaged • <?php echo !empty($gearProgression['latest_online']) ? 'Online' : 'Offline'; ?></div>
+          </div>
+        </div>
+        <div class="character-progress-chart">
+          <svg viewBox="0 0 <?php echo (int)$gearProgression['chart']['width']; ?> <?php echo (int)$gearProgression['chart']['height']; ?>" role="img" aria-label="Average equipped item level progression over time">
+            <defs>
+              <linearGradient id="gearProgressFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#ffd467" stop-opacity="0.42"></stop>
+                <stop offset="100%" stop-color="#ffd467" stop-opacity="0.02"></stop>
+              </linearGradient>
+            </defs>
+            <g class="character-progress-grid">
+              <?php foreach ($gearProgression['chart']['y_ticks'] as $tick): ?>
+                <line x1="52" x2="<?php echo (int)$gearProgression['chart']['width'] - 18; ?>" y1="<?php echo htmlspecialchars((string)$tick['y']); ?>" y2="<?php echo htmlspecialchars((string)$tick['y']); ?>"></line>
+                <text x="44" y="<?php echo htmlspecialchars((string)($tick['y'] + 4)); ?>" text-anchor="end"><?php echo htmlspecialchars($tick['label']); ?></text>
+              <?php endforeach; ?>
+            </g>
+            <?php if ($gearProgression['chart']['area_path'] !== ''): ?><path class="character-progress-area" d="<?php echo htmlspecialchars($gearProgression['chart']['area_path']); ?>"></path><?php endif; ?>
+            <?php if ($gearProgression['chart']['path'] !== ''): ?><path class="character-progress-line" d="<?php echo htmlspecialchars($gearProgression['chart']['path']); ?>"></path><?php endif; ?>
+            <?php foreach ($gearProgression['chart']['points'] as $point): ?>
+              <circle class="character-progress-dot" cx="<?php echo htmlspecialchars((string)$point['x']); ?>" cy="<?php echo htmlspecialchars((string)$point['y']); ?>" r="4.5">
+                <title><?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($point['snapshot_time'])) . ' - iLvl ' . number_format((float)$point['value'], 1) . ' - Level ' . (int)$point['level'] . ' - ' . (int)$point['equipped_item_count'] . ' items - ' . ($point['online'] ? 'Online' : 'Offline')); ?></title>
+              </circle>
+            <?php endforeach; ?>
+            <g class="character-progress-axis">
+              <?php foreach ($gearProgression['chart']['x_labels'] as $label): ?>
+                <text x="<?php echo htmlspecialchars((string)$label['x']); ?>" y="<?php echo (int)$gearProgression['chart']['height'] - 8; ?>" text-anchor="middle"><?php echo htmlspecialchars($label['label']); ?></text>
+              <?php endforeach; ?>
+            </g>
+          </svg>
+          <div class="character-progress-caption">
+            <span>Start: <?php echo number_format((float)$gearProgression['first_ilvl'], 1); ?> avg iLvl</span>
+            <span>Latest: <?php echo number_format((float)$gearProgression['latest_ilvl'], 1); ?> avg iLvl</span>
+            <span>Peak: <?php echo number_format((float)$gearProgression['peak_ilvl'], 1); ?> avg iLvl</span>
+          </div>
+        </div>
+      </section>
+      <?php endif; ?>
   <?php endif; ?>
 
   <?php if ($tab === 'talents'): ?><div style="margin-top:4px;"><?php $__savedGet = $_GET; $_GET['realm'] = (string)$realmId; $_GET['character'] = (string)$characterName; $_GET['mode'] = 'profile'; $_GET['embed'] = '1'; unset($_GET['class']); include($siteRoot . '/templates/offlike/server/server.talents.php'); $_GET = $__savedGet; ?></div><?php endif; ?>

@@ -398,6 +398,7 @@ try {
   $stmtHist = $statRealmPdo->prepare("
     SELECT snapshot_time, pct_online_rotating, pct_ever_rotated,
            total_online, rotating_active, avg_level_rotating,
+           avg_equipped_ilvl_bots, avg_equipped_ilvl_server,
            cfg_expected_online_pct, cfg_avg_in_world_sec, cfg_avg_offline_sec,
            observed_avg_online_sec, observed_avg_offline_sec,
            observed_online_sessions, observed_offline_sessions
@@ -628,6 +629,19 @@ try {
     $avgLvl   = $rotationData['avg_level_rotating'] ?? '—';
     $maxLvl   = $rotationData['highest_level']      ?? '—';
 
+    $avgBotIlvl = (
+      $latestHistory
+      && isset($latestHistory['avg_equipped_ilvl_bots'])
+      && $latestHistory['avg_equipped_ilvl_bots'] !== ''
+      && $latestHistory['avg_equipped_ilvl_bots'] !== null
+    ) ? $latestHistory['avg_equipped_ilvl_bots'] : '—';
+    $avgServerIlvl = (
+      $latestHistory
+      && isset($latestHistory['avg_equipped_ilvl_server'])
+      && $latestHistory['avg_equipped_ilvl_server'] !== ''
+      && $latestHistory['avg_equipped_ilvl_server'] !== null
+    ) ? $latestHistory['avg_equipped_ilvl_server'] : '—';
+
     $gaugeWarn = $pctLive < 20;
 
     $wRotating = $total > 0 ? round($rotating / $total * 100, 1) : 0;
@@ -709,6 +723,16 @@ try {
       <div class="val"><?php echo $maxLvl; ?></div>
       <div class="lbl">Highest Level</div>
       <div class="meta">Playtime: <?php echo htmlspecialchars($topBotPlaytime); ?></div>
+    </div>
+    <div class="rot-stat info"
+         title="Average equipped item level across tracked random bots at snapshot time.">
+      <div class="val"><?php echo htmlspecialchars((string)$avgBotIlvl); ?></div>
+      <div class="lbl">Avg Bot iLvl</div>
+    </div>
+    <div class="rot-stat info"
+         title="Average equipped item level across all characters on the realm at snapshot time.">
+      <div class="val"><?php echo htmlspecialchars((string)$avgServerIlvl); ?></div>
+      <div class="lbl">Avg Server iLvl</div>
     </div>
     <div class="rot-stat info">
       <div class="val"><?php echo htmlspecialchars($totalServerUptime); ?></div>
