@@ -132,6 +132,8 @@ $realmDB = $realmMap[$realmId]['chars'];
 $realmWorldDB = $realmMap[$realmId]['world'];
 $armoryRealm = spp_get_armory_realm_name($realmId) ?? '';
 $currtmp = '/armory';
+$charsPdo  = spp_get_pdo('chars', $realmId);
+$realmdPdo = spp_get_pdo('realmd', $realmId);
 
 $guildId = isset($_GET['guildid']) ? (int)$_GET['guildid'] : 0;
 if ($guildId < 1) {
@@ -149,7 +151,9 @@ $raceNames = [
 ];
 $allianceRaces = [1, 3, 4, 7, 11, 22, 25, 29];
 
-$guild = $DB->selectRow("SELECT guildid, name, leaderguid, motd FROM {$realmDB}.guild WHERE guildid=?d", $guildId);
+$stmt = $charsPdo->prepare("SELECT guildid, name, leaderguid, motd FROM {$realmDB}.guild WHERE guildid=?");
+$stmt->execute([(int)$guildId]);
+$guild = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$guild) {
     echo "<div style='padding:24px;color:#f5c46b;'>Guild not found.</div>";
     return;
@@ -157,21 +161,18 @@ if (!$guild) {
 
 $selectedWebsiteCharacterId = 0;
 if (isset($user['id']) && (int)$user['id'] > 0) {
-    $selectedWebsiteCharacterId = (int)$DB->selectCell(
-        "SELECT character_id FROM website_accounts WHERE account_id=?d",
-        (int)$user['id']
-    );
+    $stmt = $realmdPdo->prepare("SELECT character_id FROM website_accounts WHERE account_id=?");
+    $stmt->execute([(int)$user['id']]);
+    $selectedWebsiteCharacterId = (int)$stmt->fetchColumn();
 }
 $selectedGuildMember = null;
 if ($selectedWebsiteCharacterId > 0) {
-    $selectedGuildMember = $DB->selectRow(
-        "SELECT gm.guid, gm.rank, COALESCE(gr.rights, 0) AS rank_rights
+    $stmt = $charsPdo->prepare("SELECT gm.guid, gm.rank, COALESCE(gr.rights, 0) AS rank_rights
          FROM {$realmDB}.guild_member gm
          LEFT JOIN {$realmDB}.guild_rank gr ON gr.guildid = gm.guildid AND gr.rid = gm.rank
-         WHERE gm.guildid=?d AND gm.guid=?d",
-        $guildId,
-        $selectedWebsiteCharacterId
-    );
+         WHERE gm.guildid=? AND gm.guid=?");
+    $stmt->execute([(int)$guildId, (int)$selectedWebsiteCharacterId]);
+    $selectedGuildMember = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 $isSelectedGuildLeader = $selectedWebsiteCharacterId > 0 && $selectedWebsiteCharacterId === (int)$guild['leaderguid'];
 $selectedGuildRankRights = isset($selectedGuildMember['rank_rights']) ? (int)$selectedGuildMember['rank_rights'] : 0;
@@ -193,14 +194,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_roster_action']
     } else {
         $actionType = isset($_POST['guild_roster_action_type']) ? trim((string)$_POST['guild_roster_action_type']) : '';
         $targetGuid = isset($_POST['target_guid']) ? (int)$_POST['target_guid'] : 0;
-        $targetMember = $DB->selectRow(
-            "SELECT c.guid, c.name, gm.rank
+        $stmt = $charsPdo->prepare("SELECT c.guid, c.name, gm.rank
              FROM {$realmDB}.guild_member gm
              INNER JOIN {$realmDB}.characters c ON c.guid = gm.guid
-             WHERE gm.guildid=?d AND gm.guid=?d",
-            $guildId,
-            $targetGuid
-        );
+             WHERE gm.guildid=? AND gm.guid=?");
+        $stmt->execute([(int)$guildId, (int)$targetGuid]);
+        $targetMember = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$targetMember) {
             $guildNoteError = 'That guild member could not be found.';
@@ -209,7 +208,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_roster_action']
         } else {
             $targetName = (string)$targetMember['name'];
             $targetRank = (int)$targetMember['rank'];
-            $maxGuildRankId = (int)$DB->selectCell("SELECT COALESCE(MAX(rid), 0) FROM {$realmDB}.guild_rank WHERE guildid=?d", $guildId);
+            $stmt = $charsPdo->prepare("SELECT COALESCE(MAX(rid), 0) FROM {$realmDB}.guild_rank WHERE guildid=?");
+            $stmt->execute([(int)$guildId]);
+            $maxGuildRankId = (int)$stmt->fetchColumn();
             $soapCommand = '';
             $successLabel = '';
 
@@ -260,11 +261,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) 
             $guildMotdError = 'Your selected guild character does not have permission to update the guild MOTD.';
         } else {
             $newMotd = substr(trim((string)($_POST['guild_motd'] ?? '')), 0, 128);
-            $DB->query(
-                "UPDATE {$realmDB}.guild SET motd=?s WHERE guildid=?d",
-                $newMotd,
-                $guildId
-            );
+            $stmt = $charsPdo->prepare("UPDATE {$realmDB}.guild SET motd=? WHERE guildid=?");
+            $stmt->execute([$newMotd, (int)$guildId]);
             $guildMotdFeedback = 'Guild MOTD updated.';
         }
     }
@@ -280,11 +278,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) 
             if (count($noteGuids) === 0) {
                 $guildNoteError = 'No guild notes were submitted.';
             } else {
-                $validMemberGuids = $DB->selectCol(
-                    "SELECT guid FROM {$realmDB}.guild_member WHERE guildid=?d AND guid IN (?a)",
-                    $guildId,
-                    $noteGuids
-                );
+                $noteGuidInts = array_map('intval', $noteGuids);
+                $notePlaceholders = implode(',', array_fill(0, count($noteGuidInts), '?'));
+                $stmt = $charsPdo->prepare("SELECT guid FROM {$realmDB}.guild_member WHERE guildid=? AND guid IN ($notePlaceholders)");
+                $stmt->execute(array_merge([(int)$guildId], $noteGuidInts));
+                $validMemberGuids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
 
                 if (count($validMemberGuids) === 0) {
                     $guildNoteError = 'No valid guild members were found for the submitted notes.';
@@ -293,13 +291,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) 
                         $validGuid = (int)$validGuid;
                         $publicNote = substr(trim((string)($publicNotes[$validGuid] ?? '')), 0, 31);
                         $officerNote = substr(trim((string)($officerNotes[$validGuid] ?? '')), 0, 31);
-                        $DB->query(
-                            "UPDATE {$realmDB}.guild_member SET pnote=?s, offnote=?s WHERE guildid=?d AND guid=?d",
-                            $publicNote,
-                            $officerNote,
-                            $guildId,
-                            $validGuid
-                        );
+                        $stmt = $charsPdo->prepare("UPDATE {$realmDB}.guild_member SET pnote=?, offnote=? WHERE guildid=? AND guid=?");
+                        $stmt->execute([$publicNote, $officerNote, (int)$guildId, $validGuid]);
                     }
 
                     $guildNoteFeedback = 'Guild notes updated.';
@@ -333,11 +326,9 @@ $guildEstablishedLabel = 'Unknown';
 try {
     $createdColumn = null;
     foreach (array('createdate', 'create_date', 'created_at') as $candidateColumn) {
-        $columnExists = $DB->selectCell(
-            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild' AND COLUMN_NAME=?",
-            $realmDB,
-            $candidateColumn
-        );
+        $stmt = $charsPdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild' AND COLUMN_NAME=?");
+        $stmt->execute([$realmDB, $candidateColumn]);
+        $columnExists = $stmt->fetchColumn();
         if ((int)$columnExists > 0) {
             $createdColumn = $candidateColumn;
             break;
@@ -345,7 +336,9 @@ try {
     }
 
     if ($createdColumn !== null) {
-        $createdValue = $DB->selectCell("SELECT `{$createdColumn}` FROM {$realmDB}.guild WHERE guildid=?d", $guildId);
+        $stmt = $charsPdo->prepare("SELECT `{$createdColumn}` FROM {$realmDB}.guild WHERE guildid=?");
+        $stmt->execute([(int)$guildId]);
+        $createdValue = $stmt->fetchColumn();
         if (!empty($createdValue) && $createdValue !== '0000-00-00 00:00:00') {
             $createdTs = is_numeric($createdValue) ? (int)$createdValue : strtotime((string)$createdValue);
             if ($createdTs > 0) {
@@ -356,17 +349,14 @@ try {
 
     if ($guildEstablishedLabel === 'Unknown') {
         $eventTimeColumn = null;
-        $eventTableExists = $DB->selectCell(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild_eventlog'",
-            $realmDB
-        );
+        $stmt = $charsPdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild_eventlog'");
+        $stmt->execute([$realmDB]);
+        $eventTableExists = $stmt->fetchColumn();
         if ((int)$eventTableExists > 0) {
             foreach (array('TimeStamp', 'timestamp', 'time', 'event_time') as $candidateColumn) {
-                $columnExists = $DB->selectCell(
-                    "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild_eventlog' AND COLUMN_NAME=?",
-                    $realmDB,
-                    $candidateColumn
-                );
+                $stmt = $charsPdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='guild_eventlog' AND COLUMN_NAME=?");
+                $stmt->execute([$realmDB, $candidateColumn]);
+                $columnExists = $stmt->fetchColumn();
                 if ((int)$columnExists > 0) {
                     $eventTimeColumn = $candidateColumn;
                     break;
@@ -374,7 +364,9 @@ try {
             }
 
             if ($eventTimeColumn !== null) {
-                $firstEventValue = $DB->selectCell("SELECT MIN(`{$eventTimeColumn}`) FROM {$realmDB}.guild_eventlog WHERE guildid=?d", $guildId);
+                $stmt = $charsPdo->prepare("SELECT MIN(`{$eventTimeColumn}`) FROM {$realmDB}.guild_eventlog WHERE guildid=?");
+                $stmt->execute([(int)$guildId]);
+                $firstEventValue = $stmt->fetchColumn();
                 if (!empty($firstEventValue)) {
                     $firstEventTs = is_numeric($firstEventValue) ? (int)$firstEventValue : strtotime((string)$firstEventValue);
                     if ($firstEventTs > 0) {
@@ -388,8 +380,11 @@ try {
     error_log('[guild] Failed resolving established date: ' . $e->getMessage());
 }
 
-$leader = $DB->selectRow("SELECT guid, name, race, class, level, gender FROM {$realmDB}.characters WHERE guid=?d", (int)$guild['leaderguid']);
-$members = $DB->select("
+$stmt = $charsPdo->prepare("SELECT guid, name, race, class, level, gender FROM {$realmDB}.characters WHERE guid=?");
+$stmt->execute([(int)$guild['leaderguid']]);
+$leader = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$stmt = $charsPdo->prepare("
     SELECT
       c.guid,
       c.name,
@@ -404,9 +399,11 @@ $members = $DB->select("
     FROM {$realmDB}.guild_member gm
     LEFT JOIN {$realmDB}.characters c ON gm.guid = c.guid
     LEFT JOIN {$realmDB}.guild_rank gr ON gr.guildid = gm.guildid AND gr.rid = gm.rank
-    WHERE gm.guildid=?d
+    WHERE gm.guildid=?
     ORDER BY gm.rank ASC, c.level DESC, c.name ASC
-", $guildId);
+");
+$stmt->execute([(int)$guildId]);
+$members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if (!is_array($members)) {
     $members = [];
@@ -422,7 +419,7 @@ if (!empty($members)) {
     if (!empty($memberIds)) {
         $memberIdSql = implode(',', $memberIds);
         try {
-            $itemLevelRows = $DB->select("
+            $stmt = $charsPdo->prepare("
                 SELECT
                   ci.guid,
                   ROUND(AVG(it.ItemLevel), 1) AS avg_item_level
@@ -435,6 +432,8 @@ if (!empty($members)) {
                   AND ci.item_template > 0
                 GROUP BY ci.guid
             ");
+            $stmt->execute([]);
+            $itemLevelRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (is_array($itemLevelRows)) {
                 foreach ($itemLevelRows as $itemLevelRow) {

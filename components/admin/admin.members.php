@@ -2,10 +2,14 @@
 if(INCLUDED !== true)exit;
 // ==================== //
 $oldInactiveTime = 3600 * 24 * 7;
+$membersPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$membersCharsPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
 // ==================== //
 if($_POST['search_member'] == TRUE){
     $s_string = trim($_POST['search_member']);
-    $st = $DB->selectCell("SELECT id FROM account WHERE username=?s", $s_string);
+    $stmt = $membersPdo->prepare("SELECT id FROM account WHERE username=?");
+    $stmt->execute([$s_string]);
+    $st = $stmt->fetchColumn();
     if($st != ''){
         redirect('index.php?n=admin&sub=members&id=' . $st, 0);
     }else{
@@ -15,13 +19,20 @@ if($_POST['search_member'] == TRUE){
 if($_GET['id'] > 0){
     if(!$_GET['action']){
         $profile = $auth->getprofile($_GET['id']);
-        $allgroups = $DB->selectCol("SELECT g_id AS ARRAY_KEY, g_title FROM account_groups");
-        $donator = $DB->selectCell("SELECT donator FROM account_extend WHERE id=?d");
+        $stmt = $membersPdo->query("SELECT g_id, g_title FROM account_groups");
+        $allgroups = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $stmt = $membersPdo->prepare("SELECT donator FROM account_extend WHERE account_id=?");
+        $stmt->execute([(int)$_GET['id']]);
+        $donator = $stmt->fetchColumn();
         $id = $_GET['id'];
-        $act = $DB->selectCell("SELECT active FROM account_banned WHERE id=?d AND active=1", $id);
+        $stmt = $membersPdo->prepare("SELECT active FROM account_banned WHERE id=? AND active=1");
+        $stmt->execute([(int)$id]);
+        $act = $stmt->fetchColumn();
         $active = $act;
-        
-        $userchars = $CHDB->select("select `guid`, `name`, `race`, `class`, `level` FROM `characters` WHERE `account` = ?d ORDER BY guid", $_GET['id']);
+
+        $stmt = $membersCharsPdo->prepare("SELECT `guid`, `name`, `race`, `class`, `level` FROM `characters` WHERE `account` = ? ORDER BY guid");
+        $stmt->execute([(int)$_GET['id']]);
+        $userchars = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $pathway_info[] = array('title' => $lang['users_manage'], 'link' => $com_links['sub_members']);
         $pathway_info[] = array('title' => $profile['username'], 'link' => '');
@@ -42,11 +53,15 @@ if($_GET['id'] > 0){
     }elseif($_GET['action'] == 'changepass'){
         $newpass = trim($_POST['new_pass']);
         if(strlen($newpass) > 3){
-            $id = $_GET['id'];
-            $maneresu = $DB->selectCell("SELECT username FROM account WHERE id=$id ");
-            $DB->query("UPDATE account SET sessionkey = NULL WHERE id=$id");
+            $id = (int)$_GET['id'];
+            $stmt = $membersPdo->prepare("SELECT username FROM account WHERE id=?");
+            $stmt->execute([$id]);
+            $maneresu = $stmt->fetchColumn();
+            $stmt = $membersPdo->prepare("UPDATE account SET sessionkey = NULL WHERE id=?");
+            $stmt->execute([$id]);
             $sha_pass = sha_password($maneresu, $newpass);
-            $DB->query("UPDATE account SET sha_pass_hash='$sha_pass' WHERE id=$id");
+            $stmt = $membersPdo->prepare("UPDATE account SET sha_pass_hash=? WHERE id=?");
+            $stmt->execute([strtoupper($sha_pass), $id]);
             {
                 output_message('notice', '<b>' . $lang['change_pass_succ'] . '</b><meta http-equiv=refresh content="2;url=index.php?n=admin&sub=members&id=' . $_GET['id'] . '">');
             }
@@ -54,21 +69,36 @@ if($_GET['id'] > 0){
             output_message('alert', '<b>' . $lang['change_pass_short'] . '</b><meta http-equiv=refresh content="2;url=index.php?n=admin&sub=members&id=' . $_GET['id'] . '">');
         }
     }elseif($_GET['action'] == 'ban'){
-        $DB->query("INSERT into account_banned (id, bandate, unbandate, bannedby, banreason, active) values (?d, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()-10, 'WEBSERVER', 'WEBSERVER', 1)", $_GET['id']);
-        $id = $_GET['id'];
-        $q = $DB->selectCell("SELECT last_ip FROM account WHERE id='$id' ");
-        $DB->query("INSERT into ip_banned (ip, bandate, unbandate, bannedby, banreason) values ('$q', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()-10, 'WEBSERVER', 'WEBSERVER')");
-		$DB->query("UPDATE account_extend SET g_id=5 WHERE account_id='$id' ");
+        $id = (int)$_GET['id'];
+        $stmt = $membersPdo->prepare("INSERT into account_banned (id, bandate, unbandate, bannedby, banreason, active) values (?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()-10, 'WEBSERVER', 'WEBSERVER', 1)");
+        $stmt->execute([$id]);
+        $stmt = $membersPdo->prepare("SELECT last_ip FROM account WHERE id=?");
+        $stmt->execute([$id]);
+        $q = $stmt->fetchColumn();
+        $stmt = $membersPdo->prepare("INSERT into ip_banned (ip, bandate, unbandate, bannedby, banreason) values (?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()-10, 'WEBSERVER', 'WEBSERVER')");
+        $stmt->execute([$q]);
+        $stmt = $membersPdo->prepare("UPDATE account_extend SET g_id=5 WHERE account_id=?");
+        $stmt->execute([$id]);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1);
     }elseif($_GET['action'] == 'unban'){
-        $DB->query("UPDATE account_banned SET active=0 WHERE id=?d ", $_GET['id']);
-        $id = $_GET['id'];
-        $q = $DB->selectCell("SELECT last_ip FROM account WHERE id=$id ");
-        $DB->query("DELETE FROM ip_banned WHERE ip='$q' ");
+        $id = (int)$_GET['id'];
+        $stmt = $membersPdo->prepare("UPDATE account_banned SET active=0 WHERE id=?");
+        $stmt->execute([$id]);
+        $stmt = $membersPdo->prepare("SELECT last_ip FROM account WHERE id=?");
+        $stmt->execute([$id]);
+        $q = $stmt->fetchColumn();
+        $stmt = $membersPdo->prepare("DELETE FROM ip_banned WHERE ip=?");
+        $stmt->execute([$q]);
+        $stmt = $membersPdo->prepare("UPDATE account_extend SET g_id=2 WHERE account_id=?");
+        $stmt->execute([$id]);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1);
-		$DB->query("UPDATE account_extend SET g_id=2 WHERE account_id=$id ");
     }elseif($_GET['action'] == 'change'){
-        $DB->query("UPDATE account SET ?a WHERE id=?d LIMIT 1", $_POST['profile'], $_GET['id']);
+        $profile = $_POST['profile'];
+        $setClause = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($profile)));
+        $values = array_values($profile);
+        $values[] = (int)$_GET['id'];
+        $stmt = $membersPdo->prepare("UPDATE account SET $setClause WHERE id=? LIMIT 1");
+        $stmt->execute($values);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1);
     }elseif($_GET['action'] == 'change2'){
         if(is_uploaded_file($_FILES['avatar']['tmp_name'])){
@@ -84,8 +114,10 @@ if($_GET['id'] > 0){
                         }else{
                             $upl_avatar_name = $tmp_filenameadd . $_FILES['avatar']['name'];
                         }
-                        if($upl_avatar_name)
-                            $DB->query("UPDATE account_extend SET avatar='" . $upl_avatar_name . "' WHERE account_id=?d LIMIT 1", $_GET['id']);
+                        if($upl_avatar_name) {
+                            $stmt = $membersPdo->prepare("UPDATE account_extend SET avatar=? WHERE account_id=? LIMIT 1");
+                            $stmt->execute([$upl_avatar_name, (int)$_GET['id']]);
+                        }
                     }else{
                         @unlink((string)$MW->getConfig->generic->avatar_path . $tmp_filenameadd . $_FILES['avatar']['name']);
                     }
@@ -93,28 +125,45 @@ if($_GET['id'] > 0){
             }
         }elseif($_POST['deleteavatar'] == 1){
             if(@unlink((string)$MW->getConfig->generic->avatar_path . $_POST['avatarfile'])){
-                $DB->query("UPDATE account_extend SET avatar=NULL WHERE account_id=?d LIMIT 1", $_GET['id']);
+                $stmt = $membersPdo->prepare("UPDATE account_extend SET avatar=NULL WHERE account_id=? LIMIT 1");
+                $stmt->execute([(int)$_GET['id']]);
             }
         }
         $_POST['profile']['signature'] = htmlspecialchars($_POST['profile']['signature']);
-        $DB->query("UPDATE account_extend SET ?a WHERE account_id=?d LIMIT 1", $_POST['profile'], $_GET['id']);
+        $profile2 = $_POST['profile'];
+        $setClause2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($profile2)));
+        $values2 = array_values($profile2);
+        $values2[] = (int)$_GET['id'];
+        $stmt = $membersPdo->prepare("UPDATE account_extend SET $setClause2 WHERE account_id=? LIMIT 1");
+        $stmt->execute($values2);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1);
     }elseif($_GET['action'] == 'dodeleteacc'){
-        $DB->query("DELETE FROM account WHERE id=?d LIMIT 1", $_GET['id']);
-        $DB->query("DELETE FROM account_extend WHERE account_id=?d LIMIT 1", $_GET['id']);
-        $DB->query("DELETE FROM pms WHERE owner_id=?d LIMIT 1", $_GET['id']);
+        $stmt = $membersPdo->prepare("DELETE FROM account WHERE id=? LIMIT 1");
+        $stmt->execute([(int)$_GET['id']]);
+        $stmt = $membersPdo->prepare("DELETE FROM account_extend WHERE account_id=? LIMIT 1");
+        $stmt->execute([(int)$_GET['id']]);
+        $stmt = $membersPdo->prepare("DELETE FROM pms WHERE owner_id=? LIMIT 1");
+        $stmt->execute([(int)$_GET['id']]);
         redirect('index.php?n=admin&sub=members', 1);
     }
 }else{
     if($_GET['action'] == 'deleteinactive'){
         $cur_timestamp = date('YmdHis', time() - $oldInactiveTime);
-        $accids = $DB->selectCol("
-            SELECT account_id FROM account_extend 
-            JOIN account ON account.id=account_extend.account_id 
+        $stmt = $membersPdo->prepare("
+            SELECT account_id FROM account_extend
+            JOIN account ON account.id=account_extend.account_id
             WHERE activation_code IS NOT NULL AND joindate < ?
-        ", $cur_timestamp);
-        $DB->query("DELETE FROM account WHERE id IN(?a)", $accids);
-        $DB->query("DELETE FROM account_extend WHERE account_id IN(?a)", $accids);
+        ");
+        $stmt->execute([$cur_timestamp]);
+        $accids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        if (!empty($accids)) {
+            $accPlaceholders = implode(',', array_fill(0, count($accids), '?'));
+            $accInts = array_map('intval', $accids);
+            $stmt = $membersPdo->prepare("DELETE FROM account WHERE id IN($accPlaceholders)");
+            $stmt->execute($accInts);
+            $stmt = $membersPdo->prepare("DELETE FROM account_extend WHERE account_id IN($accPlaceholders)");
+            $stmt->execute($accInts);
+        }
         redirect('index.php?n=admin&sub=members', 1);
     }elseif($_GET['action'] == 'deleteinactive_characters'){
         // Action to delete all characters that is so and so old. look at $delete_in_days variable beneath.
@@ -144,36 +193,53 @@ if($_GET['id'] > 0){
             'petition_sign'               => 'ownerguid',
         );
         $cur_timestamp = date('Y-m-d H:i:s', mktime(date('H'), date('i'), date('s'), date('m'), date('d') - $delete_in_days, date('Y')));
-        $accountids = $DB->selectCol("SELECT id FROM account LEFT JOIN account_extend ON account.id=account_extend.account_id WHERE '?s' >= last_login AND account_extend.vip=0", $cur_timestamp);
-        if(count($accountids))
-            $charguids = $CHDB->selectCol("SELECT guid FROM `characters` WHERE account IN (?a)", $accountids);
+        $stmt = $membersPdo->prepare("SELECT id FROM account LEFT JOIN account_extend ON account.id=account_extend.account_id WHERE ? >= last_login AND account_extend.vip=0");
+        $stmt->execute([$cur_timestamp]);
+        $accountids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        $charguids = [];
+        if(count($accountids)) {
+            $acctPlaceholders = implode(',', array_fill(0, count($accountids), '?'));
+            $acctInts = array_map('intval', $accountids);
+            $stmt = $membersCharsPdo->prepare("SELECT guid FROM `characters` WHERE account IN ($acctPlaceholders)");
+            $stmt->execute($acctInts);
+            $charguids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        }
         if(count($charguids)){
-            foreach ($chartables as $table => $col)
-                $CHDB->query("DELETE from `$table` WHERE $col IN (?a)", $charguids);
+            $guidPlaceholders = implode(',', array_fill(0, count($charguids), '?'));
+            $guidInts = array_map('intval', $charguids);
+            foreach ($chartables as $table => $col) {
+                $stmt = $membersCharsPdo->prepare("DELETE FROM `$table` WHERE `$col` IN ($guidPlaceholders)");
+                $stmt->execute($guidInts);
+            }
         }
         output_message('alert', 'Accounts checked: ' . count($accountids) . '. Characters deleted: ' . count($charguids) . '.');
     }
     $pathway_info[] = array('title' => $lang['users_manage'], 'link' => '');
     //===== Filter ==========//
+    $filter = '';
+    $filterParams = [];
     if($_GET['char'] && preg_match("/[a-z]/", $_GET['char'])){
-        $filter = "WHERE `username` LIKE '" . $_GET['char'] . "%'";
+        $filter = "WHERE `username` LIKE ?";
+        $filterParams = [$_GET['char'] . '%'];
     }elseif($_GET['char'] == 1){
         $filter = "WHERE `username` REGEXP '^[^A-Za-z]'";
-    }else{
-        $filter = '';
     }
     //===== Calc pages =====//
     $items_per_pages = (int)$MW->getConfig->generic->users_per_page;
-    $itemnum = $DB->selectCell("SELECT count(*) FROM account $filter");
+    $stmt = $membersPdo->prepare("SELECT count(*) FROM account $filter");
+    $stmt->execute($filterParams);
+    $itemnum = $stmt->fetchColumn();
     $pnum = ceil($itemnum / $items_per_pages);
     $pages_str = default_paginate($pnum, $p, "index.php?n=admin&sub=members&char=" . $_GET['char']);
     $limit_start = ($p - 1) * $items_per_pages;
-    
-    $items = $DB->select("
-        SELECT * FROM account 
-        LEFT JOIN account_extend ON account.id=account_extend.account_id 
-        $filter 
-        ORDER BY username 
-        LIMIT $limit_start,$items_per_pages");
+
+    $stmt = $membersPdo->prepare("
+        SELECT * FROM account
+        LEFT JOIN account_extend ON account.id=account_extend.account_id
+        $filter
+        ORDER BY username
+        LIMIT " . (int)$limit_start . "," . (int)$items_per_pages);
+    $stmt->execute($filterParams);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 ?>

@@ -37,20 +37,26 @@ if($user['id']<=0){
     }elseif($_GET['action']=='changepass'){
         $newpass = trim($_POST['new_pass']);
         if(strlen($newpass)>3){
-            $DB->query("UPDATE account SET sessionkey = NULL WHERE id=?",$user['id']);
-			$DB->query("UPDATE account SET s = NULL WHERE id=?",$user['id']);
-			$DB->query("UPDATE account SET v = NULL WHERE id=?",$user['id']);
+            $stmt = $managePdo->prepare("UPDATE account SET sessionkey = NULL WHERE id = ?");
+            $stmt->execute([(int)$user['id']]);
+            $stmt = $managePdo->prepare("UPDATE account SET s = NULL WHERE id = ?");
+            $stmt->execute([(int)$user['id']]);
+            $stmt = $managePdo->prepare("UPDATE account SET v = NULL WHERE id = ?");
+            $stmt->execute([(int)$user['id']]);
             $sha_pass = sha_password($user['username'],$newpass);
-            $DB->query("UPDATE account SET sha_pass_hash=? WHERE id=?",strtoupper($sha_pass),$user['id']);
+            $stmt = $managePdo->prepare("UPDATE account SET sha_pass_hash = ? WHERE id = ?");
+            $stmt->execute([strtoupper($sha_pass), (int)$user['id']]);
 
-            
             if((int)$MW->getConfig->generic->use_purepass_table) {
-                $count_occur = $DB->selectCell("SELECT count(*) FROM account_pass WHERE id=?d", $user['id']);
+                $stmt = $managePdo->prepare("SELECT count(*) FROM account_pass WHERE id = ?");
+                $stmt->execute([(int)$user['id']]);
+                $count_occur = $stmt->fetchColumn();
                 if($count_occur) {
-                    $DB->query("UPDATE account_pass SET password=? WHERE id=?d LIMIT 1",$newpass,$user['id']);
-                }
-                else {
-                    $DB->query("INSERT INTO account_pass SET id=?d, username=?, password=?, email=?",$user['id'],$user['username'],$newpass,$user['email']);
+                    $stmt = $managePdo->prepare("UPDATE account_pass SET password = ? WHERE id = ? LIMIT 1");
+                    $stmt->execute([$newpass, (int)$user['id']]);
+                } else {
+                    $stmt = $managePdo->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
+                    $stmt->execute([(int)$user['id'], $user['username'], $newpass, $user['email']]);
                 }
             }
             
@@ -72,7 +78,8 @@ if($user['id']<=0){
                         list($width, $height, ,) = getimagesize((string)$MW->getConfig->generic->avatar_path.$user['id'].'.'.$ext);
                         $max_avatar_size = explode('x',(string)$MW->getConfig->generic->max_avatar_size);
                         if($width <= $max_avatar_size[0] || $height <= $max_avatar_size[1]){
-                            $DB->query("UPDATE account_extend SET avatar='".$user['id'].'.'.$ext."' WHERE account_id=?d LIMIT 1",$user['id']);
+                            $stmt = $managePdo->prepare("UPDATE account_extend SET avatar=? WHERE account_id=? LIMIT 1");
+                            $stmt->execute([$user['id'].'.'.$ext, (int)$user['id']]);
                         }else{
                             @unlink((string)$MW->getConfig->generic->avatar_path.$user['id'].'.'.$ext);
                         }
@@ -81,19 +88,31 @@ if($user['id']<=0){
             }
         }elseif($_POST['deleteavatar']==1 && preg_match("/\d+\.\w+/i",$_POST['avatarfile'])){
             if(@unlink((string)$MW->getConfig->generic->avatar_path.$_POST['avatarfile'])){
-                $DB->query("UPDATE account_extend SET avatar=NULL WHERE account_id=?d LIMIT 1",$user['id']);
+                $stmt = $managePdo->prepare("UPDATE account_extend SET avatar=NULL WHERE account_id=? LIMIT 1");
+                $stmt->execute([(int)$user['id']]);
             }
         }
         if(isset($_POST['profile']['g_id']))unset($_POST['profile']['g_id']);
         $_POST['profile']['signature'] = htmlspecialchars($_POST['profile']['signature']);
         
-		$DB->query("UPDATE account_extend SET ?a WHERE account_id=?d LIMIT 1",RemoveXSS($_POST['profile']),$user['id']);
+        $profile = RemoveXSS($_POST['profile']);
+        if (!empty($profile) && is_array($profile)) {
+            $setClause = implode(',', array_map(
+                function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; },
+                array_keys($profile)
+            ));
+            $values = array_values($profile);
+            $values[] = (int)$user['id'];
+            $stmt = $managePdo->prepare("UPDATE account_extend SET $setClause WHERE account_id=? LIMIT 1");
+            $stmt->execute($values);
+        }
         
         redirect('index.php?n=account&sub=manage',1);
     }elseif($_GET['action']=='changesecretq'){
         if(check_for_symbols($_POST['secreta1']) == FALSE && check_for_symbols($_POST['secreta2']) == FALSE && $_POST[secretq1] != '0' && $_POST[secretq2]!= '0' && isset($_POST[secreta1]) &&
         isset($_POST[secreta2]) && strlen($_POST[secreta1])>4 && strlen($_POST[secreta2])>4 && $_POST['secreta1'] != $_POST['secreta2'] && $_POST['secretq1'] != $_POST['secretq2']){
-            $DB->query("UPDATE account_extend SET secretq1=?,secretq2=?,secreta1=?,secreta2=? WHERE account_id=?d", strip_if_magic_quotes($_POST['secretq1']), strip_if_magic_quotes($_POST['secretq2']), strip_if_magic_quotes($_POST['secreta1']), strip_if_magic_quotes($_POST['secreta2']), $user['id']);
+            $stmt = $managePdo->prepare("UPDATE account_extend SET secretq1=?,secretq2=?,secreta1=?,secreta2=? WHERE account_id=? LIMIT 1");
+            $stmt->execute([strip_if_magic_quotes($_POST['secretq1']), strip_if_magic_quotes($_POST['secretq2']), strip_if_magic_quotes($_POST['secreta1']), strip_if_magic_quotes($_POST['secreta2']), (int)$user['id']]);
             output_message('notice','<b>'.$lang['changed_secretq'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
 
         }else{
@@ -101,22 +120,26 @@ if($user['id']<=0){
         }
     }elseif($_GET['action']=='resetsecretq'){
         if ($_POST['reset_secretq']){
-          $DB->query("UPDATE account_extend SET secretq1='0',secretq2='0',secreta1='0',secreta2='0' WHERE account_id=?d", $user['id']);
+          $stmt = $managePdo->prepare("UPDATE account_extend SET secretq1='0',secretq2='0',secreta1='0',secreta2='0' WHERE account_id=? LIMIT 1");
+          $stmt->execute([(int)$user['id']]);
           output_message('notice','<b>'.$lang['reset_succ_secretq'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
         }
     }elseif($_GET['action'] == 'change_gameplay'){
        if($_POST['switch_wow_type']=='wotlk'){
-		       $DB->query("UPDATE `account` SET expansion='2' WHERE `id`=?d",$user['id']);
-           output_message('notice','<b>'.$lang['exp_set'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
-	     }
-	     elseif($_POST['switch_wow_type']=='tbc'){
-	          $DB->query("UPDATE `account` SET expansion='1' WHERE `id`=?d",$user['id']);
-           output_message('notice','<b>'.$lang['exp_set'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
-       }
-	   elseif($_POST['switch_wow_type']=='classic'){
-	          $DB->query("UPDATE `account` SET expansion='0' WHERE `id`=?d",$user['id']);
-           output_message('notice','<b>'.$lang['exp_set'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
-       }
+               $stmt = $managePdo->prepare("UPDATE `account` SET expansion='2' WHERE `id`=?");
+               $stmt->execute([(int)$user['id']]);
+               output_message('notice','<b>'.$lang['exp_set'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
+         }
+         elseif($_POST['switch_wow_type']=='tbc'){
+               $stmt = $managePdo->prepare("UPDATE `account` SET expansion='1' WHERE `id`=?");
+               $stmt->execute([(int)$user['id']]);
+               output_message('notice','<b>'.$lang['exp_set'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
+         }
+         elseif($_POST['switch_wow_type']=='classic'){
+               $stmt = $managePdo->prepare("UPDATE `account` SET expansion='0' WHERE `id`=?");
+               $stmt->execute([(int)$user['id']]);
+               output_message('notice','<b>'.$lang['exp_set'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
+         }
    }
 }
 ?>

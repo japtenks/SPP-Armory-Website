@@ -319,24 +319,24 @@ $GMT = array(
 
 function escape_string($string)
 {
-    global $DB;
-
-    return $DB->escape($string);
-
-    //return mysqli_real_escape_string($string);
+    global $realmDbMap;
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+    $quoted = $pdo->quote($string);
+    return substr($quoted, 1, -1);
 }
 
 // quote smart function to do MySQL Escaping properly //
 function quote_smart($value)
 {
-    global $DB;
+    global $realmDbMap;
     if( is_array($value) ) {
         return array_map("quote_smart", $value);
     } else {
         if( $value == '' ) {
             $value = 'NULL';
-        } if( !is_numeric($value) || $value[0] == '0' ) {
-            $value = "'".mysqli_real_escape_string($DB->link, $value)."'";
+        } elseif( !is_numeric($value) || $value[0] == '0' ) {
+            $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+            $value = $pdo->quote($value);
         }
         return $value;
     }
@@ -375,12 +375,16 @@ function check_for_symbols($string, $space_check = 0){
 }
 
 function get_banned($account_id,$returncont){
-    global $DB;
+    global $realmDbMap;
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
 
-    $get_last_ip = $DB->selectCell("SELECT ip FROM account_logons WHERE accountId='".$account_id."'");
-    $db_IP = $get_last_ip;
+    $stmt = $pdo->prepare("SELECT ip FROM account_logons WHERE accountId = ? LIMIT 1");
+    $stmt->execute([(int)$account_id]);
+    $db_IP = $stmt->fetchColumn();
 
-    $ip_check = $DB->selectCell("SELECT ip FROM `ip_banned` WHERE ip='".$db_IP."'");
+    $stmt = $pdo->prepare("SELECT ip FROM `ip_banned` WHERE ip = ?");
+    $stmt->execute([$db_IP]);
+    $ip_check = $stmt->fetchColumn();
     if ($ip_check == FALSE){
         if ($returncont == "1"){
             return FALSE;
@@ -681,8 +685,11 @@ function check_url_reverse($url){
 }
 
 function check_attach($attid){
-    global $DB, $MW;
-    $thisattach = $DB->selectRow("SELECT * FROM f_attachs WHERE attach_id=?d",$attid);
+    global $MW, $realmDbMap;
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+    $stmt = $pdo->prepare("SELECT * FROM f_attachs WHERE attach_id = ?");
+    $stmt->execute([(int)$attid]);
+    $thisattach = $stmt->fetch(PDO::FETCH_ASSOC);
     $ext = strtolower(substr(strrchr($thisattach['attach_file'],'.'), 1));
     if($thisattach['attach_id']){
         $res  = '<a href="'.$MW->getConfig->temp->site_href.'index.php?n=forum&sub=attach&nobody=1&action=download&attid='.$thisattach['attach_id'].'">';
@@ -787,12 +794,17 @@ function default_paginate($num_pages, $cur_page, $link_to) {
 // ACCOUNT KEY FUNCTIONS //
 function matchAccountKey($id, $key) {
     clearOldAccountKeys();
-    global $DB;
-    $count = $DB->selectcell("SELECT count(*) FROM `website_account_keys` where id = ?", $id);
+    global $realmDbMap;
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+    $stmt = $pdo->prepare("SELECT count(*) FROM `website_account_keys` WHERE id = ?");
+    $stmt->execute([(int)$id]);
+    $count = $stmt->fetchColumn();
     if($count == 0) {
         return false;
     }
-    $account_key = $DB->selectcell("SELECT `key` FROM `website_account_keys` where id = ?", $id);
+    $stmt = $pdo->prepare("SELECT `key` FROM `website_account_keys` WHERE id = ?");
+    $stmt->execute([(int)$id]);
+    $account_key = $stmt->fetchColumn();
     if($key == $account_key) {
         return true;
     }
@@ -802,8 +814,7 @@ function matchAccountKey($id, $key) {
 }
 
 function clearOldAccountKeys() {
-    global $DB;
-    global $MW;
+    global $MW, $realmDbMap;
 
     $cookie_expire_time = (int)$MW->getConfig->generic->account_key_retain_length;
     if(!$cookie_expire_time) {
@@ -812,32 +823,39 @@ function clearOldAccountKeys() {
 
     $expire_time = time() - $cookie_expire_time;
 
-    $DB->query("DELETE FROM `website_account_keys` WHERE `assign_time` < ?", $expire_time);
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+    $stmt = $pdo->prepare("DELETE FROM `website_account_keys` WHERE `assign_time` < ?");
+    $stmt->execute([$expire_time]);
 }
 
 function addOrUpdateAccountKeys($id, $key) {
-    global $DB;
-
+    global $realmDbMap;
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
     $current_time = time();
 
-    $count = $DB->selectcell("SELECT count(*) FROM website_account_keys where id = ?", $id);
+    $stmt = $pdo->prepare("SELECT count(*) FROM website_account_keys WHERE id = ?");
+    $stmt->execute([(int)$id]);
+    $count = $stmt->fetchColumn();
     if($count == 0) {   //need to INSERT
-        $DB->query("INSERT INTO `website_account_keys` SET `id` = ?, `key` = ?, `assign_time` = ?", $id, $key, $current_time);
+        $stmt = $pdo->prepare("INSERT INTO `website_account_keys` SET `id` = ?, `key` = ?, `assign_time` = ?");
+        $stmt->execute([(int)$id, $key, $current_time]);
     }
     else {              //need to UPDATE
-        $DB->query("UPDATE `website_account_keys` SET `key` = ?, `assign_time` = ? WHERE `id` = ?", $key, $current_time, $id);
+        $stmt = $pdo->prepare("UPDATE `website_account_keys` SET `key` = ?, `assign_time` = ? WHERE `id` = ?");
+        $stmt->execute([$key, $current_time, (int)$id]);
     }
 }
 
 function removeAccountKeyForUser($id) {
-    global $DB;
+    global $realmDbMap;
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
 
-    $count = $DB->selectcell("SELECT count(*) FROM website_account_keys where id = ?", $id);
-    if($count == 0) {
-        //do nothing
-    }
-    else {
-        $DB->query("DELETE FROM `website_account_keys` WHERE `id` = ?", $id);
+    $stmt = $pdo->prepare("SELECT count(*) FROM website_account_keys WHERE id = ?");
+    $stmt->execute([(int)$id]);
+    $count = $stmt->fetchColumn();
+    if($count > 0) {
+        $stmt = $pdo->prepare("DELETE FROM `website_account_keys` WHERE `id` = ?");
+        $stmt->execute([(int)$id]);
     }
 }
 
@@ -921,8 +939,11 @@ function RemoveXSS($val) {
 
 
 function get_realm_byid_raw($id){
-    global $DB;
-    return $DB->selectRow("SELECT * FROM `realmlist` WHERE `id`=?d",$id);
+    global $realmDbMap;
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+    $stmt = $pdo->prepare("SELECT * FROM `realmlist` WHERE `id` = ?");
+    $stmt->execute([(int)$id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 function get_realm_byid($id){
@@ -1091,14 +1112,17 @@ function spp_mangos_soap_execute_command($realmId, $command, &$errorMessage = ''
 }
 
 function check_port_status($ip, $port){
-    global $DB;
+    global $realmDbMap;
     $ERROR_NO = null;
     $ERROR_STR = null;
     if($fp1=fsockopen($ip, $port, $ERROR_NO, $ERROR_STR,(float)0.1)){
         fclose($fp1);return true;
     }
 
-    $realmstatus = $DB->selectRow("SELECT `realmflags` FROM `realmlist` WHERE `port`=?d", $port);
+    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+    $stmt = $pdo->prepare("SELECT `realmflags` FROM `realmlist` WHERE `port` = ?");
+    $stmt->execute([(int)$port]);
+    $realmstatus = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($realmstatus && $realmstatus['realmflags'] != 1 && $realmstatus['realmflags'] != 2)
         return true;
 

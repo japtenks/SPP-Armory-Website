@@ -96,18 +96,16 @@ elseif (
     && isset($_POST['deletem'])
     && is_array($_POST['checkpm'])
 ) {
+    $ids = array_map('intval', (array)$_POST['checkpm']);
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
     if ($_GET['dir'] == 'in') {
         // Delete messages RECEIVED
-        $DB->query("
-            DELETE FROM website_pms
-            WHERE owner_id = ?d AND id IN (?a)
-        ", $user['id'], $_POST['checkpm']);
+        $stmt = $pmsPdo->prepare("DELETE FROM website_pms WHERE owner_id = ? AND id IN ($placeholders)");
+        $stmt->execute(array_merge([(int)$user['id']], $ids));
     } else {
         // Delete messages SENT
-        $DB->query("
-            DELETE FROM website_pms
-            WHERE sender_id = ?d AND id IN (?a)
-        ", $user['id'], $_POST['checkpm']);
+        $stmt = $pmsPdo->prepare("DELETE FROM website_pms WHERE sender_id = ? AND id IN ($placeholders)");
+        $stmt->execute(array_merge([(int)$user['id']], $ids));
     }
 
     redirect('index.php?n=account&sub=pms&action=view&dir=' . $_GET['dir'], 1);
@@ -124,32 +122,37 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
         $pathway_info[] = array('title' => $lang['inbox'], 'link' => 'index.php?n=account&sub=pms&action=view&dir=in');
  
 
-        $item = $DB->selectRow("
+        $stmt = $pmsPdo->prepare("
             SELECT pms.*, s.username AS sender, r.username AS receiver
             FROM website_pms AS pms
             LEFT JOIN account AS s ON pms.sender_id = s.id
             LEFT JOIN account AS r ON pms.owner_id = r.id
-            WHERE pms.owner_id = ?d AND pms.id = ?d
+            WHERE pms.owner_id = ? AND pms.id = ?
             LIMIT 1
-        ", $user['id'], $_GET['iid']);
+        ");
+        $stmt->execute([(int)$user['id'], (int)$_GET['iid']]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Mark as read
         if ($item && empty($item['showed'])) {
-            $DB->query("UPDATE website_pms SET showed = 1 WHERE id = ?d", $item['id']);
+            $stmt = $pmsPdo->prepare("UPDATE website_pms SET showed = 1 WHERE id = ?");
+            $stmt->execute([(int)$item['id']]);
         }
 
     } elseif ($_GET['dir'] == 'out') {
         // --- Viewing a sent message ---
         $pathway_info[] = array('title' => $lang['outbox'], 'link' => 'index.php?n=account&sub=pms&action=view&dir=out');
 
-        $item = $DB->selectRow("
+        $stmt = $pmsPdo->prepare("
             SELECT pms.*, s.username AS sender, r.username AS receiver
             FROM website_pms AS pms
             LEFT JOIN account AS s ON pms.sender_id = s.id
             LEFT JOIN account AS r ON pms.owner_id = r.id
-            WHERE pms.sender_id = ?d AND pms.id = ?d
+            WHERE pms.sender_id = ? AND pms.id = ?
             LIMIT 1
-        ", $user['id'], $_GET['iid']);
+        ");
+        $stmt->execute([(int)$user['id'], (int)$_GET['iid']]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     $pathway_info[] = array('title' => $lang['post_view'], 'link' => '');
@@ -170,20 +173,18 @@ elseif ($_GET['action'] == 'add') {
         $sender_ip = $_SERVER['REMOTE_ADDR'];
 
         // Lookup recipient from account table
-        $owner_id = $DB->selectCell("
-            SELECT id
-            FROM account
-            WHERE username = ?
-            LIMIT 1
-        ", $_POST['owner']);
+        $stmt = $pmsPdo->prepare("SELECT id FROM account WHERE username = ? LIMIT 1");
+        $stmt->execute([$_POST['owner']]);
+        $owner_id = (int)$stmt->fetchColumn();
 
         if ($owner_id > 0) {
-            $DB->query("
+            $stmt = $pmsPdo->prepare("
                 INSERT INTO website_pms
                     (owner_id, subject, message, sender_id, posted, sender_ip, showed)
                 VALUES
-                    (?d, ?, ?, ?d, ?d, ?, 0)
-            ", $owner_id, $title, $message, $sender_id, time(), $sender_ip);
+                    (?, ?, ?, ?, ?, ?, 0)
+            ");
+            $stmt->execute([$owner_id, $title, $message, (int)$sender_id, time(), $sender_ip]);
 
             output_message('notice', $lang['post_sent']);
             redirect('index.php?n=account&sub=pms&action=view&dir=out', 1);
@@ -196,14 +197,16 @@ elseif ($_GET['action'] == 'add') {
 
     // --- Reply logic ---
 if (!empty($_GET['reply'])) {
-    $content = $DB->selectRow("
+    $stmt = $pmsPdo->prepare("
         SELECT pms.*, s.username AS sender, r.username AS receiver
         FROM website_pms AS pms
         LEFT JOIN account AS s ON pms.sender_id = s.id
         LEFT JOIN account AS r ON pms.owner_id = r.id
-        WHERE pms.id = ?d
+        WHERE pms.id = ?
         LIMIT 1
-    ", $_GET['reply']);
+    ");
+    $stmt->execute([(int)$_GET['reply']]);
+    $content = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($content) {
         // reply always goes to original sender

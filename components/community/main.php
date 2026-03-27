@@ -29,24 +29,10 @@ $com_content['community'] = array(
         '7-menuCommunity',
         0
     ),
-	'vote' => array(
-        '',
-        'vote',
-        'index.php?n=community&sub=vote',
-        '7-menuCommunity',
-        0
-    ),
 	'login' => array(
         '',
         'login',
         'index.php?n=community&sub=login',
-        '7-menuCommunity',
-        0
-    ),
-	'vote_sites' => array(
-        '',
-        'vote_sites',
-        'index.php?n=community&sub=vote?sites',
         '7-menuCommunity',
         0
     ),

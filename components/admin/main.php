@@ -125,13 +125,6 @@ $com_content['admin'] = array(
         '',
         0
     ),
-		'vote' => array(
-        'g_is_admin',
-        'vote',
-        'index.php?n=admin&sub=vote',
-        '',
-        0
-    ),
 	'updatefields' => array(
         'g_is_admin',
         'updatefields',

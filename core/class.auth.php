@@ -13,11 +13,13 @@ function check()
         list($cookie['user_id'], $cookie['account_key']) = @unserialize(stripslashes($_COOKIE[((string)$MW->getConfig->generic->site_cookie)]));
         if($cookie['user_id'] < 1) return false;
 
-        $res = $this->DB->selectRow("
+        $stmt = $this->DB->prepare("
             SELECT * FROM account
             LEFT JOIN website_accounts ON account.id=website_accounts.account_id
             LEFT JOIN website_account_groups ON website_accounts.g_id=website_account_groups.g_id
-            WHERE id = ?d", $cookie['user_id']);
+            WHERE id = ?");
+        $stmt->execute([(int)$cookie['user_id']]);
+        $res = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if(get_banned($res['id'], 1)== TRUE){
             $this->setgroup();
@@ -56,18 +58,7 @@ function AUTH($DB,$confs)
 {
     global $MW;
 
-    $realmd = $MW->getDbInfo;
-
-    $this->DB = DbSimple_Generic::connect(
-        $realmd['db_type'] . '://' .
-        $realmd['db_username'] . ':' .
-        $realmd['db_password'] . '@' .
-        $realmd['db_host'] . ':' .
-        $realmd['db_port'] . '/' .
-        $realmd['db_name']
-    );
-
-    $this->DB->setErrorHandler('databaseErrorHandler');
+    $this->DB = spp_get_pdo('realmd', 1);
 
     $this->check();
     $this->user['ip'] = $_SERVER['REMOTE_ADDR'];
@@ -88,10 +79,9 @@ function load_characters_for_user() {
         return;
     }
 
-    $db = $GLOBALS['db'] ?? null;
     $realmDbMap = $GLOBALS['realmDbMap'] ?? [];
 
-    if (!is_array($db) || !is_array($realmDbMap) || empty($realmDbMap)) {
+    if (!is_array($realmDbMap) || empty($realmDbMap)) {
         $GLOBALS['characters'] = [];
         return;
     }
@@ -100,29 +90,25 @@ function load_characters_for_user() {
 
     foreach ($realmDbMap as $id => $realmInfo) {
         try {
-            $dsn = 'mysql://' .
-                $db['user'] . ':' .
-                $db['pass'] . '@' .
-                $db['host'] . ':' .
-                $db['port'] . '/' .
-                $realmInfo['chars'];
-
-            $CHDB = DbSimple_Generic::connect($dsn);
-            $CHDB->setErrorHandler('databaseErrorHandler');
-
-            $realmName = $this->DB->selectCell('SELECT name FROM realmlist WHERE id=?d', (int)$id);
+            $realmPdo = spp_get_pdo('realmd', (int)$id);
+            $stmt = $realmPdo->prepare('SELECT name FROM realmlist WHERE id=?');
+            $stmt->execute([(int)$id]);
+            $realmName = (string)$stmt->fetchColumn();
             if (empty($realmName)) {
-            $realmName = function_exists('spp_get_armory_realm_name')
-                ? (spp_get_armory_realm_name((int)$id) ?? '')
-                : '';
+                $realmName = function_exists('spp_get_armory_realm_name')
+                    ? (spp_get_armory_realm_name((int)$id) ?? '')
+                    : '';
             }
 
-            $chars = $CHDB->select("
+            $charPdo = spp_get_pdo('chars', (int)$id);
+            $stmt = $charPdo->prepare("
                 SELECT guid, name, race, class, level
                 FROM characters
-                WHERE account = ?d
+                WHERE account = ?
                 ORDER BY level DESC
-            ", $this->user['id']);
+            ");
+            $stmt->execute([(int)$this->user['id']]);
+            $chars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (!is_array($chars) || empty($chars)) {
                 $realmLogName = function_exists('spp_get_armory_realm_name')
@@ -171,9 +157,9 @@ function load_characters_for_user() {
             output_message('alert','You did not provide your password');
             $success = 0;
         }
-        $res = $this->DB->selectRow("
-    SELECT `id`,`username`,`s`,`v`,`locked` FROM `account`
-    WHERE `username` = ?", strtoupper($params['username']));
+        $stmt = $this->DB->prepare("SELECT `id`,`username`,`s`,`v`,`locked` FROM `account` WHERE `username` = ?");
+        $stmt->execute([strtoupper($params['username'])]);
+        $res = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$res) {
             return false;
@@ -230,8 +216,9 @@ function load_characters_for_user() {
 
     function check_pm()
     {
-        $result = $this->DB->selectCell("SELECT count(*) FROM website_pms WHERE owner_id=? AND showed=0",$this->user['id']);
-        return $result;
+        $stmt = $this->DB->prepare("SELECT count(*) FROM website_pms WHERE owner_id=? AND showed=0");
+        $stmt->execute([(int)$this->user['id']]);
+        return $stmt->fetchColumn();
     }
     /*
     function lastvisit_update($uservars)
@@ -284,23 +271,17 @@ function load_characters_for_user() {
         if((int)$MW->getConfig->generic->req_reg_act){
             $tmp_act_key = $this->generate_key();
             $params['locked'] = 1;
-            if($acc_id = $this->DB->query("INSERT INTO account SET ?a",$params)){
-                // If we dont want to insert special stuff in account_extend...
-                if ($account_extend == NULL){
-                    $this->DB->query("INSERT INTO website_accounts SET account_id=?d, registration_ip=?, activation_code=?",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
+            $setClause = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($params)));
+            $stmt = $this->DB->prepare("INSERT INTO account SET $setClause");
+            $stmt->execute(array_values($params));
+            $acc_id = (int)$this->DB->lastInsertId();
+            if($acc_id > 0){
+                $stmt = $this->DB->prepare("INSERT INTO website_accounts SET account_id=?, registration_ip=?, activation_code=?");
+                $stmt->execute([$acc_id, $_SERVER['REMOTE_ADDR'], $tmp_act_key]);
+                if((int)$MW->getConfig->generic->use_purepass_table) {
+                    $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
+                    $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
                 }
-                else {
-                    $this->DB->query("INSERT INTO website_accounts SET account_id=?d, registration_ip=?, activation_code=?",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
-                    //$account_extend['account_id'] = $acc_id;
-                    //$account_extend['registration_ip'] = $_SERVER['REMOTE_ADDR'];
-                    //$account_extend['activation_code'] = $tmp_act_key;
-                    //$account_extend['theme'] = $params['expansion'];
-
-                    //$this->DB->query("INSERT INTO website_accounts SET ?a", $account_extend);
-//                    $this->DB->query("INSERT INTO account_extend SET account_id=?d, registration_ip=?, activation_code=?, secretq1='".mysql_real_escape_string($account_extend['secretq1'])."',secreta1='".mysql_real_escape_string($account_extend['secreta1'])."',secretq2='".mysql_real_escape_string($account_extend['secretq2'])."',secreta2='".mysql_real_escape_string($account_extend['secreta2'])."'",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
-                    //$this->DB->query("INSERT INTO account_extend SET account_id=?d, registration_ip=?, activation_code=?, secretq1=?s, secreta1=?s, secretq2=?s, secreta2=?s",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key,$account_extend['secretq1'], $account_extend['secreta1']);
-                }
-                if((int)$MW->getConfig->generic->use_purepass_table) $this->DB->query("INSERT INTO account_pass SET id=?d, username=?, password=?, email=?",$acc_id,$params['username'],$password,$params['email']);
                 $act_link = (string)$MW->getConfig->temp->base_href.'index.php?n=account&sub=activate&id='.$acc_id.'&key='.$tmp_act_key;
                 $email_text  = '== Account activation =='."\n\n";
                 $email_text .= 'Username: '.$params['username']."\n";
@@ -313,40 +294,34 @@ function load_characters_for_user() {
                 return false;
             }
         }else{
-            if($acc_id = $this->DB->query("INSERT INTO account SET ?a",$params)){
-                if ($account_extend == false){
-                    $this->DB->query("INSERT INTO website_accounts SET account_id=?d, registration_ip=?, activation_code=?",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
-                }else{
-                    //$test_acc[account_id] = $acc_id;
-                    //$account_extend['account_id'] = $acc_id;
-                    //$account_extend['registration_ip'] = $_SERVER['REMOTE_ADDR'];
-                    //$account_extend['theme'] = $params['expansion'];
-                    //$this->DB->query("INSERT INTO website_accounts SET ?a", $account_extend);
-                    $this->DB->query("INSERT INTO website_accounts SET account_id=?d, registration_ip=?, activation_code=?",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
-		    //$this->DB->query("INSERT INTO account_extend SET account_id=?d, registration_ip=?, activation_code=?, secretq1='".$account_extend['secretq1']."',secreta1='".$account_extend['secreta1']."',secretq2='".$account_extend['secretq2']."',secreta2='".$account_extend['secreta2']."'",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key);
-                    //$this->DB->query("INSERT INTO account_extend SET account_id=?d, registration_ip=?, activation_code=?, secretq1=?s, secreta1=?s, secretq2=?s, secreta2=?s",$acc_id,$_SERVER['REMOTE_ADDR'],$tmp_act_key,$account_extend['secretq1'], $account_extend['secreta1'], $account_extend['secretq2'], $account_extend['secreta2']);
+            $setClause2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($params)));
+            $stmt = $this->DB->prepare("INSERT INTO account SET $setClause2");
+            $stmt->execute(array_values($params));
+            $acc_id = (int)$this->DB->lastInsertId();
+            if($acc_id > 0){
+                $stmt = $this->DB->prepare("INSERT INTO website_accounts SET account_id=?, registration_ip=?, activation_code=?");
+                $stmt->execute([$acc_id, $_SERVER['REMOTE_ADDR'], $tmp_act_key]);
+                if((int)$MW->getConfig->generic->use_purepass_table) {
+                    $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
+                    $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
                 }
-                if((int)$MW->getConfig->generic->use_purepass_table)
-                    $this->DB->query("INSERT INTO account_pass SET id=?d, username=?, password=?, email=?",$acc_id,$params['username'],$password,$params['email']);
-   	          //$this->DB->query("UPDATE account SET `tbc` = '1' WHERE `id`=$acc_id");
                 return true;
-            }
-            else{
+            } else {
                 return false;
             }
         }
     }
 
     function isavailableusername($username){
-        $res = $this->DB->selectCell("SELECT count(*) FROM account WHERE username=?",$username);
-        if($res < 1) return true; // username is available
-        return false; // username is not available
+        $stmt = $this->DB->prepare("SELECT count(*) FROM account WHERE username=?");
+        $stmt->execute([$username]);
+        return (int)$stmt->fetchColumn() < 1;
     }
 
     function isavailableemail($email){
-        $res = $this->DB->selectCell("SELECT count(*) FROM account WHERE email=?",$email);
-        if($res < 1) return true; // email is available
-        return false; // email is not available
+        $stmt = $this->DB->prepare("SELECT count(*) FROM account WHERE email=?");
+        $stmt->execute([$email]);
+        return (int)$stmt->fetchColumn() < 1;
     }
     function isvalidemail($email){
         if(preg_match('#^.{1,}@.{2,}\..{2,}$#', $email)==1){
@@ -356,14 +331,16 @@ function load_characters_for_user() {
         }
     }
     function isvalidregkey($key){
-        $res = $this->DB->selectCell("SELECT count(*) FROM site_regkeys WHERE `key`=?",$key);
-        if($res > 0) return true; // key is valid
-        return false; // key is not valid
+        $stmt = $this->DB->prepare("SELECT count(*) FROM site_regkeys WHERE `key`=?");
+        $stmt->execute([$key]);
+        return (int)$stmt->fetchColumn() > 0;
     }
     function isvalidactkey($key){
-        $res = $this->DB->selectCell("SELECT account_id FROM website_accounts WHERE activation_code=?",$key);
-        if($res > 0) return $res; // key is valid
-        return false; // key is not valid
+        $stmt = $this->DB->prepare("SELECT account_id FROM website_accounts WHERE activation_code=?");
+        $stmt->execute([$key]);
+        $res = $stmt->fetchColumn();
+        if($res > 0) return $res;
+        return false;
     }
     function generate_key()
     {
@@ -384,19 +361,22 @@ function load_characters_for_user() {
         return $keys;
     }
     function delete_key($key){
-        $this->DB->query("DELETE FROM website_regkeys WHERE `key`=?",$key);
+        $stmt = $this->DB->prepare("DELETE FROM website_regkeys WHERE `key`=?");
+        $stmt->execute([$key]);
     }
     function getprofile($acct_id=false){
-        $res = $this->DB->selectRow("
+        $stmt = $this->DB->prepare("
             SELECT * FROM account
             LEFT JOIN website_accounts ON account.id=website_accounts.account_id
             LEFT JOIN website_account_groups ON website_accounts.g_id=website_account_groups.g_id
-            WHERE id=?d",$acct_id);
-        return RemoveXSS($res);
+            WHERE id=?");
+        $stmt->execute([(int)$acct_id]);
+        return RemoveXSS($stmt->fetch(PDO::FETCH_ASSOC));
     }
     function getgroup($g_id=false){
-        $res = $this->DB->selectRow("SELECT * FROM website_account_groups WHERE g_id=?d",$g_id);
-        return $res;
+        $stmt = $this->DB->prepare("SELECT * FROM website_account_groups WHERE g_id=?");
+        $stmt->execute([(int)$g_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     function parsesettings($str){
         $set_pre = explode("\n",$str);
@@ -404,13 +384,17 @@ function load_characters_for_user() {
         return $set;
     }
     function getlogin($acct_id=false){
-        $res = $this->DB->selectCell("SELECT username FROM account WHERE id=?d",$acct_id);
-        if($res == null) return false;  // no such account
+        $stmt = $this->DB->prepare("SELECT username FROM account WHERE id=?");
+        $stmt->execute([(int)$acct_id]);
+        $res = $stmt->fetchColumn();
+        if($res == null) return false;
         return $res;
     }
     function getid($acct_name=false){
-        $res = $this->DB->selectCell("SELECT id FROM account WHERE username=?",$acct_name);
-        if($res == null) return false;  // no such account
+        $stmt = $this->DB->prepare("SELECT id FROM account WHERE username=?");
+        $stmt->execute([$acct_name]);
+        $res = $stmt->fetchColumn();
+        if($res == null) return false;
         return $res;
     }
     function gethash($str=false){
@@ -422,8 +406,8 @@ function load_characters_for_user() {
     function onlinelist_update()  // Updates list & delete old
     {
         $GLOBALS['guests_online']=0;
-        $rows = $this->DB->select("SELECT * FROM `website_online`");
-        if ($rows->num)
+        $stmt = $this->DB->query("SELECT * FROM `website_online`");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach($rows as $result_row)
         {
             if(time()-$result_row['logged'] <= 60*10)
@@ -436,7 +420,8 @@ function load_characters_for_user() {
             }
             else
             {
-                $this->DB->query("DELETE FROM `website_online` WHERE `id`=? LIMIT 1",$result_row['id']);
+                $stmt2 = $this->DB->prepare("DELETE FROM `website_online` WHERE `id`=? LIMIT 1");
+                $stmt2->execute([$result_row['id']]);
             }
         }
         //db_query("UPDATE `acm_config` SET `val`='".time()."' WHERE `key`='last_onlinelist_update' LIMIT 1");
@@ -448,21 +433,25 @@ function load_characters_for_user() {
         global $user;
 
         $cur_time = time();
-        $result = $this->DB->selectCell("SELECT count(*) FROM `website_online` WHERE `user_id`=?",$this->user['id']);
-        if($result>0)
+        $stmt = $this->DB->prepare("SELECT count(*) FROM `website_online` WHERE `user_id`=?");
+        $stmt->execute([(int)$this->user['id']]);
+        if($stmt->fetchColumn() > 0)
         {
-            $this->DB->query("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`=? LIMIT 1",$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI'],$this->user['id']);
+            $stmt = $this->DB->prepare("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`=? LIMIT 1");
+            $stmt->execute([$this->user['ip'], $cur_time, $_SERVER['REQUEST_URI'], (int)$this->user['id']]);
         }
         else
         {
-            $this->DB->query("INSERT INTO `website_online` (`user_id`,`user_name`,`user_ip`,`logged`,`currenturl`) VALUES (?,?,?,?,?)",$this->user['id'],$this->user['username'],$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI']);
+            $stmt = $this->DB->prepare("INSERT INTO `website_online` (`user_id`,`user_name`,`user_ip`,`logged`,`currenturl`) VALUES (?,?,?,?,?)");
+            $stmt->execute([(int)$this->user['id'], $this->user['username'], $this->user['ip'], $cur_time, $_SERVER['REQUEST_URI']]);
         }
     }
 
     function onlinelist_del() // Delete user from list
     {
         global $user;
-        $this->DB->query("DELETE FROM `website_online` WHERE `user_id`=? LIMIT 1",$this->user['id']);
+        $stmt = $this->DB->prepare("DELETE FROM `website_online` WHERE `user_id`=? LIMIT 1");
+        $stmt->execute([(int)$this->user['id']]);
     }
 
     function onlinelist_addguest() // Add or update list with new guest
@@ -470,21 +459,25 @@ function load_characters_for_user() {
         global $user;
 
         $cur_time = time();
-        $result = $this->DB->selectCell("SELECT  count(*) FROM `website_online` WHERE `user_id`='0' AND `user_ip`=?",$this->user['ip']);
-        if($result>0)
+        $stmt = $this->DB->prepare("SELECT count(*) FROM `website_online` WHERE `user_id`='0' AND `user_ip`=?");
+        $stmt->execute([$this->user['ip']]);
+        if($stmt->fetchColumn() > 0)
         {
-            $this->DB->query("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`='0' AND `user_ip`=? LIMIT 1",$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI'],$this->user['ip']);
+            $stmt = $this->DB->prepare("UPDATE `website_online` SET `user_ip`=?,`logged`=?,`currenturl`=? WHERE `user_id`='0' AND `user_ip`=? LIMIT 1");
+            $stmt->execute([$this->user['ip'], $cur_time, $_SERVER['REQUEST_URI'], $this->user['ip']]);
         }
         else
         {
-            $this->DB->query("INSERT INTO `website_online` (`user_ip`,`logged`,`currenturl`) VALUES (?,?,?)",$this->user['ip'],$cur_time,$_SERVER['REQUEST_URI']);
+            $stmt = $this->DB->prepare("INSERT INTO `website_online` (`user_ip`,`logged`,`currenturl`) VALUES (?,?,?)");
+            $stmt->execute([$this->user['ip'], $cur_time, $_SERVER['REQUEST_URI']]);
         }
     }
 
     function onlinelist_delguest() // Delete guest from list
     {
         global $user;
-        $this->DB->query("DELETE FROM `website_online` WHERE `user_id`='0' AND `user_ip`=? LIMIT 1",$this->user['ip']);
+        $stmt = $this->DB->prepare("DELETE FROM `website_online` WHERE `user_id`='0' AND `user_ip`=? LIMIT 1");
+        $stmt->execute([$this->user['ip']]);
     }
 }
 ?>

@@ -198,7 +198,6 @@ if ((int)$MW->getConfig->components->left_section->Upload_Wallpaper == 0)   unse
 /* Community */
 if ((int)$MW->getConfig->components->left_section->Teamspeak == 0) unset($mainnav_links['7-menuCommunity'][0]);
 if ((int)$MW->getConfig->components->left_section->donate == 0)    unset($mainnav_links['7-menuCommunity'][1]);
-if ((int)$MW->getConfig->components->left_section->vote == 0)      unset($mainnav_links['7-menuCommunity'][2]);
 if ((int)$MW->getConfig->components->left_section->chat == 0)      unset($mainnav_links['7-menuCommunity'][3]);
 
 
