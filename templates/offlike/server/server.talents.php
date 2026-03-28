@@ -3,9 +3,9 @@ $siteRoot = dirname(__DIR__, 3);
 
 require_once($siteRoot . '/config/config-protected.php');
 require_once($siteRoot . '/core/dbsimple/Generic.php');
-require_once($siteRoot . '/armory/configuration/settings.php');
-require_once($siteRoot . '/armory/configuration/mysql.php');
-require_once($siteRoot . '/armory/configuration/defines.php');
+require_once($siteRoot . '/config/armory/settings.php');
+require_once($siteRoot . '/config/armory/mysql.php');
+require_once($siteRoot . '/config/armory/defines.php');
 // statisticshandler.php omitted — character-profile stats functions not needed for talent calc
 
 if (!defined('Armory')) {
@@ -129,7 +129,7 @@ if (!defined('LANGUAGE')) {
     define('LANGUAGE', $ARDB->selectCell('SELECT `value` FROM `conf_lang` LIMIT 1'));
 }
 
-$languageFile = $siteRoot . '/armory/configuration/' . LANGUAGE . '/languagearray.php';
+$languageFile = $siteRoot . '/config/armory/' . LANGUAGE . '/languagearray.php';
 if (is_file($languageFile)) {
     require_once($languageFile);
 }
@@ -195,9 +195,9 @@ $GLOBALS['server_talent_profile_mode'] = $isProfileMode;
 $talentBaseParams = $GLOBALS['talent_calc_base_url'];
 echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script>';
 ?>
-<link rel="stylesheet" href="/armory/css/talents-calc.css?v=modern-server">
+<link rel="stylesheet" href="/templates/offlike/css/talents-calc.css?v=modern-server">
 <?php if (!$isProfileMode): ?>
-<script defer src="/armory/js/talents-calc.js?v=modern-server"></script>
+<script defer src="/templates/offlike/js/talents-calc.js?v=modern-server"></script>
 <?php endif; ?>
 <style>
 .server-talents-shell {
@@ -270,6 +270,6 @@ echo '<script>window.tcBaseUrl = ' . json_encode($talentBaseParams) . ';</script
 <?php
 if (!$isEmbedMode) builddiv_start(1, $isProfileMode ? 'Talent Build' : 'Talent Calculator', 1);
 echo '<div class="server-talents-shell' . ($isProfileMode ? ' is-profile' : '') . ($isEmbedMode ? ' is-embed' : '') . '">';
-include($siteRoot . '/armory/source/talent-calc.php');
+include($siteRoot . '/templates/offlike/server/talent-calc.php');
 echo '</div>';
 if (!$isEmbedMode) builddiv_end();

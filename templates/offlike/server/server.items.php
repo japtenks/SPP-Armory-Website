@@ -2,7 +2,7 @@
 $siteDatabaseHandle = $GLOBALS['DB'] ?? null;
 $siteRoot = dirname(__DIR__, 3);
 require_once($siteRoot . '/config/config-protected.php');
-require_once($siteRoot . '/armory/configuration/settings.php');
+require_once($siteRoot . '/config/armory/settings.php');
 if ($siteDatabaseHandle !== null) {
     $GLOBALS['DB'] = $siteDatabaseHandle;
     $DB = $siteDatabaseHandle;
@@ -74,7 +74,7 @@ if (!function_exists('spp_modern_item_icon_url')) {
     function spp_modern_item_icon_url($iconName) {
         $iconName = trim((string)$iconName);
         if ($iconName === '') {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
         if (preg_match('#^https?://#i', $iconName) || strpos($iconName, '//') === 0) {
             return $iconName;
@@ -83,15 +83,15 @@ if (!function_exists('spp_modern_item_icon_url')) {
             return $iconName;
         }
         if (strpos($iconName, 'images/') === 0) {
-            return '/armory/' . $iconName;
+            return '/templates/offlike/images/armory/' . substr($iconName, strlen('images/'));
         }
-        if (strpos($iconName, 'armory/') === 0) {
-            return '/' . $iconName;
+        if (strpos($iconName, 'armory/images/') === 0) {
+            return '/templates/offlike/images/armory/' . substr($iconName, strlen('armory/images/'));
         }
         if (substr($iconName, -4) !== '.png') {
             $iconName .= '.png';
         }
-        return '/armory/images/icons/64x64/' . strtolower($iconName);
+        return '/templates/offlike/images/armory/icons/64x64/' . strtolower($iconName);
     }
 }
 
@@ -338,7 +338,7 @@ $resultEnd = min($offset + $itemsPerPage, $totalResults);
 
 builddiv_start(1, 'Item Search', 1);
 ?>
-<link rel="stylesheet" type="text/css" href="/armory/css/armory-tooltips.css" />
+<link rel="stylesheet" type="text/css" href="/templates/offlike/css/armory-tooltips.css" />
 <style>
 .item-search-shell {
   display: grid;

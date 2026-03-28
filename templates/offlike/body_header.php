@@ -21,7 +21,7 @@ $randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/im
   <link rel="shortcut icon" href="<?php echo $currtmp; ?>/images/favicon.ico"/>
 
 
-<link rel="stylesheet" href="/xfer/assets/css/site.css">
+<link rel="stylesheet" href="/templates/offlike/css/xfer.css">
 <script>
 function setcookie(name, value, days = 30) {
   const d = new Date();

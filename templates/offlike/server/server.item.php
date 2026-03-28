@@ -2,7 +2,7 @@
 $siteDatabaseHandle = $GLOBALS['DB'] ?? null;
 $siteRoot = dirname(__DIR__, 3);
 require_once($siteRoot . '/config/config-protected.php');
-require_once($siteRoot . '/armory/configuration/settings.php');
+require_once($siteRoot . '/config/armory/settings.php');
 if ($siteDatabaseHandle !== null) {
     $GLOBALS['DB'] = $siteDatabaseHandle;
     $DB = $siteDatabaseHandle;
@@ -34,7 +34,7 @@ if (!function_exists('spp_modern_item_icon_url')) {
     function spp_modern_item_icon_url($iconName) {
         $iconName = trim((string)$iconName);
         if ($iconName === '') {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
         if (preg_match('#^https?://#i', $iconName) || strpos($iconName, '//') === 0) {
             return $iconName;
@@ -43,15 +43,15 @@ if (!function_exists('spp_modern_item_icon_url')) {
             return $iconName;
         }
         if (strpos($iconName, 'images/') === 0) {
-            return '/armory/' . $iconName;
+            return '/templates/offlike/images/armory/' . substr($iconName, strlen('images/'));
         }
-        if (strpos($iconName, 'armory/') === 0) {
-            return '/' . $iconName;
+        if (strpos($iconName, 'armory/images/') === 0) {
+            return '/templates/offlike/images/armory/' . substr($iconName, strlen('armory/images/'));
         }
         if (substr($iconName, -4) !== '.png') {
             $iconName .= '.png';
         }
-        return '/armory/images/icons/64x64/' . strtolower($iconName);
+        return '/templates/offlike/images/armory/icons/64x64/' . strtolower($iconName);
     }
 }
 
@@ -73,10 +73,10 @@ if (!function_exists('spp_class_icon_url')) {
         ];
 
         if (!isset($extensions[$classId])) {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
 
-        return '/armory/images/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
+        return '/templates/offlike/images/armory/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
     }
 }
 
@@ -99,10 +99,10 @@ if (!function_exists('spp_race_icon_url')) {
         ];
 
         if (!isset($icons[$raceId])) {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
 
-        return '/armory/images/icons/64x64/' . $icons[$raceId] . '.png';
+        return '/templates/offlike/images/armory/icons/64x64/' . $icons[$raceId] . '.png';
     }
 }
 
@@ -614,7 +614,7 @@ if (!empty($_GET['dir'])) $searchBackUrl .= '&dir=' . urlencode((string)$_GET['d
 
 builddiv_start(1, 'Item Detail', 0);
 ?>
-<link rel="stylesheet" type="text/css" href="/armory/css/armory-tooltips.css" />
+<link rel="stylesheet" type="text/css" href="/templates/offlike/css/armory-tooltips.css" />
 <style>
 .item-detail-page { display: grid; gap: 18px; }
 .item-detail-hero { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr); gap: 22px; padding: 26px 28px; border: 1px solid rgba(255, 196, 0, 0.2); border-radius: 18px; background: radial-gradient(circle at top right, rgba(255, 176, 61, 0.14), transparent 34%), linear-gradient(180deg, rgba(6, 9, 19, 0.96), rgba(4, 5, 13, 0.98)); }

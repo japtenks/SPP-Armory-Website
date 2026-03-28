@@ -1,7 +1,7 @@
 
 <?php
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/com_db.php');
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/com_search.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/com_db.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/com_search.php');
 $gmCommands = loadCommands($pdo,$world_db,'gm');
 
 $userGmLevel = (int)($user['gmlevel'] ?? 0);
@@ -43,7 +43,7 @@ if (($user['id'] ?? 0) > 0) {
     </tbody>
   </table>
 </div>
-<script src="/xfer/assets/js/commands.js"></script>
+<script src="/templates/offlike/js/commands.js"></script>
 <?php builddiv_end(); ?>
 
 

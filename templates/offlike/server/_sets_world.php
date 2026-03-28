@@ -1,7 +1,7 @@
 <?php
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/bootstrap.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/bootstrap.php');
 //require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/page_header.php');
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/helpers.php');
 
 ?>
 
@@ -11,7 +11,7 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
 
 
 $selectedClass = isset($_GET['class']) ? trim($_GET['class']) : '';
-$iconBase   = './armory/shared/icons/';
+$iconBase   = '/templates/offlike/images/icons/';
 $iconPref   = 'class_';
 $iconExt    = '.jpg';
 

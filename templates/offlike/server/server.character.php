@@ -234,21 +234,21 @@ function spp_character_portrait_path($level, $gender, $race, $class) {
     elseif ((int)$level <= 69) $bucket = 'wow';
     elseif ((int)$level <= 79) $bucket = 'wow-70';
     else $bucket = 'wow-80';
-    return '/armory/images/portraits/' . $bucket . '/' . (int)$gender . '-' . (int)$race . '-' . (int)$class . '.gif';
+    return '/templates/offlike/images/armory/portraits/' . $bucket . '/' . (int)$gender . '-' . (int)$race . '-' . (int)$class . '.gif';
 }
 
 function spp_character_icon_url($iconName) {
     $iconName = trim((string)$iconName);
-    if ($iconName === '') return '/armory/images/icons/64x64/404.png';
+    if ($iconName === '') return '/templates/offlike/images/armory/icons/64x64/404.png';
     $basename = preg_replace('/\.(png|jpg|jpeg|gif)$/i', '', $iconName);
     $basename = strtolower($basename);
     foreach (array('jpg', 'jpeg', 'png') as $extension) {
-        $xferPath = $siteRoot . '/xfer/assets/images/' . $basename . '.' . $extension;
+        $xferPath = $siteRoot . '/templates/offlike/images/xfer/' . $basename . '.' . $extension;
         if (is_file($xferPath)) {
-            return '/xfer/assets/images/' . $basename . '.' . $extension;
+            return '/templates/offlike/images/xfer/' . $basename . '.' . $extension;
         }
     }
-    return '/armory/images/icons/64x64/' . strtolower($basename) . '.png';
+    return '/templates/offlike/images/armory/icons/64x64/' . strtolower($basename) . '.png';
 }
 
 function spp_character_skill_icon_url($skillName, $iconName) {
@@ -313,7 +313,7 @@ function spp_character_language_icon_url($skillName, $raceId, $gender) {
     $sharedAlliance = array('language: common', 'common');
     $sharedHorde = array('language: orcish', 'orcish');
     if (in_array($skillName, $sharedAlliance, true) || in_array($skillName, $sharedHorde, true)) {
-        return isset($raceIconMap[$raceId]) ? '/armory/images/icons/64x64/' . $raceIconMap[$raceId] . '.png' : '/armory/images/icons/64x64/404.png';
+        return isset($raceIconMap[$raceId]) ? '/templates/offlike/images/armory/icons/64x64/' . $raceIconMap[$raceId] . '.png' : '/templates/offlike/images/armory/icons/64x64/404.png';
     }
     $languageMap = array(
         'language: darnassian' => array(4),
@@ -340,7 +340,7 @@ function spp_character_language_icon_url($skillName, $raceId, $gender) {
     if (!isset($languageMap[$skillName])) return null;
     $choices = $languageMap[$skillName];
     $pickedRace = $choices[abs(crc32($skillName . ':' . $raceId . ':' . $gender)) % count($choices)];
-    return isset($raceIconMap[$pickedRace]) ? '/armory/images/icons/64x64/' . $raceIconMap[$pickedRace] . '.png' : '/armory/images/icons/64x64/404.png';
+    return isset($raceIconMap[$pickedRace]) ? '/templates/offlike/images/armory/icons/64x64/' . $raceIconMap[$pickedRace] . '.png' : '/templates/offlike/images/armory/icons/64x64/404.png';
 }
 
 function spp_character_profession_tier_label($max, $name = '') {
@@ -1928,7 +1928,7 @@ if (empty($recentGear) && !empty($equipment)) {
 }
 $portraitUrl = $character ? spp_character_portrait_path($character['level'], $character['gender'], $character['race'], $character['class']) : '';
 $factionName = $character ? spp_character_faction_name($character['race']) : '';
-$factionIcon = $factionName === 'Horde' ? '/armory/images/icon-horde.gif' : '/armory/images/icon-alliance.gif';
+$factionIcon = $factionName === 'Horde' ? '/templates/offlike/images/armory/icon-horde.gif' : '/templates/offlike/images/armory/icon-alliance.gif';
 $factionHeroLogo = $factionName === 'Horde' ? 'templates/offlike/images/modern/logo-horde.png' : 'templates/offlike/images/modern/logo-alliance.png';
 $classSlug = $character ? strtolower(str_replace(' ', '', $classNames[(int)$character['class']] ?? 'unknown')) : 'unknown';
 $characterUrl = 'index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . urlencode((string)$characterName);
@@ -2131,7 +2131,7 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 <style>
 .character-grid.character-grid-overview{grid-template-columns:minmax(300px,.84fr) minmax(0,1.6fr)}
 .character-paperdoll-shell{padding:10px 28px 16px;overflow:visible}
-.legacy-paperdoll{width:405px;max-width:none;margin:0 auto;padding:4px 0 0;background:url('/armory/images/profile-bg.jpg') no-repeat 50% 0;position:relative;color:#fff;font-family:'Trebuchet MS',Arial,Helvetica,sans-serif}
+.legacy-paperdoll{width:405px;max-width:none;margin:0 auto;padding:4px 0 0;background:url('/templates/offlike/images/armory/profile-bg.jpg') no-repeat 50% 0;position:relative;color:#fff;font-family:'Trebuchet MS',Arial,Helvetica,sans-serif}
 .legacy-paperdoll ul{margin:0;padding:0;list-style:none}
 .legacy-paperdoll li{width:60px;height:55px;margin:1px;position:relative}
 .legacy-paperdoll .stack1,.legacy-paperdoll .stack2,.legacy-paperdoll .stack3,.legacy-paperdoll .stack4{width:405px;margin:0 auto;position:relative}
@@ -2146,15 +2146,15 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .legacy-paperdoll .items-bot{width:200px;top:11px;left:94px}
 .legacy-paperdoll .items-left a,.legacy-paperdoll .items-right a,.legacy-paperdoll .items-bot a{cursor:pointer;z-index:4;display:block;position:absolute}
 .legacy-paperdoll .items-left a,.legacy-paperdoll .items-right a{width:75px;height:60px;top:-4px}
-.legacy-paperdoll .items-left a{background:url('/armory/images/icon-glass-left.gif') no-repeat -75px 0;left:-14px}
-.legacy-paperdoll .items-right a{background:url('/armory/images/icon-glass-right.gif') no-repeat 0 0;left:-2px}
-.legacy-paperdoll .items-bot a{width:60px;height:75px;background:url('/armory/images/icon-glass-bot.gif') no-repeat 0 0;top:-6px;left:-1px}
+.legacy-paperdoll .items-left a{background:url('/templates/offlike/images/armory/icon-glass-left.gif') no-repeat -75px 0;left:-14px}
+.legacy-paperdoll .items-right a{background:url('/templates/offlike/images/armory/icon-glass-right.gif') no-repeat 0 0;left:-2px}
+.legacy-paperdoll .items-bot a{width:60px;height:75px;background:url('/templates/offlike/images/armory/icon-glass-bot.gif') no-repeat 0 0;top:-6px;left:-1px}
 .legacy-paperdoll .items-left a:hover{background-position:-1px 0}
 .legacy-paperdoll .items-right a:hover{background-position:-74px 0}
 .legacy-paperdoll .items-bot a:hover{background-position:0 -74px}
 .legacy-paperdoll .items-left img,.legacy-paperdoll .items-right img,.legacy-paperdoll .items-bot img{height:52px;width:52px;position:relative;left:4px;top:1px}
 .legacy-paperdoll #slot0x,.legacy-paperdoll #slot1x,.legacy-paperdoll #slot2x,.legacy-paperdoll #slot3x,.legacy-paperdoll #slot4x,.legacy-paperdoll #slot18x,.legacy-paperdoll #slot8x{left:3px}
-.legacy-paperdoll .spec,.legacy-paperdoll .resists,.legacy-paperdoll .profs,.legacy-paperdoll .dropdown1,.legacy-paperdoll .dropdown2,.legacy-paperdoll .stats1,.legacy-paperdoll .stats2{background:url('/armory/images/cpbg.png');position:relative;cursor:default}
+.legacy-paperdoll .spec,.legacy-paperdoll .resists,.legacy-paperdoll .profs,.legacy-paperdoll .dropdown1,.legacy-paperdoll .dropdown2,.legacy-paperdoll .stats1,.legacy-paperdoll .stats2{background:url('/templates/offlike/images/armory/cpbg.png');position:relative;cursor:default}
 .legacy-paperdoll .spec{width:261px;height:69px;float:left}
 .legacy-paperdoll .resists{width:141px;height:189px;float:right}
 .legacy-paperdoll .profs{width:261px;height:117px;margin-top:3px;float:left}
@@ -2165,33 +2165,33 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .legacy-paperdoll .spec-wrapper span{display:block;color:#fff;padding:0 0 0 3px;font-size:12px}
 .legacy-paperdoll .spec-icon,.legacy-paperdoll .tree-icon{position:absolute;left:15px}
 .legacy-paperdoll .spec-icon img,.legacy-paperdoll .tree-icon img{position:relative;top:10px;width:27px;height:27px}
-.legacy-paperdoll .bar-container{margin:3px 0 0;padding:0;height:16px;width:180px;border:1px solid #000;background:url('/armory/images/bar-grey.gif') repeat-x;position:relative;text-align:center;color:#fff}
-.legacy-paperdoll .bar-container b{height:16px;margin:0;padding:0;float:left;background:url('/armory/images/bar-mana.gif') repeat-x}
+.legacy-paperdoll .bar-container{margin:3px 0 0;padding:0;height:16px;width:180px;border:1px solid #000;background:url('/templates/offlike/images/armory/bar-grey.gif') repeat-x;position:relative;text-align:center;color:#fff}
+.legacy-paperdoll .bar-container b{height:16px;margin:0;padding:0;float:left;background:url('/templates/offlike/images/armory/bar-mana.gif') repeat-x}
 .legacy-paperdoll .bar-container span{position:absolute;top:-1px;left:0;width:180px;text-align:center;font-size:12px}
 .legacy-paperdoll .resists ul{padding:10px 0 0}
 .legacy-paperdoll .resists li{height:29px !important;text-align:right;padding:0 33px 0 0;width:90px;position:relative}
 .legacy-paperdoll .resists li:hover{background-position:100% 100%}
-.legacy-paperdoll li.fire{background:url('/armory/images/res-fire.gif') no-repeat 100% 0}
-.legacy-paperdoll li.nature{background:url('/armory/images/res-nature.gif') no-repeat 100% 0}
-.legacy-paperdoll li.arcane{background:url('/armory/images/res-arcane.gif') no-repeat 100% 0}
-.legacy-paperdoll li.frost{background:url('/armory/images/res-frost.gif') no-repeat 100% 0}
-.legacy-paperdoll li.shadow{background:url('/armory/images/res-shadow.gif') no-repeat 100% 0}
+.legacy-paperdoll li.fire{background:url('/templates/offlike/images/armory/res-fire.gif') no-repeat 100% 0}
+.legacy-paperdoll li.nature{background:url('/templates/offlike/images/armory/res-nature.gif') no-repeat 100% 0}
+.legacy-paperdoll li.arcane{background:url('/templates/offlike/images/armory/res-arcane.gif') no-repeat 100% 0}
+.legacy-paperdoll li.frost{background:url('/templates/offlike/images/armory/res-frost.gif') no-repeat 100% 0}
+.legacy-paperdoll li.shadow{background:url('/templates/offlike/images/armory/res-shadow.gif') no-repeat 100% 0}
 .legacy-paperdoll .resists b{position:absolute;right:4px;width:20px;text-align:center;top:6px;color:#000;font-size:12px !important}
 .legacy-paperdoll .resists span{position:absolute;right:6px;width:20px;text-align:center;top:5px;color:#fff;font-size:12px !important}
 .legacy-paperdoll .resists h5{margin:0;padding:5px 0 0;color:#ffd200;font-size:12px;text-transform:uppercase;font-weight:700}
 .legacy-paperdoll .health-stat,.legacy-paperdoll .mana-stat,.legacy-paperdoll .rage-stat,.legacy-paperdoll .energy-stat{width:380px;height:15px;padding:5px 6px 0 5px}
 .legacy-paperdoll .health-stat p,.legacy-paperdoll .mana-stat p,.legacy-paperdoll .rage-stat p,.legacy-paperdoll .energy-stat p{float:right;width:75%;margin:0;text-align:center;color:#fff;height:16px;border:1px solid #000}
-.legacy-paperdoll .health-stat p{background:url('/armory/images/bar-life.gif') repeat-x}
-.legacy-paperdoll .mana-stat p{background:url('/armory/images/bar-mana.gif') repeat-x}
-.legacy-paperdoll .rage-stat p{background:url('/armory/images/bar-rage.gif') repeat-x}
-.legacy-paperdoll .energy-stat p{background:url('/armory/images/bar-energy.gif') repeat-x}
+.legacy-paperdoll .health-stat p{background:url('/templates/offlike/images/armory/bar-life.gif') repeat-x}
+.legacy-paperdoll .mana-stat p{background:url('/templates/offlike/images/armory/bar-mana.gif') repeat-x}
+.legacy-paperdoll .rage-stat p{background:url('/templates/offlike/images/armory/bar-rage.gif') repeat-x}
+.legacy-paperdoll .energy-stat p{background:url('/templates/offlike/images/armory/bar-energy.gif') repeat-x}
 .legacy-paperdoll .health-stat p span,.legacy-paperdoll .mana-stat p span,.legacy-paperdoll .rage-stat p span,.legacy-paperdoll .energy-stat p span{position:relative;top:-1px}
 .legacy-paperdoll .health-stat h4,.legacy-paperdoll .mana-stat h4,.legacy-paperdoll .rage-stat h4,.legacy-paperdoll .energy-stat h4{text-align:right;width:55px;margin:0}
 .legacy-paperdoll .dropdown1,.legacy-paperdoll .dropdown2{position:relative;z-index:99;height:27px;width:201px;background:#000;margin-top:3px}
 .legacy-paperdoll .dropdown1,.legacy-paperdoll .stats1{float:left}
 .legacy-paperdoll .dropdown2,.legacy-paperdoll .stats2{float:right}
 .legacy-paperdoll .stats1,.legacy-paperdoll .stats2{position:relative;height:96px;width:201px;margin-top:3px}
-.legacy-paperdoll .stats-select{width:201px;height:23px;background:url('/armory/images/profile-dd.gif') no-repeat 0 0;border:0;color:#fff;padding:2px 8px 0;font-size:12px;appearance:none;-webkit-appearance:none;-moz-appearance:none;background-size:100% 100%}
+.legacy-paperdoll .stats-select{width:201px;height:23px;background:url('/templates/offlike/images/armory/profile-dd.gif') no-repeat 0 0;border:0;color:#fff;padding:2px 8px 0;font-size:12px;appearance:none;-webkit-appearance:none;-moz-appearance:none;background-size:100% 100%}
 .legacy-paperdoll .stats-select:focus{outline:none}
 .legacy-paperdoll .stats-panel{position:absolute;left:5px;right:6px;top:30px;bottom:6px;display:none}
 .legacy-paperdoll .stats-panel.is-active{display:block}
@@ -2372,7 +2372,7 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-recipe-empty{padding:12px 14px;border-radius:14px;border:1px dashed rgba(255,204,72,.18);color:#bca87a;background:rgba(255,255,255,.02)}
 @media (max-width:760px){.character-gear-showcase{padding:16px 10px 14px}.character-paperdoll-modern{width:100%;min-height:auto;display:grid;gap:18px}.character-paperdoll-modern > .character-gear-column:first-child,.character-paperdoll-modern > .character-gear-column:nth-child(3),.character-paperdoll-modern .character-paperdoll-core,.character-paperdoll-modern .character-gear-bottom{position:relative;inset:auto;left:auto;right:auto;bottom:auto;transform:none}.character-paperdoll-modern .character-paperdoll-core{order:-1}.character-paperdoll-modern .character-gear-column,.character-paperdoll-modern .character-gear-bottom{grid-template-columns:repeat(4,68px);justify-content:center}.character-paperdoll-top,.character-sheet-stats,.character-paperdoll-stats-wide{grid-template-columns:1fr}}
 </style>
-<link rel="stylesheet" type="text/css" href="/armory/css/armory-tooltips.css" />
+<link rel="stylesheet" type="text/css" href="/templates/offlike/css/armory-tooltips.css" />
 <style>
 .modern-item-tooltip{min-width:220px;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto}
 .modern-item-tooltip-loading{padding:14px 16px;color:#f5e6b2;border:1px solid rgba(255,196,0,.35);border-radius:10px;background:rgba(5,8,18,.96);box-shadow:0 16px 38px rgba(0,0,0,.45)}

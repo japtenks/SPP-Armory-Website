@@ -1,6 +1,6 @@
 <?php
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/com_db.php');
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/com_search.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/com_db.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/com_search.php');
 $botCommands = loadCommands($pdo,$world_db,'bot'); 
 ?>
 
@@ -46,7 +46,7 @@ $botCommands = loadCommands($pdo,$world_db,'bot');
   </table>
 </div>
 <?php builddiv_end(); ?>
-<script src="/xfer/assets/js/commands.js"></script>
+<script src="/templates/offlike/js/commands.js"></script>
 
 
 

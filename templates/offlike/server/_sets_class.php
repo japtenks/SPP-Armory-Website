@@ -1,7 +1,7 @@
 <?php
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/bootstrap.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/bootstrap.php');
 //require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/page_header.php');
-require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/helpers.php');
+require_once(dirname(__FILE__, 4).'/core/xfer/helpers.php');
 
 ?>
 
@@ -777,7 +777,7 @@ foreach ($tierOrder as $key) {
           $tipItemHtml = render_item_tip_html($it);
           $icons[] =
             '<a href="' . htmlspecialchars(item_href((int)$it['entry'])) . '" class="js-item-tip" data-item-id="' . (int)$it['entry'] . '" data-tip-html="' . htmlspecialchars($tipItemHtml, ENT_QUOTES) . '">'
-          . '<img src="/armory/images/icons/64x64/' . htmlspecialchars($it['icon']) . '.png" alt="' . htmlspecialchars($it['name']) . '" width="32" height="32"></a>';
+          . '<img src="/templates/offlike/images/armory/icons/64x64/' . htmlspecialchars($it['icon']) . '.png" alt="' . htmlspecialchars($it['name']) . '" width="32" height="32"></a>';
         }
         $itemsHtml = '<span class="set-icons">' . implode('', $icons) . '</span>';
       }

@@ -226,7 +226,7 @@ if ($selectedClass === '') {
                       $tipItemHtml = $_entry['itemTips'][(int)$it['entry']] ?? '';
                       $icons[] =
                           '<a href="' . htmlspecialchars(item_href((int)$it['entry'])) . '" class="js-item-tip" data-item-id="' . (int)$it['entry'] . '" data-tip-html="' . htmlspecialchars($tipItemHtml, ENT_QUOTES) . '">'
-                        . '<img src="/armory/images/icons/64x64/' . htmlspecialchars($it['icon']) . '.png" alt="' . htmlspecialchars($it['name']) . '" width="32" height="32"></a>';
+                        . '<img src="/templates/offlike/images/armory/icons/64x64/' . htmlspecialchars($it['icon']) . '.png" alt="' . htmlspecialchars($it['name']) . '" width="32" height="32"></a>';
                   }
                   $itemsHtml = '<span class="set-icons">' . implode('', $icons) . '</span>';
               }

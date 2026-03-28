@@ -167,12 +167,12 @@ function spell_info_for_talent(array $talRow, int $rank = 0) {
 
 /** icon web path */
 function icon_url($iconBase) {
-  return '/armory/shared/icons/' . $iconBase . '.jpg';
+  return '/templates/offlike/images/icons/' . $iconBase . '.jpg';
 }
 
 /** class/tab background by talent tab id (e.g. 161.jpg) */
 function talent_bg_for_tab($tabId) {
-  $webBase = '/armory/shared/icon_talents';
+  $webBase = '/templates/offlike/images/icon_talents';
   $fsBase  = realpath(__DIR__ . '/../shared/icon_talents');
   if (!$fsBase) return '';
   $file = (int)$tabId . '.jpg';

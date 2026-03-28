@@ -21,10 +21,10 @@ if (!function_exists('spp_class_icon_url')) {
         ];
 
         if (!isset($extensions[$classId])) {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
 
-        return '/armory/images/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
+        return '/templates/offlike/images/armory/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
     }
 }
 
@@ -47,10 +47,10 @@ if (!function_exists('spp_race_icon_url')) {
         ];
 
         if (!isset($icons[$raceId])) {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
 
-        return '/armory/images/icons/64x64/' . $icons[$raceId] . '.png';
+        return '/templates/offlike/images/armory/icons/64x64/' . $icons[$raceId] . '.png';
     }
 }
 

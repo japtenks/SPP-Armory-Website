@@ -2,7 +2,7 @@
 $siteDatabaseHandle = $GLOBALS['DB'] ?? null;
 $siteRoot = dirname(__DIR__, 3);
 require_once($siteRoot . '/config/config-protected.php');
-require_once($siteRoot . '/armory/configuration/settings.php');
+require_once($siteRoot . '/config/armory/settings.php');
 if ($siteDatabaseHandle !== null) {
     $GLOBALS['DB'] = $siteDatabaseHandle;
     $DB = $siteDatabaseHandle;
@@ -13,11 +13,11 @@ if (!function_exists('spp_marketplace_icon_url')) {
     {
         $iconName = trim((string)$iconName);
         if ($iconName === '') {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
 
         $basename = preg_replace('/\.(png|jpg|jpeg|gif)$/i', '', $iconName);
-        return '/armory/images/icons/64x64/' . strtolower($basename) . '.png';
+        return '/templates/offlike/images/armory/icons/64x64/' . strtolower($basename) . '.png';
     }
 }
 
@@ -59,10 +59,10 @@ if (!function_exists('spp_marketplace_class_icon_url')) {
         ];
 
         if (!isset($extensions[$classId])) {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
 
-        return '/armory/images/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
+        return '/templates/offlike/images/armory/icons/64x64/class-' . $classId . '.' . $extensions[$classId];
     }
 }
 
@@ -85,10 +85,10 @@ if (!function_exists('spp_marketplace_race_icon_url')) {
         ];
 
         if (!isset($icons[$raceId])) {
-            return '/armory/images/icons/64x64/404.png';
+            return '/templates/offlike/images/armory/icons/64x64/404.png';
         }
 
-        return '/armory/images/icons/64x64/' . $icons[$raceId] . '.png';
+        return '/templates/offlike/images/armory/icons/64x64/' . $icons[$raceId] . '.png';
     }
 }
 
