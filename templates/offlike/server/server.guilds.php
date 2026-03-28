@@ -39,6 +39,30 @@
   white-space: normal;
   line-height: 1.2;
 }
+.guild-table.gm-mode .header,
+.guild-table.gm-mode .row {
+  grid-template-columns: minmax(260px, 2fr) 64px minmax(180px, 1.2fr) 90px 1fr;
+}
+
+.guild-table .motd-edit input[type="text"] {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #ddd;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 0.82rem;
+  flex: 1;
+  min-width: 0;
+}
+.guild-table .motd-edit button {
+  background: #333;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
 .guild-search-wrap {
   max-width: 1000px;
   margin: 12px auto 16px;
@@ -58,6 +82,10 @@
   .guild-table .row .col:nth-child(8) {
     display: none;
   }
+  .guild-table.gm-mode .header,
+  .guild-table.gm-mode .row {
+    grid-template-columns: minmax(220px, 2fr) 56px minmax(160px, 1.2fr) 80px 1fr;
+  }
 }
 @media (max-width: 700px) {
   .guild-table .header,
@@ -66,14 +94,18 @@
   }
   .guild-table .header .col:nth-child(2),
   .guild-table .row .col:nth-child(2),
-  .guild-table .header .col:nth-child(4),
-  .guild-table .row .col:nth-child(4),
-  .guild-table .header .col:nth-child(5),
-  .guild-table .row .col:nth-child(5),
   .guild-table .header .col:nth-child(7),
   .guild-table .row .col:nth-child(7),
   .guild-table .header .col:nth-child(8),
   .guild-table .row .col:nth-child(8) {
+    display: none;
+  }
+  .guild-table.gm-mode .header,
+  .guild-table.gm-mode .row {
+    grid-template-columns: minmax(200px, 2fr) 50px 70px 1fr;
+  }
+  .guild-table.gm-mode .header .col:nth-child(2),
+  .guild-table.gm-mode .row .col:nth-child(2) {
     display: none;
   }
 }
@@ -151,7 +183,7 @@ if (!function_exists('spp_guilds_sort_compare')) {
 }
 
 if (!function_exists('spp_guilds_sort_url')) {
-    function spp_guilds_sort_url($realmId, $perPage, $search, $sortBy, $currentSortBy, $currentSortDir) {
+    function spp_guilds_sort_url($realmId, $perPage, $search, $sortBy, $currentSortBy, $currentSortDir, $showGm = false) {
         $nextSortDir = ($currentSortBy === $sortBy && strtoupper($currentSortDir) === 'ASC') ? 'DESC' : 'ASC';
         $url = 'index.php?n=server&sub=guilds&realm=' . (int)$realmId
             . '&per_page=' . (int)$perPage
@@ -159,6 +191,9 @@ if (!function_exists('spp_guilds_sort_url')) {
             . '&dir=' . rawurlencode($nextSortDir);
         if ($search !== '') {
             $url .= '&search=' . rawurlencode($search);
+        }
+        if ($showGm) {
+            $url .= '&show_gm=1';
         }
         return $url;
     }
@@ -184,6 +219,8 @@ $items_per_page = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25
 $search = trim($_GET['search'] ?? '');
 $sortBy = strtolower(trim($_GET['sort'] ?? 'members'));
 $sortDir = strtoupper(trim($_GET['dir'] ?? 'DESC'));
+$isGm = (int)($user['gmlevel'] ?? 0) >= 3;
+$showGmGuilds = $isGm && isset($_GET['show_gm']) && $_GET['show_gm'] === '1';
 $allowedSorts = array('guild', 'faction', 'leader', 'members', 'avg', 'max', 'avgilvl', 'maxilvl');
 if (!in_array($sortBy, $allowedSorts, true)) {
     $sortBy = 'members';
@@ -202,6 +239,7 @@ $guilds = $charPdo->query("
     leader.name AS leader_name,
     leader.race AS leader_race,
     leader.class AS leader_class,
+    leader.account AS leader_account,
     COUNT(gm.guid) AS member_count,
     COALESCE(AVG(c.level), 0) AS avg_level,
     COALESCE(MAX(c.level), 0) AS max_level
@@ -209,69 +247,61 @@ $guilds = $charPdo->query("
   LEFT JOIN guild_member gm ON g.guildid = gm.guildid
   LEFT JOIN characters c ON gm.guid = c.guid
   LEFT JOIN characters leader ON g.leaderguid = leader.guid
-  GROUP BY g.guildid, g.name, g.motd, leader.guid, leader.name, leader.race, leader.class
+  GROUP BY g.guildid, g.name, g.motd, leader.guid, leader.name, leader.race, leader.class, leader.account
   ORDER BY member_count DESC, g.name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-$guildIds = array_values(array_filter(array_map(static function ($guild) {
-    return (int)($guild['guildid'] ?? 0);
-}, is_array($guilds) ? $guilds : array())));
 $guildGearStats = array();
+if (!$showGmGuilds) {
+    $guildIds = array_values(array_filter(array_map(static function ($g) {
+        return (int)($g['guildid'] ?? 0);
+    }, is_array($guilds) ? $guilds : array())));
 
-if (!empty($guildIds)) {
-    $guildIdSql = implode(',', $guildIds);
-    try {
-        $gearRows = $charPdo->query("
-          SELECT
-            gm.guildid,
-            c.guid,
-            ROUND(AVG(it.ItemLevel), 1) AS avg_item_level
-          FROM guild_member gm
-          INNER JOIN characters c ON c.guid = gm.guid
-          INNER JOIN character_inventory ci ON ci.guid = c.guid
-          INNER JOIN {$realmWorldDB}.item_template it ON it.entry = ci.item_template
-          WHERE gm.guildid IN ({$guildIdSql})
-            AND ci.bag = 0
-            AND ci.slot BETWEEN 0 AND 18
-            AND ci.slot NOT IN (3, 18)
-            AND ci.item_template > 0
-          GROUP BY gm.guildid, c.guid
-        ")->fetchAll(PDO::FETCH_ASSOC);
+    if (!empty($guildIds)) {
+        $guildIdSql = implode(',', $guildIds);
+        try {
+            $gearRows = $charPdo->query("
+              SELECT
+                gm.guildid,
+                c.guid,
+                ROUND(AVG(it.ItemLevel), 1) AS avg_item_level
+              FROM guild_member gm
+              INNER JOIN characters c ON c.guid = gm.guid
+              INNER JOIN character_inventory ci ON ci.guid = c.guid
+              INNER JOIN {$realmWorldDB}.item_template it ON it.entry = ci.item_template
+              WHERE gm.guildid IN ({$guildIdSql})
+                AND ci.bag = 0
+                AND ci.slot BETWEEN 0 AND 18
+                AND ci.slot NOT IN (3, 18)
+                AND ci.item_template > 0
+              GROUP BY gm.guildid, c.guid
+            ")->fetchAll(PDO::FETCH_ASSOC);
 
-        if (is_array($gearRows)) {
-            foreach ($gearRows as $gearRow) {
-                $guildIdKey = (int)($gearRow['guildid'] ?? 0);
-                $memberAvg = (float)($gearRow['avg_item_level'] ?? 0);
-                if ($guildIdKey <= 0 || $memberAvg <= 0) {
-                    continue;
-                }
-
-                if (!isset($guildGearStats[$guildIdKey])) {
-                    $guildGearStats[$guildIdKey] = array(
-                        'total' => 0.0,
-                        'count' => 0,
-                        'max' => 0.0,
-                    );
-                }
-
-                $guildGearStats[$guildIdKey]['total'] += $memberAvg;
-                $guildGearStats[$guildIdKey]['count']++;
-                if ($memberAvg > $guildGearStats[$guildIdKey]['max']) {
-                    $guildGearStats[$guildIdKey]['max'] = $memberAvg;
+            if (is_array($gearRows)) {
+                foreach ($gearRows as $gearRow) {
+                    $gid = (int)($gearRow['guildid'] ?? 0);
+                    $memberAvg = (float)($gearRow['avg_item_level'] ?? 0);
+                    if ($gid <= 0 || $memberAvg <= 0) continue;
+                    if (!isset($guildGearStats[$gid])) {
+                        $guildGearStats[$gid] = array('total' => 0.0, 'count' => 0, 'max' => 0.0);
+                    }
+                    $guildGearStats[$gid]['total'] += $memberAvg;
+                    $guildGearStats[$gid]['count']++;
+                    if ($memberAvg > $guildGearStats[$gid]['max']) $guildGearStats[$gid]['max'] = $memberAvg;
                 }
             }
+        } catch (Throwable $e) {
+            error_log('[guilds] Failed loading guild gear stats: ' . $e->getMessage());
         }
-    } catch (Throwable $e) {
-        error_log('[guilds] Failed loading guild gear stats: ' . $e->getMessage());
     }
 }
 
 if (is_array($guilds)) {
     foreach ($guilds as &$guild) {
-        $guildIdKey = (int)($guild['guildid'] ?? 0);
-        $gearStat = $guildGearStats[$guildIdKey] ?? null;
-        $guild['avg_item_level'] = (!empty($gearStat['count'])) ? round($gearStat['total'] / $gearStat['count'], 1) : 0;
-        $guild['max_item_level'] = (!empty($gearStat['max'])) ? round($gearStat['max'], 1) : 0;
+        $gid = (int)($guild['guildid'] ?? 0);
+        $gs = $guildGearStats[$gid] ?? null;
+        $guild['avg_item_level'] = (!empty($gs['count'])) ? round($gs['total'] / $gs['count'], 1) : 0;
+        $guild['max_item_level'] = (!empty($gs['max'])) ? round($gs['max'], 1) : 0;
         $guild['faction_name'] = in_array((int)($guild['leader_race'] ?? 0), $allianceRaces, true) ? 'Alliance' : 'Horde';
     }
     unset($guild);
@@ -329,25 +359,58 @@ if ($sortBy !== '') $baseUrl .= '&sort=' . urlencode($sortBy) . '&dir=' . urlenc
       id="commandSearch"
       name="search"
       value="<?php echo htmlspecialchars($search); ?>"
-      placeholder="Search guild name, leader, faction, class, or item level..."
+      placeholder="Search guild name, leader, MOTD, faction, or class..."
       autocomplete="off"
     >
   </form>
 </div>
 
-<div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo (int)$count; ?> guilds</div>
+<?php if ($showGmGuilds): ?>
+<form method="post" action="index.php?n=server&sub=guilds&action=updatemotd" id="motd-form">
+  <input type="hidden" name="realm" value="<?php echo (int)$realmId; ?>">
+<?php endif; ?>
 
+<div style="display:flex;align-items:center;justify-content:space-between;max-width:1000px;margin:0 auto 8px;">
+  <div class="guild-summary" style="margin:0;">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo (int)$count; ?> guilds</div>
+  <?php if ($isGm): ?>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <form method="get" style="margin:0;">
+      <input type="hidden" name="n" value="server">
+      <input type="hidden" name="sub" value="guilds">
+      <input type="hidden" name="realm" value="<?php echo $realmId; ?>">
+      <input type="hidden" name="per_page" value="<?php echo $items_per_page; ?>">
+      <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sortBy); ?>">
+      <input type="hidden" name="dir" value="<?php echo htmlspecialchars($sortDir); ?>">
+      <?php if ($search !== ''): ?><input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>"><?php endif; ?>
+      <label style="color:#ffcc66;font-size:0.85rem;cursor:pointer;">
+        <input type="checkbox" name="show_gm" value="1" onchange="this.form.submit()" <?php echo $showGmGuilds ? 'checked' : ''; ?>>
+        GM Mode
+      </label>
+    </form>
+    <?php if ($showGmGuilds): ?>
+    <button type="submit" form="motd-form" title="SOAP not yet implemented" disabled
+      style="background:#333;border:1px solid #555;color:#aaa;padding:4px 12px;border-radius:3px;font-size:0.82rem;cursor:not-allowed;opacity:0.6;">
+      Save All MOTDs
+    </button>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
+</div>
 
-<div class="wow-table guild-table">
+<div class="wow-table guild-table<?php echo $showGmGuilds ? ' gm-mode' : ''; ?>">
   <div class="header">
-    <div class="col sortable"><a class="<?php echo $sortBy === 'guild' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'guild', $sortBy, $sortDir)); ?>">Guild<?php echo $sortBy === 'guild' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
-    <div class="col sortable"><a class="<?php echo $sortBy === 'faction' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'faction', $sortBy, $sortDir)); ?>">Faction<?php echo $sortBy === 'faction' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
-    <div class="col sortable"><a class="<?php echo $sortBy === 'leader' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'leader', $sortBy, $sortDir)); ?>">Leader<?php echo $sortBy === 'leader' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
-    <div class="col sortable"><a class="<?php echo $sortBy === 'members' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'members', $sortBy, $sortDir)); ?>">Members<?php echo $sortBy === 'members' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
-    <div class="col sortable"><a class="<?php echo $sortBy === 'avg' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'avg', $sortBy, $sortDir)); ?>">Avg Lvl<?php echo $sortBy === 'avg' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
-    <div class="col sortable"><a class="<?php echo $sortBy === 'max' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'max', $sortBy, $sortDir)); ?>">Max Lvl<?php echo $sortBy === 'max' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
-    <div class="col sortable"><a class="<?php echo $sortBy === 'avgilvl' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'avgilvl', $sortBy, $sortDir)); ?>">Avg iLvl<?php echo $sortBy === 'avgilvl' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
-    <div class="col sortable"><a class="<?php echo $sortBy === 'maxilvl' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'maxilvl', $sortBy, $sortDir)); ?>">Max iLvl<?php echo $sortBy === 'maxilvl' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'guild' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'guild', $sortBy, $sortDir, $showGmGuilds)); ?>">Guild<?php echo $sortBy === 'guild' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'faction' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'faction', $sortBy, $sortDir, $showGmGuilds)); ?>">Faction<?php echo $sortBy === 'faction' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'leader' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'leader', $sortBy, $sortDir, $showGmGuilds)); ?>">Leader<?php echo $sortBy === 'leader' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'members' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'members', $sortBy, $sortDir, $showGmGuilds)); ?>">Members<?php echo $sortBy === 'members' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <?php if (!$showGmGuilds): ?>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'avg' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'avg', $sortBy, $sortDir, $showGmGuilds)); ?>">Avg Lvl<?php echo $sortBy === 'avg' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'max' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'max', $sortBy, $sortDir, $showGmGuilds)); ?>">Max Lvl<?php echo $sortBy === 'max' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'avgilvl' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'avgilvl', $sortBy, $sortDir, $showGmGuilds)); ?>">Avg iLvl<?php echo $sortBy === 'avgilvl' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <div class="col sortable"><a class="<?php echo $sortBy === 'maxilvl' ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars(spp_guilds_sort_url($realmId, $items_per_page, $search, 'maxilvl', $sortBy, $sortDir, $showGmGuilds)); ?>">Max iLvl<?php echo $sortBy === 'maxilvl' ? ($sortDir === 'ASC' ? ' ↑' : ' ↓') : ''; ?></a></div>
+    <?php else: ?>
+    <div class="col">MOTD</div>
+    <?php endif; ?>
   </div>
 
   <?php if ($guildsPage): ?>
@@ -376,10 +439,18 @@ if ($sortBy !== '') $baseUrl .= '&sort=' . urlencode($sortBy) . '&dir=' . urlenc
           <?php endif; ?>
         </div>
         <div class="col"><?php echo (int)$guild['member_count']; ?></div>
+        <?php if (!$showGmGuilds): ?>
         <div class="col"><?php echo (int)round((float)$guild['avg_level']); ?></div>
         <div class="col"><?php echo (int)$guild['max_level']; ?></div>
         <div class="col"><?php echo !empty($guild['avg_item_level']) ? number_format((float)$guild['avg_item_level'], 1) : '-'; ?></div>
         <div class="col"><?php echo !empty($guild['max_item_level']) ? number_format((float)$guild['max_item_level'], 1) : '-'; ?></div>
+        <?php else: ?>
+        <div class="col motd-edit">
+          <input type="text" name="motd[<?php echo (int)$guild['guildid']; ?>]"
+            value="<?php echo htmlspecialchars($guild['motd'] ?? ''); ?>"
+            placeholder="No MOTD set">
+        </div>
+        <?php endif; ?>
       </div>
     <?php endforeach; ?>
   <?php else: ?>
@@ -388,6 +459,8 @@ if ($sortBy !== '') $baseUrl .= '&sort=' . urlencode($sortBy) . '&dir=' . urlenc
     </div>
   <?php endif; ?>
 </div>
+
+<?php if ($showGmGuilds): ?></form><?php endif; ?>
 
 <?php if ($pnum > 1): ?>
   <div class="pagination-controls">

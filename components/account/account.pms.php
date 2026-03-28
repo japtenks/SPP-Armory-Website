@@ -254,6 +254,11 @@ if (!empty($_GET['reply'])) {
     $content = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($content) {
+        if ((int)($content['owner_id'] ?? 0) === (int)$user['id'] && empty($content['showed'])) {
+            $stmtMarkReplyRead = $pmsPdo->prepare("UPDATE website_pms SET showed = 1 WHERE id = ? AND owner_id = ? LIMIT 1");
+            $stmtMarkReplyRead->execute([(int)$content['id'], (int)$user['id']]);
+            $content['showed'] = 1;
+        }
         // reply always goes to original sender
         $content['sender'] = $content['sender'];
         $content['subject'] = '[re:] ' . $content['subject'];

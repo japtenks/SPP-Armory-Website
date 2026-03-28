@@ -84,6 +84,23 @@
   background: rgba(255, 204, 0, 0.2);
   color: #fff2b8;
 }
+.pm-inline-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(120, 200, 160, 0.12);
+  border: 1px solid rgba(120, 200, 160, 0.28);
+  color: #9be0bb;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.pm-inline-mark:hover {
+  background: rgba(120, 200, 160, 0.2);
+  color: #d6ffea;
+}
 .pm-subject {
   color: #ffcc00;
   font-weight: bold;
@@ -389,6 +406,9 @@ document.addEventListener('DOMContentLoaded', function () {
           </div>
           <div class="pm-row-meta">
             <?php if ($_GET['dir']=='in'): ?>
+            <?php if (empty($item['showed'])): ?>
+            <a class="pm-inline-mark" href="index.php?n=account&sub=pms&action=markread&dir=in&iid=<?php echo $item['id']; ?>">Mark Read</a>
+            <?php endif; ?>
             <a class="pm-inline-reply" href="index.php?n=account&sub=pms&action=add&reply=<?php echo $item['id']; ?>">Reply</a>
             <?php endif; ?>
             <div class="pm-time"><?php echo date('d-m-Y, H:i', $item['posted']); ?></div>
