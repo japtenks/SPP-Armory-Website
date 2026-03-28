@@ -1,5 +1,8 @@
 <br>
-<?php builddiv_start(1, $lang['si_acc']) ?>
+<?php
+$GLOBALS['builddiv_header_actions'] = '<a href="index.php?n=account&sub=userlist" class="btn secondary">User List</a>';
+builddiv_start(1, $lang['si_acc']);
+?>
 <?php if($user['id']>0 && $profile){ ?>
 <div class="modern-content member-profile">
     <div class="member-hero">
@@ -7,6 +10,8 @@
             <div class="member-avatar">
                 <?php if(!empty($profile['avatar'])) { ?>
                     <img src="images/avatars/<?php echo htmlspecialchars($profile['avatar']); ?>" alt="<?php echo htmlspecialchars($profile['username']); ?>">
+                <?php } elseif(!empty($profile['avatar_fallback_url'])) { ?>
+                    <img src="<?php echo htmlspecialchars($profile['avatar_fallback_url']); ?>" alt="<?php echo htmlspecialchars($profile['username']); ?>">
                 <?php } else { ?>
                     <div class="member-avatar-placeholder"><?php echo strtoupper(substr($profile['username'], 0, 1)); ?></div>
                 <?php } ?>
@@ -19,16 +24,15 @@
                 </div>
             </div>
         </div>
-
-        <?php if(!empty($profile['is_own_profile'])): ?>
-        <a class="member-message" href="index.php?n=account&sub=manage">
-            Edit Profile
-        </a>
-        <?php else: ?>
-        <a class="member-message" href="index.php?n=account&sub=pms&action=add&to=<?php echo urlencode($profile['username']); ?>">
-            <?php echo $lang['personal_message'];?>
-        </a>
-        <?php endif; ?>
+        <div class="member-actions">
+            <?php if(!empty($profile['is_own_profile'])): ?>
+            <a class="member-action primary" href="index.php?n=account&sub=manage">Edit Profile</a>
+            <?php else: ?>
+            <a class="member-action primary" href="index.php?n=account&sub=pms&action=add&to=<?php echo urlencode($profile['username']); ?>">
+                <?php echo $lang['personal_message'];?>
+            </a>
+            <?php endif; ?>
+        </div>
     </div>
 
     <div class="member-grid">
@@ -90,6 +94,18 @@
 <?php builddiv_end() ?>
 
 <style>
+.btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  text-decoration: none;
+  font-size: .7em;
+  display: inline-block;
+}
+.btn.primary { background: #ffcc66; color: #111; }
+.btn.secondary { background: #333; color: #ccc; }
+.btn:hover { opacity: 0.9; }
+
 .member-profile {
   color: #ddd;
   display: flex;
@@ -162,14 +178,43 @@
   border: 1px solid rgba(255,255,255,0.06);
 }
 
-.member-message {
-  display: inline-block;
+.member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.member-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: 10px;
   text-decoration: none;
-  color: #111;
   font-weight: bold;
+  transition: 0.18s ease;
+}
+
+.member-action.primary {
   background: linear-gradient(180deg, #ffd27a, #dca443);
+  color: #17120a;
+}
+
+.member-action.primary:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 0 10px rgba(255, 204, 102, 0.2);
+}
+
+.member-action.secondary {
+  background: rgba(36, 40, 46, 0.95);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #f0f0f0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.member-action.secondary:hover {
+  background: rgba(50, 55, 62, 0.98);
 }
 
 .member-grid {
@@ -249,6 +294,10 @@
   .member-hero {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .member-actions {
+    justify-content: flex-start;
   }
 
   .member-grid {

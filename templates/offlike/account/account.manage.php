@@ -1,5 +1,18 @@
 <?php if($user['id']>0 && isset($profile)){ ?>
+<?php $GLOBALS['builddiv_header_actions'] = '<a href="index.php?n=account&sub=userlist" class="btn secondary">Back to User List</a>'; ?>
 <?php builddiv_start(1, $lang['accediting']); ?>
+<?php
+$currentExpansionId = (int)($profile['expansion'] ?? 0);
+$nextExpansionLabel = '';
+$transferPathLabel = '';
+if ($currentExpansionId === 0) {
+  $nextExpansionLabel = 'TBC';
+  $transferPathLabel = 'Classic -> TBC';
+} elseif ($currentExpansionId === 1) {
+  $nextExpansionLabel = 'WotLK';
+  $transferPathLabel = 'TBC -> WotLK';
+}
+?>
 
 <div class="modern-content settings-page">
   <section class="settings-hero">
@@ -41,17 +54,6 @@
           <?php endif; ?>
         </div>
 
-        <div class="password-inline">
-          <div class="field">
-            <label><?php echo $lang['newpass']; ?></label>
-            <input type="password" name="new_pass" form="password-change-form">
-          </div>
-          <div class="field password-submit">
-            <label>&nbsp;</label>
-            <button type="submit" form="password-change-form" class="btn primary">Change Password</button>
-          </div>
-        </div>
-
         <?php if((int)$MW->getConfig->generic->change_template) { ?>
         <div class="field">
           <label><?php echo $lang['theme']; ?></label>
@@ -69,6 +71,8 @@
           <div class="avatar-preview">
             <?php if(!empty($profile['avatar'])) { ?>
               <img src="images/avatars/<?php echo htmlspecialchars($profile['avatar']); ?>" alt="Avatar">
+            <?php } elseif(!empty($profile['avatar_fallback_url'])) { ?>
+              <img src="<?php echo htmlspecialchars($profile['avatar_fallback_url']); ?>" alt="Forum Avatar">
             <?php } else { ?>
               <div class="avatar-placeholder"><?php echo strtoupper(substr($profile['username'], 0, 1)); ?></div>
             <?php } ?>
@@ -93,12 +97,12 @@
 
         <div class="field">
           <label><?php echo $lang['signature']; ?></label>
-          <textarea name="profile[signature]" maxlength="255" rows="4"><?php echo htmlspecialchars(my_previewreverse($profile['signature'])); ?></textarea>
+          <textarea id="profile-signature" name="profile[signature]" maxlength="255" rows="4"><?php echo htmlspecialchars(my_previewreverse($profile['signature'])); ?></textarea>
           <div class="help-text">Supports normal BBCode. Keep it short and readable.</div>
         </div>
 
         <div class="actions">
-          <button type="reset" class="btn secondary"><?php echo $lang['reset']; ?></button>
+          <button type="button" class="btn secondary" onclick="document.getElementById('profile-signature').value='';"><?php echo $lang['reset']; ?></button>
           <button type="submit" class="btn primary"><?php echo $lang['dochange']; ?></button>
         </div>
       </form>
@@ -124,6 +128,34 @@
           </form>
         </div>
       </div>
+
+      <div class="expansion-panel section-gap">
+        <div class="mini-title">Expansion Transfer</div>
+        <div class="tool-panel tool-panel-soon access-tool-panel">
+          <div class="status-pill">Coming Soon</div>
+          <div class="help-text">
+            <?php if($nextExpansionLabel !== '') { ?>
+            Transfer a character forward from your current expansion to <?php echo htmlspecialchars($nextExpansionLabel); ?> when migration opens.
+            <?php } else { ?>
+            Character transfers open only when a higher expansion is available for your account.
+            <?php } ?>
+          </div>
+          <div class="field">
+            <label>Path</label>
+            <input type="text" value="<?php echo htmlspecialchars($transferPathLabel !== '' ? $transferPathLabel : 'WotLK is the current cap'); ?>" disabled="disabled">
+          </div>
+          <div class="help-text">
+            <?php if($nextExpansionLabel !== '') { ?>
+            This will be limited to forward-only progression and will appear here once the <?php echo htmlspecialchars($nextExpansionLabel); ?> transfer flow is ready.
+            <?php } else { ?>
+            Your account is already on the highest expansion currently listed here, so there is no next-step transfer yet.
+            <?php } ?>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn secondary" disabled="disabled">Character Transfer</button>
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -132,7 +164,14 @@
     <div class="recovery-grid">
       <form id="password-change-form" method="post" action="index.php?n=account&sub=manage&action=changepass" class="stack-form tool-panel">
         <div class="mini-title">Password</div>
-        <div class="help-text">Use the password field in the profile settings card above to update your account password.</div>
+        <div class="help-text">Update your account password here.</div>
+        <div class="field">
+          <label><?php echo $lang['newpass']; ?></label>
+          <input type="password" name="new_pass">
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn primary">Change Password</button>
+        </div>
       </form>
 
       <form method="post" action="index.php?n=account&sub=manage&action=renamechar" class="stack-form tool-panel">
@@ -161,6 +200,7 @@
           <button type="submit" class="btn primary"<?php if(empty($accountCharacters)) echo ' disabled="disabled"'; ?>>Rename Character</button>
         </div>
       </form>
+
     </div>
   </section>
 </div>
@@ -306,6 +346,37 @@
   background: rgba(255,255,255,0.03);
 }
 
+.tool-panel-soon {
+  position: relative;
+  overflow: hidden;
+}
+
+.tool-panel-soon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 214, 120, 0.05), transparent 42%);
+  pointer-events: none;
+}
+
+.access-tool-panel {
+  margin-top: 0;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 214, 120, 0.22);
+  background: rgba(216, 158, 57, 0.12);
+  color: #ffcc66;
+  font-size: 0.72rem;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .compact select {
   width: 100%;
 }
@@ -353,21 +424,6 @@
   width: auto;
 }
 
-.password-inline {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: end;
-}
-
-.password-submit {
-  min-width: 180px;
-}
-
-.password-submit .btn {
-  width: 100%;
-}
-
 .actions {
   display: flex;
   gap: 10px;
@@ -395,6 +451,22 @@
   color: #eee;
   border: 1px solid rgba(255,255,255,0.12);
 }
+
+/* Match forum header button style */
+.builddiv-actions .btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: .7em;
+  text-decoration: none;
+  display: inline-block;
+  border: 0;
+}
+.builddiv-actions .btn.secondary {
+  background: #333;
+  color: #ccc;
+  border: 0;
+}
+.builddiv-actions .btn:hover { opacity: 0.9; }
 
 .section-gap {
   margin-top: 18px;
@@ -445,8 +517,7 @@
 
   .toggle-row,
   .avatar-block,
-  .expansion-grid,
-  .password-inline {
+  .expansion-grid {
     grid-template-columns: 1fr;
   }
 }

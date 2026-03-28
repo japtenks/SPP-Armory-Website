@@ -22,6 +22,44 @@ if (!function_exists('spp_format_total_played')) {
         return implode(' ', $parts);
     }
 }
+
+if (!function_exists('spp_account_view_avatar_fallback_url')) {
+    function spp_account_view_avatar_fallback_url($profile, $realmDbMap) {
+        $characterGuid = (int)($profile['character_id'] ?? 0);
+        if ($characterGuid <= 0) {
+            return '';
+        }
+
+        foreach ($realmDbMap as $realmId => $realmInfo) {
+            try {
+                $charPdo = spp_get_pdo('chars', (int)$realmId);
+                $stmt = $charPdo->prepare("SELECT guid, race, class, gender FROM characters WHERE guid=? LIMIT 1");
+                $stmt->execute([$characterGuid]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    continue;
+                }
+
+                if (!function_exists('get_character_portrait_path')) {
+                    require_once(dirname(__DIR__) . '/forum/forum.func.php');
+                }
+
+                if (function_exists('get_character_portrait_path')) {
+                    return (string)get_character_portrait_path(
+                        (int)$row['guid'],
+                        (int)$row['gender'],
+                        (int)$row['race'],
+                        (int)$row['class']
+                    );
+                }
+            } catch (Throwable $e) {
+                error_log('[account.view] Avatar fallback lookup failed: ' . $e->getMessage());
+            }
+        }
+
+        return '';
+    }
+}
 // ==================== //
 if($user['id']<=0){
   redirect('index.php?n=account&sub=login',1);
@@ -44,6 +82,10 @@ if($user['id']<=0){
             }
             if (!empty($profileExtend['signature'])) {
                 $profile['signature'] = $profileExtend['signature'];
+            }
+            $profile['avatar_fallback_url'] = '';
+            if (empty($profile['avatar'])) {
+                $profile['avatar_fallback_url'] = spp_account_view_avatar_fallback_url($profile, $realmDbMap);
             }
 
             $expansionMap = array(

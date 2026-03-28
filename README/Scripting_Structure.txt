@@ -1,1 +1,0 @@
-To understand how MangosWeb Enhanced is scripted, please view our Wiki here: http://code.google.com/p/mwenhanced/wiki/ScriptingStructure

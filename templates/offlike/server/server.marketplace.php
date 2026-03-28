@@ -8,33 +8,6 @@ if ($siteDatabaseHandle !== null) {
     $DB = $siteDatabaseHandle;
 }
 
-if (!function_exists('spp_marketplace_table_exists')) {
-    function spp_marketplace_table_exists(PDO $pdo, $tableName)
-    {
-        static $cache = [];
-        $key = spl_object_hash($pdo) . ':' . $tableName;
-        if (isset($cache[$key])) return $cache[$key];
-        $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
-        $stmt->execute([$tableName]);
-        return $cache[$key] = (bool)$stmt->fetchColumn();
-    }
-}
-
-if (!function_exists('spp_marketplace_columns')) {
-    function spp_marketplace_columns(PDO $pdo, $tableName)
-    {
-        static $cache = [];
-        $key = spl_object_hash($pdo) . ':' . $tableName;
-        if (isset($cache[$key])) return $cache[$key];
-        $columns = [];
-        if (!spp_marketplace_table_exists($pdo, $tableName)) return $cache[$key] = $columns;
-        foreach ($pdo->query('SHOW COLUMNS FROM `' . str_replace('`', '``', $tableName) . '`')->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $columns[$row['Field']] = true;
-        }
-        return $cache[$key] = $columns;
-    }
-}
-
 if (!function_exists('spp_marketplace_icon_url')) {
     function spp_marketplace_icon_url($iconName)
     {
@@ -220,22 +193,63 @@ if (!function_exists('spp_marketplace_faction_name')) {
     }
 }
 
-if (!function_exists('spp_marketplace_is_specialized_trainer_label')) {
-    function spp_marketplace_is_specialized_trainer_label($label)
+if (!function_exists('spp_marketplace_is_specialization_recipe')) {
+    function spp_marketplace_is_specialization_recipe($expansion, $skillId, $spellId, $spellName = '', $itemName = '')
     {
-        $label = strtolower(trim((string)$label));
-        if ($label === '') return false;
-        $keywords = [
-            'armorsmith', 'weaponsmith', 'tribal', 'elemental', 'dragonscale',
-            'master swordsmith', 'master hammersmith', 'master axesmith',
-            'gnomish', 'goblin', 'specialist', 'specialization'
+        $expansion = (int)$expansion;
+        $skillId = (int)$skillId;
+        $spellId = (int)$spellId;
+        $haystack = strtolower(trim((string)$spellName . ' ' . $itemName));
+
+        $exactSpellIds = [
+            0 => [
+                164 => [9787, 9788],
+                165 => [10656, 10658, 10660],
+                202 => [20219, 20222],
+            ],
+            1 => [
+                164 => [9787, 9788, 17039, 17040, 17041],
+                165 => [10656, 10658, 10660],
+                202 => [20219, 20222],
+            ],
+            2 => [
+                164 => [9787, 9788, 17039, 17040, 17041],
+                165 => [10656, 10658, 10660],
+                202 => [20219, 20222],
+            ],
         ];
-        foreach ($keywords as $keyword) {
-            if (strpos($label, $keyword) !== false) {
-                return true;
-            }
+
+        if (!empty($exactSpellIds[$expansion][$skillId]) && in_array($spellId, $exactSpellIds[$expansion][$skillId], true)) {
+            return true;
         }
-        return false;
+
+        $containsAny = function ($needles) use ($haystack) {
+            foreach ($needles as $needle) {
+                if ($needle !== '' && strpos($haystack, strtolower($needle)) !== false) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $keywordFamilies = [
+            0 => [
+                165 => ['dragonscale', 'tribal', 'elemental'],
+                202 => ['gnomish', 'goblin'],
+            ],
+            1 => [
+                164 => ['armorsmith', 'weaponsmith', 'swordsmith', 'hammersmith', 'axesmith'],
+                165 => ['dragonscale', 'tribal', 'elemental'],
+                202 => ['gnomish', 'goblin'],
+            ],
+            2 => [
+                164 => ['armorsmith', 'weaponsmith', 'swordsmith', 'hammersmith', 'axesmith'],
+                165 => ['dragonscale', 'tribal', 'elemental'],
+                202 => ['gnomish', 'goblin'],
+            ],
+        ];
+
+        return !empty($keywordFamilies[$expansion][$skillId]) && $containsAny($keywordFamilies[$expansion][$skillId]);
     }
 }
 
@@ -260,7 +274,7 @@ $pageError = '';
 
 // --- data cache (avoids 3–4 s of DB queries on every load) ---
 $_mpCacheDir  = $siteRoot . '/core/cache/sites';
-$_mpCacheFile = $_mpCacheDir . '/mp_' . md5('marketplace_v7_' . $realmId) . '.dat';
+$_mpCacheFile = $_mpCacheDir . '/mp_' . md5('marketplace_v8_' . $realmId) . '.dat';
 $_mpCacheTTL  = 600; // 10 minutes
 
 $_mpFromCache = false;
@@ -538,6 +552,13 @@ try {
                         ? (int)$trainerSpellIdsBySkill[$skillId][$spellId]
                         : (!empty($craftedItems[0]['required_rank']) ? (int)$craftedItems[0]['required_rank'] : 0);
                     $isGeneralTrainerRecipe = isset($trainerSpellIdsBySkill[$skillId][$spellId]);
+                    $isSpecializationRecipe = spp_marketplace_is_specialization_recipe(
+                        $expansion,
+                        $skillId,
+                        $spellId,
+                        $spellName,
+                        !empty($craftedItems[0]['name']) ? (string)$craftedItems[0]['name'] : ''
+                    );
 
                     $professionRecipesByGuidSkill[$guid][$skillId][$spellId] = [
                         'spell_id' => $spellId,
@@ -548,7 +569,7 @@ try {
                         'icon' => !empty($craftedItems[0]['icon']) ? $craftedItems[0]['icon'] : $spellIcon,
                         'required_rank' => $requiredRank,
                         'is_trainer' => $isGeneralTrainerRecipe,
-                        'is_special' => !$isGeneralTrainerRecipe && $requiredRank > 0,
+                        'is_special' => $isSpecializationRecipe || (!$isGeneralTrainerRecipe && $requiredRank > 0),
                         'created_items' => $craftedItems,
                     ];
                 }

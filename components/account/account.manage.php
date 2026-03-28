@@ -20,6 +20,44 @@ if (!function_exists('spp_ensure_website_account_row')) {
         $stmtEnsure->execute([$accountId, $accountId]);
     }
 }
+
+if (!function_exists('spp_account_avatar_fallback_url')) {
+    function spp_account_avatar_fallback_url(PDO $charsPdo, array $profile, array $accountCharacters = []) {
+        $selectedGuid = (int)($profile['character_id'] ?? 0);
+        if ($selectedGuid <= 0 && !empty($accountCharacters[0]['guid'])) {
+            $selectedGuid = (int)$accountCharacters[0]['guid'];
+        }
+        if ($selectedGuid <= 0) {
+            return '';
+        }
+
+        try {
+            $stmt = $charsPdo->prepare("SELECT guid, race, class, gender FROM characters WHERE guid=? AND account=? LIMIT 1");
+            $stmt->execute([$selectedGuid, (int)($profile['id'] ?? 0)]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return '';
+            }
+
+            if (!function_exists('get_character_portrait_path')) {
+                require_once(dirname(__DIR__) . '/forum/forum.func.php');
+            }
+
+            if (function_exists('get_character_portrait_path')) {
+                return (string)get_character_portrait_path(
+                    (int)$row['guid'],
+                    (int)$row['gender'],
+                    (int)$row['race'],
+                    (int)$row['class']
+                );
+            }
+        } catch (Throwable $e) {
+            error_log('[account.manage] Avatar fallback lookup failed: ' . $e->getMessage());
+        }
+
+        return '';
+    }
+}
 // ==================== //
 if($user['id']<=0){
     redirect('index.php?n=account&sub=login',1);
@@ -49,6 +87,10 @@ if($user['id']<=0){
         $stmtChars = $manageCharPdo->prepare("SELECT guid, name, level, online FROM characters WHERE account=? ORDER BY name ASC");
         $stmtChars->execute([(int)$user['id']]);
         $accountCharacters = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
+        $profile['avatar_fallback_url'] = '';
+        if (empty($profile['avatar'])) {
+            $profile['avatar_fallback_url'] = spp_account_avatar_fallback_url($manageCharPdo, $profile, $accountCharacters);
+        }
     }elseif($_GET['action']=='changeemail'){
         $newemail = trim($_POST['new_email']);
         if($auth->isvalidemail($newemail)){

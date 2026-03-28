@@ -12,17 +12,21 @@
 <div class="modern-content userlist">
 
   <div class="userlist-header">
-    <div class="userlist-titleblock">
-      <div class="userlist-kicker">Community</div>
-      <div class="pagination">
-        <?php echo $lang['post_pages']; ?>: <?php echo $pages_str; ?>
-      </div>
-    </div>
     <div class="alphabet-filter">
-      <a href="index.php?n=account&sub=userlist"><?php echo $lang['all']; ?></a>
-      <?php foreach (range('A','Z') as $letter): ?>
-        <a href="index.php?n=account&sub=userlist&char=<?php echo strtolower($letter); ?>"><?php echo $letter; ?></a>
-      <?php endforeach; ?>
+      <form method="get" action="index.php" class="letter-filter-form">
+        <input type="hidden" name="n" value="account">
+        <input type="hidden" name="sub" value="userlist">
+        <label class="filter-label" for="letterSelect">Filter:</label>
+        <select id="letterSelect" name="char" class="inline-filter-select" onchange="this.form.submit()">
+          <option value=""><?php echo $lang['all']; ?></option>
+          <?php
+            $activeLetter = isset($_GET['char']) && strlen($_GET['char']) === 1 ? strtolower($_GET['char']) : '';
+            foreach (range('a', 'z') as $l):
+          ?>
+            <option value="<?php echo $l; ?>"<?php if ($activeLetter === $l) echo ' selected'; ?>><?php echo strtoupper($l); ?></option>
+          <?php endforeach; ?>
+        </select>
+      </form>
     </div>
   </div>
 
@@ -37,9 +41,9 @@
       <?php foreach ($items as $item): ?>
         <div class="userlist-row">
           <div class="col icon">
-            <a href="index.php?n=account&sub=pms&action=add&to=<?php echo $item['username']; ?>" 
-               title="<?php echo $lang['personal_message']; ?>">
-               <img src="<?php echo $currtmp; ?>/images/icons/email.gif" alt="PM">
+            <a href="index.php?n=account&sub=pms&action=add&to=<?php echo $item['username']; ?>"
+               class="pm-btn" title="<?php echo $lang['personal_message']; ?>">
+              ✉
             </a>
           </div>
           <div class="col name">
@@ -57,10 +61,6 @@
     <?php else: ?>
       <div class="userlist-empty">No members found for this filter.</div>
     <?php endif; ?>
-  </div>
-
-  <div class="pagination bottom">
-    <?php echo $lang['post_pages']; ?>: <?php echo $pages_str; ?>
   </div>
 </div>
 <?php endif; ?>
@@ -99,34 +99,9 @@
   box-shadow: 0 10px 30px rgba(0,0,0,0.24);
 }
 
-.userlist-titleblock {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.userlist-kicker {
-  color: #c3a46a;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.72rem;
-}
-
 .userlist-header .alphabet-filter {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.userlist-header .alphabet-filter a {
-  color: gold;
-  text-decoration: none;
-  font-weight: bold;
-  padding: 4px 0;
-}
-.userlist-header .alphabet-filter a:hover {
-  text-shadow: 0 0 6px #ffcc00;
+  align-items: center;
 }
 
 .userlist-table {
@@ -176,9 +151,36 @@
   text-shadow: 0 0 6px #ffcc00;
 }
 
-.userlist-row .col.icon img {
-  width: 18px;
-  height: 18px;
+.pm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 206, 102, 0.3);
+  background: rgba(255, 193, 72, 0.07);
+  color: #ffd27a;
+  text-decoration: none;
+  font-size: 1rem;
+  line-height: 1;
+}
+.pm-btn:hover {
+  background: rgba(255, 193, 72, 0.18);
+  color: #fff6dc;
+  box-shadow: 0 0 8px rgba(255, 193, 72, 0.2);
+}
+
+.letter-filter-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-label {
+  color: #c3a46a;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .profile-link {
@@ -202,17 +204,6 @@
   padding: 24px 18px;
   text-align: center;
   color: #b8b8b8;
-}
-
-.pagination {
-  color: #cfcfcf;
-}
-
-.pagination.bottom {
-  text-align: right;
-  color: #aaa;
-  font-size: 0.9em;
-  padding: 0 4px;
 }
 
 @media (max-width: 900px) {

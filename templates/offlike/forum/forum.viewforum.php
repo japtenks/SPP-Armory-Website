@@ -200,7 +200,7 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
       <?php echo $lang['nonewpost']; ?>
     </div>
     <div>
-      <img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt="Forum Closed"/>
+      <img src="<?php echo $currtmp; ?>/images/forum/icons/lock-icon.gif" alt="Forum Closed"/>
       <?php echo $lang['postclose']; ?>
     </div>
   </div>

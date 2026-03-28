@@ -145,7 +145,7 @@ builddiv_start(1, $lang['spp_forum']);
             <div class="forum-icon">
               <img src="<?php echo $currtmp; ?>/images/<?php
                 echo $forumitem['closed']
-                  ? 'lock-icon.gif'
+                  ? 'forum/icons/lock-icon.gif'
                   : (($forumitem['isnew'] ?? false)
                     ? 'news-community.gif'
                     : 'no-news-community.gif');
@@ -183,7 +183,7 @@ builddiv_start(1, $lang['spp_forum']);
     <div class="forum-legend">
       <div><img src="<?php echo $currtmp; ?>/images/news-community.gif" alt=""/> <?php echo $lang['newpost']; ?></div>
       <div><img src="<?php echo $currtmp; ?>/images/no-news-community.gif" alt=""/> <?php echo $lang['nonewpost']; ?></div>
-      <div><img src="<?php echo $currtmp; ?>/images/lock-icon.gif" alt=""/> <?php echo $lang['postclose']; ?></div>
+      <div><img src="<?php echo $currtmp; ?>/images/forum/icons/lock-icon.gif" alt=""/> <?php echo $lang['postclose']; ?></div>
     </div>
   </div>
 </div>

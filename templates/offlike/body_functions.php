@@ -632,6 +632,12 @@ if ($forumnav === true) {
     echo '</div>';
 }
 
+    $customHeaderActions = $GLOBALS['builddiv_header_actions'] ?? '';
+    if (is_string($customHeaderActions) && $customHeaderActions !== '') {
+        echo '<div class="builddiv-actions" style="display:flex;align-items:center;gap:8px;">' . $customHeaderActions . '</div>';
+        unset($GLOBALS['builddiv_header_actions']);
+    }
+
     echo '</div>'; // close modern-header
 
     // === MAIN CONTENT ===

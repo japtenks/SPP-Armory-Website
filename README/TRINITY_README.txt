@@ -1,1 +1,0 @@
-If Using Trinity, You need to install TrinityWeb: http://mwenhanced.googlecode.com/svn/branches/trinity/

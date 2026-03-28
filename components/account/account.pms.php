@@ -22,68 +22,73 @@ if ($user['id'] <= 0) {
 // ========================================================
 if (empty($_GET['action'])) {
     $_GET['action'] = 'view';
-    $_GET['dir']    = 'in';
+    $_GET['dir']    = 'all';
 }
 
 $items          = array();
+$threadItems    = array();
+$threadPeer     = null;
 $items_per_page = 16;
 $page           = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $limit_start    = ($page - 1) * $items_per_page;
 $pmsPdo         = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
 
 // ========================================================
-// VIEW INBOX / OUTBOX
+// VIEW MESSAGE TIMELINE
 // ========================================================
 if ($_GET['action'] == 'view') {
+    $_GET['dir'] = 'all';
+    $pathway_info[] = array('title' => 'Messages', 'link' => '');
 
-    if ($_GET['dir'] == 'in') {
-        // --- INBOX ---
-        $pathway_info[] = array('title' => $lang['inbox'], 'link' => '');
+    $stmt = $pmsPdo->prepare("
+        SELECT
+            pms.*,
+            s.username AS sender,
+            r.username AS receiver,
+            CASE
+                WHEN pms.owner_id = ? THEN 'in'
+                ELSE 'out'
+            END AS pm_box
+        FROM website_pms AS pms
+        LEFT JOIN account AS s ON pms.sender_id = s.id
+        LEFT JOIN account AS r ON pms.owner_id = r.id
+        WHERE pms.owner_id = ? OR pms.sender_id = ?
+        ORDER BY pms.posted DESC
+    ");
+    $stmt->execute([(int)$user['id'], (int)$user['id'], (int)$user['id']]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $conversationMap = array();
+    foreach ($rows as $row) {
+        $isIncoming = (($row['pm_box'] ?? '') === 'in');
+        $peerId = $isIncoming ? (int)($row['sender_id'] ?? 0) : (int)($row['owner_id'] ?? 0);
+        $peerName = $isIncoming ? (string)($row['sender'] ?? '') : (string)($row['receiver'] ?? '');
+        if ($peerId <= 0 || $peerName === '') {
+            continue;
+        }
 
-        $stmt = $pmsPdo->prepare("
-            SELECT COUNT(1)
-            FROM website_pms
-            WHERE owner_id = ?
-        ");
-        $stmt->execute([(int)$user['id']]);
-        $itemnum = $stmt->fetchColumn();
-        $pnum = ceil($itemnum / $items_per_page);
+        if (!isset($conversationMap[$peerId])) {
+            $conversationMap[$peerId] = array(
+                'peer_id' => $peerId,
+                'peer_name' => $peerName,
+                'latest_id' => (int)$row['id'],
+                'latest_message' => (string)($row['message'] ?? ''),
+                'latest_posted' => (int)($row['posted'] ?? 0),
+                'latest_box' => (string)($row['pm_box'] ?? 'in'),
+                'unread_count' => 0,
+            );
+        }
 
-        $stmt = $pmsPdo->prepare("
-            SELECT pms.*, s.username AS sender
-            FROM website_pms AS pms
-            LEFT JOIN account AS s ON pms.sender_id = s.id
-            WHERE pms.owner_id = ?
-            ORDER BY posted DESC
-            LIMIT " . (int)$limit_start . "," . (int)$items_per_page . "
-        ");
-        $stmt->execute([(int)$user['id']]);
-        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($isIncoming && empty($row['showed'])) {
+            $conversationMap[$peerId]['unread_count']++;
+        }
+    }
 
-    } elseif ($_GET['dir'] == 'out') {
-        // --- OUTBOX ---
-        $pathway_info[] = array('title' => $lang['outbox'], 'link' => '');
-
-        $stmt = $pmsPdo->prepare("
-            SELECT COUNT(1)
-            FROM website_pms
-            WHERE sender_id = ?
-        ");
-        $stmt->execute([(int)$user['id']]);
-        $itemnum = $stmt->fetchColumn();
-        $pnum = ceil($itemnum / $items_per_page);
-
-        $stmt = $pmsPdo->prepare("
-            SELECT pms.*, r.username AS `for`
-            FROM website_pms AS pms
-            LEFT JOIN account AS r ON pms.owner_id = r.id
-            WHERE pms.sender_id = ?
-            ORDER BY posted DESC
-            LIMIT " . (int)$limit_start . "," . (int)$items_per_page . "
-        ");
-        $stmt->execute([(int)$user['id']]);
-        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $items = array_values($conversationMap);
+    $itemnum = count($items);
+    $pnum = (int)ceil(max(1, $itemnum) / $items_per_page);
+    if ($limit_start > 0 || $items_per_page > 0) {
+        $items = array_slice($items, $limit_start, $items_per_page);
     }
 }
 
@@ -123,7 +128,7 @@ elseif ($_GET['action'] == 'markread' && $_GET['dir'] == 'in' && !empty($_GET['i
         LIMIT 1
     ");
     $stmt->execute([(int)$user['id'], (int)$_GET['iid']]);
-    redirect('index.php?n=account&sub=pms&action=view&dir=in', 1);
+    redirect('index.php?n=account&sub=pms&action=view', 1);
     exit;
 }
 
@@ -131,46 +136,107 @@ elseif ($_GET['action'] == 'markread' && $_GET['dir'] == 'in' && !empty($_GET['i
 // VIEW SINGLE MESSAGE
 // ========================================================
 elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
+    $_GET['dir'] = 'all';
+    $pathway_info[] = array('title' => 'Messages', 'link' => 'index.php?n=account&sub=pms&action=view');
 
-    if ($_GET['dir'] == 'in') {
-        // --- Viewing a received message ---
-        $pathway_info[] = array('title' => $lang['inbox'], 'link' => 'index.php?n=account&sub=pms&action=view&dir=in');
- 
+    $stmt = $pmsPdo->prepare("
+        SELECT
+            pms.*,
+            s.username AS sender,
+            r.username AS receiver,
+            CASE
+                WHEN pms.owner_id = ? THEN 'in'
+                ELSE 'out'
+            END AS pm_box
+        FROM website_pms AS pms
+        LEFT JOIN account AS s ON pms.sender_id = s.id
+        LEFT JOIN account AS r ON pms.owner_id = r.id
+        WHERE (pms.owner_id = ? OR pms.sender_id = ?)
+          AND pms.id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([(int)$user['id'], (int)$user['id'], (int)$user['id'], (int)$_GET['iid']]);
+    $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $stmt = $pmsPdo->prepare("
-            SELECT pms.*, s.username AS sender, r.username AS receiver
-            FROM website_pms AS pms
-            LEFT JOIN account AS s ON pms.sender_id = s.id
-            LEFT JOIN account AS r ON pms.owner_id = r.id
-            WHERE pms.owner_id = ? AND pms.id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([(int)$user['id'], (int)$_GET['iid']]);
-        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($item) {
+        $threadPeerId = ((string)($item['pm_box'] ?? '') === 'in')
+            ? (int)($item['sender_id'] ?? 0)
+            : (int)($item['owner_id'] ?? 0);
+        $threadPeer = ((string)($item['pm_box'] ?? '') === 'in')
+            ? (string)($item['sender'] ?? '')
+            : (string)($item['receiver'] ?? '');
 
-        // Mark as read
-        if ($item && empty($item['showed'])) {
-            $stmt = $pmsPdo->prepare("UPDATE website_pms SET showed = 1 WHERE id = ?");
-            $stmt->execute([(int)$item['id']]);
+        if ($threadPeerId > 0 && !empty($_POST['reply_message'])) {
+            $replyMessage = trim((string)$_POST['reply_message']);
+            if ($replyMessage !== '') {
+                $stmtReply = $pmsPdo->prepare("
+                    INSERT INTO website_pms
+                        (owner_id, subject, message, sender_id, posted, sender_ip, showed)
+                    VALUES
+                        (?, ?, ?, ?, ?, ?, 0)
+                ");
+                $stmtReply->execute([
+                    $threadPeerId,
+                    '',
+                    $replyMessage,
+                    (int)$user['id'],
+                    time(),
+                    $_SERVER['REMOTE_ADDR'] ?? ''
+                ]);
+
+                $newPmId = (int)$pmsPdo->lastInsertId();
+                if ($newPmId > 0) {
+                    redirect('index.php?n=account&sub=pms&action=viewpm&iid=' . $newPmId, 1);
+                    exit;
+                }
+                redirect('index.php?n=account&sub=pms&action=viewpm&iid=' . (int)$_GET['iid'], 1);
+                exit;
+            }
         }
 
-    } elseif ($_GET['dir'] == 'out') {
-        // --- Viewing a sent message ---
-        $pathway_info[] = array('title' => $lang['outbox'], 'link' => 'index.php?n=account&sub=pms&action=view&dir=out');
+        if ($threadPeerId > 0) {
+            $stmtThread = $pmsPdo->prepare("
+                SELECT
+                    pms.*,
+                    s.username AS sender,
+                    r.username AS receiver,
+                    CASE
+                        WHEN pms.owner_id = ? THEN 'in'
+                        ELSE 'out'
+                    END AS pm_box
+                FROM website_pms AS pms
+                LEFT JOIN account AS s ON pms.sender_id = s.id
+                LEFT JOIN account AS r ON pms.owner_id = r.id
+                WHERE (pms.owner_id = ? AND pms.sender_id = ?)
+                   OR (pms.sender_id = ? AND pms.owner_id = ?)
+                ORDER BY pms.posted ASC, pms.id ASC
+            ");
+            $stmtThread->execute([
+                (int)$user['id'],
+                (int)$user['id'],
+                $threadPeerId,
+                (int)$user['id'],
+                $threadPeerId
+            ]);
+            $threadItems = $stmtThread->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmt = $pmsPdo->prepare("
-            SELECT pms.*, s.username AS sender, r.username AS receiver
-            FROM website_pms AS pms
-            LEFT JOIN account AS s ON pms.sender_id = s.id
-            LEFT JOIN account AS r ON pms.owner_id = r.id
-            WHERE pms.sender_id = ? AND pms.id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([(int)$user['id'], (int)$_GET['iid']]);
-        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmtMarkThreadRead = $pmsPdo->prepare("
+                UPDATE website_pms
+                SET showed = 1
+                WHERE owner_id = ? AND sender_id = ? AND showed = 0
+            ");
+            $stmtMarkThreadRead->execute([(int)$user['id'], $threadPeerId]);
+
+            foreach ($threadItems as &$threadRow) {
+                if ((int)($threadRow['owner_id'] ?? 0) === (int)$user['id']) {
+                    $threadRow['showed'] = 1;
+                }
+            }
+            unset($threadRow);
+        }
     }
 
-    $pathway_info[] = array('title' => $lang['post_view'], 'link' => '');
+    $pathway_info[] = array('title' => ($threadPeer ?: $lang['post_view']), 'link' => '');
 }
 
 // ========================================================
@@ -178,8 +244,9 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
 // ========================================================
 elseif ($_GET['action'] == 'add') {
 
-    $content = array('message' => '', 'subject' => '', 'sender' => '');
+    $content = array('message' => '', 'sender' => '');
     $pmRecipientOptions = array();
+    $isReplyMode = !empty($_GET['reply']);
 
     try {
         $stmtRecipientCount = $pmsPdo->prepare("
@@ -210,10 +277,9 @@ elseif ($_GET['action'] == 'add') {
         error_log('[account.pms] Recipient picker lookup failed: ' . $e->getMessage());
     }
 
-    if (!empty($_POST['owner']) && !empty($_POST['title']) && !empty($_POST['message'])) {
+    if (!empty($_POST['owner']) && !empty($_POST['message'])) {
 
-        $title     = trim($_POST['title']);
-        $message   = my_preview($_POST['message']);
+        $message   = trim((string)$_POST['message']);
         $sender_id = $user['id'];
         $sender_ip = $_SERVER['REMOTE_ADDR'];
 
@@ -229,10 +295,10 @@ elseif ($_GET['action'] == 'add') {
                 VALUES
                     (?, ?, ?, ?, ?, ?, 0)
             ");
-            $stmt->execute([$owner_id, $title, $message, (int)$sender_id, time(), $sender_ip]);
+            $stmt->execute([$owner_id, '', $message, (int)$sender_id, time(), $sender_ip]);
 
             output_message('notice', $lang['post_sent']);
-            redirect('index.php?n=account&sub=pms&action=view&dir=out', 1);
+            redirect('index.php?n=account&sub=pms&action=view', 1);
             exit;
 
         } else {
@@ -241,7 +307,7 @@ elseif ($_GET['action'] == 'add') {
     }
 
     // --- Reply logic ---
-if (!empty($_GET['reply'])) {
+if ($isReplyMode) {
     $stmt = $pmsPdo->prepare("
         SELECT pms.*, s.username AS sender, r.username AS receiver
         FROM website_pms AS pms
@@ -261,17 +327,12 @@ if (!empty($_GET['reply'])) {
         }
         // reply always goes to original sender
         $content['sender'] = $content['sender'];
-        $content['subject'] = '[re:] ' . $content['subject'];
-        $content['message'] =
-          '[blockquote="' . $content['sender'] . ' | ' .
-          date('d-m-Y, H:i:s', $content['posted']) . '"] ' .
-          my_previewreverse($content['message']) . '[/blockquote]';
+        $content['message'] = '';
     }
 }
 else {
         $pathway_info[] = array('title' => $lang['newmessage'], 'link' => '');
         if (!empty($_GETVARS['to'])) $content['sender'] = RemoveXSS($_GETVARS['to']);
-        if (!empty($_GETVARS['topic'])) $content['subject'] = RemoveXSS($_GETVARS['topic']);
     }
 }
 ?>
