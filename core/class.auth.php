@@ -32,6 +32,17 @@ function check()
 
 	if (matchAccountKey($cookie['user_id'], $cookie['account_key'])){
     unset($res['sha_pass_hash']);
+
+    // Auto-grant website admin flags based on game GM level so any GM account
+    // can access the admin panel without requiring a manual DB update.
+    $gmLevel = (int)($res['gmlevel'] ?? 0);
+    if ($gmLevel >= 3) {
+        $res['g_is_admin'] = 1;
+    }
+    if ($gmLevel >= 4) {
+        $res['g_is_supadmin'] = 1;
+    }
+
     $this->user = $res;
 
     // Always load characters once the user is authenticated
@@ -80,41 +91,48 @@ function load_characters_for_user() {
     }
 
     $realmDbMap = $GLOBALS['realmDbMap'] ?? [];
+    $db         = $GLOBALS['db'] ?? [];
 
-    if (!is_array($realmDbMap) || empty($realmDbMap)) {
+    if (!is_array($realmDbMap) || empty($realmDbMap) || empty($db['host'])) {
         $GLOBALS['characters'] = [];
         return;
     }
 
     $GLOBALS['characters'] = [];
 
+    // Build PDO options once
+    $pdoOptions = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ];
+    $dsnBase = "mysql:host={$db['host']};port={$db['port']};charset=utf8mb4";
+
     foreach ($realmDbMap as $id => $realmInfo) {
+        // Use DB names directly from the map — do NOT go through spp_get_pdo() /
+        // spp_resolve_realm_id(), which would override $id with GET/cookie state
+        // and cause the same realm's characters to be loaded multiple times.
+        $realmdDbName = (string)($realmInfo['realmd'] ?? '');
+        $charsDbName  = (string)($realmInfo['chars']  ?? '');
+        if ($realmdDbName === '' || $charsDbName === '') {
+            continue;
+        }
+
         try {
-            $realmPdo = spp_get_pdo('realmd', (int)$id);
-            $stmt = $realmPdo->prepare('SELECT name FROM realmlist WHERE id=?');
+            $realmdPdo = new PDO("{$dsnBase};dbname={$realmdDbName}", $db['user'], $db['pass'], $pdoOptions);
+            $stmt = $realmdPdo->prepare('SELECT name FROM realmlist WHERE id=? LIMIT 1');
             $stmt->execute([(int)$id]);
-            $realmName = (string)$stmt->fetchColumn();
-            if (empty($realmName)) {
-                $realmName = function_exists('spp_get_armory_realm_name')
-                    ? (spp_get_armory_realm_name((int)$id) ?? '')
-                    : '';
+            $realmName = (string)($stmt->fetchColumn() ?: '');
+            if ($realmName === '') {
+                $row = $realmdPdo->query("SELECT name FROM realmlist ORDER BY id ASC LIMIT 1")->fetch();
+                $realmName = !empty($row['name']) ? (string)$row['name'] : 'Realm ' . $id;
             }
 
-            $charPdo = spp_get_pdo('chars', (int)$id);
-            $stmt = $charPdo->prepare("
-                SELECT guid, name, race, class, level
-                FROM characters
-                WHERE account = ?
-                ORDER BY level DESC
-            ");
+            $charPdo = new PDO("{$dsnBase};dbname={$charsDbName}", $db['user'], $db['pass'], $pdoOptions);
+            $stmt = $charPdo->prepare("SELECT guid, name, race, class, level FROM characters WHERE account=? ORDER BY level DESC");
             $stmt->execute([(int)$this->user['id']]);
             $chars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (!is_array($chars) || empty($chars)) {
-                $realmLogName = function_exists('spp_get_armory_realm_name')
-                    ? (spp_get_armory_realm_name((int)$id) ?? '')
-                    : '';
-                error_log("[AUTH] No characters found in {$realmLogName} for account {$this->user['id']}");
                 continue;
             }
 
@@ -122,19 +140,14 @@ function load_characters_for_user() {
                 $char['realm_id']   = $id;
                 $char['realm_name'] = $realmName;
             }
+            unset($char);
 
             $GLOBALS['characters'] = array_merge($GLOBALS['characters'], $chars);
-            error_log("[AUTH] Added " . count($chars) . " from {$realmName}");
 
         } catch (Exception $e) {
-            $realmLogName = function_exists('spp_get_armory_realm_name')
-                ? (spp_get_armory_realm_name((int)$id) ?? '')
-                : '';
-            error_log("[AUTH] Failed loading characters for realm {$realmLogName}: " . $e->getMessage());
+            error_log("[AUTH] Failed loading characters for realm {$id}: " . $e->getMessage());
         }
     }
-
-    error_log("[AUTH] Loaded " . count($GLOBALS['characters']) . " total characters for " . $this->user['username']);
 }
 
 

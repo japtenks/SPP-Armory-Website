@@ -14,22 +14,22 @@ $com_content['admin'] = array(
         0 // show in context menu (1-yes,0-no)          [4]
     ),
     'members' => array(
-        'g_is_supadmin', 
-        'users_manage', 
+        'g_is_admin',
+        'users_manage',
         'index.php?n=admin&sub=members',
         '',
         1
     ),
     'config' => array(
-        'g_is_supadmin', 
-        'site_config', 
+        'g_is_admin',
+        'site_config',
         'index.php?n=admin&sub=config',
         '',
         1
     ),
     'realms' => array(
-        'g_is_supadmin', 
-        'realms_manage', 
+        'g_is_admin',
+        'realms_manage',
         'index.php?n=admin&sub=realms',
         '',
         1

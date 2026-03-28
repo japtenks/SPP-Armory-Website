@@ -12,7 +12,12 @@ if ($_GET['backup'] == TRUE){
           $START_GUID = $_POST['starting_char_id'];
 
           // Characters looping
-          $sql_character = $CHDB->select("SELECT * FROM `characters` WHERE account='".(int)$MW->getConfig->character_copy_config->accounts->horde."' OR account='".(int)$MW->getConfig->character_copy_config->accounts->alliance."'");
+          $backupPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
+          $hordeAcc = (int)$MW->getConfig->character_copy_config->accounts->horde;
+          $allyAcc  = (int)$MW->getConfig->character_copy_config->accounts->alliance;
+          $bkStmt = $backupPdo->prepare("SELECT * FROM `characters` WHERE account=? OR account=?");
+          $bkStmt->execute([$hordeAcc, $allyAcc]);
+          $sql_character = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
           if (count($sql_character) == 0)die('<p>No characters backup because in config file we dont find the IDs of the characters accounts.</p>');
           
           // Create file!.
@@ -68,7 +73,9 @@ if ($_GET['backup'] == TRUE){
             '".$COPY_character['trans_z']."', '".$COPY_character['trans_o']."', '".$COPY_character['transguid']."', '".$COPY_character['gmstate']."', '".$COPY_character['stable_slots']."', '".$COPY_character['rename']."');\n";
             
             $guid = $COPY_character['guid'];
-        $COPY_character_action = $CHDB->select("SELECT * FROM `character_action` WHERE guid='".$query_character_id."'");
+        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_action` WHERE guid=?");
+        $bkStmt->execute([(int)$query_character_id]);
+        $COPY_character_action = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
         /* Character_action */
         foreach($COPY_character_action as $COPY_SUB_character_action){
             $DATA .="INSERT INTO `character_action` (
@@ -81,7 +88,9 @@ if ($_GET['backup'] == TRUE){
             ('".$guid."' , '".$COPY_SUB_character_action['button']."', '".$COPY_SUB_character_action['action']."', '".$COPY_SUB_character_action['type']."', '".$COPY_SUB_character_action['misc']."');\n";
         }
         /* Character_homebind */
-        $COPY_character_homebind = $CHDB->select("SELECT * FROM `character_homebind` WHERE guid='".$query_character_id."'");
+        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_homebind` WHERE guid=?");
+        $bkStmt->execute([(int)$query_character_id]);
+        $COPY_character_homebind = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
         foreach($COPY_character_homebind as $COPY_SUB_character_homebind){
             $DATA .= "INSERT INTO `character_homebind` (
             `guid`,
@@ -96,7 +105,9 @@ if ($_GET['backup'] == TRUE){
         }
 
         /* Character_reputation */
-        $COPY_character_reputation = $CHDB->select("SELECT * FROM `character_reputation` WHERE guid='".$query_character_id."'");
+        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_reputation` WHERE guid=?");
+        $bkStmt->execute([(int)$query_character_id]);
+        $COPY_character_reputation = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
         foreach($COPY_character_reputation as $COPY_SUB_character_reputation){
             $DATA .= "INSERT INTO `character_reputation` (
             `guid`,
@@ -107,7 +118,9 @@ if ($_GET['backup'] == TRUE){
             ('".$guid."', '".$COPY_SUB_character_reputation['faction']."', '".$COPY_SUB_character_reputation['standing'].", '".$COPY_SUB_character_reputation['flags']."');\n";
         }
         /*  Character_spell  */
-        $COPY_character_spell = $CHDB->select("SELECT * FROM `character_spell` WHERE guid='".$query_character_id."'");
+        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_spell` WHERE guid=?");
+        $bkStmt->execute([(int)$query_character_id]);
+        $COPY_character_spell = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
         foreach($COPY_character_spell as $COPY_SUB_character_spell){
             $DATA .= "INSERT INTO `character_spell` (
             `guid`,
@@ -118,7 +131,9 @@ if ($_GET['backup'] == TRUE){
             ('".$guid."', '".$COPY_SUB_character_spell['spell']."', '".$COPY_SUB_character_spell['slot']."', '".$COPY_SUB_character_spell['active']."');\n";
         }
         /* Character_tutorail  */
-        $COPY_character_tutorial = $CHDB->select("SELECT * FROM `character_tutorial` WHERE guid='".$query_character_id."'");
+        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_tutorial` WHERE guid=?");
+        $bkStmt->execute([(int)$query_character_id]);
+        $COPY_character_tutorial = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
         foreach($COPY_character_tutorial as $COPY_SUB_character_tutorial){
             $DATA .= "INSERT INTO `character_tutorial` (
             `guid`,
@@ -138,7 +153,9 @@ if ($_GET['backup'] == TRUE){
 
         /* item_instance  */
 
-        $COPY_item_instance = $CHDB->select("SELECT * FROM `item_instance` WHERE owner_guid='".$query_character_id."'");
+        $bkStmt = $backupPdo->prepare("SELECT * FROM `item_instance` WHERE owner_guid=?");
+        $bkStmt->execute([(int)$query_character_id]);
+        $COPY_item_instance = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
             foreach($COPY_item_instance as $COPY_SUB_item_instance){
                 //Filter guids
                 $COPY_SUB_item_instance['data'] = explode(' ', $COPY_SUB_item_instance['data']);
@@ -153,7 +170,9 @@ if ($_GET['backup'] == TRUE){
             ('".$COPY_SUB_item_instance['guid']."', '".$guid."', '".$COPY_SUB_item_instance['data']."');\n";
             }
         /* character_inventory  */
-        $COPY_character_inventory = $CHDB->select("SELECT * FROM `character_inventory` WHERE guid='".$query_character_id."'");
+        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_inventory` WHERE guid=?");
+        $bkStmt->execute([(int)$query_character_id]);
+        $COPY_character_inventory = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
             foreach($COPY_character_inventory as $COPY_SUB_character_inventory){
             $DATA .= "INSERT INTO `character_inventory` (
             `guid`,

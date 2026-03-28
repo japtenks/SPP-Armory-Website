@@ -125,70 +125,119 @@ if ($maxTier >= 10) { $tierOrder = array_merge($tierOrder, ['T7','T8','T9','T10'
 <?php
 
 function get_itemset_data(int $setId): array {
-    global $DB;
-
     // --- Pull the set row ---
     $row = armory_query("SELECT * FROM dbc_itemset WHERE id={$setId} LIMIT 1", 1);
     if (!$row) {
-        return [
-            'id'      => $setId,
-            'name'    => 'Unknown Set',
-            'items'   => [],
-            'bonuses' => [],
-        ];
+        return ['id' => $setId, 'name' => 'Unknown Set', 'items' => [], 'bonuses' => []];
     }
 
-    // --- Items loop ---
+    // --- Collect item IDs ---
+    $itemIds = [];
+    for ($i = 1; $i <= 10; $i++) {
+        $id = (int)($row["item_$i"] ?? 0);
+        if ($id) $itemIds[] = $id;
+    }
+
+    // --- Batch fetch item_template ---
+    $itemRows = [];
+    if (!empty($itemIds)) {
+        $ph = implode(',', $itemIds);
+        $batch = world_query("SELECT entry,name,InventoryType,displayid,Quality FROM item_template WHERE entry IN ({$ph})", 0);
+        if (is_array($batch)) {
+            foreach ($batch as $b) { $itemRows[(int)$b['entry']] = $b; }
+        }
+    }
+
+    // --- Batch fetch display icons ---
+    $displayIds = [];
+    foreach ($itemRows as $ir) {
+        $d = (int)$ir['displayid'];
+        if ($d > 0) $displayIds[$d] = $d;
+    }
+    $iconByDisplayId = [];
+    if (!empty($displayIds)) {
+        $ph = implode(',', array_keys($displayIds));
+        $ibatch = armory_query("SELECT id,name FROM dbc_itemdisplayinfo WHERE id IN ({$ph})", 0);
+        if (is_array($ibatch)) {
+            foreach ($ibatch as $r) {
+                $iconByDisplayId[(int)$r['id']] = !empty($r['name'])
+                    ? strtolower(pathinfo($r['name'], PATHINFO_FILENAME))
+                    : 'inv_misc_key_02';
+            }
+        }
+    }
+
+    // --- Build items array in original order then sort ---
     $items = [];
     for ($i = 1; $i <= 10; $i++) {
         $itemId = (int)($row["item_$i"] ?? 0);
-        if (!$itemId) continue;
-
-        // Query item_template for basic info
-        $sql = "
-            SELECT it.entry, it.name, it.InventoryType, it.displayid, it.Quality
-            FROM item_template it
-            WHERE it.entry = {$itemId}
-            LIMIT 1
-        ";
-        $item = world_query($sql, 1);
-		// echo "<div style='color:red;'>Missing item_template for ID: {$itemId} (set {$setId})</div>";
-
-        if ($item) {
-            // Resolve icon from displayid using helper
-            $iconBase = icon_from_displayid((int)$item['displayid']);
-
-            $items[] = [
-                'entry' => (int)$item['entry'],
-                'slot'  => (int)$item['InventoryType'],
-                'name'  => (string)$item['name'],
-                'icon'  => $iconBase,
-				 'q'=>(int)$item['Quality'],
-            ];
-        }
+        if (!$itemId || !isset($itemRows[$itemId])) continue;
+        $item = $itemRows[$itemId];
+        $did  = (int)$item['displayid'];
+        $items[] = [
+            'entry' => (int)$item['entry'],
+            'slot'  => (int)$item['InventoryType'],
+            'name'  => (string)$item['name'],
+            'icon'  => $iconByDisplayId[$did] ?? 'inv_misc_questionmark',
+            'q'     => (int)$item['Quality'],
+        ];
     }
-		// --- Sort items into slot order ---
-	usort($items, function($a, $b) {
-		return slot_order($a['slot']) <=> slot_order($b['slot']);
-	});
+    usort($items, function($a, $b) { return slot_order($a['slot']) <=> slot_order($b['slot']); });
 
-    // --- Bonuses loop ---
-    $bonuses = [];
+    // --- Collect bonus spell IDs ---
+    $bonusMeta = [];
+    $bonusSpellIds = [];
     for ($b = 1; $b <= 8; $b++) {
         $bonusId = (int)($row["bonus_$b"] ?? 0);
         $pieces  = (int)($row["pieces_$b"] ?? 0);
-        if (!$bonusId || !$pieces) continue;
-
-        $sp = armory_query("SELECT * FROM dbc_spell WHERE id={$bonusId} LIMIT 1", 1);
-        if ($sp) {
-            $bonuses[] = [
-                'pieces' => $pieces,
-                'name'   => (string)($sp['name'] ?? ''),
-                'desc'   => (string)($sp['description'] ?? ''),
-                'icon'   => icon_base_from_icon_id((int)($sp['ref_spellicon'] ?? 0)),
-                'spell'  => $sp, // keep raw spell row for token replacement
-            ];
+        if ($bonusId && $pieces) {
+            $bonusSpellIds[] = $bonusId;
+            $bonusMeta[] = ['id' => $bonusId, 'pieces' => $pieces];
         }
+    }
+
+    // --- Batch fetch bonus spells ---
+    $spellRows = [];
+    if (!empty($bonusSpellIds)) {
+        $ph = implode(',', $bonusSpellIds);
+        $sbatch = armory_query("SELECT * FROM dbc_spell WHERE id IN ({$ph})", 0);
+        if (is_array($sbatch)) {
+            foreach ($sbatch as $s) { $spellRows[(int)$s['id']] = $s; }
+        }
+    }
+
+    // --- Batch fetch spell icons ---
+    $spellIconIds = [];
+    foreach ($spellRows as $sp) {
+        $iid = (int)($sp['ref_spellicon'] ?? 0);
+        if ($iid > 0) $spellIconIds[$iid] = $iid;
+    }
+    $spellIconMap = [];
+    if (!empty($spellIconIds)) {
+        $ph = implode(',', array_keys($spellIconIds));
+        $sibatch = armory_query("SELECT id,name FROM dbc_spellicon WHERE id IN ({$ph})", 0);
+        if (is_array($sibatch)) {
+            foreach ($sibatch as $r) {
+                $spellIconMap[(int)$r['id']] = !empty($r['name'])
+                    ? strtolower(preg_replace('/[^a-z0-9_]/i', '', $r['name']))
+                    : 'inv_misc_key_01';
+            }
+        }
+    }
+
+    // --- Build bonuses array ---
+    $bonuses = [];
+    foreach ($bonusMeta as $bm) {
+        if (!isset($spellRows[$bm['id']])) continue;
+        $sp  = $spellRows[$bm['id']];
+        $iid = (int)($sp['ref_spellicon'] ?? 0);
+        $bonuses[] = [
+            'pieces' => $bm['pieces'],
+            'name'   => (string)($sp['name'] ?? ''),
+            'desc'   => (string)($sp['description'] ?? ''),
+            'icon'   => $iid > 0 ? ($spellIconMap[$iid] ?? 'inv_misc_key_01') : 'inv_misc_key_01',
+            'spell'  => $sp,
+        ];
     }
 
     return [
@@ -266,7 +315,11 @@ function render_rating_lines(array $row): string {
 
 function render_spell_effect(int $spellId, int $trigger, array $row = []): string {
     if ($spellId <= 0) return '';
-    $sp = armory_query("SELECT * FROM dbc_spell WHERE id={$spellId} LIMIT 1", 1);
+    static $spCache = [];
+    if (!isset($spCache[$spellId])) {
+        $spCache[$spellId] = armory_query("SELECT * FROM dbc_spell WHERE id={$spellId} LIMIT 1", 1) ?: null;
+    }
+    $sp = $spCache[$spellId];
     if (!$sp) return '';
     $desc = replace_spell_tokens((string)$sp['description'], $sp);
     if ($desc === '') return '';
@@ -277,32 +330,37 @@ function render_spell_effect(int $spellId, int $trigger, array $row = []): strin
 }
 
 function render_item_tip_html(array $item): string {
-    $sql = "
-        SELECT Quality, ItemLevel, InventoryType, class, subclass,
-               RequiredLevel, Armor, MaxDurability, AllowableClass,
-               stat_type1, stat_value1,
-               stat_type2, stat_value2,
-               stat_type3, stat_value3,
-               stat_type4, stat_value4,
-               stat_type5, stat_value5,
-               stat_type6, stat_value6,
-               stat_type7, stat_value7,
-               stat_type8, stat_value8,
-               stat_type9, stat_value9,
-               stat_type10, stat_value10,
-               spellid_1, spelltrigger_1,
-               spellid_2, spelltrigger_2,
-               spellid_3, spelltrigger_3,
-               spellid_4, spelltrigger_4,
-               spellid_5, spelltrigger_5,
-               holy_res, fire_res,
-               nature_res, frost_res,
-               shadow_res, arcane_res
-        FROM item_template
-        WHERE entry = {$item['entry']}
-        LIMIT 1
-    ";
-    $row = world_query($sql, 1);
+    static $rowCache = [];
+    $entry = (int)$item['entry'];
+    if (!isset($rowCache[$entry])) {
+        $sql = "
+            SELECT Quality, ItemLevel, InventoryType, class, subclass,
+                   RequiredLevel, Armor, MaxDurability, AllowableClass,
+                   stat_type1, stat_value1,
+                   stat_type2, stat_value2,
+                   stat_type3, stat_value3,
+                   stat_type4, stat_value4,
+                   stat_type5, stat_value5,
+                   stat_type6, stat_value6,
+                   stat_type7, stat_value7,
+                   stat_type8, stat_value8,
+                   stat_type9, stat_value9,
+                   stat_type10, stat_value10,
+                   spellid_1, spelltrigger_1,
+                   spellid_2, spelltrigger_2,
+                   spellid_3, spelltrigger_3,
+                   spellid_4, spelltrigger_4,
+                   spellid_5, spelltrigger_5,
+                   holy_res, fire_res,
+                   nature_res, frost_res,
+                   shadow_res, arcane_res
+            FROM item_template
+            WHERE entry = {$entry}
+            LIMIT 1
+        ";
+        $rowCache[$entry] = world_query($sql, 1) ?: null;
+    }
+    $row = $rowCache[$entry];
     if (!$row) return '<div class="tt-item"><h5>Unknown Item</h5></div>';
 
     // Quality color

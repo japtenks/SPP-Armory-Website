@@ -6,7 +6,7 @@ require_once($siteRoot . '/core/dbsimple/Generic.php');
 require_once($siteRoot . '/armory/configuration/settings.php');
 require_once($siteRoot . '/armory/configuration/mysql.php');
 require_once($siteRoot . '/armory/configuration/defines.php');
-require_once($siteRoot . '/armory/configuration/statisticshandler.php');
+// statisticshandler.php omitted — character-profile stats functions not needed for talent calc
 
 if (!defined('Armory')) {
     define('Armory', 1);
@@ -113,7 +113,7 @@ if (!function_exists('server_talents_build_url')) {
 $hostport = $db['host'] . ':' . $db['port'];
 $DB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['realmd']));
 $WSDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['world']));
-$CHDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['chars']));
+$CHDB = spp_get_pdo('chars', $realmId);
 $ARDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['armory']));
 if (!empty($realmConfig['bots'])) {
     $PBDB = server_talents_init_db(array($hostport, $db['user'], $db['pass'], $realmConfig['bots']));
@@ -168,10 +168,9 @@ $stat = [
     'level' => 0,
 ];
 if ($selectedCharacter !== '') {
-    $characterRow = $CHDB->selectRow(
-        'SELECT `guid`, `name`, `class`, `level` FROM `characters` WHERE `name`=? LIMIT 1',
-        $selectedCharacter
-    );
+    $chStmt = $CHDB->prepare('SELECT `guid`, `name`, `class`, `level` FROM `characters` WHERE `name`=? LIMIT 1');
+    $chStmt->execute([$selectedCharacter]);
+    $characterRow = $chStmt->fetch(PDO::FETCH_ASSOC);
     if ($characterRow) {
         $stat = array_merge($stat, $characterRow);
         if ($selectedClassParam === '') {

@@ -79,14 +79,18 @@ function icon_url($iconBase) { return '/armory/images/icons/64x64/'.$iconBase.'.
 
 function find_itemset_id_by_name(string $name): int {
     global $DEBUG;
+    static $rows = null;
     $name = trim($name);
     if ($name === '') return 0;
 
     // normalize: lowercase, strip punctuation
     $norm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $name));
 
-    // fetch all possible matches from DB
-    $rows = armory_query("SELECT id,name FROM dbc_itemset", 0);
+    // fetch all possible matches from DB (once per request)
+    if ($rows === null) {
+        $rows = armory_query("SELECT id,name FROM dbc_itemset", 0);
+        if (!is_array($rows)) $rows = [];
+    }
     foreach ($rows as $r) {
         $dbNorm = strtolower(preg_replace('/[^a-z0-9]+/i', '', $r['name']));
         if ($dbNorm === $norm) {
@@ -117,16 +121,17 @@ function find_itemset_id_by_name(string $name): int {
 
 function icon_from_displayid(int $displayId): string {
     if ($displayId <= 0) return 'inv_misc_questionmark';
+    static $cache = [];
+    if (isset($cache[$displayId])) return $cache[$displayId];
 
-    // Use the 'name' column instead of 'inventoryIcon'
     $row = armory_query("SELECT name FROM dbc_itemdisplayinfo WHERE id={$displayId} LIMIT 1", 1);
 
     if ($row && !empty($row['name'])) {
-        // Drop file extension and lowercase
-        return strtolower(pathinfo($row['name'], PATHINFO_FILENAME));
+        $cache[$displayId] = strtolower(pathinfo($row['name'], PATHINFO_FILENAME));
+    } else {
+        $cache[$displayId] = 'inv_misc_key_02';
     }
-
-    return 'inv_misc_key_02';
+    return $cache[$displayId];
 }
 
 function get_spell_row(int $id): ?array {

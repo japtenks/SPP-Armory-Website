@@ -14,6 +14,79 @@ ob_start();
 include $providerMap[$section];
 ob_end_clean();
 
+/* ---------- Pre-build set data map (with file cache) ---------- */
+$_setsCacheDir  = $siteRoot . '/core/cache/sites';
+$_setsCacheKey  = 'sets_' . $section . '_' . md5(strtolower($selectedClass)) . '_r' . (int)($realmId ?? 0);
+$_setsCacheFile = $_setsCacheDir . '/' . md5($_setsCacheKey) . '.dat';
+$_setsCacheTTL  = 86400; // 24 hours — armor set data is static game content
+
+$_setDataMap = [];     // $setName => ['id' => int, 'data' => array, 'tipHtml' => string, 'itemTips' => array]
+$_setsFromCache = false;
+
+if (is_file($_setsCacheFile) && (time() - filemtime($_setsCacheFile)) < $_setsCacheTTL) {
+    $_cached = @unserialize(file_get_contents($_setsCacheFile));
+    if (is_array($_cached)) {
+        $_setDataMap   = $_cached;
+        $_setsFromCache = true;
+    }
+    unset($_cached);
+}
+
+if (!$_setsFromCache) {
+    // Collect all set-name variants for this class+section
+    $allPairNames = [];
+    if ($section === 'misc') {
+        foreach ($tierOrder as $_tKey) {
+            if (!empty($tier_N[$_tKey][$selectedClass])) {
+                foreach (armor_set_variants($tier_N[$_tKey][$selectedClass]) as $_p) {
+                    $_nm = trim($_p['name']);
+                    if ($_nm !== '') $allPairNames[] = $_nm;
+                }
+            }
+        }
+    } elseif ($section === 'world' && !empty($order)) {
+        foreach ($order as $_tKey) {
+            if (!empty($N[$_tKey][$selectedClass])) {
+                foreach (armor_set_variants($N[$_tKey][$selectedClass]) as $_p) {
+                    $_nm = is_array($_p) ? trim($_p['name']) : trim($_p);
+                    if ($_nm !== '') $allPairNames[] = $_nm;
+                }
+            }
+        }
+    } elseif ($section === 'pvp' && !empty($pvporder)) {
+        foreach ($pvporder as $_tKey) {
+            if (!empty($N_PVP[$_tKey][$selectedClass])) {
+                foreach (armor_set_variants($N_PVP[$_tKey][$selectedClass]) as $_p) {
+                    $_nm = is_array($_p) ? trim($_p['name']) : trim($_p);
+                    if ($_nm !== '') $allPairNames[] = $_nm;
+                }
+            }
+        }
+    }
+
+    foreach (array_unique($allPairNames) as $_nm) {
+        $setId = find_itemset_id_by_name($_nm);
+        $data  = $setId ? get_itemset_data($setId) : [];
+        $tipHtml  = !empty($data) ? render_set_bonus_tip_html($data) : '';
+        $itemTips = [];
+        if (!empty($data['items'])) {
+            foreach ($data['items'] as $_it) {
+                $itemTips[(int)$_it['entry']] = render_item_tip_html($_it);
+            }
+        }
+        $_setDataMap[$_nm] = [
+            'id'       => $setId,
+            'data'     => $data,
+            'tipHtml'  => $tipHtml,
+            'itemTips' => $itemTips,
+        ];
+    }
+
+    if (!empty($_setDataMap) && is_dir($_setsCacheDir) && is_writable($_setsCacheDir)) {
+        @file_put_contents($_setsCacheFile, serialize($_setDataMap), LOCK_EX);
+    }
+}
+
 $sectionTitles = [
     'misc'  => 'Misc & Tier Sets',
     'world' => 'World Sets',
@@ -142,23 +215,20 @@ if ($selectedClass === '') {
 
           foreach ($pairs as $p) {
               $nm = trim($p['name']);
-              $setId = find_itemset_id_by_name($nm);
-              $tipHtml = '';
+              $_entry = $_setDataMap[$nm] ?? null;
+              $setId   = $_entry ? (int)$_entry['id'] : 0;
+              $tipHtml  = $_entry ? (string)$_entry['tipHtml'] : '';
               $itemsHtml = '';
 
-              if ($setId) {
-                  $data = get_itemset_data($setId);
-                  $tipHtml = render_set_bonus_tip_html($data);
-                  if (!empty($data['items'])) {
-                      $icons = [];
-                      foreach ($data['items'] as $it) {
-                          $tipItemHtml = render_item_tip_html($it);
-                          $icons[] =
-                              '<a href="' . htmlspecialchars(item_href((int)$it['entry'])) . '" class="js-item-tip" data-item-id="' . (int)$it['entry'] . '" data-tip-html="' . htmlspecialchars($tipItemHtml, ENT_QUOTES) . '">'
-                            . '<img src="/armory/images/icons/64x64/' . htmlspecialchars($it['icon']) . '.png" alt="' . htmlspecialchars($it['name']) . '" width="32" height="32"></a>';
-                      }
-                      $itemsHtml = '<span class="set-icons">' . implode('', $icons) . '</span>';
+              if ($setId && !empty($_entry['data']['items'])) {
+                  $icons = [];
+                  foreach ($_entry['data']['items'] as $it) {
+                      $tipItemHtml = $_entry['itemTips'][(int)$it['entry']] ?? '';
+                      $icons[] =
+                          '<a href="' . htmlspecialchars(item_href((int)$it['entry'])) . '" class="js-item-tip" data-item-id="' . (int)$it['entry'] . '" data-tip-html="' . htmlspecialchars($tipItemHtml, ENT_QUOTES) . '">'
+                        . '<img src="/armory/images/icons/64x64/' . htmlspecialchars($it['icon']) . '.png" alt="' . htmlspecialchars($it['name']) . '" width="32" height="32"></a>';
                   }
+                  $itemsHtml = '<span class="set-icons">' . implode('', $icons) . '</span>';
               }
 
               if ($itemsHtml === '' && $pieces > 0) {
@@ -191,8 +261,9 @@ if ($selectedClass === '') {
           echo "<div class='set-desc'>{$text}</div>";
           foreach ($pairs as $nm) {
               $setName = $nm['name'];
-              $setId = find_itemset_id_by_name($setName);
-              $items = ($setId) ? get_itemset_data($setId) : [];
+              $_entry  = $_setDataMap[$setName] ?? null;
+              $setId   = $_entry ? (int)$_entry['id'] : 0;
+              $items   = (!empty($_entry['data'])) ? $_entry['data'] : [];
               render_armor_set($setName, $pieces, $items, $setId);
           }
           echo "</div>";
@@ -216,8 +287,9 @@ if ($selectedClass === '') {
           echo "<div class='set-desc'>{$text}</div>";
           foreach ($pairs as $nm) {
               $setName = $nm['name'];
-              $setId = find_itemset_id_by_name($setName);
-              $items = ($setId) ? get_itemset_data($setId) : [];
+              $_entry  = $_setDataMap[$setName] ?? null;
+              $setId   = $_entry ? (int)$_entry['id'] : 0;
+              $items   = (!empty($_entry['data'])) ? $_entry['data'] : [];
               render_armor_set($setName, $pieces, $items, $setId);
           }
           echo "</div>";

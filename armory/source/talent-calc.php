@@ -13,14 +13,8 @@ if (!defined('Armory')) { exit; }
 
 function tbl_exists($conn, $table) {
     if (!preg_match('/^[A-Za-z0-9_]+$/', $table)) return false;
-    return (bool) execute_query(
-        $conn,
-        "SELECT 1 FROM information_schema.TABLES
-          WHERE TABLE_SCHEMA = DATABASE()
-            AND TABLE_NAME = '{$table}'
-          LIMIT 1",
-        2
-    );
+    $rows = execute_query($conn, "SHOW TABLES LIKE '" . $table . "'", 0);
+    return !empty($rows);
 }
 
 
@@ -114,26 +108,30 @@ function spell_info_for_talent(array $talRow, int $rank = 0) {
   if ($spellId<=0) { for ($r=min($useRank,$maxRank);$r>=1;$r--){ $spellId=(int)($talRow["rank{$r}"]??0); if($spellId>0)break; } }
   if ($spellId<=0) return ['name'=>'Unknown','desc'=>'','icon'=>'inv_misc_questionmark'];
 
-  $sql = "SELECT s.`id`, s.`name`, s.`description`, s.`proc_chance`, s.`proc_charges`,
-                 s.`ref_spellduration`, s.`ref_spellradius_1`,
-                 s.`effect_basepoints_1`, s.`effect_basepoints_2`, s.`effect_basepoints_3`,
-                 s.`effect_amplitude_1`, s.`effect_amplitude_2`, s.`effect_amplitude_3`,
-                 s.`effect_chaintarget_1`, s.`effect_chaintarget_2`, s.`effect_chaintarget_3`,
-                 s.`effect_trigger_1`, s.`effect_trigger_2`, s.`effect_trigger_3`,
-                 i.`name` AS icon
-          FROM `dbc_spell` s
-          LEFT JOIN `dbc_spellicon` i ON i.`id`=s.`ref_spellicon`
-          WHERE s.`id`={$spellId} LIMIT 1";
-  $sp = execute_query('armory', $sql, 1);
-  if (!$sp || !is_array($sp)) return ['name'=>'Unknown','desc'=>'','icon'=>'inv_misc_questionmark'];
-
-  //$desc = build_tooltip_desc($sp);
-  
-$desc = build_tooltip_desc($sp, $useRank, $maxRank);
-
-  $icon = strtolower(preg_replace('/[^a-z0-9_]/i', '', (string)($sp['icon'] ?? '')));
-  if ($icon==='') $icon='inv_misc_questionmark';
-  return ['name'=>(string)($sp['name'] ?? 'Unknown'), 'desc'=>$desc, 'icon'=>$icon];
+  // Cache per spell+rank+maxRank so each combination is only built once
+  return _cache("si:{$spellId}:{$useRank}:{$maxRank}", function() use ($spellId, $useRank, $maxRank) {
+    // spell_full is pre-populated by the batch loader; falls back to a single query on miss
+    $sp = _cache("spell_full:{$spellId}", function() use ($spellId) {
+      return execute_query('armory',
+        "SELECT s.`id`, s.`name`, s.`description`, s.`proc_chance`, s.`proc_charges`,
+                s.`ref_spellduration`, s.`ref_spellradius_1`,
+                s.`effect_basepoints_1`, s.`effect_basepoints_2`, s.`effect_basepoints_3`,
+                s.`effect_amplitude_1`, s.`effect_amplitude_2`, s.`effect_amplitude_3`,
+                s.`effect_chaintarget_1`, s.`effect_chaintarget_2`, s.`effect_chaintarget_3`,
+                s.`effect_trigger_1`, s.`effect_trigger_2`, s.`effect_trigger_3`,
+                i.`name` AS icon
+           FROM `dbc_spell` s
+           LEFT JOIN `dbc_spellicon` i ON i.`id`=s.`ref_spellicon`
+          WHERE s.`id`={$spellId} LIMIT 1",
+        1
+      );
+    });
+    if (!$sp || !is_array($sp)) return ['name'=>'Unknown','desc'=>'','icon'=>'inv_misc_questionmark'];
+    $desc = build_tooltip_desc($sp, $useRank, $maxRank);
+    $icon = strtolower(preg_replace('/[^a-z0-9_]/i', '', (string)($sp['icon'] ?? '')));
+    if ($icon==='') $icon='inv_misc_questionmark';
+    return ['name'=>(string)($sp['name'] ?? 'Unknown'), 'desc'=>$desc, 'icon'=>$icon];
+  });
 }
 function icon_url($iconBase) { return '/armory/shared/icons/'.$iconBase.'.jpg'; }
 function talent_bg_for_tab($tabId) {
@@ -206,10 +204,20 @@ function get_spell_proc_charges($id) {
     return $row ? (int)$row['proc_charges'] : 0;
   });
 }
+/** Single SHOW COLUMNS call shared by the three schema-probe functions below */
+function _dbc_spell_cols(): array {
+  static $cols = null;
+  if ($cols !== null) return $cols;
+  $rows = execute_query('armory', 'SHOW COLUMNS FROM `dbc_spell`', 0);
+  $cols = [];
+  if (is_array($rows)) {
+    foreach ($rows as $row) { $cols[] = (string)($row['Field'] ?? ''); }
+  }
+  return $cols;
+}
 function _has_die_sides_cols(): bool {
   static $has=null; if($has!==null) return $has;
-  $rows = execute_query('armory',"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME='dbc_spell' AND COLUMN_NAME IN ('effect_die_sides_1','effect_die_sides_2','effect_die_sides_3')",0);
-  $has = !empty($rows); return $has;
+  $has = in_array('effect_die_sides_1', _dbc_spell_cols(), true); return $has;
 }
 function get_spell_radius_id($id) {
   $row = execute_query('armory', "SELECT `ref_spellradius_1` FROM `dbc_spell` WHERE `id`=".(int)$id." LIMIT 1", 1);
@@ -222,8 +230,11 @@ function getRadiusYdsForSpellRow(array $sp) {
 }
 function _stack_col_name(): ?string {
   static $col=null,$checked=false; if($checked) return $col; $checked=true;
-  $row = execute_query('armory',"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dbc_spell' AND COLUMN_NAME IN ('stack_amount','StackAmount','max_stack','MaxStack') LIMIT 1",1);
-  $col = $row ? $row['COLUMN_NAME'] : null; return $col;
+  $cols = _dbc_spell_cols();
+  foreach (['stack_amount','StackAmount','max_stack','MaxStack'] as $c) {
+    if (in_array($c, $cols, true)) { $col = $c; return $col; }
+  }
+  return null;
 }
 function _stack_amount_for_spell(int $id): int {
   $col = _stack_col_name(); if(!$col) return 0;
@@ -232,12 +243,8 @@ function _stack_amount_for_spell(int $id): int {
 }
 function _trigger_col_base(){
   static $base=null,$checked=false; if($checked) return $base; $checked=true;
-  $row = execute_query('armory',"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dbc_spell' AND COLUMN_NAME IN ('effect_trigger_1','effect_trigger_spell_1') LIMIT 1",1);
-  if ($row && isset($row['COLUMN_NAME'])) {
-    $base = (strpos($row['COLUMN_NAME'],'effect_trigger_spell_')===0) ? 'effect_trigger_spell_' : 'effect_trigger_';
-  } else {
-    $base = 'effect_trigger_';
-  }
+  $cols = _dbc_spell_cols();
+  $base = in_array('effect_trigger_spell_1', $cols, true) ? 'effect_trigger_spell_' : 'effect_trigger_';
   return $base;
 }
 
@@ -365,6 +372,209 @@ if ($hasCharTalent) {
 }
 $hasCharSpell = tbl_exists('char', 'character_spell');
 
+/* -------------------- batch pre-load with data cache -------------------- */
+// Uses a serialized file cache so repeated loads (including armory/ standalone path)
+// skip all DB queries. Safe to use alongside index.php's page-level gCache because
+// this caches DATA only — no output buffering involved.
+$allTalents = [];
+if (!empty($tabs)) {
+  // --- cache file setup ---
+  $_tcSiteRoot  = isset($siteRoot) ? $siteRoot : dirname(dirname(dirname(__FILE__)));
+  $_tcCacheDir  = $_tcSiteRoot . '/core/cache/sites';
+  $_tcRealmId   = (int)($GLOBALS['talent_calc_realm_id'] ?? 0);
+  $_tcCacheKey  = 'tc_' . $_tcRealmId . '_c' . $charClassId;
+  if ($isProfileMode && !empty($stat['guid'])) {
+    $_tcCacheKey .= '_p' . (int)$stat['guid'] . '_l' . (int)($stat['level'] ?? 0);
+  }
+  $_tcCacheFile = $_tcCacheDir . '/' . md5($_tcCacheKey) . '.dat';
+  $_tcCacheTTL  = $isProfileMode ? 300 : 3600; // 5 min profiles, 1 hr calc/static
+
+  $tcData = null;
+  if (is_file($_tcCacheFile) && (time() - filemtime($_tcCacheFile)) < $_tcCacheTTL) {
+    $tcData = @unserialize(file_get_contents($_tcCacheFile));
+    if (!is_array($tcData)) $tcData = null;
+  }
+
+  if ($tcData !== null) {
+    // --- cache HIT: restore everything, zero DB queries ---
+    $allTalents = $tcData['talents'];
+    foreach ($tcData['caches'] as $_ck => $_cv) {
+      _cache($_ck, function() use ($_cv) { return $_cv; });
+    }
+    unset($tcData, $_ck, $_cv);
+  } else {
+    // --- cache MISS: run batch DB queries then save ---
+    $tcCaches = [];
+
+    // 1. All talents for all tabs in one query
+    $allTabIds = [];
+    foreach ($tabs as $t) { $allTabIds[] = (int)$t['id']; }
+    $inTabSql = implode(',', $allTabIds);
+    $rawTalents = execute_query(
+      'armory',
+      "SELECT `id`, `row`, `col`, `ref_talenttab`,
+              `rank1`, `rank2`, `rank3`, `rank4`, `rank5`,
+              `prereq_talent_1` AS req_tid,
+              `prereq_rank_1`   AS req_rank
+         FROM `dbc_talent`
+        WHERE `ref_talenttab` IN ($inTabSql)
+        ORDER BY `ref_talenttab`, `row`, `col`",
+      0
+    ) ?: [];
+    foreach ($rawTalents as $tal) {
+      $allTalents[(int)$tal['ref_talenttab']][] = $tal;
+    }
+    unset($rawTalents);
+
+    // 2. Collect every spell ID referenced across all talent ranks
+    $allSpellIds = [];
+    foreach ($allTalents as $tabTalents) {
+      foreach ($tabTalents as $tal) {
+        for ($ri = 1; $ri <= 5; $ri++) {
+          $sid = (int)($tal["rank{$ri}"] ?? 0);
+          if ($sid > 0) $allSpellIds[$sid] = true;
+        }
+      }
+    }
+
+    if (!empty($allSpellIds)) {
+      $spellIdList = implode(',', array_keys($allSpellIds));
+
+      // Determine which optional columns exist (single SHOW COLUMNS call)
+      $hasDieSides = _has_die_sides_cols();
+      $stackCol    = _stack_col_name();
+      $trigBase    = _trigger_col_base();
+      $tc1 = $trigBase.'1'; $tc2 = $trigBase.'2'; $tc3 = $trigBase.'3';
+
+      $extraCols = "s.`{$tc1}` AS effect_trigger_1, s.`{$tc2}` AS effect_trigger_2, s.`{$tc3}` AS effect_trigger_3";
+      if ($hasDieSides) {
+        $extraCols .= ', s.`effect_die_sides_1`, s.`effect_die_sides_2`, s.`effect_die_sides_3`';
+      }
+      if ($stackCol) {
+        $extraCols .= ', s.`' . $stackCol . '` AS _stack_amount';
+      }
+
+      // 3. One query for all spell rows + icon names
+      $spellRows = execute_query(
+        'armory',
+        "SELECT s.`id`, s.`name`, s.`description`, s.`proc_chance`, s.`proc_charges`,
+                s.`ref_spellduration`, s.`ref_spellradius_1`,
+                s.`effect_basepoints_1`, s.`effect_basepoints_2`, s.`effect_basepoints_3`,
+                s.`effect_amplitude_1`, s.`effect_amplitude_2`, s.`effect_amplitude_3`,
+                s.`effect_chaintarget_1`, s.`effect_chaintarget_2`, s.`effect_chaintarget_3`,
+                {$extraCols},
+                i.`name` AS icon
+           FROM `dbc_spell` s
+           LEFT JOIN `dbc_spellicon` i ON i.`id` = s.`ref_spellicon`
+          WHERE s.`id` IN ($spellIdList)",
+        0
+      ) ?: [];
+
+      // 4. Collect duration/radius IDs
+      $allDurIds = [];
+      $allRadIds = [];
+      foreach ($spellRows as $sp) {
+        $durId = (int)($sp['ref_spellduration'] ?? 0);
+        if ($durId > 0) $allDurIds[$durId] = true;
+        $radId = (int)($sp['ref_spellradius_1'] ?? 0);
+        if ($radId > 0) $allRadIds[$radId] = true;
+      }
+
+      // 5. Batch-load durations
+      $durMap = [];
+      if (!empty($allDurIds)) {
+        $durIdList = implode(',', array_keys($allDurIds));
+        $durRows = execute_query('armory', "SELECT `id`, `durationValue` FROM `dbc_spellduration` WHERE `id` IN ($durIdList)", 0) ?: [];
+        foreach ($durRows as $dr) {
+          $ms = (int)$dr['durationValue'];
+          $durMap[(int)$dr['id']] = $ms > 0 ? ($ms / 1000) : 0;
+        }
+        unset($durRows);
+      }
+
+      // 6. Batch-load radii
+      $radMap = [];
+      if (!empty($allRadIds)) {
+        $radIdList = implode(',', array_keys($allRadIds));
+        $radRows = execute_query('armory', "SELECT `id`, `yards_base` FROM `dbc_spellradius` WHERE `id` IN ($radIdList)", 0) ?: [];
+        foreach ($radRows as $rr) {
+          $radMap[(int)$rr['id']] = (float)$rr['yards_base'];
+        }
+        unset($radRows);
+      }
+
+      // 7. Pre-populate _cache() and collect values for the data cache file
+      foreach ($spellRows as $sp) {
+        $sid = (int)$sp['id'];
+
+        $tcCaches["spell_full:{$sid}"] = $sp;
+        _cache("spell_full:{$sid}", function() use ($sp) { return $sp; });
+
+        $spRow = [
+          'effect_basepoints_1' => $sp['effect_basepoints_1'],
+          'effect_basepoints_2' => $sp['effect_basepoints_2'],
+          'effect_basepoints_3' => $sp['effect_basepoints_3'],
+          'ref_spellradius_1'   => $sp['ref_spellradius_1'],
+        ];
+        $tcCaches["spell:{$sid}"] = $spRow;
+        _cache("spell:{$sid}", function() use ($spRow) { return $spRow; });
+
+        $spORow = [
+          'ref_spellduration'   => $sp['ref_spellduration'],
+          'effect_basepoints_1' => $sp['effect_basepoints_1'],
+          'effect_basepoints_2' => $sp['effect_basepoints_2'],
+          'effect_basepoints_3' => $sp['effect_basepoints_3'],
+          'effect_amplitude_1'  => $sp['effect_amplitude_1'],
+          'effect_amplitude_2'  => $sp['effect_amplitude_2'],
+          'effect_amplitude_3'  => $sp['effect_amplitude_3'],
+        ];
+        $tcCaches["spellO:{$sid}"] = $spORow;
+        _cache("spellO:{$sid}", function() use ($spORow) { return $spORow; });
+
+        $durId = (int)($sp['ref_spellduration'] ?? 0);
+        $tcCaches["durid:{$sid}"] = $durId;
+        _cache("durid:{$sid}", function() use ($durId) { return $durId; });
+
+        if ($durId > 0 && array_key_exists($durId, $durMap)) {
+          $durSecs = $durMap[$durId];
+          $tcCaches["dursec:{$durId}"] = $durSecs;
+          _cache("dursec:{$durId}", function() use ($durSecs) { return $durSecs; });
+        }
+
+        $radId = (int)($sp['ref_spellradius_1'] ?? 0);
+        if ($radId > 0 && array_key_exists($radId, $radMap)) {
+          $radYds = $radMap[$radId];
+          $tcCaches["radius:{$radId}"] = $radYds;
+          _cache("radius:{$radId}", function() use ($radYds) { return $radYds; });
+        }
+
+        $procChg = (int)($sp['proc_charges'] ?? 0);
+        $tcCaches["procchg:{$sid}"] = $procChg;
+        _cache("procchg:{$sid}", function() use ($procChg) { return $procChg; });
+
+        if ($hasDieSides) {
+          for ($n = 1; $n <= 3; $n++) {
+            $dieVal = (int)($sp["effect_die_sides_{$n}"] ?? 0);
+            $tcCaches["die:{$sid}:{$n}"] = $dieVal;
+            _cache("die:{$sid}:{$n}", function() use ($dieVal) { return $dieVal; });
+          }
+        }
+      }
+      unset($spellRows, $allSpellIds, $durMap, $radMap);
+    }
+
+    // 8. Save to data cache file
+    if (!empty($tcCaches) && is_writable($_tcCacheDir)) {
+      @file_put_contents(
+        $_tcCacheFile,
+        serialize(['talents' => $allTalents, 'caches' => $tcCaches]),
+        LOCK_EX
+      );
+    }
+    unset($tcCaches);
+  }
+}
+
 ?>
 <?php
 // --- view header vars ---
@@ -465,18 +675,8 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
       $points  = 0;
       $bgUrl   = talent_bg_for_tab($tabId);
 
-      // Pull talents for this tab
-      $talents = execute_query(
-        'armory',
-        "SELECT `id`, `row`, `col`,
-                `rank1`, `rank2`, `rank3`, `rank4`, `rank5`,
-                `prereq_talent_1` AS req_tid,
-                `prereq_rank_1`   AS req_rank
-           FROM `dbc_talent`
-          WHERE `ref_talenttab` = {$tabId}
-          ORDER BY `row`, `col`",
-        0
-      ) ?: [];
+      // Use pre-loaded talents (batch-fetched before render loop)
+      $talents = $allTalents[$tabId] ?? [];
 
       // Index by position
       $byPos  = [];
@@ -491,22 +691,27 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
       // Tab icon: prefer dbc_talenttab.SpellIconID
       $tabIconName = icon_base_from_icon_id((int)($t['SpellIconID'] ?? 0));
 
-      // Fallback: first-rank spell icon from any talent in this tab
+      // Fallback: first-rank spell icon from any talent in this tab (uses pre-loaded cache)
       if ($tabIconName === 'inv_misc_questionmark') {
         foreach ($talents as $tal) {
-          if ($sid = first_rank_spell($tal)) {
-            $rr = execute_query(
-              'armory',
-              "SELECT i.`name`
-                 FROM `dbc_spell` s
-                 LEFT JOIN `dbc_spellicon` i ON i.`id` = s.`ref_spellicon`
-                WHERE s.`id` = {$sid}
-                LIMIT 1",
-              1
-            );
-            if ($rr && !empty($rr['name'])) {
-              $tabIconName = strtolower(preg_replace('/[^a-z0-9_]/i', '', $rr['name']));
-              break;
+          $sid = first_rank_spell($tal);
+          if ($sid > 0) {
+            $cachedRow = _cache("spell_full:{$sid}", function() use ($sid) {
+              return execute_query('armory',
+                "SELECT s.`id`, s.`name`, s.`description`, s.`proc_chance`, s.`proc_charges`,
+                        s.`ref_spellduration`, s.`ref_spellradius_1`,
+                        s.`effect_basepoints_1`, s.`effect_basepoints_2`, s.`effect_basepoints_3`,
+                        s.`effect_amplitude_1`, s.`effect_amplitude_2`, s.`effect_amplitude_3`,
+                        s.`effect_chaintarget_1`, s.`effect_chaintarget_2`, s.`effect_chaintarget_3`,
+                        s.`effect_trigger_1`, s.`effect_trigger_2`, s.`effect_trigger_3`,
+                        i.`name` AS icon
+                   FROM `dbc_spell` s
+                   LEFT JOIN `dbc_spellicon` i ON i.`id` = s.`ref_spellicon`
+                  WHERE s.`id` = {$sid} LIMIT 1", 1);
+            });
+            if ($cachedRow && !empty($cachedRow['icon'])) {
+              $n = strtolower(preg_replace('/[^a-z0-9_]/i', '', $cachedRow['icon']));
+              if ($n !== '') { $tabIconName = $n; break; }
             }
           }
         }

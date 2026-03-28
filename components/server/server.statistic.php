@@ -26,16 +26,14 @@ $expansion = isset($GLOBALS['expansion'])
 $rc = array();
 
 try {
-    $rc = $CHDB->selectCol(
-        "SELECT race AS ARRAY_KEY, COUNT(*) AS num
-         FROM `characters`
-         GROUP BY race"
-    );
+    $statCharsPdo = spp_get_pdo('chars', $realm_param);
+    $stmt = $statCharsPdo->query("SELECT race, COUNT(*) AS num FROM `characters` GROUP BY race");
+    $rc = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
 } catch (Exception $e) {
     $rc = array();
 }
 
-// Ensure all race indexes (1–12) exist
+// Ensure all race indexes (1ï¿½12) exist
 for ($i = 1; $i <= 12; $i++) {
     if (!isset($rc[$i])) $rc[$i] = 0;
 }

@@ -148,6 +148,24 @@ $botCount = 0;
 $craftCount = 0;
 $pageError = '';
 
+// --- data cache (avoids 3–4 s of DB queries on every load) ---
+$_mpCacheDir  = $siteRoot . '/core/cache/sites';
+$_mpCacheFile = $_mpCacheDir . '/mp_' . md5('marketplace_' . $realmId) . '.dat';
+$_mpCacheTTL  = 600; // 10 minutes
+
+$_mpFromCache = false;
+if (is_file($_mpCacheFile) && (time() - filemtime($_mpCacheFile)) < $_mpCacheTTL) {
+    $_mpData = @unserialize(file_get_contents($_mpCacheFile));
+    if (is_array($_mpData)) {
+        $marketplace = $_mpData['marketplace'];
+        $botCount    = $_mpData['botCount'];
+        $craftCount  = $_mpData['craftCount'];
+        $_mpFromCache = true;
+    }
+    unset($_mpData);
+}
+
+if (!$_mpFromCache):
 try {
     $charsPdo = spp_get_pdo('chars', $realmId);
     $worldPdo = spp_get_pdo('world', $realmId);
@@ -456,9 +474,18 @@ try {
         }
         return ((int)$left['skill_id']) <=> ((int)$right['skill_id']);
     });
+    // save to cache on success
+    if (!empty($marketplace) && is_writable($_mpCacheDir)) {
+        @file_put_contents(
+            $_mpCacheFile,
+            serialize(['marketplace' => $marketplace, 'botCount' => $botCount, 'craftCount' => $craftCount]),
+            LOCK_EX
+        );
+    }
 } catch (Throwable $e) {
     $pageError = 'The marketplace could not be loaded right now.';
 }
+endif; // !$_mpFromCache
 
 builddiv_start(1, 'Marketplace', 1);
 ?>

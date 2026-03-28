@@ -238,7 +238,7 @@ function build_account_menu($asList = true) {
     }
 
     $returnUrl = $_SERVER['REQUEST_URI'] ?? 'index.php';
-    $returnUrl = preg_replace('/([?&])(setchar|changerealm_to|returnto)=[^&]*/', '$1', $returnUrl);
+    $returnUrl = preg_replace('/([?&])(setchar|setchar_realm|changerealm_to|returnto)=[^&]*/', '$1', $returnUrl);
     $returnUrl = preg_replace('/\?&/', '?', $returnUrl);
     $returnUrl = preg_replace('/[?&]+$/', '', $returnUrl);
     if ($returnUrl === '' || $returnUrl === '/') {

@@ -18,7 +18,9 @@ if(!check_port_status($realm_info_new['address'], $realm_info_new['port'])===tru
 
 $action = array();
 
-$action = $CHDB->select("SELECT `ticket_id`, `guid`, `ticket_text`, `response_text`, `ticket_lastchange` FROM `character_ticket` ORDER BY `ticket_id` ");
+$ticketsPdo = spp_get_pdo('chars', (int)$user['cur_selected_realmd']);
+$ticketsStmt = $ticketsPdo->query("SELECT `ticket_id`, `guid`, `ticket_text`, `response_text`, `ticket_lastchange` FROM `character_ticket` ORDER BY `ticket_id`");
+$action = $ticketsStmt->fetchAll(PDO::FETCH_ASSOC);
 $ticket = array();
 $cc1 = 0;
 $result1 = array();

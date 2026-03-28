@@ -32,26 +32,40 @@ $query1 = array();
 
 //===== Filter ==========//
 $filter = 'WHERE `guid` > 0';
+$filterParams = [];
 if($_GET['char'] && preg_match("/[a-z]/",$_GET['char'])){
-   $filter .= " AND `name` LIKE '".$_GET['char']."%'";}
+    $filter .= " AND `name` LIKE ?";
+    $filterParams[] = $_GET['char'] . '%';
+}
 if($_GET['char']==1){
-   $filter .= " AND `name` REGEXP '^[^A-Za-z]'";
-}if($_GET['race']){
-    $filter .= " AND `race` IN (".$_GET['race'].")";
-}if($_GET['class']){
-    $filter .= " AND `class` IN (".$_GET['class'].")";
+    $filter .= " AND `name` REGEXP '^[^A-Za-z]'";
+}
+if($_GET['race']){
+    $races = array_map('intval', explode(',', $_GET['race']));
+    $racePlaceholders = implode(',', array_fill(0, count($races), '?'));
+    $filter .= " AND `race` IN ($racePlaceholders)";
+    $filterParams = array_merge($filterParams, $races);
+}
+if($_GET['class']){
+    $classes = array_map('intval', explode(',', $_GET['class']));
+    $classPlaceholders = implode(',', array_fill(0, count($classes), '?'));
+    $filter .= " AND `class` IN ($classPlaceholders)";
+    $filterParams = array_merge($filterParams, $classes);
 }
 
 if ($_GET['lvl']) {
-    $filter .= " AND `level` = '".$_GET['lvl']."'";
+    $filter .= " AND `level` = ?";
+    $filterParams[] = (int)$_GET['lvl'];
 }
 else
 {
     if ($_GET['minlvl']) {
-        $filter .= " AND `level` >= '".$_GET['minlvl']."'";
+        $filter .= " AND `level` >= ?";
+        $filterParams[] = (int)$_GET['minlvl'];
     }
     if ($_GET['maxlvl']) {
-        $filter .= " AND `level` <= '".$_GET['maxlvl']."'";
+        $filter .= " AND `level` <= ?";
+        $filterParams[] = (int)$_GET['maxlvl'];
     }
 }
 
@@ -67,14 +81,16 @@ $filterBots = $showBots ? "" : "AND account > 504";
 
 ## output_message('alert',$filter);
 
-$query1 = $CHDB->select("
+$charsPdo = spp_get_pdo('chars', (int)$user['cur_selected_realmd']);
+$stmt = $charsPdo->prepare("
   SELECT `guid`, `name`, `race`, `class`, `zone`, `level`, `gender`
   FROM `characters`
   $filter AND `zone` <> 0
   $filterBots
   $filter_string
-  LIMIT $limit_start,$items_per_page
-");
+  LIMIT " . (int)$limit_start . "," . (int)$items_per_page);
+$stmt->execute($filterParams);
+$query1 = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
 $cc1 = 0;
@@ -110,12 +126,9 @@ unset($query1, $result1);
 
 //Find total number of characters in database -- used to calculate total number of pages
 // Count total for pagination
-$cc2 = $CHDB->selectCell("
-  SELECT COUNT(*) 
-  FROM `characters`
-  $filter AND `zone` <> 0
-  $filterBots
-");
+$cntStmt = $charsPdo->prepare("SELECT COUNT(*) FROM `characters` $filter AND `zone` <> 0 $filterBots");
+$cntStmt->execute($filterParams);
+$cc2 = $cntStmt->fetchColumn();
 
 	//===== Calc pages2 =====//
 	$pnum = ceil($cc2/$items_per_page);

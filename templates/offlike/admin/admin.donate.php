@@ -16,12 +16,17 @@ function check_item_id_donation($field){
     } */
     return TRUE;
 }
-$realmz = $DB->select("SELECT id,name FROM realmlist ORDER BY name");
+$donatePdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$donateCharsPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
+$stmt = $donatePdo->query("SELECT id,name FROM realmlist ORDER BY name");
+$realmz = $stmt->fetchAll(PDO::FETCH_ASSOC);
 foreach($realmz as $aaa) {
 $realmzlist .= "<option value='".$aaa['id']."'>".$aaa['name']."</option>";
 }
 if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
-    $character_item_id = $CHDB->selectCell("SELECT guid FROM `characters` WHERE name=?s", $_POST['donate_username']);
+    $stmt = $donateCharsPdo->prepare("SELECT guid FROM `characters` WHERE name=?");
+    $stmt->execute([$_POST['donate_username']]);
+    $character_item_id = $stmt->fetchColumn();
     if ($character_item_id != '' && $_POST['donate_username'] != '' && $_POST['donate_items'] != ''){
         $MANG = new Mangos;
         if($MANG->mail_item_donation($_POST['donate_items'], $character_item_id,false,true) == TRUE){
@@ -38,11 +43,21 @@ if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
         if (check_item_id_donation($_POST['edit_items']) == FALSE){
            die('Error in item field! You must have items IDS separated with ","');
         }
-        $DB->query("UPDATE `donations_template` SET itemset='".$_POST['edit_itemset']."',items='".$_POST['edit_items']."',description='".$_POST['edit_description']."',
-        donation='".$_POST['edit_donation']."',currency='".$_POST['edit_currency']."',realm='".$_POST['rid']."' WHERE id='".$_POST['edit_id']."'");
+        $stmt = $donatePdo->prepare("UPDATE `donations_template` SET itemset=?,items=?,description=?,donation=?,currency=?,realm=? WHERE id=?");
+        $stmt->execute([
+            $_POST['edit_itemset'],
+            $_POST['edit_items'],
+            $_POST['edit_description'],
+            $_POST['edit_donation'],
+            $_POST['edit_currency'],
+            $_POST['rid'],
+            (int)$_POST['edit_id']
+        ]);
         echo "Donation template with id ".$_POST['edit_id']." edited.";
     }else{
-        $row = $DB->selectRow("SELECT * FROM `donations_template` WHERE id='".$_POST['donation_edit']."'");
+        $stmt = $donatePdo->prepare("SELECT * FROM `donations_template` WHERE id=?");
+        $stmt->execute([(int)$_POST['donation_edit']]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
         echo "<p>You are now editing donation template with id ".$row['id']."</p>";
         echo "<form action='index.php?n=admin&sub=donate' method='POST'>
               Item(s): <input type='text' name='edit_items' value='".$row['items']."'>(Id's separated with \",\")<br />
@@ -61,26 +76,27 @@ if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
            die('Error in item field! You must have items IDS separated with ","');
         }
     if ($_POST['add_description'] != '' && $_POST['add_donation'] != '' && $_POST['add_currency'] != ''){
-        $DB->query("INSERT INTO `donations_template`
-        (items,description,donation,currency,itemset,realm) VALUES
-        (
-        '".$_POST['add_items']."',
-        '".$_POST['add_description']."',
-        '".$_POST['add_donation']."',
-        '".$_POST['add_currency']."',
-        '".$_POST['add_itemset']."',
-		'".$_POST['rid']."'
-        )
-        ");
+        $stmt = $donatePdo->prepare("INSERT INTO `donations_template` (items,description,donation,currency,itemset,realm) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([
+            $_POST['add_items'],
+            $_POST['add_description'],
+            $_POST['add_donation'],
+            $_POST['add_currency'],
+            $_POST['add_itemset'],
+            $_POST['rid']
+        ]);
         echo "New donation template added.";
     }
 }elseif(isset($_POST['donation_delete'])){
-    $DB->query("DELETE FROM `donations_template` WHERE id='".$_POST['donation_delete']."'");
+    $stmt = $donatePdo->prepare("DELETE FROM `donations_template` WHERE id=?");
+    $stmt->execute([(int)$_POST['donation_delete']]);
     echo "Donation pack with ID: ".$_POST['donation_delete']." deleted.";
 }elseif(isset($_POST['donation_send_payment_requested'])){
      $txnid = $_POST['donation_send_payment_requested'];
      if (empty($txnid))die("_POST is empty, some error happened.!");
-     $p_info = $DB->selectRow("SELECT * FROM `paypal_payment_info` WHERE txnid='".$txnid."'");
+     $stmt = $donatePdo->prepare("SELECT * FROM `paypal_payment_info` WHERE txnid=?");
+     $stmt->execute([$txnid]);
+     $p_info = $stmt->fetch(PDO::FETCH_ASSOC);
      $MANG = new Mangos;
      if($MANG->mail_item_donation($p_info['itemnumber'], $p_info['itemname'],$p_info['txnid']) == TRUE){
          echo "<p><h1>ITEMPACK: \"".$p_info['itemnumber']."\" SENT TO \"".$p_info['firstname'].' '.$p_info['lastname']."\".</h1></p>";
@@ -104,7 +120,8 @@ if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
         <td>
 
         <?php
-        $rows = $DB->select("SELECT * FROM `donations_template`");
+        $stmt = $donatePdo->query("SELECT * FROM `donations_template`");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (count($rows) > 0){
             echo "<select name='donate_items'>";
             foreach($rows as $row){
@@ -129,7 +146,8 @@ if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
 <p><b>Edit donation packs</b><br />
 <form action="index.php?n=admin&sub=donate" method="POST">
         <?php
-        $rows = $DB->select("SELECT * FROM `donations_template`");
+        $stmt = $donatePdo->query("SELECT * FROM `donations_template`");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (count($rows) > 0){
             echo "<select name='donation_edit'>";
             foreach($rows as $row){
@@ -157,7 +175,8 @@ if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
 <p><b>Delete donation packs</b><br />
 <form action="index.php?n=admin&sub=donate" method="POST">
         <?php
-        $rows = $DB->select("SELECT * FROM `donations_template`");
+        $stmt = $donatePdo->query("SELECT * FROM `donations_template`");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (count($rows) > 0){
             echo "<select name='donation_delete'>";
             foreach($rows as $row){
@@ -176,7 +195,8 @@ if (isset($_POST['donate_username']) && isset($_POST['donate_items'])){
 <form action="index.php?n=admin&sub=donate" method="POST">
 
 <?php
-    $rows = $DB->select("SELECT * FROM `paypal_payment_info` WHERE item_given != '1'");
+    $stmt = $donatePdo->query("SELECT * FROM `paypal_payment_info` WHERE item_given != '1'");
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if (count($rows) > 0){
         echo '<select name="donation_send_payment_requested">';
         foreach($rows as $row){

@@ -64,16 +64,14 @@ $limitstart = ($pid - 1) * $limit;
 
 $query .= $query_part2;
 $query .= ' LIMIT ' . $limitstart . ', ' . $limit;
-$ah_entry = $CHDB->select($query);
-$query2 = $CHDB->query("SELECT `id` from `auction`".$ah_where);
-$numofpgs = ((int)(count($query2) / (int)$MW->getConfig->generic->ahitems_per_page));
+$ahPdo = spp_get_pdo('chars', (int)$user['cur_selected_realmd']);
+$ahStmt = $ahPdo->query($query);
+$ah_entry = $ahStmt->fetchAll(PDO::FETCH_ASSOC);
+$cntStmt = $ahPdo->query("SELECT COUNT(*) FROM `auction`" . $ah_where);
+$numofpgs = (int)ceil($cntStmt->fetchColumn() / (int)$MW->getConfig->generic->ahitems_per_page);
 $wowhead_domain = "classic";
 if ($GLOBALS['expansion'] == 1)
     $wowhead_domain = "tbc";
 if ($GLOBALS['expansion'] == 2)
     $wowhead_domain = "wotlk";
-if (gettype(count($query2) / (int)$MW->getConfig->generic->ahitems_per_page) != "integer") {
-settype($numofpgs, "integer");
-$numofpgs++;
-}
 ?>

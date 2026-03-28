@@ -13,16 +13,15 @@ $limitstart = ($pid - 1) * $limit;
   $query = array();
   $realm_info = get_realm_byid($user['cur_selected_realmd']);
   $cc = 0;
+  $playerRealmId = (int)$user['cur_selected_realmd'];
     if(check_port_status($realm_info['address'], $realm_info['port'])===true)
     {
-        if($CHDB)$query = $CHDB->query("SELECT guid, name, race, class, gender, level, zone  FROM `characters` WHERE `online`='1' AND (NOT `extra_flags` & 1 AND NOT `extra_flags` & 16) ORDER BY `name`");
-		$numofpgs = ((int)(count($query) / (int)$MW->getConfig->generic->users_per_page));
-		if (gettype(count($query) / (int)$MW->getConfig->generic->users_per_page) != "integer") {
-		settype($numofpgs, "integer");
-		$numofpgs++;
-		}
-		if($CHDB)$query = $CHDB->select("SELECT guid, name, race, class, gender, level, zone  FROM `characters` WHERE `online`='1' AND (NOT `extra_flags` & 1 AND NOT `extra_flags` & 16) ORDER BY `name` LIMIT $limitstart,$limit");
-    }
+        $playerPdo = spp_get_pdo('chars', $playerRealmId);
+        $cntStmt = $playerPdo->query("SELECT COUNT(*) FROM `characters` WHERE `online`='1' AND (NOT `extra_flags` & 1 AND NOT `extra_flags` & 16)");
+        $numofpgs = (int)ceil($cntStmt->fetchColumn() / (int)$MW->getConfig->generic->users_per_page);
+        $stmt = $playerPdo->prepare("SELECT guid, name, race, class, gender, level, zone FROM `characters` WHERE `online`='1' AND (NOT `extra_flags` & 1 AND NOT `extra_flags` & 16) ORDER BY `name` LIMIT " . (int)$limitstart . "," . (int)$limit);
+        $stmt->execute([]);
+        $query = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }else{
         output_message('alert','Realm <b>'.$realm_info['name'].'</b> is offline <img src="./templates/WotLK/images/downarrow2.gif" border="0" align="top">');
     }

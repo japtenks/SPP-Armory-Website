@@ -10,9 +10,12 @@ $pathway_info[] = array('title'=>$lang['gm_online'],'link'=>'');
   $query = array();
   $realm_info = get_realm_byid($user['cur_selected_realmd']);
   $cc = 0;
+  $gmRealmId = (int)$user['cur_selected_realmd'];
     if(check_port_status($realm_info['address'], $realm_info['port'])===true)
     {
-        if($CHDB)$query = $CHDB->select("SELECT name, race, class, level, zone  FROM `characters` WHERE `online`='1'  AND (`extra_flags` & 1 AND NOT `extra_flags` & 16) ORDER BY `name`");
+        $gmPdo = spp_get_pdo('chars', $gmRealmId);
+        $stmt = $gmPdo->query("SELECT name, race, class, level, zone FROM `characters` WHERE `online`='1' AND (`extra_flags` & 1 AND NOT `extra_flags` & 16) ORDER BY `name`");
+        $query = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }else{
         output_message('alert','Realm <b>'.$realm_info['name'].'</b> is offline <img src="./templates/offlike/images/downarrow2.gif" border="0" align="top">');
     }
@@ -39,8 +42,6 @@ $pathway_info[] = array('title'=>$lang['gm_online'],'link'=>'');
         $res_info[$cc]["level"] = $char_data;
         $res_info[$cc]["pos"] = $res_pos;
     }
-    unset($WSDB);
-    unset($CHDB);
     unset($MANG);
 
 ?>

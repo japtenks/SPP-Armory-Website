@@ -90,7 +90,7 @@ $realmDbMap = $GLOBALS['realmDbMap'] ?? [] ;
 include 	( 'core/common.php' ) ;
 include 	( 'core/mangos.class.php' ) ;
 include 	( 'core/class.auth.php' ) ;
-require_once( 'core/dbsimple/Generic.php' ) ;
+// core/dbsimple/Generic.php still loaded by armory subsystem (armory/index.php loads it independently)
 require 	( 'core/class.captcha.php' ) ;
 include 	( 'core/cache_class/safeIO.php' ) ;
 include 	( 'core/cache_class/gCache.php' ) ;
@@ -125,16 +125,6 @@ $cache = new gCache ;
 $cache->folder = './core/cache/sites' ;
 $cache->timeout = $MW->getConfig->generic->cache_expiretime ;
 
-// Assign a connect variable to class call.
-// DB layer documentation at http://en.dklab.ru/lib/DbSimple/
-$DB = dbsimple_Generic::connect( "" . $MW->getDbInfo['db_type'] . "://" . $MW->getDbInfo['db_username'] .
-	":" . $MW->getDbInfo['db_password'] . "@" . $MW->getDbInfo['db_host'] . ":" . $MW->getDbInfo['db_port'] .
-	"/" . $MW->getDbInfo['db_name'] . "" ) ;
-// Set error handler for $DB.
-$DB->setErrorHandler( 'databaseErrorHandler' ) ;
-// Also set to default encoding for $DB
-$DB->query( "SET NAMES " . $MW->getDbInfo['db_encoding'] ) ;
-
 // Play arround for IIS lake on $_SERVER['REQUEST_URI']
 if ( $_SERVER['REQUEST_URI'] == "" )
 {
@@ -167,7 +157,7 @@ loadLanguages() ;
 // ================================================
 
 // Load auth system //
-$auth = new AUTH( $DB, $MW->getConfig ) ;
+$auth = new AUTH( null, $MW->getConfig ) ;
 $user = $auth->user ;
 // ================== //
 
@@ -353,24 +343,6 @@ if ( $mangos['db_host'] == '127.0.0.1' && $mangos['db_port'] == '3306' && $mango
 	echo "Please read README_HOWTO.txt, This is a error message btw. You must remember to setup the WORLD database information in the realm.realmlist database! :)<br />Edit the `dbinfo` to: World database info: username;password;3306;127.0.0.1;DBName" ;
 	die ;
 }
-
-//Connects to WORLD DB
-$WSDB = DbSimple_Generic::connect( "" . $mangos['db_type'] . "://" . $mangos['db_username'] .
-	":" . $mangos['db_password'] . "@" . $mangos['db_host'] . ":" . $mangos['db_port'] .
-	"/" . $mangos['db_name'] . "" ) ;
-if ( $WSDB )
-	$WSDB->setErrorHandler( 'databaseErrorHandler' ) ;
-if ( $WSDB )
-	$WSDB->query( "SET NAMES " . $mangos['db_encoding'] ) ;
-
-$CHDB = DbSimple_Generic::connect( "" . $mangos['db_type'] . "://" . $mangos['db_username'] .
-	":" . $mangos['db_password'] . "@" . $mangos['db_host'] . ":" . $mangos['db_port'] .
-	"/" . $mangos['db_char'] . "" ) ;
-if ( $CHDB )
-	$CHDB->setErrorHandler( 'databaseErrorHandler' ) ;
-if ( $CHDB )
-	$CHDB->query( "SET NAMES " . $mangos['db_encoding'] ) ;
-
 
 //Load characters list
 if (!empty($characters) && is_array($characters)) {
