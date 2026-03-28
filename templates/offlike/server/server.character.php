@@ -275,6 +275,9 @@ function spp_character_skill_icon_url($skillName, $iconName) {
         'Fishing' => 'INV_Misc_Fish_08',
         'Cooking' => 'INV_Misc_Food_15',
         'First Aid' => 'INV_Misc_Bandage_15',
+        'Alchemy' => 'Trade_Alchemy',
+        'Enchanting' => 'Trade_Engraving',
+        'Skinning' => 'INV_Misc_Pelt_Wolf_01',
         'Riding' => 'Ability_Mount_RidingHorse',
         'Shield' => 'INV_Shield_06',
         'Shields' => 'INV_Shield_06',
@@ -421,6 +424,60 @@ function spp_character_recipe_display_name($name) {
     if ($name === '') return '';
     $display = preg_replace('/^(recipe|pattern|plans|formula|manual|schematic|book|design|tome|technique)\s*:\s*/i', '', $name);
     return trim((string)$display) !== '' ? trim((string)$display) : $name;
+}
+
+function spp_character_profession_spell_matches_skill($skillId, $spellName, $itemName = '') {
+    $skillId = (int)$skillId;
+    $haystack = strtolower(trim((string)$spellName . ' ' . $itemName));
+    if ($haystack === '') return false;
+
+    $containsAny = function ($needles) use ($haystack) {
+        foreach ($needles as $needle) {
+            if ($needle !== '' && strpos($haystack, strtolower($needle)) !== false) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    switch ($skillId) {
+        case 129:
+            return $containsAny(array('bandage', 'anti-venom'));
+        case 164:
+            return $containsAny(array(
+                'sharpening stone', 'weightstone', 'grinding stone', 'copper ', 'bronze ', 'iron ', 'steel ',
+                'silvered ', 'golden ', 'chain ', 'bracers', 'gauntlets', 'leggings', 'belt', 'boots',
+                'helm', 'breastplate', 'cuirass', 'shield spike', 'spurs', 'shortsword', 'battle axe',
+                'mace', 'dagger', 'knife', 'buckler'
+            ));
+        case 165:
+            return $containsAny(array(
+                'leather', 'hide', 'armor kit', 'quiver', 'ammo pouch', 'drums', 'deviate scale',
+                'cured ', 'handstitched', 'embossed', 'fine leather', 'barbaric'
+            ));
+        case 171:
+            return $containsAny(array('potion', 'elixir', 'flask', 'oil', 'transmute', 'philosopher', 'alchemist'));
+        case 185:
+            return $containsAny(array(
+                'charred ', 'roasted ', 'brilliant smallfish', 'longjaw mud snapper', 'crab cake', 'stew',
+                'soup', 'chowder', 'gumbo', 'omelet', 'sausage', 'kebab', 'delight', 'cooked ', 'spice bread'
+            ));
+        case 197:
+            return $containsAny(array(
+                'linen', 'woolen', 'silk', 'mageweave', 'runecloth', 'bolt of ', 'shirt', 'robe', 'pants',
+                'belt', 'gloves', 'boots', 'shoulders', 'bag', 'cloak', 'hood'
+            ));
+        case 202:
+            return $containsAny(array(
+                'blasting powder', 'dynamite', 'bolts', 'tube', 'bomb', 'scope', 'target dummy', 'seaforium',
+                'goggles', 'blunderbuss', 'rifle', 'mortar', 'fuse', 'dragonling', 'torch', 'modulator',
+                'explosive'
+            ));
+        case 333:
+            return strpos($haystack, 'enchant ') === 0 || $containsAny(array('runed ', 'wand'));
+        default:
+            return false;
+    }
 }
 
 function spp_character_recipe_filter_labels() {
@@ -1457,6 +1514,212 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
         }
 
         if (spp_character_table_exists($charsPdo, 'character_achievement')) {
+            if (spp_character_table_exists($charsPdo, 'character_spell') && !empty($professionsByCategory)) {
+                $professionSkillIds = array();
+                foreach ($professionsByCategory as $categorySkills) {
+                    foreach ($categorySkills as $skill) {
+                        $skillId = (int)($skill['skill_id'] ?? 0);
+                        if ($skillId > 0) $professionSkillIds[$skillId] = true;
+                    }
+                }
+
+                if (!empty($professionSkillIds)) {
+                    $stmt = $charsPdo->prepare('SELECT `spell` FROM `character_spell` WHERE `guid` = ? AND `disabled` = 0');
+                    $stmt->execute(array($characterGuid));
+                    $learnedSpellIds = array();
+                    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                        $spellId = (int)($row['spell'] ?? 0);
+                        if ($spellId > 0) $learnedSpellIds[$spellId] = true;
+                    }
+                    $knownCharacterSpells = $learnedSpellIds;
+
+                    $trainerSpellIdsBySkill = array();
+                    if (!empty($professionSkillIds) && spp_character_table_exists($worldPdo, 'npc_trainer') && spp_character_table_exists($worldPdo, 'npc_trainer_template')) {
+                        $skillPlaceholders = implode(',', array_fill(0, count($professionSkillIds), '?'));
+                        $trainerStmt = $worldPdo->prepare(
+                            'SELECT `spell`, `reqskill`, `reqskillvalue` FROM `npc_trainer` WHERE `reqskill` IN (' . $skillPlaceholders . ') ' .
+                            'UNION SELECT `spell`, `reqskill`, `reqskillvalue` FROM `npc_trainer_template` WHERE `reqskill` IN (' . $skillPlaceholders . ')'
+                        );
+                        $trainerStmt->execute(array_merge(array_keys($professionSkillIds), array_keys($professionSkillIds)));
+                        foreach ($trainerStmt->fetchAll(PDO::FETCH_ASSOC) as $trainerRow) {
+                            $skillId = (int)($trainerRow['reqskill'] ?? 0);
+                            $spellId = (int)($trainerRow['spell'] ?? 0);
+                            if ($skillId <= 0 || $spellId <= 0) continue;
+                            if (!isset($trainerSpellIdsBySkill[$skillId])) $trainerSpellIdsBySkill[$skillId] = array();
+                            $existingRequired = $trainerSpellIdsBySkill[$skillId][$spellId] ?? null;
+                            $requiredValue = (int)($trainerRow['reqskillvalue'] ?? 0);
+                            if ($existingRequired === null || $requiredValue < $existingRequired) {
+                                $trainerSpellIdsBySkill[$skillId][$spellId] = $requiredValue;
+                            }
+                        }
+                    }
+
+                    $professionSpellbookBySkillId = array();
+                    if (!empty($learnedSpellIds)) {
+                        $spellPlaceholders = implode(',', array_fill(0, count($learnedSpellIds), '?'));
+                        $spellStmt = $worldPdo->prepare(
+                            'SELECT `Id`, `SpellName`, `SpellIconID`, `EffectItemType1`, `EffectItemType2`, `EffectItemType3` ' .
+                            'FROM `spell_template` WHERE `Id` IN (' . $spellPlaceholders . ')'
+                        );
+                        $spellStmt->execute(array_keys($learnedSpellIds));
+                        $spellRows = $spellStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                        $spellMetaMap = array();
+                        $spellOutputMap = array();
+                        $spellIconIds = array();
+                        $craftedItemIds = array();
+                        foreach ($spellRows as $spellRow) {
+                            $spellId = (int)($spellRow['Id'] ?? 0);
+                            if ($spellId <= 0) continue;
+                            $spellMetaMap[$spellId] = $spellRow;
+                            $spellIconId = (int)($spellRow['SpellIconID'] ?? 0);
+                            if ($spellIconId > 0) $spellIconIds[$spellIconId] = true;
+                            foreach (array('EffectItemType1', 'EffectItemType2', 'EffectItemType3') as $field) {
+                                $itemId = (int)($spellRow[$field] ?? 0);
+                                if ($itemId <= 0) continue;
+                                if (!isset($spellOutputMap[$spellId])) $spellOutputMap[$spellId] = array();
+                                $spellOutputMap[$spellId][$itemId] = true;
+                                $craftedItemIds[$itemId] = true;
+                            }
+                        }
+
+                        $spellIconMap = array();
+                        $spellIconPdo = spp_character_pick_dbc_pdo(array($armoryPdo, $worldPdo), 'dbc_spellicon') ?: $armoryPdo;
+                        if (!empty($spellIconIds) && $spellIconPdo && spp_character_table_exists($spellIconPdo, 'dbc_spellicon')) {
+                            $spellIconFields = spp_character_spellicon_fields($spellIconPdo);
+                            if ($spellIconFields['id'] && $spellIconFields['name']) {
+                                $iconPlaceholders = implode(',', array_fill(0, count($spellIconIds), '?'));
+                                $iconStmt = $spellIconPdo->prepare(
+                                    'SELECT `' . $spellIconFields['id'] . '` AS `id`, `' . $spellIconFields['name'] . '` AS `name` ' .
+                                    'FROM `dbc_spellicon` WHERE `' . $spellIconFields['id'] . '` IN (' . $iconPlaceholders . ')'
+                                );
+                                $iconStmt->execute(array_keys($spellIconIds));
+                                foreach ($iconStmt->fetchAll(PDO::FETCH_ASSOC) as $iconRow) {
+                                    $spellIconMap[(int)$iconRow['id']] = (string)$iconRow['name'];
+                                }
+                            }
+                        }
+
+                        $craftedItemMap = array();
+                        $craftedItemIconMap = array();
+                        if (!empty($craftedItemIds) && spp_character_table_exists($worldPdo, 'item_template')) {
+                            $itemPlaceholders = implode(',', array_fill(0, count($craftedItemIds), '?'));
+                            $itemStmt = $worldPdo->prepare(
+                                'SELECT `entry`, `name`, `Quality`, `RequiredSkill`, `RequiredSkillRank`, `displayid` FROM `item_template` WHERE `entry` IN (' . $itemPlaceholders . ')'
+                            );
+                            $itemStmt->execute(array_keys($craftedItemIds));
+                            $displayIds = array();
+                            foreach ($itemStmt->fetchAll(PDO::FETCH_ASSOC) as $itemRow) {
+                                $craftedItemMap[(int)$itemRow['entry']] = $itemRow;
+                                $displayId = (int)($itemRow['displayid'] ?? 0);
+                                if ($displayId > 0) $displayIds[$displayId] = true;
+                            }
+                            if (!empty($displayIds) && spp_character_table_exists($armoryPdo, 'dbc_itemdisplayinfo')) {
+                                $displayPlaceholders = implode(',', array_fill(0, count($displayIds), '?'));
+                                $displayStmt = $armoryPdo->prepare('SELECT `id`, `name` FROM `dbc_itemdisplayinfo` WHERE `id` IN (' . $displayPlaceholders . ')');
+                                $displayStmt->execute(array_keys($displayIds));
+                                foreach ($displayStmt->fetchAll(PDO::FETCH_ASSOC) as $displayRow) {
+                                    $craftedItemIconMap[(int)$displayRow['id']] = (string)$displayRow['name'];
+                                }
+                            }
+                        }
+
+                        foreach (array_keys($learnedSpellIds) as $spellId) {
+                            if (!isset($spellMetaMap[$spellId])) continue;
+                            $hasCraftOutput = !empty($spellOutputMap[$spellId]);
+                            $assignedSkills = array();
+                            foreach ($trainerSpellIdsBySkill as $skillId => $trainerSpells) {
+                                if (isset($trainerSpells[$spellId])) $assignedSkills[$skillId] = true;
+                            }
+                            if (empty($assignedSkills) && $hasCraftOutput) {
+                                $itemRequiredSkills = array();
+                                foreach (array_keys($spellOutputMap[$spellId] ?? array()) as $itemId) {
+                                    $requiredSkill = (int)($craftedItemMap[$itemId]['RequiredSkill'] ?? 0);
+                                    if ($requiredSkill > 0 && !empty($professionSkillIds[$requiredSkill])) {
+                                        $itemRequiredSkills[$requiredSkill] = true;
+                                    }
+                                }
+                                if (count($itemRequiredSkills) === 1) {
+                                    $assignedSkills = $itemRequiredSkills;
+                                }
+                            }
+                            if (empty($assignedSkills)) {
+                                $spellRow = $spellMetaMap[$spellId];
+                                $spellName = trim((string)($spellRow['SpellName'] ?? ''));
+                                $primaryItemName = '';
+                                foreach (array_keys($spellOutputMap[$spellId] ?? array()) as $itemId) {
+                                    if (!empty($craftedItemMap[$itemId]['name'])) {
+                                        $primaryItemName = (string)$craftedItemMap[$itemId]['name'];
+                                        break;
+                                    }
+                                }
+                                foreach (array_keys($professionSkillIds) as $candidateSkillId) {
+                                    if (spp_character_profession_spell_matches_skill($candidateSkillId, $spellName, $primaryItemName)) {
+                                        $assignedSkills[$candidateSkillId] = true;
+                                    }
+                                }
+                                if (count($assignedSkills) !== 1) {
+                                    $assignedSkills = array();
+                                }
+                            }
+                            if (empty($assignedSkills)) continue;
+
+                            $spellRow = $spellMetaMap[$spellId];
+                            $spellName = trim((string)($spellRow['SpellName'] ?? ''));
+                            if ($spellName === '') $spellName = 'Spell #' . $spellId;
+                            $craftedItems = array();
+                            foreach (array_keys($spellOutputMap[$spellId] ?? array()) as $itemId) {
+                                if (!isset($craftedItemMap[$itemId])) continue;
+                                $itemRow = $craftedItemMap[$itemId];
+                                $craftedItems[] = array(
+                                    'entry' => $itemId,
+                                    'name' => (string)($itemRow['name'] ?? ('Item #' . $itemId)),
+                                    'quality' => (int)($itemRow['Quality'] ?? 1),
+                                    'required_rank' => (int)($itemRow['RequiredSkillRank'] ?? 0),
+                                    'icon' => spp_character_icon_url($craftedItemIconMap[(int)($itemRow['displayid'] ?? 0)] ?? ''),
+                                );
+                            }
+                            $spellIcon = spp_character_icon_url($spellIconMap[(int)($spellRow['SpellIconID'] ?? 0)] ?? '');
+
+                            foreach (array_keys($assignedSkills) as $skillId) {
+                                if (!isset($professionSpellbookBySkillId[$skillId])) $professionSpellbookBySkillId[$skillId] = array();
+                                $professionSpellbookBySkillId[$skillId][] = array(
+                                    'spell_id' => $spellId,
+                                    'spell_name' => $spellName,
+                                    'icon' => !empty($craftedItems[0]['icon']) ? $craftedItems[0]['icon'] : $spellIcon,
+                                    'quality' => !empty($craftedItems[0]['quality']) ? (int)$craftedItems[0]['quality'] : 1,
+                                    'item_entry' => !empty($craftedItems[0]['entry']) ? (int)$craftedItems[0]['entry'] : 0,
+                                    'item_name' => !empty($craftedItems[0]['name']) ? (string)$craftedItems[0]['name'] : '',
+                                    'required_rank' => isset($trainerSpellIdsBySkill[$skillId][$spellId]) ? (int)$trainerSpellIdsBySkill[$skillId][$spellId] : (!empty($craftedItems[0]['required_rank']) ? (int)$craftedItems[0]['required_rank'] : 0),
+                                    'created_items' => $craftedItems,
+                                );
+                            }
+                        }
+
+                        foreach ($professionSpellbookBySkillId as &$spellbook) {
+                            usort($spellbook, function ($left, $right) {
+                                if ((int)$left['required_rank'] !== (int)$right['required_rank']) {
+                                    return (int)$right['required_rank'] <=> (int)$left['required_rank'];
+                                }
+                                return strcasecmp((string)$left['spell_name'], (string)$right['spell_name']);
+                            });
+                        }
+                        unset($spellbook);
+                    }
+
+                    foreach ($professionsByCategory as &$categorySkills) {
+                        foreach ($categorySkills as &$skill) {
+                            $skillId = (int)($skill['skill_id'] ?? 0);
+                            $skill['recipes'] = $professionSpellbookBySkillId[$skillId] ?? array();
+                            $skill['specializations'] = spp_character_profession_specializations((string)($skill['name'] ?? ''), $knownCharacterSpells);
+                            $skill['recipe_filters'] = array();
+                        }
+                        unset($skill);
+                    }
+                    unset($categorySkills);
+                }
+            }
+
             $achievementSourcePdo = null;
             $achievementQuerySql = '';
             $achievementIconIdField = '';
@@ -2433,7 +2696,87 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
   <?php if ($tab === 'talents'): ?><div style="margin-top:4px;"><?php $__savedGet = $_GET; $_GET['realm'] = (string)$realmId; $_GET['character'] = (string)$characterName; $_GET['mode'] = 'profile'; $_GET['embed'] = '1'; unset($_GET['class']); include($siteRoot . '/templates/offlike/server/server.talents.php'); $_GET = $__savedGet; ?></div><?php endif; ?>
   <?php if ($tab === 'reputation'): ?><section class="character-panel"><h2 class="character-panel-title">Reputation</h2><?php if (!empty($reputationSections)): ?><div class="character-reputation-sections"><?php foreach ($reputationSections as $sectionLabel => $sectionReputations): ?><section class="character-reputation-section"><h3 class="character-reputation-section-title"><?php echo htmlspecialchars($sectionLabel); ?></h3><div class="character-reputation-list"><?php foreach ($sectionReputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier']); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php elseif (!empty($reputations)): ?><div class="character-reputation-list"><?php foreach ($reputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier'] ?? spp_character_reputation_tier($reputation['label'] ?? 'neutral')); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div><?php else: ?><div class="character-empty">No visible reputations were found for this character.</div><?php endif; ?></section><?php endif; ?>
   <?php if ($tab === 'skills'): ?><section class="character-panel"><h2 class="character-panel-title">Skills</h2><?php if (!empty($skillsByCategory)): ?><div class="character-skill-sections"><?php foreach ($skillsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No non-class skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
-<?php if ($tab === 'professions'): ?><section class="character-panel"><h2 class="character-panel-title">Professions</h2><?php if (!empty($professionsByCategory)): ?><div class="character-skill-sections"><?php foreach ($professionsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if (!empty($skill['specializations'])): ?><div class="character-skill-specialization"><?php echo htmlspecialchars(implode(' / ', $skill['specializations'])); ?></div><?php endif; ?><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['rank_label'] ?? ($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max']))); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div><?php if (!empty($skill['recipes'])): ?><?php $recipeListId = 'recipe-list-' . preg_replace('/[^a-z0-9]+/i', '-', strtolower(($skill['name'] ?? 'skill') . '-' . ($skill['skill_id'] ?? 0))); ?><details class="character-profession-recipes"><summary><strong>Known Special Recipes</strong><span><?php echo (int)count($skill['recipes']); ?> tracked</span></summary><?php if (!empty($skill['recipe_filters'])): ?><div class="character-recipe-filters"><?php foreach ($skill['recipe_filters'] as $filterIndex => $filter): ?><button type="button" class="character-recipe-filter<?php echo $filterIndex === 0 ? ' is-active' : ''; ?>" onclick="sppRecipeFilter(this, '<?php echo htmlspecialchars($recipeListId); ?>', '<?php echo htmlspecialchars($filter['key']); ?>')"><?php echo htmlspecialchars($filter['label']); ?><?php if (!empty($filter['count']) && $filter['key'] !== 'all'): ?> <span>(<?php echo (int)$filter['count']; ?>)</span><?php endif; ?></button><?php endforeach; ?></div><?php endif; ?><div class="character-recipe-list" id="<?php echo htmlspecialchars($recipeListId); ?>"><?php foreach ($skill['recipes'] as $recipe): ?><a class="character-recipe-row quality-<?php echo (int)$recipe['quality']; ?>" data-tags="|<?php echo htmlspecialchars(implode('|', $recipe['tags'] ?? array('all'))); ?>|" href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$recipe['entry']); ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$recipe['entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"><img src="<?php echo htmlspecialchars($recipe['icon']); ?>" alt="<?php echo htmlspecialchars($recipe['name']); ?>"><div><strong><?php echo htmlspecialchars($recipe['name']); ?></strong><?php if (($recipe['source'] ?? '') !== ''): ?><div class="character-recipe-source"><?php echo htmlspecialchars($recipe['source']); ?></div><?php endif; ?><div class="character-recipe-badges"><?php if (!empty($recipe['tag_map']['faction'])): ?><span class="character-recipe-badge is-faction">Faction</span><?php endif; ?><?php if (!empty($recipe['tag_map']['rare-drop'])): ?><span class="character-recipe-badge is-rare-drop">Rare Drop</span><?php endif; ?><?php if (!empty($recipe['tag_map']['endgame'])): ?><span class="character-recipe-badge is-endgame">300 Skill</span><?php endif; ?><?php if (!empty($recipe['tag_map']['flask'])): ?><span class="character-recipe-badge is-flask">Flask</span><?php endif; ?></div></div></a><?php endforeach; ?></div></details><?php elseif (stripos((string)$categoryName, 'profession') !== false || stripos((string)$categoryName, 'secondary') !== false): ?><div class="character-profession-recipes"><div class="character-recipe-empty">No tracked special recipes yet. Trainer-learned basics are still covered by the profession rank above.</div></div><?php endif; ?></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No professions or secondary skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
+<?php if ($tab === 'professions'): ?>
+<section class="character-panel">
+    <h2 class="character-panel-title">Professions</h2>
+    <?php if (!empty($professionsByCategory)): ?>
+    <div class="character-skill-sections">
+        <?php foreach ($professionsByCategory as $categoryName => $categorySkills): ?>
+        <section class="character-skill-section">
+            <h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3>
+            <div class="character-skill-grid">
+                <?php foreach ($categorySkills as $skill): ?>
+                <article class="character-skill-card">
+                    <div class="character-skill-card-head">
+                        <div class="character-skill-card-title">
+                            <img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt="">
+                            <div>
+                                <strong><?php echo htmlspecialchars($skill['name']); ?></strong>
+                                <?php if (!empty($skill['specializations'])): ?>
+                                <div class="character-skill-specialization"><?php echo htmlspecialchars(implode(' / ', $skill['specializations'])); ?></div>
+                                <?php endif; ?>
+                                <?php if ($skill['description'] !== ''): ?>
+                                <div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <span class="character-skill-rank"><?php echo htmlspecialchars($skill['rank_label'] ?? ($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max']))); ?></span>
+                    </div>
+                    <div class="character-bar-track">
+                        <div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div>
+                        <div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div>
+                    </div>
+
+                    <?php if (!empty($skill['recipes'])): ?>
+                    <details class="character-profession-recipes">
+                        <summary>
+                            <strong>Profession Spellbook</strong>
+                            <span><?php echo (int)count($skill['recipes']); ?> recorded</span>
+                        </summary>
+                        <div class="character-recipe-list">
+                            <?php foreach ($skill['recipes'] as $recipe): ?>
+                                <?php $rowTag = !empty($recipe['item_entry']) ? 'a' : 'div'; ?>
+                                <<?php echo $rowTag; ?>
+                                    class="character-recipe-row quality-<?php echo (int)$recipe['quality']; ?>"
+                                    <?php if ($rowTag === 'a'): ?>
+                                    href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$recipe['item_entry']); ?>"
+                                    onmousemove="modernMoveTooltip(event)"
+                                    onmouseover="modernRequestTooltip(event, <?php echo (int)$recipe['item_entry']; ?>, <?php echo (int)$realmId; ?>)"
+                                    onmouseout="modernHideTooltip()"
+                                    <?php endif; ?>
+                                >
+                                    <img src="<?php echo htmlspecialchars($recipe['icon']); ?>" alt="<?php echo htmlspecialchars($recipe['spell_name']); ?>">
+                                    <div>
+                                        <strong><?php echo htmlspecialchars($recipe['spell_name']); ?></strong>
+                                        <?php if (!empty($recipe['item_name'])): ?>
+                                        <div class="character-recipe-source">Creates <?php echo htmlspecialchars($recipe['item_name']); ?></div>
+                                        <?php elseif (!empty($recipe['created_items'])): ?>
+                                        <div class="character-recipe-source">Creates <?php echo htmlspecialchars(implode(', ', array_map(function ($item) { return (string)($item['name'] ?? ''); }, $recipe['created_items']))); ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($recipe['required_rank'])): ?>
+                                        <div class="character-recipe-source"><?php echo (int)$recipe['required_rank']; ?> skill</div>
+                                        <?php endif; ?>
+                                    </div>
+                                </<?php echo $rowTag; ?>>
+                            <?php endforeach; ?>
+                        </div>
+                    </details>
+                    <?php elseif (stripos((string)$categoryName, 'profession') !== false || stripos((string)$categoryName, 'secondary') !== false): ?>
+                    <div class="character-profession-recipes">
+                        <div class="character-recipe-empty">No profession spellbook entries were recorded for this skill yet.</div>
+                    </div>
+                    <?php endif; ?>
+                </article>
+                <?php endforeach; ?>
+            </div>
+        </section>
+        <?php endforeach; ?>
+    </div>
+    <?php else: ?>
+    <div class="character-empty">No professions or secondary skills could be read from the realm database.</div>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
 <?php if ($tab === 'quest log'): ?>
   <?php
     $questLogItems = array();

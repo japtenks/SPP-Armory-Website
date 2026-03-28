@@ -67,11 +67,12 @@ function build_main_menu($asList = false) {
             if (!$asList) {
                 echo '<div class="menu-block">';
                 foreach ($menuitems as $item) {
-                    if (isset($item[0], $lang[$item[0]])) {
+                    if (isset($item[0])) {
+                        $itemLabel = $lang[$item[0]] ?? $item[0];
                         if ($menukey === "community" && $item[0] === "server_rules") {
-                            echo '<div class="menu-item"><a href="'.$item[1].'">'.$lang[$item[0]].'</a></div>';
+                            echo '<div class="menu-item"><a href="'.$item[1].'">'.$itemLabel.'</a></div>';
                         } elseif ($menukey !== "community" || $item[0] !== "server_rules") {
-                            echo '<div class="menu-item"><a href="'.$item[1].'">'.$lang[$item[0]].'</a></div>';
+                            echo '<div class="menu-item"><a href="'.$item[1].'">'.$itemLabel.'</a></div>';
                         }
                     }
                 }
@@ -79,11 +80,12 @@ function build_main_menu($asList = false) {
             } else {
                 echo '<li class="has-sub"><a href="#">'.$menulabel.'</a><ul>';
                 foreach ($menuitems as $item) {
-                    if (isset($item[0], $lang[$item[0]])) {
+                    if (isset($item[0])) {
+                        $itemLabel = $lang[$item[0]] ?? $item[0];
                         if ($menukey === "community" && $item[0] === "server_rules") {
-                            echo '<li><a href="'.$item[1].'">'.$lang[$item[0]].'</a></li>';
+                            echo '<li><a href="'.$item[1].'">'.$itemLabel.'</a></li>';
                         } elseif ($menukey !== "community" || $item[0] !== "server_rules") {
-                            echo '<li><a href="'.$item[1].'">'.$lang[$item[0]].'</a></li>';
+                            echo '<li><a href="'.$item[1].'">'.$itemLabel.'</a></li>';
                         }
                     }
                 }

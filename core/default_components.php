@@ -62,6 +62,7 @@ $mainnav_links = array(
     2 => array('honor',             'index.php?n=server&sub=honor',   ''),
 	3 => array('talent_calculator', 'index.php?n=server&sub=talents', ''),
     4 => array('items',             'index.php?n=server&sub=items',   ''),
+    5 => array('Market Place',       'index.php?n=server&sub=marketplace', ''),
   ),
 
   /* ------------------ 8. SUPPORT ------------------ */
@@ -108,6 +109,7 @@ $com_content = array(
         'sets'          => array('', 'Armor Sets', 'index.php?n=server&sub=sets', 1, 1),
         'talents'       => array('', 'Talents', 'index.php?n=server&sub=talents', 1, 1),
         'items'         => array('', 'items', 'index.php?n=server&sub=items', 1, 1),
+        'marketplace'   => array('', 'Market Place', 'index.php?n=server&sub=marketplace', 1, 1),
         'downloads'     => array('', 'Downloads', 'index.php?n=server&sub=downloads', 1, 1),
     ),
 

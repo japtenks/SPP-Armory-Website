@@ -376,12 +376,8 @@ if ( $CHDB )
 if (!empty($characters) && is_array($characters)) {
     foreach ($characters as $character) {
         if ($character['guid'] == ($_COOKIE['cur_selected_character'] ?? 0)) {
-            $DB->query(
-                'UPDATE website_accounts SET character_id=?d,character_name=? WHERE account_id=?d',
-                $character['guid'],
-                $character['name'],
-                $user['id']
-            );
+            $_waStmt = $_realmPdo->prepare('UPDATE website_accounts SET character_id=?,character_name=? WHERE account_id=?');
+            $_waStmt->execute([(int)$character['guid'], $character['name'], (int)$user['id']]);
         }
     }
 }
@@ -465,10 +461,10 @@ if (isset($_GET['setchar'])) {
 
         if (!$char) {
             // Fallback to the current realm DB if the global character cache is unavailable.
-            $char = $CHDB->selectRow(
-                "SELECT guid, name FROM `characters` WHERE guid=?d AND account=?d",
-                $charId, $user['id']
-            );
+            $_charsFbPdo = spp_get_pdo('chars', $selectedRealmId > 0 ? $selectedRealmId : $defaultRealmId);
+            $_stmt = $_charsFbPdo->prepare("SELECT guid, name FROM `characters` WHERE guid=? AND account=?");
+            $_stmt->execute([(int)$charId, (int)$user['id']]);
+            $char = $_stmt->fetch(PDO::FETCH_ASSOC);
         }
 
         if ($char) {
@@ -476,12 +472,10 @@ if (isset($_GET['setchar'])) {
             setcookie('cur_selected_character', $char['guid'], time() + 86400, '/');
             setcookie('cur_selected_realm', $selectedRealmId, time() + 86400, '/');
             setcookie('cur_selected_realmd', $selectedRealmId, time() + 86400, '/');
-            $DB->query(
-                "UPDATE website_accounts 
-                 SET character_id=?d, character_name=? 
-                 WHERE account_id=?d",
-                $char['guid'], $char['name'], $user['id']
+            $_waStmt2 = spp_get_pdo('realmd', $defaultRealmId)->prepare(
+                "UPDATE website_accounts SET character_id=?, character_name=? WHERE account_id=?"
             );
+            $_waStmt2->execute([(int)$char['guid'], $char['name'], (int)$user['id']]);
         }
     }
 
@@ -569,7 +563,7 @@ if ( in_array( $ext, $allowed_ext ) )
 		// DEBUG //
 		if ( ( int )$MW->getConfig->generic->debuginfo )
 		{
-			output_message( 'debug', 'DEBUG://' . $DB->_statistics['count'] ) ;
+			output_message( 'debug', 'DEBUG://' ) ;
 			output_message( 'debug', '<pre>' . print_r( $_SERVER, true ) . '</pre>' ) ;
 		}
 		// =======//

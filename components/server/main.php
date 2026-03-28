@@ -115,6 +115,13 @@ $com_content['server'] = array(
         '7-menuArmory',
         0
     ),
+    'marketplace' => array(
+        '',
+        'Market Place',
+        mw_url('server', 'marketplace'),
+        '7-menuArmory',
+        0
+    ),
     'item' => array(
         '',
         'item',
