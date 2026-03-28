@@ -8,6 +8,33 @@ if ($siteDatabaseHandle !== null) {
     $DB = $siteDatabaseHandle;
 }
 
+if (!function_exists('spp_marketplace_table_exists')) {
+    function spp_marketplace_table_exists(PDO $pdo, $tableName)
+    {
+        static $cache = [];
+        $key = spl_object_hash($pdo) . ':' . $tableName;
+        if (isset($cache[$key])) return $cache[$key];
+        $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
+        $stmt->execute([$tableName]);
+        return $cache[$key] = (bool)$stmt->fetchColumn();
+    }
+}
+
+if (!function_exists('spp_marketplace_columns')) {
+    function spp_marketplace_columns(PDO $pdo, $tableName)
+    {
+        static $cache = [];
+        $key = spl_object_hash($pdo) . ':' . $tableName;
+        if (isset($cache[$key])) return $cache[$key];
+        $columns = [];
+        if (!spp_marketplace_table_exists($pdo, $tableName)) return $cache[$key] = $columns;
+        foreach ($pdo->query('SHOW COLUMNS FROM `' . str_replace('`', '``', $tableName) . '`')->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $columns[$row['Field']] = true;
+        }
+        return $cache[$key] = $columns;
+    }
+}
+
 if (!function_exists('spp_marketplace_icon_url')) {
     function spp_marketplace_icon_url($iconName)
     {
@@ -129,6 +156,89 @@ if (!function_exists('spp_marketplace_recipe_display_name')) {
     }
 }
 
+if (!function_exists('spp_marketplace_profession_spell_matches_skill')) {
+    function spp_marketplace_profession_spell_matches_skill($skillId, $spellName, $itemName = '')
+    {
+        $skillId = (int)$skillId;
+        $haystack = strtolower(trim((string)$spellName . ' ' . $itemName));
+        if ($haystack === '') return false;
+
+        $containsAny = function ($needles) use ($haystack) {
+            foreach ($needles as $needle) {
+                if ($needle !== '' && strpos($haystack, strtolower($needle)) !== false) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        switch ($skillId) {
+            case 129:
+                return $containsAny(array('bandage', 'anti-venom'));
+            case 164:
+                return $containsAny(array(
+                    'sharpening stone', 'weightstone', 'grinding stone', 'copper ', 'bronze ', 'iron ', 'steel ',
+                    'silvered ', 'golden ', 'chain ', 'bracers', 'gauntlets', 'leggings', 'belt', 'boots',
+                    'helm', 'breastplate', 'cuirass', 'shield spike', 'spurs', 'shortsword', 'battle axe',
+                    'mace', 'dagger', 'knife', 'buckler'
+                ));
+            case 165:
+                return $containsAny(array(
+                    'leather', 'hide', 'armor kit', 'quiver', 'ammo pouch', 'drums', 'deviate scale',
+                    'cured ', 'handstitched', 'embossed', 'fine leather', 'barbaric'
+                ));
+            case 171:
+                return $containsAny(array('potion', 'elixir', 'flask', 'oil', 'transmute', 'philosopher', 'alchemist'));
+            case 185:
+                return $containsAny(array(
+                    'charred ', 'roasted ', 'brilliant smallfish', 'longjaw mud snapper', 'crab cake', 'stew',
+                    'soup', 'chowder', 'gumbo', 'omelet', 'sausage', 'kebab', 'delight', 'cooked ', 'spice bread'
+                ));
+            case 197:
+                return $containsAny(array(
+                    'linen', 'woolen', 'silk', 'mageweave', 'runecloth', 'bolt of ', 'shirt', 'robe', 'pants',
+                    'belt', 'gloves', 'boots', 'shoulders', 'bag', 'cloak', 'hood'
+                ));
+            case 202:
+                return $containsAny(array(
+                    'blasting powder', 'dynamite', 'bolts', 'tube', 'bomb', 'scope', 'target dummy', 'seaforium',
+                    'goggles', 'blunderbuss', 'rifle', 'mortar', 'fuse', 'dragonling', 'torch', 'modulator',
+                    'explosive'
+                ));
+            case 333:
+                return strpos($haystack, 'enchant ') === 0 || $containsAny(array('runed ', 'wand'));
+            default:
+                return false;
+        }
+    }
+}
+
+if (!function_exists('spp_marketplace_faction_name')) {
+    function spp_marketplace_faction_name($raceId)
+    {
+        return in_array((int)$raceId, [1, 3, 4, 7, 11, 22, 25, 29], true) ? 'Alliance' : 'Horde';
+    }
+}
+
+if (!function_exists('spp_marketplace_is_specialized_trainer_label')) {
+    function spp_marketplace_is_specialized_trainer_label($label)
+    {
+        $label = strtolower(trim((string)$label));
+        if ($label === '') return false;
+        $keywords = [
+            'armorsmith', 'weaponsmith', 'tribal', 'elemental', 'dragonscale',
+            'master swordsmith', 'master hammersmith', 'master axesmith',
+            'gnomish', 'goblin', 'specialist', 'specialization'
+        ];
+        foreach ($keywords as $keyword) {
+            if (strpos($label, $keyword) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $realmLabel = spp_get_armory_realm_name($realmId) ?? '';
@@ -150,7 +260,7 @@ $pageError = '';
 
 // --- data cache (avoids 3–4 s of DB queries on every load) ---
 $_mpCacheDir  = $siteRoot . '/core/cache/sites';
-$_mpCacheFile = $_mpCacheDir . '/mp_' . md5('marketplace_' . $realmId) . '.dat';
+$_mpCacheFile = $_mpCacheDir . '/mp_' . md5('marketplace_v7_' . $realmId) . '.dat';
 $_mpCacheTTL  = 600; // 10 minutes
 
 $_mpFromCache = false;
@@ -265,25 +375,33 @@ try {
         }
     }
 
-    $craftsBySpell = [];
-    $craftsBySkillSpell = [];
+    $professionRecipesByGuidSkill = [];
     if (!empty($professionSkillIds) && !empty($learnedSpellIds)) {
         $spellIds = array_keys($learnedSpellIds);
-        $craftSpellPlaceholders = implode(',', array_fill(0, count($spellIds), '?'));
+        $spellPlaceholders = implode(',', array_fill(0, count($spellIds), '?'));
 
-        $craftSpellStmt = $worldPdo->prepare(
-            'SELECT `Id`, `EffectItemType1`, `EffectItemType2`, `EffectItemType3`
+        $spellStmt = $worldPdo->prepare(
+            'SELECT `Id`, `SpellName`, `SpellIconID`, `EffectItemType1`, `EffectItemType2`, `EffectItemType3`
              FROM `spell_template`
-             WHERE `Id` IN (' . $craftSpellPlaceholders . ')
-               AND (`EffectItemType1` > 0 OR `EffectItemType2` > 0 OR `EffectItemType3` > 0)'
+             WHERE `Id` IN (' . $spellPlaceholders . ')'
         );
-        $craftSpellStmt->execute($spellIds);
-        $craftSpellRows = $craftSpellStmt->fetchAll(PDO::FETCH_ASSOC);
+        $spellStmt->execute($spellIds);
+        $spellRows = $spellStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $craftedItemIds = [];
         $spellOutputMap = [];
-        foreach ($craftSpellRows as $spellRow) {
+        $spellMetaMap = [];
+        $spellIconIds = [];
+        foreach ($spellRows as $spellRow) {
             $spellId = (int)$spellRow['Id'];
+            if ($spellId <= 0) {
+                continue;
+            }
+            $spellMetaMap[$spellId] = $spellRow;
+            $spellIconId = (int)($spellRow['SpellIconID'] ?? 0);
+            if ($spellIconId > 0) {
+                $spellIconIds[$spellIconId] = true;
+            }
             foreach (['EffectItemType1', 'EffectItemType2', 'EffectItemType3'] as $field) {
                 $itemId = (int)($spellRow[$field] ?? 0);
                 if ($itemId <= 0) {
@@ -300,6 +418,21 @@ try {
 
         $craftItemMap = [];
         $craftIcons = [];
+        $spellIconMap = [];
+        if (!empty($spellIconIds)) {
+            $iconIdList = array_keys($spellIconIds);
+            $iconPlaceholders = implode(',', array_fill(0, count($iconIdList), '?'));
+            $spellIconStmt = $armoryPdo->prepare(
+                'SELECT `id`, `name`
+                 FROM `dbc_spellicon`
+                 WHERE `id` IN (' . $iconPlaceholders . ')'
+            );
+            $spellIconStmt->execute($iconIdList);
+            foreach ($spellIconStmt->fetchAll(PDO::FETCH_ASSOC) as $iconRow) {
+                $spellIconMap[(int)$iconRow['id']] = (string)$iconRow['name'];
+            }
+        }
+
         if (!empty($craftedItemIds)) {
             $craftedItemList = array_keys($craftedItemIds);
             $itemPlaceholders = implode(',', array_fill(0, count($craftedItemList), '?'));
@@ -335,66 +468,89 @@ try {
             }
         }
 
-        foreach ($spellOutputMap as $spellId => $itemIds) {
-            foreach (array_keys($itemIds) as $itemId) {
-                if (!isset($craftItemMap[$itemId])) {
-                    continue;
-                }
-
-                $itemRow = $craftItemMap[$itemId];
-                if (!isset($craftsBySpell[$spellId])) {
-                    $craftsBySpell[$spellId] = [];
-                }
-                $craftsBySpell[$spellId][$itemId] = [
-                    'entry' => $itemId,
-                    'name' => (string)$itemRow['name'],
-                    'quality' => (int)$itemRow['Quality'],
-                    'required_rank' => 0,
-                    'icon' => spp_marketplace_icon_url($craftIcons[(int)$itemRow['displayid']] ?? ''),
-                ];
-            }
-        }
-        foreach ($spellOutputMap as $spellId => $itemIds) {
-            foreach (array_keys($itemIds) as $itemId) {
-                $requiredSkill = (int)($craftItemMap[$itemId]['RequiredSkill'] ?? 0);
-                if ($requiredSkill <= 0 || !isset($professionSkillIds[$requiredSkill]) || !isset($craftsBySpell[$spellId][$itemId])) {
-                    continue;
-                }
-
-                if (!isset($craftsBySkillSpell[$requiredSkill])) {
-                    $craftsBySkillSpell[$requiredSkill] = [];
-                }
-                if (!isset($craftsBySkillSpell[$requiredSkill][$spellId])) {
-                    $craftsBySkillSpell[$requiredSkill][$spellId] = [];
-                }
-
-                $craft = $craftsBySpell[$spellId][$itemId];
-                $craft['required_rank'] = (int)($craftItemMap[$itemId]['RequiredSkillRank'] ?? 0);
-                $craftsBySkillSpell[$requiredSkill][$spellId][$itemId] = $craft;
-            }
-        }
-
-        foreach ($spellOutputMap as $spellId => $itemIds) {
-            foreach ($trainerSpellIdsBySkill as $skillId => $trainerSpells) {
-                if (!isset($trainerSpells[$spellId])) {
-                    continue;
-                }
-
-                if (!isset($craftsBySkillSpell[$skillId])) {
-                    $craftsBySkillSpell[$skillId] = [];
-                }
-                if (!isset($craftsBySkillSpell[$skillId][$spellId])) {
-                    $craftsBySkillSpell[$skillId][$spellId] = [];
-                }
-
-                foreach (array_keys($itemIds) as $itemId) {
-                    if (!isset($craftsBySpell[$spellId][$itemId])) {
+        foreach ($professionSkillsByGuid as $guid => $botSkillMap) {
+            foreach (array_keys($botSkillMap) as $skillId) {
+                foreach (array_keys($learnedSpellsByGuid[$guid] ?? []) as $spellId) {
+                    if (!isset($spellMetaMap[$spellId])) {
                         continue;
                     }
 
-                    $craft = $craftsBySpell[$spellId][$itemId];
-                    $craft['required_rank'] = (int)$trainerSpells[$spellId];
-                    $craftsBySkillSpell[$skillId][$spellId][$itemId] = $craft;
+                    $assignedSkills = [];
+                    if (isset($trainerSpellIdsBySkill[$skillId][$spellId])) {
+                        $assignedSkills[$skillId] = true;
+                    }
+
+                    if (empty($assignedSkills) && !empty($spellOutputMap[$spellId])) {
+                        $itemRequiredSkills = [];
+                        foreach (array_keys($spellOutputMap[$spellId]) as $itemId) {
+                            $requiredSkill = (int)($craftItemMap[$itemId]['RequiredSkill'] ?? 0);
+                            if ($requiredSkill > 0 && isset($botSkillMap[$requiredSkill])) {
+                                $itemRequiredSkills[$requiredSkill] = true;
+                            }
+                        }
+                        if (count($itemRequiredSkills) === 1 && !empty($itemRequiredSkills[$skillId])) {
+                            $assignedSkills = $itemRequiredSkills;
+                        }
+                    }
+
+                    if (empty($assignedSkills)) {
+                        $spellRow = $spellMetaMap[$spellId];
+                        $spellName = trim((string)($spellRow['SpellName'] ?? ''));
+                        $primaryItemName = '';
+                        foreach (array_keys($spellOutputMap[$spellId] ?? []) as $itemId) {
+                            if (!empty($craftItemMap[$itemId]['name'])) {
+                                $primaryItemName = (string)$craftItemMap[$itemId]['name'];
+                                break;
+                            }
+                        }
+                        if (spp_marketplace_profession_spell_matches_skill($skillId, $spellName, $primaryItemName)) {
+                            $assignedSkills[$skillId] = true;
+                        }
+                    }
+
+                    if (empty($assignedSkills[$skillId])) {
+                        continue;
+                    }
+
+                    $spellRow = $spellMetaMap[$spellId];
+                    $spellName = trim((string)($spellRow['SpellName'] ?? ''));
+                    if ($spellName === '') {
+                        $spellName = 'Spell #' . $spellId;
+                    }
+
+                    $craftedItems = [];
+                    foreach (array_keys($spellOutputMap[$spellId] ?? []) as $itemId) {
+                        if (!isset($craftItemMap[$itemId])) {
+                            continue;
+                        }
+                        $itemRow = $craftItemMap[$itemId];
+                        $craftedItems[] = [
+                            'entry' => $itemId,
+                            'name' => (string)($itemRow['name'] ?? ('Item #' . $itemId)),
+                            'quality' => (int)($itemRow['Quality'] ?? 1),
+                            'required_rank' => (int)($itemRow['RequiredSkillRank'] ?? 0),
+                            'icon' => spp_marketplace_icon_url($craftIcons[(int)($itemRow['displayid'] ?? 0)] ?? ''),
+                        ];
+                    }
+
+                    $spellIcon = spp_marketplace_icon_url($spellIconMap[(int)($spellRow['SpellIconID'] ?? 0)] ?? '');
+                    $requiredRank = isset($trainerSpellIdsBySkill[$skillId][$spellId])
+                        ? (int)$trainerSpellIdsBySkill[$skillId][$spellId]
+                        : (!empty($craftedItems[0]['required_rank']) ? (int)$craftedItems[0]['required_rank'] : 0);
+                    $isGeneralTrainerRecipe = isset($trainerSpellIdsBySkill[$skillId][$spellId]);
+
+                    $professionRecipesByGuidSkill[$guid][$skillId][$spellId] = [
+                        'spell_id' => $spellId,
+                        'spell_name' => $spellName,
+                        'item_entry' => !empty($craftedItems[0]['entry']) ? (int)$craftedItems[0]['entry'] : 0,
+                        'item_name' => !empty($craftedItems[0]['name']) ? (string)$craftedItems[0]['name'] : '',
+                        'quality' => !empty($craftedItems[0]['quality']) ? (int)$craftedItems[0]['quality'] : 1,
+                        'icon' => !empty($craftedItems[0]['icon']) ? $craftedItems[0]['icon'] : $spellIcon,
+                        'required_rank' => $requiredRank,
+                        'is_trainer' => $isGeneralTrainerRecipe,
+                        'is_special' => !$isGeneralTrainerRecipe && $requiredRank > 0,
+                        'created_items' => $craftedItems,
+                    ];
                 }
             }
         }
@@ -418,6 +574,7 @@ try {
                 'tiers' => [],
                 'total_bots' => 0,
                 'total_recipes' => 0,
+                'total_special_recipes' => 0,
                 'total_possible' => 0,
             ];
         }
@@ -430,23 +587,21 @@ try {
         foreach (($learnedSpellsByGuid[$guid] ?? []) as $spellId => $_unused) {
             $knownSpellIds[(int)$spellId] = true;
         }
-        $knownCrafts = [];
-        foreach (array_keys($knownSpellIds) as $spellId) {
-            if (isset($craftsBySkillSpell[$skillId][$spellId])) {
-                foreach ($craftsBySkillSpell[$skillId][$spellId] as $craft) {
-                    $knownCrafts[$craft['entry']] = $craft;
-                }
-                continue;
-            }
-        }
-
+        $knownCrafts = $professionRecipesByGuidSkill[$guid][$skillId] ?? [];
         uasort($knownCrafts, function ($left, $right) {
             $rankCompare = ((int)$right['required_rank']) <=> ((int)$left['required_rank']);
             if ($rankCompare !== 0) {
                 return $rankCompare;
             }
-            return strnatcasecmp((string)$left['name'], (string)$right['name']);
+            return strnatcasecmp((string)$left['spell_name'], (string)$right['spell_name']);
         });
+
+        $specialCrafts = [];
+        foreach ($knownCrafts as $spellId => $craft) {
+            if (!empty($craft['is_special'])) {
+                $specialCrafts[$spellId] = $craft;
+            }
+        }
 
         $marketplace[$professionName]['tiers'][$tierLabel][] = [
             'guid' => $guid,
@@ -454,15 +609,20 @@ try {
             'race' => (int)$row['race'],
             'class' => (int)$row['class'],
             'gender' => (int)$row['gender'],
+            'faction' => spp_marketplace_faction_name((int)$row['race']),
             'level' => (int)$row['level'],
             'value' => (int)$row['value'],
             'max' => (int)$row['max'],
+            'tier' => $tierLabel,
             'crafts' => array_values($knownCrafts),
+            'special_crafts' => array_values($specialCrafts),
             'craft_count' => count($knownCrafts),
+            'special_craft_count' => count($specialCrafts),
         ];
 
         $marketplace[$professionName]['total_bots']++;
         $marketplace[$professionName]['total_recipes'] += count($knownCrafts);
+        $marketplace[$professionName]['total_special_recipes'] += count($specialCrafts);
         $botCount++;
         $craftCount += count($knownCrafts);
     }
@@ -474,6 +634,56 @@ try {
         }
         return ((int)$left['skill_id']) <=> ((int)$right['skill_id']);
     });
+
+    foreach ($marketplace as &$profession) {
+        $allBots = [];
+        foreach ($profession['tiers'] as $tierBots) {
+            foreach ($tierBots as $bot) {
+                $allBots[] = $bot;
+            }
+        }
+
+        usort($allBots, function ($left, $right) {
+            if ((int)$left['value'] !== (int)$right['value']) {
+                return (int)$right['value'] <=> (int)$left['value'];
+            }
+            if ((int)$left['special_craft_count'] !== (int)$right['special_craft_count']) {
+                return (int)$right['special_craft_count'] <=> (int)$left['special_craft_count'];
+            }
+            if ((int)$left['craft_count'] !== (int)$right['craft_count']) {
+                return (int)$right['craft_count'] <=> (int)$left['craft_count'];
+            }
+            if ((int)$left['level'] !== (int)$right['level']) {
+                return (int)$right['level'] <=> (int)$left['level'];
+            }
+            return strnatcasecmp((string)$left['name'], (string)$right['name']);
+        });
+
+        $profession['top_by_faction'] = ['Alliance' => [], 'Horde' => []];
+        foreach ($allBots as $bot) {
+            $faction = $bot['faction'] ?? 'Horde';
+            if (!isset($profession['top_by_faction'][$faction])) {
+                $profession['top_by_faction'][$faction] = [];
+            }
+            if (count($profession['top_by_faction'][$faction]) >= 3) {
+                continue;
+            }
+            $profession['top_by_faction'][$faction][] = $bot;
+        }
+        $profession['featured_count'] = count($profession['top_by_faction']['Alliance']) + count($profession['top_by_faction']['Horde']);
+        $profession['special_holders'] = [];
+        foreach ($allBots as $bot) {
+            if ((int)($bot['special_craft_count'] ?? 0) <= 0) {
+                continue;
+            }
+            $profession['special_holders'][] = [
+                'name' => (string)$bot['name'],
+                'count' => (int)$bot['special_craft_count'],
+                'faction' => (string)($bot['faction'] ?? 'Horde'),
+            ];
+        }
+    }
+    unset($profession);
     // save to cache on success
     if (!empty($marketplace) && is_writable($_mpCacheDir)) {
         @file_put_contents(
@@ -489,15 +699,12 @@ endif; // !$_mpFromCache
 
 builddiv_start(1, 'Marketplace', 1);
 ?>
+<link rel="stylesheet" type="text/css" href="/templates/offlike/css/armory-tooltips.css" />
 <style>
+.modern-item-tooltip{min-width:220px;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto}
+.modern-item-tooltip-loading{padding:14px 16px;color:#f5e6b2;border:1px solid rgba(255,196,0,.35);border-radius:10px;background:rgba(5,8,18,.96);box-shadow:0 16px 38px rgba(0,0,0,.45)}
+#modern-item-tooltip{position:fixed;z-index:9999;pointer-events:none;display:none}
 .marketplace-shell{display:grid;gap:24px}
-.marketplace-hero{position:relative;overflow:hidden;padding:28px 30px;border-radius:24px;border:1px solid rgba(255,204,72,.18);background:radial-gradient(circle at top left,rgba(179,120,17,.24),transparent 34%),linear-gradient(180deg,rgba(12,16,29,.96),rgba(5,8,18,.94));box-shadow:0 18px 42px rgba(0,0,0,.34)}
-.marketplace-hero:before{content:'';position:absolute;inset:auto -80px -110px auto;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(255,205,92,.12),transparent 68%)}
-.marketplace-kicker{margin:0 0 8px;color:#c9b17b;font-size:.84rem;letter-spacing:.16em;text-transform:uppercase}
-.marketplace-title{margin:0;color:#fff1be;font-size:2.2rem;line-height:1.05}
-.marketplace-copy{max-width:760px;margin:12px 0 0;color:#ddc89b;font-size:1rem;line-height:1.7}
-.marketplace-meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
-.marketplace-pill{display:inline-flex;align-items:center;min-height:34px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f7edd0;font-size:.84rem;font-weight:700}
 .marketplace-search-panel{display:grid;gap:12px;padding:18px 20px;border-radius:18px;border:1px dashed rgba(255,204,72,.2);background:rgba(255,255,255,.025)}
 .marketplace-search-label{margin:0;color:#ffe39a;font-size:1rem;font-weight:800}
 .marketplace-search-copy{margin:0;color:#cfbb91;line-height:1.55}
@@ -515,20 +722,25 @@ builddiv_start(1, 'Marketplace', 1);
 .marketplace-profession-icon{width:52px;height:52px;border-radius:14px;border:1px solid rgba(255,204,72,.18);background:#080808}
 .marketplace-profession-title{margin:0;color:#fff1be;font-size:1.45rem}
 .marketplace-profession-desc{margin:6px 0 0;color:#bda87a;line-height:1.5}
+.marketplace-profession-note{margin:10px 0 0;color:#cdb98f;font-size:.9rem;line-height:1.55}
 .marketplace-profession-stats{display:grid;gap:8px;text-align:right}
+.marketplace-profession-stat{position:relative}
 .marketplace-profession-stat strong{display:block;color:#fff1be;font-size:1.15rem}
 .marketplace-profession-stat span{color:#bda87a;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase}
+.marketplace-profession-stat.is-hoverable{cursor:default}
+.marketplace-profession-stat-flyout{position:absolute;top:100%;right:0;margin-top:10px;min-width:240px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,204,72,.18);background:rgba(6,10,22,.98);box-shadow:0 18px 34px rgba(0,0,0,.34);display:none;text-align:left;z-index:20}
+.marketplace-profession-stat.is-hoverable:hover .marketplace-profession-stat-flyout{display:block}
+.marketplace-profession-stat-flyout-title{margin:0 0 8px;color:#ffe39a;font-size:.82rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.marketplace-profession-holder-list{display:grid;gap:6px}
+.marketplace-profession-holder-link{color:#f7edd0;text-decoration:none;font-size:.92rem}
+.marketplace-profession-holder-link:hover{color:#ffe39a}
 .marketplace-profession-body{padding:0 22px 22px;display:grid;gap:18px}
-.marketplace-tier-list{display:grid;gap:18px}
-.marketplace-tier{border-radius:18px;border:1px solid rgba(255,204,72,.12);background:rgba(255,255,255,.025);overflow:hidden}
-.marketplace-tier-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;cursor:pointer;list-style:none}
-.marketplace-tier-head::-webkit-details-marker{display:none}
-.marketplace-tier-head:after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}
-.marketplace-tier[open]>.marketplace-tier-head:after{content:'-'}
-.marketplace-tier-title{margin:0;color:#ffe39a;font-size:1.08rem}
-.marketplace-tier-count{color:#bda87a;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}
-.marketplace-tier-body{padding:0 18px 18px}
-.marketplace-bot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}
+.marketplace-featured-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.marketplace-faction-panel{border-radius:18px;border:1px solid rgba(255,204,72,.12);background:rgba(255,255,255,.025);padding:18px}
+.marketplace-faction-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.marketplace-faction-title{margin:0;color:#ffe39a;font-size:1.05rem}
+.marketplace-faction-copy{color:#bda87a;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}
+.marketplace-bot-grid{display:grid;gap:14px}
 .marketplace-bot{padding:16px;border-radius:16px;border:1px solid rgba(255,204,72,.12);background:rgba(4,7,16,.76)}
 .marketplace-bot-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .marketplace-bot-link{display:flex;align-items:center;gap:12px;min-width:0;color:#f7edd0;text-decoration:none}
@@ -537,6 +749,10 @@ builddiv_start(1, 'Marketplace', 1);
 .marketplace-bot-name{display:block;color:#fff1be;font-size:1rem;font-weight:800}
 .marketplace-bot-meta{margin-top:3px;color:#bda87a;font-size:.86rem}
 .marketplace-bot-rank{color:#ffd467;font-size:.88rem;font-weight:800;white-space:nowrap}
+.marketplace-bot-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.marketplace-bot-stat{padding:10px 12px;border-radius:12px;border:1px solid rgba(255,204,72,.1);background:rgba(255,255,255,.025)}
+.marketplace-bot-stat strong{display:block;color:#fff1be;font-size:1rem}
+.marketplace-bot-stat span{display:block;margin-top:4px;color:#bda87a;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
 .marketplace-progress{margin-top:12px}
 .marketplace-progress-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}
 .marketplace-progress-fill{height:100%;background:linear-gradient(90deg,#8e6200,#ffd467)}
@@ -550,28 +766,115 @@ builddiv_start(1, 'Marketplace', 1);
 .marketplace-recipe img{width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,204,72,.14);background:#090909}
 .marketplace-recipe strong{display:block;font-size:.93rem;line-height:1.25}
 .marketplace-recipe small{display:block;margin-top:3px;color:#bda87a}
+.marketplace-bot-empty{padding:14px;border-radius:14px;border:1px dashed rgba(255,204,72,.14);background:rgba(255,255,255,.02);color:#bda87a}
 .marketplace-empty,.marketplace-error{padding:18px;border-radius:18px}
 .marketplace-empty{border:1px dashed rgba(255,204,72,.16);background:rgba(255,255,255,.025);color:#cdb98f}
 .marketplace-error{border:1px solid rgba(255,120,120,.25);background:rgba(96,18,18,.4);color:#ffd8d8}
-@media (max-width:860px){.marketplace-profession-summary,.marketplace-profession-head{flex-direction:column}.marketplace-profession-stats{grid-template-columns:repeat(2,minmax(0,1fr));text-align:left}}
-@media (max-width:560px){.marketplace-hero{padding:24px 20px}.marketplace-title{font-size:1.8rem}.marketplace-bot-grid{grid-template-columns:1fr}.marketplace-bot-head{flex-direction:column}.marketplace-profession{padding:18px}}
+@media (max-width:860px){.marketplace-profession-summary,.marketplace-profession-head{flex-direction:column}.marketplace-profession-stats{grid-template-columns:repeat(2,minmax(0,1fr));text-align:left}.marketplace-featured-board{grid-template-columns:1fr}}
+@media (max-width:560px){.marketplace-bot-head{flex-direction:column}.marketplace-profession{padding:18px}.marketplace-bot-summary{grid-template-columns:1fr}}
 </style>
+<script>
+let modernTooltipNode = null;
+const modernTooltipCache = new Map();
+let modernTooltipRequestToken = 0;
+
+function modernTooltipEnsure() {
+  if (!modernTooltipNode) {
+    modernTooltipNode = document.createElement('div');
+    modernTooltipNode.id = 'modern-item-tooltip';
+    modernTooltipNode.className = 'talent-tt';
+    document.body.appendChild(modernTooltipNode);
+  }
+  return modernTooltipNode;
+}
+
+function modernShowTooltip(event, html) {
+  const tip = modernTooltipEnsure();
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  modernMoveTooltip(event);
+}
+
+function modernTooltipLoadingHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Loading item tooltip...</div>';
+}
+
+function modernTooltipErrorHtml() {
+  return '<div class="modern-item-tooltip modern-item-tooltip-loading">Unable to load item tooltip.</div>';
+}
+
+function modernRequestTooltip(event, itemId, realmId, itemGuid) {
+  const cacheKey = realmId + ':' + itemId;
+  if (modernTooltipCache.has(cacheKey)) {
+    modernShowTooltip(event, modernTooltipCache.get(cacheKey));
+    return;
+  }
+
+  modernShowTooltip(event, modernTooltipLoadingHtml());
+  modernTooltipRequestToken += 1;
+  const token = modernTooltipRequestToken;
+  let url = 'modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
+  if (itemGuid) {
+    url += '&guid=' + encodeURIComponent(itemGuid);
+  }
+
+  fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+    .then(function (response) {
+      if (!response.ok) {
+        throw new Error('tooltip request failed');
+      }
+      return response.text();
+    })
+    .then(function (html) {
+      const safeHtml = html && html.trim() !== '' ? html : modernTooltipErrorHtml();
+      modernTooltipCache.set(cacheKey, safeHtml);
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, safeHtml);
+      }
+    })
+    .catch(function () {
+      if (token === modernTooltipRequestToken) {
+        modernShowTooltip(event, modernTooltipErrorHtml());
+      }
+    });
+}
+
+function modernMoveTooltip(event) {
+  const tip = modernTooltipEnsure();
+  if (tip.style.display === 'none') return;
+  const offset = 18;
+  const rect = tip.getBoundingClientRect();
+  const spaceRight = window.innerWidth - event.clientX - offset - 12;
+  const spaceLeft = event.clientX - offset - 12;
+  const spaceBelow = window.innerHeight - event.clientY - offset - 12;
+  const spaceAbove = event.clientY - offset - 12;
+  let left = spaceRight >= rect.width || spaceRight >= spaceLeft
+    ? event.clientX + offset
+    : event.clientX - rect.width - offset;
+  let top = spaceBelow >= rect.height || spaceBelow >= spaceAbove
+    ? event.clientY + offset
+    : event.clientY - rect.height - offset;
+  left = Math.max(12, Math.min(left, window.innerWidth - rect.width - 12));
+  top = Math.max(12, Math.min(top, window.innerHeight - rect.height - 12));
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
+function modernHideTooltip() {
+  modernTooltipRequestToken += 1;
+  if (modernTooltipNode) modernTooltipNode.style.display = 'none';
+}
+</script>
 
 <div class="marketplace-shell">
-  <section class="marketplace-hero">
-    <p class="marketplace-kicker">Armory Marketplace<?php if ($realmLabel !== ''): ?> • <?php echo htmlspecialchars($realmLabel); ?><?php endif; ?></p>
-    <h1 class="marketplace-title">Browse profession bots by craft and training tier.</h1>
-    <p class="marketplace-copy">Each profession section shows the crafters for that trade, their rank tier, and the items they can currently make.</p>
-    <div class="marketplace-meta">
-      <span class="marketplace-pill"><?php echo (int)count($marketplace); ?> professions tracked</span>
-      <span class="marketplace-pill"><?php echo (int)$botCount; ?> crafter listings</span>
-      <span class="marketplace-pill"><?php echo (int)$craftCount; ?> crafts tracked</span>
-    </div>
-  </section>
-
   <section class="marketplace-search-panel">
     <p class="marketplace-search-label">Search Craftable Items</p>
-    <p class="marketplace-search-copy">Filter by item name to find crafters who can make what you need.</p>
+    <p class="marketplace-search-copy">Known Recipes show everything a crafter has learned. Special Recipes highlight the subset earned outside normal trainer progression, like drops, reputation rewards, vendor recipes, or quest unlocks.</p>
     <input id="marketplace-craft-search" class="marketplace-search-input" type="search" placeholder="Search for a craft, like Copper Chain Pants" autocomplete="off">
   </section>
 
@@ -593,6 +896,19 @@ builddiv_start(1, 'Marketplace', 1);
                   <?php if ($profession['description'] !== ''): ?>
                     <p class="marketplace-profession-desc"><?php echo htmlspecialchars($profession['description']); ?></p>
                   <?php endif; ?>
+                  <?php if (!empty($profession['special_holders'])): ?>
+                    <p class="marketplace-profession-note">
+                      Special recipe holders:
+                      <?php
+                        $holderLinks = [];
+                        foreach ($profession['special_holders'] as $holder) {
+                            $holderUrl = 'index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . urlencode((string)$holder['name']) . '&tab=professions';
+                            $holderLinks[] = '<a class="marketplace-profession-holder-link" href="' . htmlspecialchars($holderUrl) . '">' . htmlspecialchars((string)$holder['name']) . ' (' . (int)$holder['count'] . ')</a>';
+                        }
+                        echo implode(', ', $holderLinks);
+                      ?>
+                    </p>
+                  <?php endif; ?>
                 </div>
               </div>
               <div class="marketplace-profession-stats">
@@ -600,85 +916,144 @@ builddiv_start(1, 'Marketplace', 1);
                   <strong><?php echo (int)$profession['total_bots']; ?></strong>
                   <span>Crafters</span>
                 </div>
-                <div class="marketplace-profession-stat">
-                  <strong><?php echo (int)$profession['total_recipes']; ?></strong>
-                  <span>Crafts</span>
+                <div class="marketplace-profession-stat<?php echo !empty($profession['special_holders']) ? ' is-hoverable' : ''; ?>">
+                  <strong><?php echo (int)($profession['total_special_recipes'] ?? 0); ?></strong>
+                  <span>Special</span>
+                  <?php if (!empty($profession['special_holders'])): ?>
+                    <div class="marketplace-profession-stat-flyout">
+                      <p class="marketplace-profession-stat-flyout-title">Special Recipe Holders</p>
+                      <div class="marketplace-profession-holder-list">
+                        <?php foreach ($profession['special_holders'] as $holder): ?>
+                          <a class="marketplace-profession-holder-link" href="index.php?n=server&amp;sub=character&amp;realm=<?php echo (int)$realmId; ?>&amp;character=<?php echo urlencode((string)$holder['name']); ?>&amp;tab=professions">
+                            <?php echo htmlspecialchars((string)$holder['name']); ?> (<?php echo (int)$holder['count']; ?>)
+                          </a>
+                        <?php endforeach; ?>
+                      </div>
+                    </div>
+                  <?php endif; ?>
                 </div>
               </div>
             </div>
           </summary>
 
           <div class="marketplace-profession-body">
-          <div class="marketplace-tier-list">
-            <?php foreach ($tierOrder as $tierName): ?>
-              <?php if (empty($profession['tiers'][$tierName])) continue; ?>
-              <details class="marketplace-tier">
-                <summary class="marketplace-tier-head">
-                  <h3 class="marketplace-tier-title"><?php echo htmlspecialchars($tierName); ?></h3>
-                  <span class="marketplace-tier-count"><?php echo (int)count($profession['tiers'][$tierName]); ?> crafters</span>
-                </summary>
-                <div class="marketplace-tier-body">
-                <div class="marketplace-bot-grid">
-                  <?php foreach ($profession['tiers'][$tierName] as $bot): ?>
-                    <?php
-                      $searchTerms = [];
-                      foreach ($bot['crafts'] as $craft) {
-                          $searchTerms[] = strtolower((string)$craft['name']);
-                      }
-                    ?>
-                    <article class="marketplace-bot" data-craft-search="<?php echo htmlspecialchars(implode(' ', $searchTerms)); ?>">
-                      <div class="marketplace-bot-head">
-                        <a class="marketplace-bot-link" href="index.php?n=server&amp;sub=character&amp;realm=<?php echo (int)$realmId; ?>&amp;character=<?php echo urlencode($bot['name']); ?>">
-                          <span class="marketplace-bot-avatars">
-                            <img src="<?php echo htmlspecialchars(spp_marketplace_race_icon_url($bot['race'], $bot['gender'])); ?>" alt="">
-                            <img src="<?php echo htmlspecialchars(spp_marketplace_class_icon_url($bot['class'])); ?>" alt="">
-                          </span>
-                          <span>
-                            <strong class="marketplace-bot-name"><?php echo htmlspecialchars($bot['name']); ?></strong>
-                            <span class="marketplace-bot-meta">Level <?php echo (int)$bot['level']; ?> crafter</span>
-                          </span>
-                        </a>
-                        <span class="marketplace-bot-rank"><?php echo (int)$bot['value']; ?>/<?php echo (int)$bot['max']; ?></span>
-                      </div>
-
-                      <div class="marketplace-progress">
-                        <div class="marketplace-progress-track">
-                          <div class="marketplace-progress-fill" style="width: <?php echo (int)min(100, max(0, round(($bot['max'] > 0 ? ($bot['value'] / $bot['max']) * 100 : 0)))); ?>%"></div>
-                        </div>
-                        <div class="marketplace-progress-copy">
-                          <span><?php echo htmlspecialchars($tierName); ?></span>
-                          <span><?php echo (int)$bot['craft_count']; ?> crafts</span>
-                        </div>
-                      </div>
-
-                      <details class="marketplace-recipe-box">
-                        <summary>
-                          <strong>Crafts</strong>
-                          <span><?php echo (int)$bot['craft_count']; ?> listed</span>
-                        </summary>
-                        <?php if (!empty($bot['crafts'])): ?>
-                          <div class="marketplace-recipe-list">
-                            <?php foreach ($bot['crafts'] as $craft): ?>
-                              <a class="marketplace-recipe" href="index.php?n=server&amp;sub=item&amp;realm=<?php echo (int)$realmId; ?>&amp;item=<?php echo (int)$craft['entry']; ?>">
-                                <img src="<?php echo htmlspecialchars($craft['icon']); ?>" alt="<?php echo htmlspecialchars($craft['name']); ?>">
-                                <span>
-                                  <strong style="color: <?php echo htmlspecialchars(spp_marketplace_quality_color($craft['quality'])); ?>;"><?php echo htmlspecialchars($craft['name']); ?></strong>
-                                  <small><?php echo (int)$craft['required_rank']; ?> skill</small>
-                                </span>
-                              </a>
-                            <?php endforeach; ?>
+            <div class="marketplace-featured-board">
+              <?php foreach (['Alliance', 'Horde'] as $factionName): ?>
+                <section class="marketplace-faction-panel">
+                  <div class="marketplace-faction-head">
+                    <h3 class="marketplace-faction-title"><?php echo htmlspecialchars($factionName); ?></h3>
+                    <span class="marketplace-faction-copy">Top <?php echo (int)count($profession['top_by_faction'][$factionName] ?? []); ?> featured</span>
+                  </div>
+                  <div class="marketplace-bot-grid">
+                    <?php if (!empty($profession['top_by_faction'][$factionName])): ?>
+                      <?php foreach ($profession['top_by_faction'][$factionName] as $bot): ?>
+                        <?php
+                          $searchTerms = [];
+                          foreach ($bot['crafts'] as $craft) {
+                              $searchTerms[] = strtolower(trim((string)($craft['spell_name'] ?? '') . ' ' . (string)($craft['item_name'] ?? '')));
+                          }
+                          foreach ($bot['special_crafts'] as $craft) {
+                              $searchTerms[] = strtolower(trim((string)($craft['spell_name'] ?? '') . ' ' . (string)($craft['item_name'] ?? '')));
+                          }
+                        ?>
+                        <article class="marketplace-bot" data-craft-search="<?php echo htmlspecialchars(implode(' ', $searchTerms)); ?>">
+                          <div class="marketplace-bot-head">
+                            <a class="marketplace-bot-link" href="index.php?n=server&amp;sub=character&amp;realm=<?php echo (int)$realmId; ?>&amp;character=<?php echo urlencode($bot['name']); ?>">
+                              <span class="marketplace-bot-avatars">
+                                <img src="<?php echo htmlspecialchars(spp_marketplace_race_icon_url($bot['race'], $bot['gender'])); ?>" alt="">
+                                <img src="<?php echo htmlspecialchars(spp_marketplace_class_icon_url($bot['class'])); ?>" alt="">
+                              </span>
+                              <span>
+                                <strong class="marketplace-bot-name"><?php echo htmlspecialchars($bot['name']); ?></strong>
+                                <span class="marketplace-bot-meta">Level <?php echo (int)$bot['level']; ?> · <?php echo htmlspecialchars($bot['tier']); ?></span>
+                              </span>
+                            </a>
+                            <span class="marketplace-bot-rank"><?php echo (int)$bot['value']; ?>/<?php echo (int)$bot['max']; ?></span>
                           </div>
-                        <?php else: ?>
-                          <div class="marketplace-empty">No craftable items were found for this crafter yet.</div>
-                        <?php endif; ?>
-                      </details>
-                    </article>
-                  <?php endforeach; ?>
-                </div>
-                </div>
-              </details>
-            <?php endforeach; ?>
-          </div>
+
+                          <div class="marketplace-progress">
+                            <div class="marketplace-progress-track">
+                              <div class="marketplace-progress-fill" style="width: <?php echo (int)min(100, max(0, round(($bot['max'] > 0 ? ($bot['value'] / $bot['max']) * 100 : 0)))); ?>%"></div>
+                            </div>
+                            <div class="marketplace-progress-copy">
+                              <span>Profession skill</span>
+                              <span><?php echo (int)$bot['special_craft_count']; ?> special</span>
+                            </div>
+                          </div>
+
+                          <div class="marketplace-bot-summary">
+                            <div class="marketplace-bot-stat">
+                              <strong><?php echo (int)$bot['value']; ?></strong>
+                              <span>Skill Rank</span>
+                            </div>
+                            <div class="marketplace-bot-stat">
+                              <strong><?php echo (int)$bot['special_craft_count']; ?></strong>
+                              <span>Special Recipes</span>
+                            </div>
+                            <div class="marketplace-bot-stat">
+                              <strong><?php echo (int)$bot['craft_count']; ?></strong>
+                              <span>Known Recipes</span>
+                            </div>
+                          </div>
+
+                          <details class="marketplace-recipe-box">
+                            <summary>
+                              <strong>Special Recipes</strong>
+                              <span><?php echo (int)$bot['special_craft_count']; ?> listed</span>
+                            </summary>
+                            <?php if (!empty($bot['special_crafts'])): ?>
+                              <div class="marketplace-recipe-list">
+                                <?php foreach ($bot['special_crafts'] as $craft): ?>
+                                  <?php $recipeTag = !empty($craft['item_entry']) ? 'a' : 'div'; ?>
+                                  <<?php echo $recipeTag; ?> class="marketplace-recipe"<?php if ($recipeTag === 'a'): ?> href="index.php?n=server&amp;sub=item&amp;realm=<?php echo (int)$realmId; ?>&amp;item=<?php echo (int)$craft['item_entry']; ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$craft['item_entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"<?php endif; ?>>
+                                    <img src="<?php echo htmlspecialchars($craft['icon']); ?>" alt="<?php echo htmlspecialchars($craft['spell_name']); ?>">
+                                    <span>
+                                      <strong style="color: <?php echo htmlspecialchars(spp_marketplace_quality_color($craft['quality'])); ?>;"><?php echo htmlspecialchars($craft['spell_name']); ?></strong>
+                                      <small>
+                                        <?php if (!empty($craft['item_name'])): ?>Creates <?php echo htmlspecialchars($craft['item_name']); ?> · <?php endif; ?><?php echo (int)$craft['required_rank']; ?> skill
+                                      </small>
+                                    </span>
+                                  </<?php echo $recipeTag; ?>>
+                                <?php endforeach; ?>
+                              </div>
+                            <?php else: ?>
+                              <div class="marketplace-bot-empty">No special non-trainer recipes were recorded for this crafter yet.</div>
+                            <?php endif; ?>
+                          </details>
+
+                          <details class="marketplace-recipe-box">
+                            <summary>
+                              <strong>Known Recipes</strong>
+                              <span><?php echo (int)$bot['craft_count']; ?> listed</span>
+                            </summary>
+                            <?php if (!empty($bot['crafts'])): ?>
+                              <div class="marketplace-recipe-list">
+                                <?php foreach ($bot['crafts'] as $craft): ?>
+                                  <?php $recipeTag = !empty($craft['item_entry']) ? 'a' : 'div'; ?>
+                                  <<?php echo $recipeTag; ?> class="marketplace-recipe"<?php if ($recipeTag === 'a'): ?> href="index.php?n=server&amp;sub=item&amp;realm=<?php echo (int)$realmId; ?>&amp;item=<?php echo (int)$craft['item_entry']; ?>" onmousemove="modernMoveTooltip(event)" onmouseover="modernRequestTooltip(event, <?php echo (int)$craft['item_entry']; ?>, <?php echo (int)$realmId; ?>)" onmouseout="modernHideTooltip()"<?php endif; ?>>
+                                    <img src="<?php echo htmlspecialchars($craft['icon']); ?>" alt="<?php echo htmlspecialchars($craft['spell_name']); ?>">
+                                    <span>
+                                      <strong style="color: <?php echo htmlspecialchars(spp_marketplace_quality_color($craft['quality'])); ?>;"><?php echo htmlspecialchars($craft['spell_name']); ?></strong>
+                                      <small>
+                                        <?php if (!empty($craft['item_name'])): ?>Creates <?php echo htmlspecialchars($craft['item_name']); ?> · <?php endif; ?><?php echo (int)$craft['required_rank']; ?> skill
+                                      </small>
+                                    </span>
+                                  </<?php echo $recipeTag; ?>>
+                                <?php endforeach; ?>
+                              </div>
+                            <?php else: ?>
+                              <div class="marketplace-bot-empty">No craftable items were found for this crafter yet.</div>
+                            <?php endif; ?>
+                          </details>
+                        </article>
+                      <?php endforeach; ?>
+                    <?php else: ?>
+                      <div class="marketplace-bot-empty">No featured <?php echo strtolower($factionName); ?> crafters were available for this profession.</div>
+                    <?php endif; ?>
+                  </div>
+                </section>
+              <?php endforeach; ?>
+            </div>
           </div>
         </details>
       <?php endforeach; ?>
@@ -699,27 +1074,24 @@ builddiv_start(1, 'Marketplace', 1);
     var anyVisible = false;
 
     professionCards.forEach(function (professionCard) {
-      var tierCards = professionCard.querySelectorAll('.marketplace-tier');
-      var professionVisible = false;
+      var factionPanels = professionCard.querySelectorAll('.marketplace-faction-panel');
+      var professionVisible = query === '';
 
-      tierCards.forEach(function (tierCard) {
-        var bots = tierCard.querySelectorAll('.marketplace-bot');
-        var tierVisible = false;
+      factionPanels.forEach(function (factionPanel) {
+        var bots = factionPanel.querySelectorAll('.marketplace-bot');
+        var factionVisible = false;
 
         bots.forEach(function (botCard) {
           var haystack = (botCard.getAttribute('data-craft-search') || '').toLowerCase();
           var match = query === '' || haystack.indexOf(query) !== -1;
           botCard.style.display = match ? '' : 'none';
           if (match) {
-            tierVisible = true;
+            factionVisible = true;
           }
         });
 
-        tierCard.style.display = tierVisible ? '' : 'none';
-        if (query !== '' && tierVisible) {
-          tierCard.open = true;
-        }
-        if (tierVisible) {
+        factionPanel.style.display = factionVisible || query === '' ? '' : 'none';
+        if (factionVisible) {
           professionVisible = true;
         }
       });

@@ -1,7 +1,7 @@
 
-<img src="templates/wotlk/images/header-charcopy.jpg" width="660" height="121" /><br />
-<img src="templates/wotlk/images/banner-bottom2.jpg" width="660" height="18" /><br /><br />
-<div id = "wrapper"><div id = "heads"><img src = "templates/wotlk/images/header-charcopy-top.gif" width="642" /></div></div>
+<img src="templates/offlike/images/header-charcopy.jpg" width="660" height="121" /><br />
+<img src="templates/offlike/images/banner-bottom2.jpg" width="660" height="18" /><br /><br />
+<div id = "wrapper"><div id = "heads"><img src = "templates/offlike/images/header-charcopy-top.gif" width="642" /></div></div>
 <?php builddiv_start(0, $lang['charcreate']) ?>
 <?php if($user['id'] > 0){ ?>
 <?php

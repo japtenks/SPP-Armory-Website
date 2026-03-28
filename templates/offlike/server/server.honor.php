@@ -86,6 +86,10 @@ $armoryRealm = spp_get_armory_realm_name($realmId) ?? '';
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $itemsPerPage = isset($_GET['per_page']) ? max(1, (int)$_GET['per_page']) : 25;
 $search = trim($_GET['search'] ?? '');
+$factionFilter = strtolower(trim((string)($_GET['faction'] ?? 'all')));
+if (!in_array($factionFilter, ['all', 'alliance', 'horde'], true)) {
+    $factionFilter = 'all';
+}
 
 $classNames = [
     1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest',
@@ -133,6 +137,9 @@ foreach ($rows as $row) {
     $row['class_name'] = $className;
     $row['race_name'] = $raceName;
 
+    if ($factionFilter === 'alliance' && !in_array((int)$row['race'], $allianceRaces, true)) continue;
+    if ($factionFilter === 'horde'    &&  in_array((int)$row['race'], $allianceRaces, true)) continue;
+
     if ($search !== '') {
         $haystack = strtolower(implode(' ', [
             $row['name'],
@@ -163,18 +170,22 @@ $charactersPage = array_slice($characters, $offset, $itemsPerPage);
 $resultStart = $count > 0 ? $offset + 1 : 0;
 $resultEnd = min($offset + $itemsPerPage, $count);
 $baseUrl = "index.php?n=server&sub=honor&realm={$realmId}&per_page={$itemsPerPage}";
+if ($factionFilter !== 'all') {
+    $baseUrl .= '&faction=' . urlencode($factionFilter);
+}
 if ($search !== '') {
     $baseUrl .= '&search=' . urlencode($search);
 }
 ?>
 
 <div class="honor-search-wrap">
-  <form method="get" class="modern-content">
+  <form method="get" class="modern-content" id="honorSearchForm">
     <input type="hidden" name="n" value="server">
     <input type="hidden" name="sub" value="honor">
     <input type="hidden" name="realm" value="<?php echo $realmId; ?>">
     <input type="hidden" name="p" value="1">
     <input type="hidden" name="per_page" value="<?php echo $itemsPerPage; ?>">
+    <input type="hidden" name="faction" value="<?php echo htmlspecialchars($factionFilter); ?>">
     <input
       type="text"
       id="commandSearch"
@@ -199,7 +210,20 @@ if ($search !== '') {
 <div class="wow-table honor-table">
   <div class="header">
     <div class="col sortable" data-sort="name">Name</div>
-    <div class="col sortable" data-sort="faction">Faction</div>
+    <div class="col faction-filter" data-label="Faction">
+      <select
+        name="faction"
+        class="inline-filter-select"
+        form="honorSearchForm"
+        onchange="this.form.submit()"
+        onmousedown="event.stopPropagation()"
+        onclick="event.stopPropagation()"
+      >
+        <option value="all"      <?php if ($factionFilter === 'all')      echo 'selected'; ?>>All</option>
+        <option value="alliance" <?php if ($factionFilter === 'alliance') echo 'selected'; ?>>Alliance</option>
+        <option value="horde"    <?php if ($factionFilter === 'horde')    echo 'selected'; ?>>Horde</option>
+      </select>
+    </div>
     <div class="col sortable" data-sort="level">Level</div>
     <div class="col sortable" data-sort="hk">HK</div>
     <div class="col sortable" data-sort="dk">DK</div>
@@ -212,7 +236,7 @@ if ($search !== '') {
       <?php $portrait = get_character_portrait_path($item['guid'], $item['gender'], $item['race'], $item['class']); ?>
       <div class="row">
         <div class="col name class-<?php echo strtolower($item['class_name']); ?>">
-          <a href="armory/index.php?searchType=profile&character=<?php echo urlencode($item['name']); ?>&realm=<?php echo urlencode($armoryRealm); ?>">
+          <a href="index.php?n=server&sub=character&realm=<?php echo (int)$realmId; ?>&character=<?php echo urlencode($item['name']); ?>">
             <img src="<?php echo $portrait; ?>" class="circle portrait" alt="">
             <?php echo htmlspecialchars($item['name']); ?>
           </a>
@@ -226,7 +250,10 @@ if ($search !== '') {
         <div class="col rank-name">
           <span style="display:flex;align-items:center;gap:10px;">
             <img src="<?php echo $item['rank_icon']; ?>" class="rank-icon" alt="<?php echo htmlspecialchars($item['rank_name']); ?>">
-            <?php echo htmlspecialchars($item['rank_name']); ?>
+            <span>
+              <?php echo htmlspecialchars($item['rank_name']); ?>
+              <span style="font-size:0.75em;opacity:0.55;">R<?php echo (int)$item['rank_id']; ?></span>
+            </span>
           </span>
         </div>
         <div class="col honor-col"><?php echo (int)round((float)$item['honor_points']); ?></div>

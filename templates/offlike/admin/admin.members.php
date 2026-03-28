@@ -28,7 +28,8 @@
             $MANG = new Mangos;
             for($i=0; $i < count($userchars); $i++) {
                 echo '<br/>';
-                echo '<b>' . '<a class="disinfection_link" href="armory/index.php?searchType=profile&character='.$userchars[$i]['name'].'">' . $userchars[$i]['name'] . ':</a></b> Level ' . $userchars[$i]['level'] . ' <i>' .
+                $profileRealm = (int)($GLOBALS['activeRealmId'] ?? 1);
+                echo '<b>' . '<a class="disinfection_link" href="index.php?n=server&sub=character&realm=' . $profileRealm . '&character=' . urlencode($userchars[$i]['name']) . '">' . htmlspecialchars($userchars[$i]['name']) . ':</a></b> Level ' . $userchars[$i]['level'] . ' <i>' .
                 $MANG->characterInfoByID['character_race'][$userchars[$i]['race']] . '</i> ' . $MANG->characterInfoByID['character_class'][$userchars[$i]['class']];
             }
             unset($MANG);

@@ -214,7 +214,7 @@ $resultEnd = min($offset + $limit, $total);
 
 /* ---------- Helpers ---------- */
 $current_time = time();
-$icon_path = "/templates/tbc/images/ah_system";
+$icon_path = "/templates/offlike/images/ah_system";
 function item_manage_class($iclass) {
   $names = ['Consumable','Container','Weapon','Gem','Armor','Reagent','Projectile',
     'Trade Goods','Generic','Recipe','Money','Quiver','Quest Item','Key','Permanent','Miscellaneous'];
@@ -578,6 +578,7 @@ function modernMoveTooltip(event) {
 }
 
 function modernHideTooltip() {
+  modernTooltipRequestToken += 1;
   if (modernTooltipNode) {
     modernTooltipNode.style.display = 'none';
   }

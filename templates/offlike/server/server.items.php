@@ -594,6 +594,7 @@ function modernMoveTooltip(event) {
 }
 
 function modernHideTooltip() {
+  modernTooltipRequestToken += 1;
   if (modernTooltipNode) {
     modernTooltipNode.style.display = 'none';
   }

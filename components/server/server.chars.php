@@ -24,7 +24,7 @@ $realm_info_new = get_realm_byid($user['cur_selected_realmd']);
 $cc = 0;
 if(!check_port_status($realm_info_new['address'], $realm_info_new['port'])===true)
 {
-    output_message('alert','Realm <b>'.$realm_info_new['name'].'</b> is offline <img src="images/downarrow2.gif" border="0" align="top">');
+    output_message('alert','Realm <b>'.$realm_info_new['name'].'</b> is offline <img src="/templates/offlike/images/downarrow2.gif" border="0" align="top">');
 }
 
 // array s

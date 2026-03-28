@@ -417,7 +417,7 @@ function add_pictureletter($text){
                                              "sozsozyyuaaaaaaaceeeeiiiidnoooooouuuuysaaaaaaaceeeeiiiionoooooouuuuyy");
     if (strpos("abcdefghijklmnopqrstuvwxyz", $imageletter) === false)
         return $text;
-    $img = '<img src="templates/vanilla/images/letters/'.$imageletter.'.gif" alt="'.$letter.'" align="left"/>';
+    $img = '<img src="templates/offlike/images/letters/'.$imageletter.'.gif" alt="'.$letter.'" align="left"/>';
     $output = $img . substr($text, 1);
     return $output;
 }
@@ -586,7 +586,7 @@ function lang_resource($name){
  * @param $dir string Path on local filesystem of server to the smilies (defaults to images/smiles/)
  * @return array List of found files in the given directory (.svn, Thumbs.db and index.html are exluded)
  */
-function load_smiles($dir='images/smiles/'){
+function load_smiles($dir='templates/offlike/images/smiles/'){
     $allfiles = scandir($dir);
     $smiles = array_diff($allfiles, array(".", "..", ".svn", "Thumbs.db", "index.html"));
     return $smiles;
@@ -699,7 +699,7 @@ function check_attach($attid){
     $ext = strtolower(substr(strrchr($thisattach['attach_file'],'.'), 1));
     if($thisattach['attach_id']){
         $res  = '<a href="'.$MW->getConfig->temp->site_href.'index.php?n=forum&sub=attach&nobody=1&action=download&attid='.$thisattach['attach_id'].'">';
-        $res .= '<img src="'.$MW->getConfig->temp->site_href.'images/mime/'.$ext.'.png" alt="" align="absmiddle">';
+        $res .= '<img src="'.$MW->getConfig->temp->site_href.'templates/offlike/images/mime/'.$ext.'.png" alt="" align="absmiddle">';
         $res .= ' Download: [ '.$thisattach['attach_file'].' ] '.return_good_size($thisattach['attach_filesize']).' </a>';
     }
     return $res;
@@ -1369,7 +1369,6 @@ function bbcode_toolbar($inputname) {
     $getbyid=$getbyid[count($getbyid)-1];
 
     ?>
-    <script language=javascript src="new-hp/js/quick_reply.js"></script>
     <table cellpadding=0 cellspacing=0 width=225>
         <style>
             img.mousing:link, img.mousing:visited {
@@ -1587,7 +1586,7 @@ function subnav($menuname) {
                     <td>
                         <table width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
-                                <td width="5" height="33" style="background-image:url(templates/offlike/images/subnav/leftsubnav.jpg); background-position:top; background-repeat:repeat-x;"><img src="templates/vanilla/images/pixel.gif" width="5" height="1"></td>
+                                <td width="5" height="33" style="background-image:url(templates/offlike/images/subnav/leftsubnav.jpg); background-position:top; background-repeat:repeat-x;"><img src="templates/offlike/images/pixel.gif" width="5" height="1"></td>
 
                                 <td height="33" background="templates/offlike/images/subnav/subnav.jpg" width="100%">
                                     <table width="100%" height="33" cellpadding="0" cellspacing="0" border="0">
@@ -1597,9 +1596,9 @@ function subnav($menuname) {
                                             <td width="6" height="5" background="templates/offlike/images/subnav/subnav_topright.gif"></td>
                                         </tr>
                                         <tr>
-                                            <td width="5" height="19" background="templates/offlike/images/subnav/subnav_left.gif"><img src = "templates/vanilla/images/pixel.gif" width = "5"></td>
+                                            <td width="5" height="19" background="templates/offlike/images/subnav/subnav_left.gif"><img src = "templates/offlike/images/pixel.gif" width = "5"></td>
 
-                                            <td height="19" style="text-align:center;" background="templates/offlike/images/subnav/subnav_bg.gif" valign="middle"><img src="templates/vanilla/images/pixel.gif" width="1" height="1"><small class="button" style="color:#808080; letter-spacing:normal;">
+                                            <td height="19" style="text-align:center;" background="templates/offlike/images/subnav/subnav_bg.gif" valign="middle"><img src="templates/offlike/images/pixel.gif" width="1" height="1"><small class="button" style="color:#808080; letter-spacing:normal;">
 
                                                     <script language = "javascript">
 
@@ -1609,7 +1608,7 @@ function subnav($menuname) {
 
 
                                                 </small></td>
-                                            <td width="6" height="19" background="templates/offlike/images/subnav/subnav_right.gif"><img src = "templates/vanilla/images/pixel.gif" width = "6"></td>
+                                            <td width="6" height="19" background="templates/offlike/images/subnav/subnav_right.gif"><img src = "templates/offlike/images/pixel.gif" width = "6"></td>
                                         </tr>
                                         <tr>
                                             <td width="5" height="9" background="templates/offlike/images/subnav/subnav_botleft.gif"></td>
@@ -1642,13 +1641,13 @@ function sitemap() {
         if(is_ie){
             var menuBg="";
             var menuBgIndent="";
-            var underLine="<img src=templates/vanilla/images/bullet-trans-line-blue.gif />";
-            var bulletImg="<img src=templates/vanilla/images/bullet-trans-dot-blue.gif align=left />";
-            var bulletImgIndent="<img src=templates/vanilla/images/bullet-trans-dot-indent.gif align=left />";
+            var underLine="<img src=templates/offlike/images/bullet-trans-line-blue.gif />";
+            var bulletImg="<img src=templates/offlike/images/bullet-trans-dot-blue.gif align=left />";
+            var bulletImgIndent="<img src=templates/offlike/images/bullet-trans-dot-indent.gif align=left />";
         }else{
-            var menuBg="templates/vanilla/images/bullet-trans-bg-blue.gif";
-            var menuBgIndent="templates/vanilla/images/bullet-trans-indent-bg.gif";
-            var bulletImgIndent="<img src = templates/vanilla/images/pixel.gif width=16 height=1 />";
+            var menuBg="templates/offlike/images/bullet-trans-bg-blue.gif";
+            var menuBgIndent="templates/offlike/images/bullet-trans-indent-bg.gif";
+            var bulletImgIndent="<img src = templates/offlike/images/pixel.gif width=16 height=1 />";
             var underLine="";
             var bulletImg="";
         }

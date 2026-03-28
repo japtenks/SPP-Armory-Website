@@ -242,7 +242,7 @@ builddiv_start(1, 'Create Account');
 <?php header_image_account(); ?>
 
 <div class="form-flex">
-  <img src="templates/tbc/images/orc2.jpg" alt="Orc Warrior">
+  <img src="templates/offlike/images/orc2.jpg" alt="Orc Warrior">
   <form method="post" action="index.php?n=account&sub=register" class="register-form">
 
 

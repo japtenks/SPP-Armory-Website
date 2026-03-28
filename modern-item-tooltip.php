@@ -13,9 +13,9 @@ if ($itemId <= 0 || $realmId <= 0) {
 $_GET['realm'] = $realmId;
 $_REQUEST['realm'] = $realmId;
 
-require_once(__DIR__ . '/xfer/includes/bootstrap.php');
-require_once(__DIR__ . '/xfer/includes/helpers.php');
-require_once(__DIR__ . '/xfer/includes/item_tooltip_renderer.php');
+require_once(__DIR__ . '/core/xfer/bootstrap.php');
+require_once(__DIR__ . '/core/xfer/helpers.php');
+require_once(__DIR__ . '/core/xfer/item_tooltip_renderer.php');
 
 $item = world_query("SELECT entry, name FROM item_template WHERE entry = {$itemId} LIMIT 1", 1);
 if (!$item) {

@@ -1318,10 +1318,14 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
 
         if (spp_character_table_exists($charsPdo, 'character_spell') && !empty($professionsByCategory)) {
             $professionSkillIds = array();
+            $professionSkillRanks = array();
             foreach ($professionsByCategory as $categorySkills) {
                 foreach ($categorySkills as $skill) {
                     $skillId = (int)($skill['skill_id'] ?? 0);
-                    if ($skillId > 0) $professionSkillIds[$skillId] = true;
+                    if ($skillId > 0) {
+                        $professionSkillIds[$skillId] = true;
+                        $professionSkillRanks[$skillId] = max($professionSkillRanks[$skillId] ?? 0, (int)($skill['value'] ?? 0));
+                    }
                 }
             }
 
@@ -1555,13 +1559,24 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                     }
 
                     $professionSpellbookBySkillId = array();
-                    if (!empty($learnedSpellIds)) {
-                        $spellPlaceholders = implode(',', array_fill(0, count($learnedSpellIds), '?'));
+                    $eligibleTrainerSpellIds = array();
+                    foreach ($trainerSpellIdsBySkill as $skillId => $trainerSpells) {
+                        $currentRank = (int)($professionSkillRanks[$skillId] ?? 0);
+                        foreach ($trainerSpells as $spellId => $requiredValue) {
+                            if ((int)$requiredValue <= $currentRank) {
+                                $eligibleTrainerSpellIds[(int)$spellId] = true;
+                            }
+                        }
+                    }
+
+                    $candidateSpellIds = $learnedSpellIds + $eligibleTrainerSpellIds;
+                    if (!empty($candidateSpellIds)) {
+                        $spellPlaceholders = implode(',', array_fill(0, count($candidateSpellIds), '?'));
                         $spellStmt = $worldPdo->prepare(
                             'SELECT `Id`, `SpellName`, `SpellIconID`, `EffectItemType1`, `EffectItemType2`, `EffectItemType3` ' .
                             'FROM `spell_template` WHERE `Id` IN (' . $spellPlaceholders . ')'
                         );
-                        $spellStmt->execute(array_keys($learnedSpellIds));
+                        $spellStmt->execute(array_keys($candidateSpellIds));
                         $spellRows = $spellStmt->fetchAll(PDO::FETCH_ASSOC);
 
                         $spellMetaMap = array();
@@ -1624,9 +1639,10 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                             }
                         }
 
-                        foreach (array_keys($learnedSpellIds) as $spellId) {
+                        foreach (array_keys($candidateSpellIds) as $spellId) {
                             if (!isset($spellMetaMap[$spellId])) continue;
                             $hasCraftOutput = !empty($spellOutputMap[$spellId]);
+                            $isLearnedSpell = !empty($learnedSpellIds[$spellId]);
                             $assignedSkills = array();
                             foreach ($trainerSpellIdsBySkill as $skillId => $trainerSpells) {
                                 if (isset($trainerSpells[$spellId])) $assignedSkills[$skillId] = true;
@@ -1686,6 +1702,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                                 $professionSpellbookBySkillId[$skillId][] = array(
                                     'spell_id' => $spellId,
                                     'spell_name' => $spellName,
+                                    'is_learned' => $isLearnedSpell,
                                     'icon' => !empty($craftedItems[0]['icon']) ? $craftedItems[0]['icon'] : $spellIcon,
                                     'quality' => !empty($craftedItems[0]['quality']) ? (int)$craftedItems[0]['quality'] : 1,
                                     'item_entry' => !empty($craftedItems[0]['entry']) ? (int)$craftedItems[0]['entry'] : 0,
@@ -1698,6 +1715,9 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
 
                         foreach ($professionSpellbookBySkillId as &$spellbook) {
                             usort($spellbook, function ($left, $right) {
+                                if (!empty($left['is_learned']) !== !empty($right['is_learned'])) {
+                                    return !empty($right['is_learned']) <=> !empty($left['is_learned']);
+                                }
                                 if ((int)$left['required_rank'] !== (int)$right['required_rank']) {
                                     return (int)$right['required_rank'] <=> (int)$left['required_rank'];
                                 }
@@ -2359,10 +2379,13 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-recipe-filter.is-active{background:linear-gradient(90deg,#8b6500,#c99a00);border-color:rgba(255,217,118,.4);color:#fff8e0}
 .character-recipe-list{display:grid;gap:10px}
 .character-recipe-row{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:flex-start;padding:12px;border-radius:14px;border:1px solid rgba(255,204,72,.1);background:rgba(255,255,255,.02);text-decoration:none}
+.character-recipe-row.is-available{border-color:rgba(159,210,255,.18);background:rgba(159,210,255,.04)}
 .character-recipe-row.is-hidden{display:none}
 .character-recipe-row img{width:42px;height:42px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:#080808}
 .character-recipe-row strong{display:block;color:#f7edd0;font-size:.98rem}
 .character-recipe-row .character-recipe-source{margin-top:4px;color:#bca87a;font-size:.88rem;line-height:1.35}
+.character-recipe-status{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:4px 9px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,204,72,.08);color:#ffe39a;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.character-recipe-status.is-available{border-color:rgba(159,210,255,.24);background:rgba(159,210,255,.12);color:#b8e3ff}
 .character-recipe-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .character-recipe-badge{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 .character-recipe-badge.is-faction{background:rgba(45,124,209,.16);color:#9fd2ff}
@@ -2470,6 +2493,7 @@ function modernMoveTooltip(event) {
 }
 
 function modernHideTooltip() {
+  modernTooltipRequestToken += 1;
   if (modernTooltipNode) modernTooltipNode.style.display = 'none';
 }
 
@@ -2728,16 +2752,28 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
                     </div>
 
                     <?php if (!empty($skill['recipes'])): ?>
+                    <?php
+                        $learnedRecipeCount = 0;
+                        foreach ($skill['recipes'] as $recipeMeta) {
+                            if (!empty($recipeMeta['is_learned'])) $learnedRecipeCount++;
+                        }
+                        $availableRecipeCount = count($skill['recipes']) - $learnedRecipeCount;
+                    ?>
                     <details class="character-profession-recipes">
                         <summary>
                             <strong>Profession Spellbook</strong>
-                            <span><?php echo (int)count($skill['recipes']); ?> recorded</span>
+                            <span>
+                                <?php echo (int)$learnedRecipeCount; ?> known
+                                <?php if ($availableRecipeCount > 0): ?>
+                                · <?php echo (int)$availableRecipeCount; ?> trainable
+                                <?php endif; ?>
+                            </span>
                         </summary>
                         <div class="character-recipe-list">
                             <?php foreach ($skill['recipes'] as $recipe): ?>
                                 <?php $rowTag = !empty($recipe['item_entry']) ? 'a' : 'div'; ?>
                                 <<?php echo $rowTag; ?>
-                                    class="character-recipe-row quality-<?php echo (int)$recipe['quality']; ?>"
+                                    class="character-recipe-row quality-<?php echo (int)$recipe['quality']; ?><?php echo empty($recipe['is_learned']) ? ' is-available' : ''; ?>"
                                     <?php if ($rowTag === 'a'): ?>
                                     href="<?php echo htmlspecialchars('index.php?n=server&sub=item&realm=' . (int)$realmId . '&item=' . (int)$recipe['item_entry']); ?>"
                                     onmousemove="modernMoveTooltip(event)"
@@ -2756,6 +2792,9 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
                                         <?php if (!empty($recipe['required_rank'])): ?>
                                         <div class="character-recipe-source"><?php echo (int)$recipe['required_rank']; ?> skill</div>
                                         <?php endif; ?>
+                                        <div class="character-recipe-status<?php echo empty($recipe['is_learned']) ? ' is-available' : ''; ?>">
+                                            <?php echo !empty($recipe['is_learned']) ? 'Known' : 'Trainable'; ?>
+                                        </div>
                                     </div>
                                 </<?php echo $rowTag; ?>>
                             <?php endforeach; ?>
@@ -3044,8 +3083,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <?php builddiv_end(); ?>
-
-
 
 
 

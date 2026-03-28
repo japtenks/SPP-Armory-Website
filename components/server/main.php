@@ -31,13 +31,6 @@ $com_content['server'] = array(
     0
 ),
 
-	'gmonline' => array(
-        '', 
-        'gm_online', 
-        mw_url('server', 'gmonline'),
-        '8-menuSupport',
-        0
-    ),
     'chars' => array(
         '', 
         'Characters on the server', 
@@ -87,13 +80,6 @@ $com_content['server'] = array(
         '4-menuInteractive',
         0
     ),
-    'bugtracker' => array(
-        '', 
-        'bugs', 
-        mw_url('server', 'bugtracker'),
-        '4-menuInteractive',
-        0
-    ),
     'playermap' => array(
         '', 
         'Player Map', 
@@ -129,13 +115,6 @@ $com_content['server'] = array(
         '',
         0
     ),
-    'gms' => array(
-        '', 
-        'gmlist', 
-        mw_url('server', 'gms'),
-        '8-menuSupport',
-        0
-    ),
     'statistic' => array(
         '', 
         'statistic', 
@@ -143,24 +122,10 @@ $com_content['server'] = array(
         '4-menuInteractive',
         0
     ),
-    'howtoplay' => array(
-        '', 
-        'howtoplay', 
-        mw_url('server', 'howtoplay'),
-        '3-menuGameGuide',
-        0
-    ),
     'ah' => array(
         '',
         'ah',
         mw_url('server', 'ah'),
-        '4-menuGameGuide',
-        0
-    ),
-    'info' => array(
-        '',
-        'info',
-        mw_url('server', 'info'),
         '4-menuGameGuide',
         0
     ),
@@ -178,40 +143,11 @@ $com_content['server'] = array(
         '4-menuWorkshop',
         0
     ),
-    'armorsets' => array(
-        '', 
-        'armorsets', 
-        mw_url('server', 'armorsets'),
-        '3-menuGameGuide',
-        0
-    ),
-    'worldsets' => array(
-        '', 
-        'worldsets', 
-        mw_url('server', 'worldsets'),
-        '3-menuGameGuide',
-        0
-    ),
-    'pvpsets' => array(
-        '', 
-        'pvpsets', 
-        mw_url('server', 'pvpsets'),
-        '3-menuGameGuide',
-        0
-    ),
-
     'rules' => array(
         '', 
         'rules', 
         mw_url('server', 'rules'),
         '4-menuGameGuide',
-        0
-    ),
-    'raf' => array(
-        '',
-        'raf',
-        mw_url('server', 'raf'),
-        '',
         0
     ),
 );

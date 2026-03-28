@@ -23,7 +23,7 @@ $limitstart = ($pid - 1) * $limit;
         $stmt->execute([]);
         $query = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }else{
-        output_message('alert','Realm <b>'.$realm_info['name'].'</b> is offline <img src="./templates/WotLK/images/downarrow2.gif" border="0" align="top">');
+        output_message('alert','Realm <b>'.$realm_info['name'].'</b> is offline <img src="/templates/offlike/images/downarrow2.gif" border="0" align="top">');
     }
 
     foreach ($query as $result) {

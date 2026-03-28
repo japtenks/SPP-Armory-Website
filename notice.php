@@ -12,7 +12,7 @@ $site_name = "";
 		<meta http-equiv="Expires" content="-1" />
 		<meta http-equiv="Cache-Control" content="no-cache" />
 		<style type="text/css" title="currentStyle" media="screen">
-			@import "templates/vanilla/css/notice.css";
+			@import "templates/offlike/css/notice.css";
 			body 
 			{
 				color: #FFF;
@@ -80,8 +80,8 @@ $site_name = "";
 							</tr>
 							<tr>
 								<td align="center">
-									<a href="http://google.com"><img src="images/notice/decline.gif" alt="Decline" /></a>
-									<a href=""><img src="images/notice/agree.gif" onclick="checkForm()" alt="Agree" /></a>
+									<a href="http://google.com"><img src="/templates/offlike/images/notice/decline.gif" alt="Decline" /></a>
+									<a href=""><img src="/templates/offlike/images/notice/agree.gif" onclick="checkForm()" alt="Agree" /></a>
 								</td>
 							</tr>
 						</table>

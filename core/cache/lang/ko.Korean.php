@@ -723,6 +723,9 @@ $lang = array (
   'teamspeak' => 'Teamspeak',
   'spp_discord' => 'SPP 디스코드',
   'bots_discord' => 'Mangosbot 디스코드',
+  'spp_proxmox' => 'SPP Proxmox',
+  'spp_mangos' => 'SPP Mangos',
+  'website_issues' => 'Website Issues',
   'text' => 'Text',
   'theme' => 'Theme',
   'thrown' => 'Thrown',
@@ -843,5 +846,7 @@ $lang = array (
   'menuCommunity' => 'Community',
   'menuSupport' => 'Support',
   'menuArmory' => 'Armory',
+  'arm_' => 'Armory',
+  'arm_talent' => 'Talents',
 );
 ?>

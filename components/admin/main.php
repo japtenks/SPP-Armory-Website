@@ -76,13 +76,6 @@ $com_content['admin'] = array(
         '',
         0
     ),
-    'chat' => array(
-        'g_is_admin', 
-        'chat_manage', 
-        'index.php?n=admin&sub=chat',
-        '',
-        0
-    ),
     'donate' => array(
         'g_is_admin',
         'donate',
@@ -111,14 +104,7 @@ $com_content['admin'] = array(
         '',
         0
     ),
-	'tickets' => array(
-        'g_is_admin',
-        'tickets',
-        'index.php?n=admin&sub=tickets',
-        '',
-        0
-    ),
-		'chartransfer' => array(
+    'chartransfer' => array(
         'g_is_admin',
         'chartransfer',
         'index.php?n=admin&sub=chartransfer',

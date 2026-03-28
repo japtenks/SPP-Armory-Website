@@ -165,21 +165,7 @@ $user = $auth->user ;
 
 
 //Determine Current Template
-if ( $user['id'] == -1 )
-{
-	$currtmp = "templates/".( string ) $MW->getConfig->generic->default_template ;
-} else
-{
-	$_pdoTheme = spp_get_pdo('realmd', 1);
-	$_stmtTheme = $_pdoTheme->prepare("SELECT theme FROM `website_accounts` WHERE account_id=?");
-	$_stmtTheme->execute([$user['id']]);
-	$currtmp = $_stmtTheme->fetchColumn();
-	foreach ( $MW->getConfig->templates->template as $template )
-	{
-		$currtmp2[] = $template ;
-	}
-	$currtmp = "templates/" . $currtmp2[$currtmp] ;
-}
+$currtmp = "templates/" . (string)$MW->getConfig->generic->template;
 
 // Load Permissions and aviable sites.
 include ( 'core/default_components.php' ) ;
@@ -325,9 +311,6 @@ if ( ( int )$MW->getConfig->generic->use_archaeic_dbinfo_format )
 		'db_encoding' => 'utf8', // don't change
 		) ;
 }
-// read template
-if ($dbinfo_mangos["template"])
-	$currtmp = "templates/".( string ) $dbinfo_mangos["template"] ;
 unset( $dbinfo_mangos ) ; // Free up memory.
 
 if ( ( int )$MW->getConfig->generic->use_alternate_mangosdb_port )

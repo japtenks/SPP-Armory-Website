@@ -7,21 +7,19 @@
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-helper.php');
 
 $db = [
-    'host' => '127.0.0.1',
-    'port' => 3310,
-    'user' => 'root',
-    'pass' => '123456'
+    'host' => '192.168.1.47',
+    'port' => 3306,
+    'user' => 'mangos',
+    'pass' => 'mangos'
 ];
 
-//update for address to autogen realmlist.wtf
-$clientConnectionHost = '127.0.0.1';
+$clientConnectionHost = '192.168.1.145';
 
-//create a soap user then update this, use registraton page
 $serviceDefaults = [
     'soap' => [
         'port'    => 7878,
-        'user'    => 'admin',
-        'pass'    => 'password',
+        'user'    => 'soapy2',
+        'pass'    => 'soapy2',
     ],
 ];
 

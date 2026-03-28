@@ -124,7 +124,7 @@ function selectattach(id) {
       <div class="attach-list">
         <?php foreach ($attachs as $attach): ?>
         <div class="attach-item">
-          <img src="images/mime/<?php echo $attach['ext']; ?>.png" alt="">
+          <img src="/templates/offlike/images/mime/<?php echo $attach['ext']; ?>.png" alt="">
           <a href="javascript:selectattach('<?php echo $attach['attach_id']; ?>');">
             <?php echo htmlspecialchars($attach['attach_file']); ?>
           </a>

@@ -67,7 +67,7 @@ foreach($items as $i => $result)
 	$realm_num = $result['id'];
     if($result['realmflags'] != 1 && ($result['realmflags'] & 2) != 2)
     {
-        $res_img = './templates/tbc/images/uparrow2.gif';
+        $res_img = './templates/offlike/images/uparrow2.gif';
         if ($realm_num == 1) {
             try {
                 $population = (int)spp_get_pdo('chars', 1)->query("SELECT count(*) FROM `characters` WHERE online=1")->fetchColumn();
@@ -94,7 +94,7 @@ foreach($items as $i => $result)
     }
     else
     {
-        $res_img = './templates/tbc/images/downarrow2.gif';
+        $res_img = './templates/offlike/images/downarrow2.gif';
         $population_str = 'n/a';
         $uptime = 0;
     }

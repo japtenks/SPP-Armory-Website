@@ -193,7 +193,7 @@ if ($loginReturnTo === '' || stripos($loginReturnTo, 'index.php?n=account&sub=lo
 <?php header_image_account(); ?>
 <?php if ($user['id'] <= 0): ?>
 <div class="form-flex">
-  <img src="templates/tbc/images/twoheaded-ogre.jpg" alt="Orc Warrior">
+  <img src="templates/offlike/images/twoheaded-ogre.jpg" alt="Orc Warrior">
   <form method="post" action="index.php?n=account&sub=login" class="login-form">
     <input type="hidden" name="action" value="login">
     <input type="hidden" name="returnto" value="<?php echo htmlspecialchars($loginReturnTo); ?>">
