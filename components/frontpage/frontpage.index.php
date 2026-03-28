@@ -11,16 +11,25 @@ if((int)$MW->getConfig->generic_values->forum->news_forum_id == 0)
 $realmId  = spp_resolve_realm_id($realmDbMap);
 $realmPdo = spp_get_pdo('realmd', $realmId);
 
+$newsFid = (int)$MW->getConfig->generic_values->forum->news_forum_id;
+$thirtyDaysAgo = time() - (30 * 86400);
 $stmtTopics = $realmPdo->prepare("
     SELECT f_topics.*,(SELECT message FROM f_posts WHERE f_topics.topic_id=f_posts.topic_id ORDER BY f_posts.posted LIMIT 1) as message
     FROM f_topics
-    WHERE f_topics.forum_id=?
-    ORDER BY topic_posted DESC
-    LIMIT 0," . (int)$MW->getConfig->generic_values->news->items_per_page);
-$stmtTopics->execute([
-    (int)$MW->getConfig->generic_values->forum->news_forum_id,
-]);
+    WHERE f_topics.forum_id=? AND f_topics.topic_posted >= ?
+    ORDER BY topic_posted DESC");
+$stmtTopics->execute([$newsFid, $thirtyDaysAgo]);
 $alltopics = $stmtTopics->fetchAll(PDO::FETCH_ASSOC);
+if (empty($alltopics)) {
+    $stmtTopics = $realmPdo->prepare("
+        SELECT f_topics.*,(SELECT message FROM f_posts WHERE f_topics.topic_id=f_posts.topic_id ORDER BY f_posts.posted LIMIT 1) as message
+        FROM f_topics
+        WHERE f_topics.forum_id=?
+        ORDER BY topic_posted DESC
+        LIMIT 1");
+    $stmtTopics->execute([$newsFid]);
+    $alltopics = $stmtTopics->fetchAll(PDO::FETCH_ASSOC);
+}
 
 if ((int)$MW->getConfig->components->right_section->hitcounter){
     $count_my_page = "templates/offlike/hitcounter.txt";

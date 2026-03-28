@@ -12,14 +12,17 @@ $realmId = spp_resolve_realm_id($realmMap);
 
 $this_topic = get_topic_byid($_GET['tid']);
 $this_forum = get_forum_byid($this_topic['forum_id']);
-$this_topic['show_qr'] = $this_forum['quick_reply']==1?true:false;
+$_vtNewsFid = (int)($MW->getConfig->generic_values->forum->news_forum_id ?? 0);
+$_vtIsNewsForum = $_vtNewsFid > 0 && (int)$this_forum['forum_id'] === $_vtNewsFid;
+$_vtCanPost = !$_vtIsNewsForum || (int)($user['gmlevel'] ?? 0) >= 3;
+$this_topic['show_qr'] = ($this_forum['quick_reply']==1 && $_vtCanPost) ? true : false;
 if($this_forum['forum_id']<=0 || $this_topic['topic_id']<=0)exit('This forum or topic does not exist.');
 // ================================================= //
 $this_forum['linktothis'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewforum&fid='.$this_forum['forum_id'].'';
 $this_forum['linktonewtopic'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newtopic&f='.$this_forum['forum_id'].'';
 
 $this_topic['linktothis'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$this_topic['topic_id'].'';
-$this_topic['linktoreply'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newpost&t='.$this_topic['topic_id'].'&fid='.$this_forum['forum_id'];
+$this_topic['linktoreply'] = $_vtCanPost ? $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newpost&t='.$this_topic['topic_id'].'&fid='.$this_forum['forum_id'] : '';
 $this_topic['linktopostreply'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=donewpost&t='.$this_topic['topic_id'].'&fid='.$this_forum['forum_id'];
 $this_topic['linktodelete'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletetopic&t='.$this_topic['topic_id'];
 $this_topic['linktoclose'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=closetopic&t='.$this_topic['topic_id'];
@@ -115,7 +118,7 @@ foreach($result as $cur_post)
     $cur_post['linktoprofile'] = $MW->getConfig->temp->site_href.'index.php?n=account&sub=view&action=find&name='.$cur_post['username'].'';
     $cur_post['linktopms'] = $MW->getConfig->temp->site_href.'index.php?n=account&sub=pms&action=add&to='.$cur_post['username'];
     $cur_post['linktothis'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$this_topic['topic_id'].'&to='.$cur_post['post_id'];
-    $cur_post['linktoquote'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newpost&t='.$this_topic['topic_id'].'&quote='.$cur_post['post_id'];
+    $cur_post['linktoquote'] = $_vtCanPost ? $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newpost&t='.$this_topic['topic_id'].'&quote='.$cur_post['post_id'] : '';
     $cur_post['linktoedit'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=editpost&post='.$cur_post['post_id'];
     $cur_post['linktodelete'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletepost&post='.$cur_post['post_id'];
     // ================================================= //

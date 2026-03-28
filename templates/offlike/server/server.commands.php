@@ -2,8 +2,15 @@
 <?php
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/com_db.php');
 require_once($_SERVER['DOCUMENT_ROOT'].'/xfer/includes/com_search.php');
-$gmCommands = loadCommands($pdo,$world_db,'gm'); 
-?>
+$gmCommands = loadCommands($pdo,$world_db,'gm');
+
+$userGmLevel = (int)($user['gmlevel'] ?? 0);
+if (($user['id'] ?? 0) > 0) {
+  $gmCommands = array_values(array_filter($gmCommands, function ($cmd) use ($userGmLevel) {
+    return (int)($cmd['security'] ?? 0) <= $userGmLevel;
+  }));
+}
+?> 
 
 
 <?php builddiv_start(1, $lang['commands']); ?>
@@ -31,7 +38,7 @@ $gmCommands = loadCommands($pdo,$world_db,'gm');
       </tr>
       <?php endforeach; ?>
       <?php if (empty($gmCommands)): ?>
-      <tr><td colspan="2" style="text-align:center;color:#888;">No GM commands found for your level.</td></tr>
+      <tr><td colspan="2" style="text-align:center;color:#888;">No GM commands found for this account level.</td></tr>
       <?php endif; ?>
     </tbody>
   </table>

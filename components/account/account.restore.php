@@ -44,11 +44,11 @@ if($_POST['retr_login'] && $_POST['retr_email'] && $_POST['secretq1'] && $_POST[
     output_message('alert','<b>'.$lang['fail_restore_pass'].'</b><meta http-equiv=refresh content="3;url=index.php?n=account&sub=restore">');
   }
   elseif ($return == TRUE) {
-    $stmtWe = $restorePdo->prepare("SELECT account_id FROM `account_extend` WHERE account_id=? AND secretq1=? AND secretq2=? AND secreta1=? AND secreta2=?");
+    $stmtWe = $restorePdo->prepare("SELECT account_id FROM `website_accounts` WHERE account_id=? AND secretq1=? AND secretq2=? AND secreta1=? AND secreta2=?");
     $stmtWe->execute([$username, strip_if_magic_quotes($_POST['secretq1']), strip_if_magic_quotes($_POST['secretq2']), strip_if_magic_quotes($_POST['secreta1']), strip_if_magic_quotes($_POST['secreta2'])]);
     $we = $stmtWe->fetch(PDO::FETCH_ASSOC);
     if ($we == false){
-      $stmtWe2 = $restorePdo->prepare("SELECT account_id FROM `account_extend` WHERE account_id=? AND secretq1=? AND secretq2=? AND secreta1=? AND secreta2=?");
+      $stmtWe2 = $restorePdo->prepare("SELECT account_id FROM `website_accounts` WHERE account_id=? AND secretq1=? AND secretq2=? AND secreta1=? AND secreta2=?");
       $stmtWe2->execute([$username, strip_if_magic_quotes($_POST['secretq2']), strip_if_magic_quotes($_POST['secretq1']), strip_if_magic_quotes($_POST['secreta2']), strip_if_magic_quotes($_POST['secreta1'])]);
       $we = $stmtWe2->fetch(PDO::FETCH_ASSOC);
     }

@@ -667,7 +667,13 @@ function my_previewreverse($text){
         }
     }
     $text = preg_replace("/<img src=.([^'\"<>]+). align=.absmiddle.>/s","[img]$1[/img]",$text);
-    $text = preg_replace("/(<a href=.*?<\\/a>)/se","check_url_reverse('\\1')",$text);
+    $text = preg_replace_callback(
+        "/(<a href=.*?<\\/a>)/s",
+        function ($matches) {
+            return check_url_reverse($matches[1]);
+        },
+        $text
+    );
     $text = preg_replace("/<font color=.([^'\"<>]+).>([^<>]*?)<\\/font>/s","[color=$1]$2[/color]",$text);
     $text = preg_replace("/<font class=.([^'\"<>]+).>([^<>]*?)<\\/font>/s","[size=$1]$2[/size]",$text);
     $text = preg_replace("/<p align=.([^'\"<>]+).>([^<>]*?)<\\/p>/s","[align=$1]$2[/align]",$text);

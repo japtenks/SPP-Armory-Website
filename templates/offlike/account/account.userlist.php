@@ -12,8 +12,11 @@
 <div class="modern-content userlist">
 
   <div class="userlist-header">
-    <div class="pagination">
-      <?php echo $lang['post_pages']; ?>: <?php echo $pages_str; ?>
+    <div class="userlist-titleblock">
+      <div class="userlist-kicker">Community</div>
+      <div class="pagination">
+        <?php echo $lang['post_pages']; ?>: <?php echo $pages_str; ?>
+      </div>
     </div>
     <div class="alphabet-filter">
       <a href="index.php?n=account&sub=userlist"><?php echo $lang['all']; ?></a>
@@ -23,17 +26,12 @@
     </div>
   </div>
 
-  <div class="userlist-table">
-    <div class="userlist-row header">
-      <div class="col icon"></div>
-      <div class="col name"><?php echo $lang['user_name']; ?></div>
-      <div class="col email">Email</div>
-      <div class="col home"><?php echo $lang['homepage']; ?></div>
-      <div class="col icq">ICQ</div>
-      <div class="col msn">MSN</div>
-      <div class="col registered"><?php echo $lang['registered']; ?></div>
-      <div class="col posts"><?php echo $lang['forums_posts']; ?></div>
-    </div>
+    <div class="userlist-table">
+      <div class="userlist-row header">
+        <div class="col icon"></div>
+        <div class="col name"><?php echo $lang['user_name']; ?></div>
+        <div class="col action">Profile</div>
+      </div>
 
     <?php if (is_array($items)): ?>
       <?php foreach ($items as $item): ?>
@@ -49,26 +47,15 @@
               <?php echo $item['username']; ?>
             </a>
           </div>
-          <div class="col email">
-            <?php if ($item['hideemail'] != 1): ?>
-              <a href="mailto:<?php echo $item['email']; ?>">
-                <img src="<?php echo $currtmp; ?>/images/icons/email_open.gif" alt="Email">
-              </a>
-            <?php endif; ?>
+          <div class="col action">
+            <a class="profile-link" href="index.php?n=account&sub=view&action=find&name=<?php echo $item['username']; ?>">
+              View
+            </a>
           </div>
-          <div class="col home">
-            <?php if ($item['homepage'] && $item['homepage'] != 'http://'): ?>
-              <a href="<?php echo $item['homepage']; ?>" target="_blank">
-                <img src="<?php echo $currtmp; ?>/images/icons2/www.gif" alt="WWW">
-              </a>
-            <?php endif; ?>
-          </div>
-          <div class="col icq"><?php echo $item['icq'] ?? ''; ?></div>
-          <div class="col msn"><?php echo $item['msn'] ?? ''; ?></div>
-          <div class="col registered"><?php echo $item['registered'] ?? ''; ?></div>
-          <div class="col posts"><?php echo $item['forums_posts'] ?? ''; ?></div>
         </div>
       <?php endforeach; ?>
+    <?php else: ?>
+      <div class="userlist-empty">No members found for this filter.</div>
     <?php endif; ?>
   </div>
 
@@ -95,24 +82,48 @@
 .userlist {
   font-family: "Trebuchet MS", sans-serif;
   color: #ddd;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .userlist-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  background: rgba(20,20,20,0.85);
-  border: 1px solid #654321;
-  border-radius: 6px;
-  padding: 6px 10px;
-  margin-bottom: 8px;
+  align-items: flex-end;
+  background: linear-gradient(180deg, rgba(18,18,18,0.92), rgba(9,9,9,0.9));
+  border: 1px solid rgba(223, 168, 70, 0.5);
+  border-radius: 12px;
+  padding: 14px 16px;
+  gap: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.24);
+}
+
+.userlist-titleblock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.userlist-kicker {
+  color: #c3a46a;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+}
+
+.userlist-header .alphabet-filter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .userlist-header .alphabet-filter a {
   color: gold;
   text-decoration: none;
-  margin: 0 2px;
   font-weight: bold;
+  padding: 4px 0;
 }
 .userlist-header .alphabet-filter a:hover {
   text-shadow: 0 0 6px #ffcc00;
@@ -122,29 +133,35 @@
   width: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(14,14,14,0.78), rgba(8,8,8,0.68));
+  backdrop-filter: blur(3px);
 }
 
 .userlist-row {
   display: grid;
-  grid-template-columns: 40px 1fr 60px 60px 60px 60px 120px 60px;
+  grid-template-columns: 48px minmax(220px, 1fr) 100px;
   align-items: center;
-  background: rgba(15, 15, 15, 0.7);
+  background: rgba(15, 15, 15, 0.45);
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  padding: 6px 4px;
+  padding: 10px 10px;
 }
 .userlist-row.header {
-  background: linear-gradient(to bottom, #3a2a00, #1f1600);
+  background: linear-gradient(to bottom, rgba(84, 56, 10, 0.9), rgba(37, 24, 5, 0.95));
   font-weight: bold;
   color: gold;
   text-transform: uppercase;
-  border-bottom: 2px solid #c28c00;
+  border-bottom: 1px solid rgba(255, 210, 102, 0.25);
+  letter-spacing: 0.04em;
 }
 .userlist-row:hover {
-  background: rgba(40, 30, 0, 0.7);
+  background: rgba(57, 39, 6, 0.42);
 }
 
 .userlist-row .col {
-  padding: 4px;
+  padding: 4px 8px;
   text-align: center;
 }
 .userlist-row .col.name {
@@ -159,10 +176,57 @@
   text-shadow: 0 0 6px #ffcc00;
 }
 
+.userlist-row .col.icon img {
+  width: 18px;
+  height: 18px;
+}
+
+.profile-link {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 206, 102, 0.4);
+  color: #ffd27a;
+  text-decoration: none;
+  font-weight: bold;
+  background: rgba(255, 193, 72, 0.08);
+}
+
+.profile-link:hover {
+  color: #fff6dc;
+  background: rgba(255, 193, 72, 0.18);
+  box-shadow: 0 0 10px rgba(255, 193, 72, 0.18);
+}
+
+.userlist-empty {
+  padding: 24px 18px;
+  text-align: center;
+  color: #b8b8b8;
+}
+
+.pagination {
+  color: #cfcfcf;
+}
+
 .pagination.bottom {
-  margin-top: 8px;
   text-align: right;
   color: #aaa;
   font-size: 0.9em;
+  padding: 0 4px;
+}
+
+@media (max-width: 900px) {
+  .userlist-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .userlist-header .alphabet-filter {
+    justify-content: flex-start;
+  }
+
+  .userlist-row {
+    grid-template-columns: 42px minmax(140px, 1fr) 88px;
+  }
 }
 </style>

@@ -57,9 +57,16 @@ if (!empty($_GET['f'])) {
     $this_forum = get_forum_byid($_GET['f']);
 }
 
+$_newsFid = (int)($MW->getConfig->generic_values->forum->news_forum_id ?? 0);
+$_isNewsForum = $_newsFid > 0 && (int)($this_forum['forum_id'] ?? $_GET['f'] ?? 0) === $_newsFid;
+
 if ($user['id'] <= 0) {
     $canPost = false;
     $posting_block_reason = 'You must be logged in to post.';
+} elseif ($_isNewsForum && (int)($user['gmlevel'] ?? 0) < 3) {
+    $canPost = false;
+    $posting_block_reason = 'Only GMs may post in the News forum.';
+    output_message('alert', $posting_block_reason);
 } elseif (!isValidChar($user, $realmId)) {
     $canPost = false;
     $posting_block_reason = 'You must select a valid character before posting. This account currently has no available character loaded for the selected realm.';
@@ -212,7 +219,14 @@ if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
 if (!empty($this_topic['topic_id'])) {
     $forumReadPdo = spp_get_pdo('realmd', $realmId);
     $stmtPosts = $forumReadPdo->prepare(
-        "SELECT * FROM f_posts
+        "SELECT
+            f_posts.*,
+            account.*,
+            website_accounts.*,
+            website_accounts.avatar AS website_avatar,
+            website_accounts.signature AS website_signature,
+            website_account_groups.*
+         FROM f_posts
          LEFT JOIN account ON f_posts.poster_id=account.id
          LEFT JOIN website_accounts ON f_posts.poster_id=website_accounts.account_id
          LEFT JOIN website_account_groups ON website_accounts.g_id = website_account_groups.g_id
@@ -225,6 +239,7 @@ if (!empty($this_topic['topic_id'])) {
     $charReadPdo = spp_get_pdo('chars', $realmId);
     $postIndex = 0;
     foreach ($result as $cur_post) {
+        $cur_post['avatar'] = '';
         $stmtChar = $charReadPdo->prepare(
             "SELECT c.race, c.class, c.level, c.gender, g.name AS guild
              FROM characters c
@@ -235,17 +250,35 @@ if (!empty($this_topic['topic_id'])) {
         $stmtChar->execute([(int)$cur_post['poster_character_id']]);
         $charinfo = $stmtChar->fetch(PDO::FETCH_ASSOC);
 
-        if (!empty($charinfo)) {
+        $uploadedAvatar = '';
+        if (!empty($cur_post['website_avatar'])) {
+            $uploadedAvatar = (string)$cur_post['website_avatar'];
+        }
+
+        if ($uploadedAvatar !== '') {
+            $cur_post['avatar'] = 'images/avatars/' . rawurlencode(basename($uploadedAvatar));
+        }
+
+        if (!empty($cur_post['website_signature'])) {
+            $cur_post['signature'] = $cur_post['website_signature'];
+        }
+
+        if ($cur_post['avatar'] === '' && !empty($charinfo)) {
             $cur_post['avatar'] = get_character_portrait_path(
                 $cur_post['poster_character_id'],
                 $charinfo['gender'],
                 $charinfo['race'],
                 $charinfo['class']
             );
+        }
+
+        if (!empty($charinfo)) {
             $cur_post['level'] = $charinfo['level'];
             $cur_post['guild'] = $charinfo['guild'] ?? '';
         } else {
-            $cur_post['avatar'] = '/templates/offlike/images/forum/icons/lock-icon.gif';
+            if ($cur_post['avatar'] === '') {
+                $cur_post['avatar'] = '/templates/offlike/images/forum/icons/lock-icon.gif';
+            }
             $cur_post['level'] = 0;
             $cur_post['guild'] = '';
         }

@@ -15,6 +15,5 @@ Welcome to the MangosWeb Enhanced Admin Panel. Current MangosWeb Revision: <?php
 <ul style="font-weight:bold;"><h2>Forum Manager</h2>
 	<li><a href="index.php?n=admin&sub=forum"><?php echo $lang['admin_forum'];?> Admin</a></li>
 	<li><a href="index.php?n=forum&sub=post&action=newtopic&f=<?php echo (int)$MW->getConfig->generic_values->forum->news_forum_id;?>"><?php echo $lang['news_add'];?></a></li>
-	<li><a href="index.php?n=forum&sub=viewforum&fid=<?php echo (int)$MW->getConfig->generic_values->forum->news_forum_id;?>"><?php echo $lang['news_manage'];?></a></li>
 </ul>
 <?php builddiv_end() ?>

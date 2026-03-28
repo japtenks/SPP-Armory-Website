@@ -113,6 +113,21 @@ elseif (
 }
 
 // ========================================================
+// MARK MESSAGE AS READ
+// ========================================================
+elseif ($_GET['action'] == 'markread' && $_GET['dir'] == 'in' && !empty($_GET['iid'])) {
+    $stmt = $pmsPdo->prepare("
+        UPDATE website_pms
+        SET showed = 1
+        WHERE owner_id = ? AND id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([(int)$user['id'], (int)$_GET['iid']]);
+    redirect('index.php?n=account&sub=pms&action=view&dir=in', 1);
+    exit;
+}
+
+// ========================================================
 // VIEW SINGLE MESSAGE
 // ========================================================
 elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
@@ -164,6 +179,36 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
 elseif ($_GET['action'] == 'add') {
 
     $content = array('message' => '', 'subject' => '', 'sender' => '');
+    $pmRecipientOptions = array();
+
+    try {
+        $stmtRecipientCount = $pmsPdo->prepare("
+            SELECT COUNT(*)
+            FROM account
+            LEFT JOIN website_accounts ON account.id = website_accounts.account_id
+            WHERE account.id <> ?
+              AND LOWER(account.username) NOT LIKE 'rndbot%'
+              AND (website_accounts.hideprofile IS NULL OR website_accounts.hideprofile = 0)
+        ");
+        $stmtRecipientCount->execute([(int)$user['id']]);
+        $recipientCount = (int)$stmtRecipientCount->fetchColumn();
+
+        if ($recipientCount > 0 && $recipientCount < 20) {
+            $stmtRecipients = $pmsPdo->prepare("
+                SELECT account.username
+                FROM account
+                LEFT JOIN website_accounts ON account.id = website_accounts.account_id
+                WHERE account.id <> ?
+                  AND LOWER(account.username) NOT LIKE 'rndbot%'
+                  AND (website_accounts.hideprofile IS NULL OR website_accounts.hideprofile = 0)
+                ORDER BY account.username ASC
+            ");
+            $stmtRecipients->execute([(int)$user['id']]);
+            $pmRecipientOptions = $stmtRecipients->fetchAll(PDO::FETCH_COLUMN, 0);
+        }
+    } catch (Throwable $e) {
+        error_log('[account.pms] Recipient picker lookup failed: ' . $e->getMessage());
+    }
 
     if (!empty($_POST['owner']) && !empty($_POST['title']) && !empty($_POST['message'])) {
 

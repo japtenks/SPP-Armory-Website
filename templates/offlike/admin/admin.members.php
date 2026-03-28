@@ -44,20 +44,11 @@
         <div style="border: 2px dotted #1E4378;background:none;margin:4px;padding:6px 9px 6px 9px;text-align:right;width:70%;">
             <div align="right"><b><span class="style9"><?php $active=1;if ($act){echo "BANNED!";}else{echo "ACTIVE" ; }?></span><br/>
               </b>
-              <b>Username (login)</b> 
-              <input type="text" disabled="disabled" name="profile[username]" size="24" value="<?php echo $profile['username'];?>" style="margin:1px;"> 
-              <br/>
-              <b>Email</b> 
-              <input type="text" name="profile[email]" size="24" value="<?php echo $profile['email'];?>" style="margin:1px;"> 
-              <br/>
               <?php if($user['gmlevel']==3){ ?>
               <b>GM level</b> 
               <input type="text" name="profile[gmlevel]" size="1" value="<?php echo $profile['gmlevel'];?>" style="margin:1px;"> 
               <br/>
               <?php } ?>
-              <b>Locked</b> 
-              <input type="text" name="profile[locked]" size="1" value="<?php echo$profile['locked'];?>" style="margin:1px;"> 
-              <br/>
               <b>Account expansion:</b> 
 			  <select name="profile[expansion]">
 			  <?php
@@ -88,32 +79,6 @@
                 <option value="<?php echo$group_id;?>"<?php if($profile['g_id']==$group_id)echo' selected';?>><?php echo$group_name;?></value>
                 <?php } ?>
             </select>  <br/>
-            <?php if ($user['gmlevel'] > 0){ ?>
-            <b>Donator</b>
-            <select name="profile[donator]" style="margin:1px;">
-                <?php
-                if ($profile['donator'] == 1){
-                    $SELECTED = "SELECTED";
-                }else{
-                    $SELECTED = '';
-                }
-                ?>
-                <option <?php echo $SELECTED; ?> value="0">Not-Donator</option>
-                <option <?php echo $SELECTED; ?> value="1">Donator</option>
-            </select>  <br/>
-            <b>VIP ( Very Important Person )</b>
-            <select name="profile[vip]" style="margin:1px;">
-                <?php
-                if ($profile['vip'] == 1){
-                    $SELECTED = "SELECTED";
-                }else{
-                    $SELECTED = '';
-                }
-                ?>
-                <option <?php echo $SELECTED; ?> value="0">Non-VIP</option>
-                <option <?php echo $SELECTED; ?> value="1">VIP</option>
-            </select>  <br/>
-            <?php } ?>
             <?php if((int)$MW->getConfig->generic->change_template) { ?>
             <b>Theme (Template)</b> 
             <select name="profile[theme]" style="margin:1px;">
@@ -124,25 +89,11 @@
                 <?php $i++; } ?>
             </select>  <br/>
             <?php } ?>
-            <b>Hide email?</b> 
-            <select name="profile[hideemail]" style="margin:1px;">
-                <option value="0"<?php if($profile['hideemail']==0)echo' selected';?>>No</value>
-                <option value="1"<?php if($profile['hideemail']==1)echo' selected';?>>Yes</value>
-            </select>  <br/>
-            <b>Hide profile?</b> 
+            <b>Hide profile?</b>
             <select name="profile[hideprofile]" style="margin:1px;">
-                <option value="0"<?php if($profile['hideprofile']==0)echo' selected';?>>No</value>
-                <option value="1"<?php if($profile['hideprofile']==1)echo' selected';?>>Yes</value>
-            </select>  <br/>
-            <b>Gender</b> <select name="profile[gender]"> 
-                <option value="0"<?php if($profile['gender']==0)echo' selected';?>>- - - - - - - -</value>
-                <option value="1"<?php if($profile['gender']==1)echo' selected';?>>Male</value>
-                <option value="2"<?php if($profile['gender']==2)echo' selected';?>>Female</value>
-            </select> <img src="<?php echo $templategenderimage[$profile['gender']];?>"> <br/>
-            <b>WWW</b> <input type="text" size="36" name="profile[homepage]" style="margin:1px;" value="<?php echo$profile['homepage'];?>"> <br/>
-            <b>ICQ</b> <input type="text" size="36" name="profile[icq]" style="margin:1px;" value="<?php echo$profile['icq'];?>"> <br/>
-            <b>MSN</b> <input type="text" size="36" name="profile[msn]" style="margin:1px;" value="<?php echo$profile['msn'];?>"> <br/>
-            <b>From</b> <input type="text" size="36" name="profile[location]" style="margin:1px;" value="<?php echo$profile['location'];?>"> <br/>
+                <option value="0"<?php if((int)$profile['hideprofile']===0)echo' selected';?>>No</option>
+                <option value="1"<?php if((int)$profile['hideprofile']===1)echo' selected';?>>Yes</option>
+            </select> <br/>
         </div>
         <div style="border: 2px dotted #1E4378;background:none;margin:4px;padding:6px 9px 6px 9px;text-align:right;width:70%;">
             <?php if($profile['avatar']) { ?>
@@ -180,34 +131,40 @@
             <td><?php echo $lang['post_pages'];?>: <?php echo $pages_str; ?></td>
             <td align="right">
               <b>
-              <a href="index.php?n=admin&sub=members"><?php echo $lang['all'];?></a> | 
-              <a href="index.php?n=admin&sub=members&char=1">#</a> 
-              <a href="index.php?n=admin&sub=members&char=a">A</a> 
-              <a href="index.php?n=admin&sub=members&char=b">B</a> 
-              <a href="index.php?n=admin&sub=members&char=c">C</a> 
-              <a href="index.php?n=admin&sub=members&char=d">D</a> 
-              <a href="index.php?n=admin&sub=members&char=e">E</a> 
-              <a href="index.php?n=admin&sub=members&char=f">F</a> 
-              <a href="index.php?n=admin&sub=members&char=g">G</a> 
-              <a href="index.php?n=admin&sub=members&char=h">H</a> 
-              <a href="index.php?n=admin&sub=members&char=i">I</a> 
-              <a href="index.php?n=admin&sub=members&char=j">J</a> 
-              <a href="index.php?n=admin&sub=members&char=k">K</a> 
-              <a href="index.php?n=admin&sub=members&char=l">L</a> 
-              <a href="index.php?n=admin&sub=members&char=m">M</a> 
-              <a href="index.php?n=admin&sub=members&char=n">N</a> 
-              <a href="index.php?n=admin&sub=members&char=o">O</a> 
-              <a href="index.php?n=admin&sub=members&char=p">P</a> 
-              <a href="index.php?n=admin&sub=members&char=q">Q</a> 
-              <a href="index.php?n=admin&sub=members&char=r">R</a> 
-              <a href="index.php?n=admin&sub=members&char=s">S</a> 
-              <a href="index.php?n=admin&sub=members&char=t">T</a> 
-              <a href="index.php?n=admin&sub=members&char=u">U</a> 
-              <a href="index.php?n=admin&sub=members&char=v">V</a> 
-              <a href="index.php?n=admin&sub=members&char=w">W</a> 
-              <a href="index.php?n=admin&sub=members&char=x">X</a> 
-              <a href="index.php?n=admin&sub=members&char=y">Y</a> 
-              <a href="index.php?n=admin&sub=members&char=z">Z</a>              </b>            </td>
+              <?php $botToggleBase = 'index.php?n=admin&sub=members&char=' . htmlspecialchars($_GET['char'] ?? ''); ?>
+              <?php if($includeBots): ?>
+              <a href="<?php echo $botToggleBase; ?>&show_bots=0"><font color="orange">[Hide bots]</font></a> |
+              <?php else: ?>
+              <a href="<?php echo $botToggleBase; ?>&show_bots=1"><font color="green">[Show bots]</font></a> |
+              <?php endif; ?>
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>"><?php echo $lang['all'];?></a> |
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=1">#</a>
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=a">A</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=b">B</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=c">C</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=d">D</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=e">E</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=f">F</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=g">G</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=h">H</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=i">I</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=j">J</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=k">K</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=l">L</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=m">M</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=n">N</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=o">O</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=p">P</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=q">Q</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=r">R</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=s">S</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=t">T</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=u">U</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=v">V</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=w">W</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=x">X</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=y">Y</a> 
+              <a href="index.php?n=admin&sub=members&show_bots=<?php echo $includeBots ? '1' : '0'; ?>&char=z">Z</a>              </b>            </td>
           </tr>
         </tbody></table>      </td>
     </tr>

@@ -1,7 +1,4 @@
-<style>
-/* =========================================================
-   MODERN PERSONAL MESSAGES — STYLING
-   ========================================================= */
+ï»¿<style>
 .modern-content.pm-container {
   max-width: 900px;
   margin: 0 auto;
@@ -14,7 +11,6 @@
   font-family: "Trebuchet MS", sans-serif;
 }
 
-/* --- Tabs --- */
 .pm-nav {
   display: flex;
   gap: 12px;
@@ -44,7 +40,6 @@
   font-weight:bold;
 }
 
-/* --- Message List --- */
 .pm-view-list {
   display: flex;
   flex-direction: column;
@@ -65,6 +60,29 @@
   font-size: 0.9rem;
   color: #ccc;
   margin-bottom: 4px;
+  gap: 12px;
+}
+.pm-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pm-inline-reply {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 204, 0, 0.12);
+  border: 1px solid rgba(255, 204, 0, 0.28);
+  color: #ffd45f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.pm-inline-reply:hover {
+  background: rgba(255, 204, 0, 0.2);
+  color: #fff2b8;
 }
 .pm-subject {
   color: #ffcc00;
@@ -73,7 +91,6 @@
 }
 .pm-subject:hover { text-decoration: underline; }
 
-/* --- View PM --- */
 .pm-view-card {
   background: rgba(20,20,20,0.9);
   border: 1px solid #333;
@@ -120,14 +137,19 @@
   box-shadow: 0 0 6px #ffcc00;
 }
 
-/* --- Compose --- */
 .pm-compose label {
   display:block;
   margin:6px 0 4px 2px;
   color:#ffcc66;
   font-weight:600;
 }
+.pm-compose .compose-help {
+  margin: -2px 0 10px 2px;
+  color: #a8a8a8;
+  font-size: 0.92rem;
+}
 .pm-compose input[type=text],
+.pm-compose select,
 .pm-compose textarea {
   width:100%;
   background:rgba(20,20,20,0.95);
@@ -136,10 +158,28 @@
   border-radius:4px;
   padding:8px 10px;
   margin-bottom:10px;
+  box-sizing:border-box;
 }
 .pm-compose textarea {
   min-height:200px;
   resize:vertical;
+}
+.pm-recipient-row {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.pm-recipient-quickpick {
+  background: rgba(15,15,15,0.96);
+  border: 1px solid rgba(255,200,80,0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.pm-recipient-quickpick label {
+  margin-top: 0;
+}
+.pm-recipient-quickpick select {
+  margin-bottom: 0;
 }
 .pm-buttons {
   display:flex;
@@ -156,7 +196,6 @@
 }
 .btn-primary:hover { background:#3d7cff; }
 
-/* --- BBCode Toolbar --- */
 .editor-tools {
   background:rgba(15,15,15,0.98);
   border:1px solid rgba(255,200,80,0.25);
@@ -198,136 +237,113 @@
   z-index: 999;
   margin-top: 2px;
 }
-
 .suggestion-item {
   padding: 6px 8px;
   color: #ffc;
   cursor: pointer;
   font-family: "Trebuchet MS", sans-serif;
 }
-
 .suggestion-item:hover {
   background: #2c2c2c;
   color: #fff;
 }
-
 </style>
 
 <script>
 function insertBBCode(tagStart, tagEnd){
-  const t=document.getElementById('input_comment');
+  var t=document.getElementById('input_comment');
   if(!t)return;
-  const s=t.selectionStart,e=t.selectionEnd;
-  const v=t.value;
+  var s=t.selectionStart,e=t.selectionEnd;
+  var v=t.value;
   t.value=v.substring(0,s)+tagStart+v.substring(s,e)+tagEnd+v.substring(e);
   t.focus();
   t.selectionStart=s+tagStart.length;
   t.selectionEnd=e+tagStart.length;
 }
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.querySelector("input[name='owner']");
+document.addEventListener('DOMContentLoaded', function () {
+  var input = document.querySelector("input[name='owner']");
   if (!input) return;
-
-  const suggestions = document.createElement("div");
-  suggestions.className = "suggestion-box";
-  input.parentNode.insertBefore(suggestions, input.nextSibling);
-
-  let timeout = null;
-
-  input.addEventListener("input", () => {
-    clearTimeout(timeout);
-    const query = input.value.trim();
-    if (query.length < 2) {
-      suggestions.innerHTML = "";
+  var picker = document.getElementById('pm-owner-picker');
+  if (picker) {
+    picker.addEventListener('change', function () {
+      if (picker.value) {
+        input.value = picker.value;
+      }
+    });
+  }
+  var box = document.createElement('div');
+  box.className = 'suggestion-box';
+  input.parentNode.style.position = 'relative';
+  input.parentNode.appendChild(box);
+  var timer = null;
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    var val = input.value.trim();
+    if (val.length < 2) {
+      box.innerHTML = '';
       return;
     }
-    timeout = setTimeout(() => {
-      fetch(`modules/account/pm_user_search.php?q=${encodeURIComponent(query)}`)
-        .then(r => r.json())
-        .then(names => {
-          suggestions.innerHTML = names
-            .map(n => `<div class='suggestion-item'>${n}</div>`)
-            .join("");
-          suggestions.querySelectorAll(".suggestion-item").forEach(el => {
-            el.addEventListener("click", () => {
+    timer = setTimeout(function () {
+      fetch('modules/account/pm_user_search.php?q=' + encodeURIComponent(val))
+        .then(function (r) { return r.json(); })
+        .then(function (names) {
+          box.innerHTML = names.map(function (n) {
+            return '<div class="suggestion-item">' + n + '</div>';
+          }).join('');
+          box.querySelectorAll('.suggestion-item').forEach(function (el) {
+            el.onclick = function () {
               input.value = el.textContent;
-              suggestions.innerHTML = "";
-            });
-          });
-        });
-    }, 300);
-  });
-});
-
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.querySelector("input[name='owner']");
-  if (!input) return;
-
-  const box = document.createElement("div");
-  box.className = "suggestion-box";
-  input.parentNode.style.position = "relative";
-  input.after(box);
-
-  let timer = null;
-
-  input.addEventListener("input", () => {
-    clearTimeout(timer);
-    const val = input.value.trim();
-    if (val.length < 2) { box.innerHTML = ""; return; }
-
-    timer = setTimeout(() => {
-      fetch(`modules/account/pm_user_search.php?q=${encodeURIComponent(val)}`)
-        .then(r => r.json())
-        .then(names => {
-          box.innerHTML = names.map(n =>
-            `<div class="suggestion-item">${n}</div>`).join("");
-
-          box.querySelectorAll(".suggestion-item").forEach(el => {
-            el.onclick = () => { input.value = el.textContent; box.innerHTML = ""; };
+              if (picker) {
+                picker.value = el.textContent;
+              }
+              box.innerHTML = '';
+            };
           });
         })
-        .catch(() => box.innerHTML = "");
+        .catch(function () {
+          box.innerHTML = '';
+        });
     }, 250);
   });
-
-  document.addEventListener("click", e => {
-    if (!box.contains(e.target) && e.target !== input) box.innerHTML = "";
+  document.addEventListener('click', function (e) {
+    if (!box.contains(e.target) && e.target !== input) box.innerHTML = '';
   });
 });
 </script>
-
-
-
 
 <?php builddiv_start(1,$lang['personal_messages']); ?>
 
 <?php if($user['id']>0): ?>
 <div class="modern-content pm-container">
 
-  <!-- Navigation Tabs -->
   <nav class="pm-nav">
-    <a href="index.php?n=account&sub=pms&action=add"
-       class="<?php echo ($_GET['action']=='add'?'active':''); ?>">
-       <?php echo $lang['write']; ?>
-    </a>
-    <a href="index.php?n=account&sub=pms&action=view&dir=in"
-       class="<?php echo ($_GET['dir']=='in'?'active':''); ?>">
-       <?php echo $lang['inbox']; ?>
-    </a>
-    <a href="index.php?n=account&sub=pms&action=view&dir=out"
-       class="<?php echo ($_GET['dir']=='out'?'active':''); ?>">
-       <?php echo $lang['outbox']; ?>
-    </a>
+    <a href="index.php?n=account&sub=pms&action=add" class="<?php echo ($_GET['action']=='add'?'active':''); ?>"><?php echo $lang['write']; ?></a>
+    <a href="index.php?n=account&sub=pms&action=view&dir=in" class="<?php echo ($_GET['dir']=='in'?'active':''); ?>"><?php echo $lang['inbox']; ?></a>
+    <a href="index.php?n=account&sub=pms&action=view&dir=out" class="<?php echo ($_GET['dir']=='out'?'active':''); ?>"><?php echo $lang['outbox']; ?></a>
   </nav>
 
-  <!-- COMPOSE NEW MESSAGE -->
   <?php if($_GET['action']=='add'): ?>
   <div class="pm-compose">
     <form method="post" action="index.php?n=account&sub=pms&action=add" onsubmit="return this.owner.value.trim() && this.title.value.trim() && this.message.value.trim();">
-      <label><?php echo $lang['post_for']; ?>:</label>
-      <input type="text" name="owner" value="<?php echo htmlspecialchars($content['sender']); ?>" maxlength="80" required>
+      <div class="pm-recipient-row">
+        <div>
+          <label for="pm-owner">Who:</label>
+          <div class="compose-help">Type an account name, or pick one below when fewer than 20 visible members are available.</div>
+          <input type="text" id="pm-owner" name="owner" value="<?php echo htmlspecialchars($content['sender']); ?>" maxlength="80" placeholder="Enter account name" required>
+        </div>
+
+        <?php if(!empty($pmRecipientOptions)): ?>
+        <div class="pm-recipient-quickpick">
+          <label for="pm-owner-picker">Choose a member</label>
+          <select id="pm-owner-picker">
+            <option value="">Select a recipient</option>
+            <?php foreach($pmRecipientOptions as $pmRecipient): ?>
+              <option value="<?php echo htmlspecialchars($pmRecipient); ?>"><?php echo htmlspecialchars($pmRecipient); ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <?php endif; ?>
+      </div>
 
       <label><?php echo $lang['post_subj']; ?>:</label>
       <input type="text" name="title" value="<?php echo htmlspecialchars($content['subject']); ?>" maxlength="80" required>
@@ -356,8 +372,6 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
   <?php endif; ?>
 
-
-  <!-- INBOX / OUTBOX VIEW -->
   <?php if($_GET['action']=='view'): ?>
   <div class="pm-view-list">
     <?php if (!empty($items)): ?>
@@ -373,41 +387,37 @@ document.addEventListener("DOMContentLoaded", () => {
               <?php echo htmlspecialchars($item['for']); ?>
             <?php endif; ?>
           </div>
-          <div class="pm-time"><?php echo date('d-m-Y, H:i', $item['posted']); ?></div>
+          <div class="pm-row-meta">
+            <?php if ($_GET['dir']=='in'): ?>
+            <a class="pm-inline-reply" href="index.php?n=account&sub=pms&action=add&reply=<?php echo $item['id']; ?>">Reply</a>
+            <?php endif; ?>
+            <div class="pm-time"><?php echo date('d-m-Y, H:i', $item['posted']); ?></div>
+          </div>
         </div>
-        <a class="pm-subject" href="index.php?n=account&sub=pms&action=viewpm&dir=<?php echo $_GET['dir']; ?>&iid=<?php echo $item['id']; ?>">
-          <?php echo htmlspecialchars($item['subject']); ?>
-        </a>
+        <a class="pm-subject" href="index.php?n=account&sub=pms&action=viewpm&dir=<?php echo $_GET['dir']; ?>&iid=<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['subject']); ?></a>
       </div>
       <?php endforeach; ?>
     <?php else: ?>
-      <div class="pm-card">
-        <em><?php echo $lang['no_messages']; ?></em>
-      </div>
+      <div class="pm-card"><em><?php echo !empty($lang['no_messages']) ? $lang['no_messages'] : 'None'; ?></em></div>
     <?php endif; ?>
   </div>
   <?php endif; ?>
 
-
-  <!-- VIEW SINGLE MESSAGE -->
   <?php if($_GET['action']=='viewpm' && isset($item)): ?>
   <div class="pm-view-card">
-<div class="pm-view-header">
-  <div class="pm-view-fromto">
-    <div><span class="pm-label"><?php echo $lang['post_from']; ?>:</span> <?php echo htmlspecialchars($item['sender']); ?></div>
-    <div><span class="pm-label"><?php echo $lang['post_for']; ?>:</span> <?php echo htmlspecialchars($item['receiver']); ?></div>
-  </div>
-  <div class="pm-view-time"><?php echo date('d-m-Y, H:i', $item['posted']); ?></div>
-</div>
+    <div class="pm-view-header">
+      <div class="pm-view-fromto">
+        <div><span class="pm-label"><?php echo $lang['post_from']; ?>:</span> <?php echo htmlspecialchars($item['sender']); ?></div>
+        <div><span class="pm-label"><?php echo $lang['post_for']; ?>:</span> <?php echo htmlspecialchars($item['receiver']); ?></div>
+      </div>
+      <div class="pm-view-time"><?php echo date('d-m-Y, H:i', $item['posted']); ?></div>
+    </div>
 
     <div class="pm-view-subject"><?php echo htmlspecialchars($item['subject']); ?></div>
-
     <div class="pm-view-body"><?php echo nl2br($item['message']); ?></div>
 
     <div class="pm-view-footer">
-      <a href="index.php?n=account&sub=pms&action=add&reply=<?php echo $item['id']; ?>" class="pm-reply-btn">
-        <?php echo $lang['post_reply']; ?>
-      </a>
+      <a href="index.php?n=account&sub=pms&action=add&reply=<?php echo $item['id']; ?>" class="pm-reply-btn"><?php echo $lang['post_reply']; ?></a>
     </div>
   </div>
   <?php endif; ?>

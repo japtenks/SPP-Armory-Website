@@ -104,6 +104,13 @@
   color: #c33;
   font-style: italic;
 }
+.post-signature {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #2e2e2e;
+  color: #b9b9b9;
+  font-size: 0.9rem;
+}
 
 /* ---------- Pagination ---------- */
 .topic-pagination {
@@ -162,6 +169,12 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
             </header>
 
             <div class="post-message"><?php echo $post['message']; ?></div>
+
+            <?php if (!empty(trim((string)$post['signature']))): ?>
+              <div class="post-signature">
+                <?php echo my_preview($post['signature']); ?>
+              </div>
+            <?php endif; ?>
 
             <?php if ($post['edited']): ?>
               <footer class="post-edit-note">

@@ -40,9 +40,6 @@ $createAccountUrl = function_exists('mw_url')
     ? mw_url('account', 'register', null, false)
     : 'index.php?n=account&sub=register';
 $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
-$rulesUrl = function_exists('mw_url')
-    ? mw_url('forum', '', null, false)
-    : 'index.php?n=forum';
 ?>
 <?php builddiv_start(1, $lang['game_guide']); ?>
 <div class="modern-content">
@@ -89,7 +86,6 @@ $rulesUrl = function_exists('mw_url')
     <div class="connect-actions">
       <a class="connect-button is-primary" href="<?php echo htmlspecialchars($createAccountUrl); ?>">Create Account</a>
       <a class="connect-button" href="<?php echo htmlspecialchars($downloadRealmlistUrl); ?>">Download realmlist.wtf</a>
-      <a class="connect-button" href="<?php echo htmlspecialchars($rulesUrl); ?>">Read Server Rules</a>
     </div>
   </section>
 

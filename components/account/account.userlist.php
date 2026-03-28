@@ -30,19 +30,26 @@ if($_GET['id'] > 0){
     $pathway_info[] = array('title'=>$lang['userlist'],'link'=>'');
 	//===== Filter ==========//
     $filterParams = [];
-    $filters = array("LOWER(`username`) NOT LIKE 'rndbot%'");
+    $filters = array(
+        "LOWER(account.`username`) NOT LIKE 'rndbot%'",
+        "(website_accounts.hideprofile IS NULL OR website_accounts.hideprofile = 0)"
+    );
      if($_GET['char'] && preg_match("/[a-z]/",$_GET['char'])){
-        $filters[] = "`username` LIKE ?";
+        $filters[] = "account.`username` LIKE ?";
         $filterParams[] = $_GET['char'] . '%';
      }elseif($_GET['char']==1){
-        $filters[] = "`username` REGEXP '^[^A-Za-z]'";
+        $filters[] = "account.`username` REGEXP '^[^A-Za-z]'";
     }
     $filter = 'WHERE '.implode(' AND ', $filters);
 	//===== Calc pages =====//
     $items_per_pages = (int)$MW->getConfig->generic->users_per_page;
     $realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
 
-    $stmtCount = $realmPdo->prepare("SELECT count(*) FROM account $filter");
+    $stmtCount = $realmPdo->prepare("
+        SELECT count(*)
+        FROM account
+        LEFT JOIN website_accounts ON account.id=website_accounts.account_id
+        $filter");
     $stmtCount->execute($filterParams);
     $itemnum = $stmtCount->fetchColumn();
 

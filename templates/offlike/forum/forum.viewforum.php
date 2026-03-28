@@ -146,6 +146,16 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
 <img src="<?php echo $currtmp; ?>/images/forum_top.png" alt="Forums" class="forum-header"/>
 
 <div class="modern-content forum-view">
+  <?php
+  $_vfNewsFid = (int)($MW->getConfig->generic_values->forum->news_forum_id ?? 0);
+  $_vfIsNews  = $_vfNewsFid > 0 && (int)$this_forum['forum_id'] === $_vfNewsFid;
+  $_vfCanPost = !$_vfIsNews || (int)($user['gmlevel'] ?? 0) >= 3;
+  if ($_vfCanPost && !$this_forum['closed']):
+  ?>
+  <div style="margin-bottom:10px;">
+    <a href="index.php?n=forum&sub=post&action=newtopic&fid=<?php echo (int)$this_forum['forum_id']; ?>" class="btn primary">New Topic</a>
+  </div>
+  <?php endif; ?>
   <div class="forum-list-head">
     <div></div>
     <div>Subject</div>

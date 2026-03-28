@@ -70,11 +70,11 @@ $com_content['admin'] = array(
         1
     ),
     'commands' => array(
-        'g_is_admin', 
-        'commands_manage', 
+        'g_is_admin',
+        'commands_manage',
         $fc,
         '',
-        1
+        0
     ),
     'chat' => array(
         'g_is_admin', 

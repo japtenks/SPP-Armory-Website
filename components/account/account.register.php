@@ -308,7 +308,7 @@ else
       $registerRealmId = spp_resolve_realm_id($realmDbMap);
       $registerPdo = spp_get_pdo('realmd', $registerRealmId);
       if((int)$MW->getConfig->generic->max_accounts_per_ip>0){
-            $stmtIp = $registerPdo->prepare("SELECT count(*) FROM account_extend WHERE registration_ip=?");
+            $stmtIp = $registerPdo->prepare("SELECT count(*) FROM website_accounts WHERE registration_ip=?");
             $stmtIp->execute([$_SERVER['REMOTE_ADDR']]);
             $count_ip = $stmtIp->fetchColumn();
             if($count_ip>=(int)$MW->getConfig->generic->max_accounts_per_ip){

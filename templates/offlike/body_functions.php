@@ -620,9 +620,7 @@ if ($forumnav === true) {
         if (!empty($topic['forum_id'])) $fid = (int)$topic['forum_id'];
     }
 
-    if ($sub === 'viewforum' && !$forumClosed) {
-        echo '<a href="index.php?n=forum&sub=post&action=newtopic&fid=' . $fid . '" class="btn primary">New Topic</a>';
-    } elseif ($sub === 'viewtopic' && !$forumClosed) {
+    if ($sub === 'viewtopic' && !$forumClosed) {
         echo '<a href="index.php?n=forum&sub=post&action=donewpost&t=' . $tid . '&fid=' . $fid . '" class="btn primary">Reply</a>';
     } elseif ($sub === 'post') {
         // already on post form, toggle button text

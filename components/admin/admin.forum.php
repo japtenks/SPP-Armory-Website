@@ -13,8 +13,29 @@ if(!$_GET['action']){
         $stmt->execute([(int)$_GET['cat_id']]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $pathway_info[] = array('title'=>$items[0]['cat_name'],'link'=>'');
+    }elseif($_GET['forum_id'] && $_GET['topic_id']){
+        $fid = (int)$_GET['forum_id'];
+        $tid = (int)$_GET['topic_id'];
+        $stmt = $forumPdo->prepare("SELECT * FROM f_topics WHERE topic_id=? LIMIT 1");
+        $stmt->execute([$tid]);
+        $this_topic = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $forumPdo->prepare("SELECT * FROM f_forums WHERE forum_id=? LIMIT 1");
+        $stmt->execute([$fid]);
+        $this_forum = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $forumPdo->prepare("SELECT post_id, poster, posted, LEFT(message,120) AS excerpt FROM f_posts WHERE topic_id=? ORDER BY posted");
+        $stmt->execute([$tid]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $pathway_info[] = array('title' => $this_forum['forum_name'], 'link' => 'index.php?n=admin&sub=forum&forum_id=' . $fid);
+        $pathway_info[] = array('title' => $this_topic['topic_name'], 'link' => '');
     }elseif($_GET['forum_id']){
-
+        $fid = (int)$_GET['forum_id'];
+        $stmt = $forumPdo->prepare("SELECT * FROM f_forums WHERE forum_id=? LIMIT 1");
+        $stmt->execute([$fid]);
+        $this_forum = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $forumPdo->prepare("SELECT topic_id, topic_name, topic_poster, topic_posted, num_replies FROM f_topics WHERE forum_id=? ORDER BY topic_posted DESC");
+        $stmt->execute([$fid]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $pathway_info[] = array('title' => $this_forum['forum_name'], 'link' => '');
     }else{
         $pathway_info[] = array('title'=>$lang['categories'],'link'=>'');
         $stmt = $forumPdo->query("SELECT * FROM f_categories ORDER BY cat_disp_position,cat_name");
@@ -22,11 +43,10 @@ if(!$_GET['action']){
     }
 }elseif($_GET['action']=='moveup'){
     moveup($_GET['cat_id'],$_GET['forum_id']);
-    redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum",1);
-    // redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum&cat_id=".$_GET['cat_id']."&forum_id=".$_GET['forum_id'],1);
+    redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum",1); exit;
 }elseif($_GET['action']=='movedown'){
     movedown($_GET['cat_id'],$_GET['forum_id']);
-    redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum",1);
+    redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum",1); exit;
    // redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum&cat_id=".$_GET['cat_id']."&forum_id=".$_GET['forum_id'],1);
 }elseif($_GET['action']=='open'){
     $stmt = $forumPdo->prepare("UPDATE f_forums SET closed=0 WHERE forum_id=? LIMIT 1");
@@ -70,7 +90,31 @@ if(!$_GET['action']){
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='deletecat'){
     delete_cat($_GET['cat_id']);
-    redirect($_SERVER['HTTP_REFERER'],1);
+    redirect($_SERVER['HTTP_REFERER'],1); exit;
+}elseif($_GET['action']=='deletetopic'){
+    $tid = (int)$_GET['topic_id'];
+    $fid = (int)$_GET['forum_id'];
+    $stmt = $forumPdo->prepare("SELECT num_replies FROM f_topics WHERE topic_id=? LIMIT 1");
+    $stmt->execute([$tid]);
+    $num_replies = (int)$stmt->fetchColumn();
+    $stmt = $forumPdo->prepare("DELETE FROM f_posts WHERE topic_id=?");
+    $stmt->execute([$tid]);
+    $stmt = $forumPdo->prepare("DELETE FROM f_topics WHERE topic_id=? LIMIT 1");
+    $stmt->execute([$tid]);
+    $stmt = $forumPdo->prepare("UPDATE f_forums SET num_topics=GREATEST(0,num_topics-1), num_posts=GREATEST(0,num_posts-(?+1)) WHERE forum_id=? LIMIT 1");
+    $stmt->execute([$num_replies, $fid]);
+    redirect('index.php?n=admin&sub=forum&forum_id=' . $fid, 1); exit;
+}elseif($_GET['action']=='deletepost'){
+    $pid = (int)$_GET['post_id'];
+    $tid = (int)$_GET['topic_id'];
+    $fid = (int)$_GET['forum_id'];
+    $stmt = $forumPdo->prepare("DELETE FROM f_posts WHERE post_id=? LIMIT 1");
+    $stmt->execute([$pid]);
+    $stmt = $forumPdo->prepare("UPDATE f_topics SET num_replies=GREATEST(0,num_replies-1) WHERE topic_id=? LIMIT 1");
+    $stmt->execute([$tid]);
+    $stmt = $forumPdo->prepare("UPDATE f_forums SET num_posts=GREATEST(0,num_posts-1) WHERE forum_id=? LIMIT 1");
+    $stmt->execute([$fid]);
+    redirect('index.php?n=admin&sub=forum&forum_id=' . $fid . '&topic_id=' . $tid, 1); exit;
 }
 
 

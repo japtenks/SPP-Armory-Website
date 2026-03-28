@@ -1,537 +1,456 @@
 <?php if($user['id']>0 && isset($profile)){ ?>
-<style type="text/css">
-    .attribute { font-family: "Arial", "Helvetica", "Sans-Serif"; color: #000000; font-weight: bold; font-size: 12;}
-    #icon { position: absolute;	top: -145px; left: 47px; z-index: 99; _top: -145px}
-    #text { position: relative;	top: 52px;	left: 10px;	z-index: 99; }
-    #wrapper { position: relative; z-index: 99; }
-	#wrapper99 { position: relative; z-index: 98; }
-		.title	{
-			font-family: palatino, georgia, times new roman, serif;
-			font-size: 13pt;
-			color: #640909;
-		}
-</style>
+<?php builddiv_start(1, $lang['accediting']); ?>
 
+<div class="modern-content settings-page">
+  <section class="settings-hero">
+    <div>
+      <div class="settings-kicker">Account Center</div>
+      <h2><?php echo htmlspecialchars($profile['username']); ?></h2>
+      <p class="settings-intro">Update your public profile, account access, recovery settings, and game expansion from one place.</p>
+    </div>
+    <div class="settings-badges">
+      <span>
+        <?php
+        $currentExpansion = 'Classic';
+        if ((int)($profile['expansion'] ?? 0) === 1) $currentExpansion = 'TBC';
+        if ((int)($profile['expansion'] ?? 0) === 2) $currentExpansion = 'WotLK';
+        echo $currentExpansion;
+        ?>
+      </span>
+    </div>
+  </section>
 
-<table cellspacing = "0" cellpadding = "0" border = "0" width = "100%">
-<tr>
+  <div class="settings-grid">
+    <section class="settings-card">
+      <div class="card-title">Profile Settings</div>
+      <form method="post" action="index.php?n=account&sub=manage&action=change" enctype="multipart/form-data" class="stack-form">
+        <div class="field">
+          <label>Username</label>
+          <input type="text" value="<?php echo htmlspecialchars($profile['username']); ?>" disabled="disabled">
+        </div>
 
-	<td width = "100%" align = "center">
-		<table width = "100%" cellspacing = "0" cellpadding = "0" border="0" background="<?php echo $currtmp; ?>/images/account/tbc-background.jpg">
-		<tr>
-			<td>
-			 <div id="wrapper"><div id="icon"><img src="<?php echo $currtmp; ?>/images/account/draenei-top.gif"></div></div>
-      </td>
-      <td ><div id = "wrapper"><div id = "text"><img src="<?php echo $currtmp; ?>/images/account/title_acc_man.gif"></div></div>
-      </td>
-
-      <td valign = "top"><a href = "/account/"><img src ="<?php echo $currtmp; ?>/images/pixel.gif" width="90" height = "161" border="0" ></a></td>
-			<td><img src="<?php echo $currtmp; ?>/images/pixel.gif" border="0" height="161" width="90"></td>
-	</tr>
-  </table>
-	<table cellspacing = "0" cellpadding = "0" border = "0" width = "100%">
-	<tr>
-	 <td background = "<?php echo $currtmp; ?>/images/account/bottom.gif" width = "100%" ><img src ="<?php echo $currtmp; ?>/images/pixel.gif" height = "18" width = "200"></td>
-	</tr>
-	</table>
-	</td>
-	<td width = "10%"></td>
-</tr>
-<tr>
-	  <td colspan="3">
-		  <table cellspacing = "0" cellpadding = "0" border = "0" width = "100%">
-	  		<tr>
-				  <td background = "images/bottom.gif" width = "100%" ><img src ="<?php echo $currtmp; ?>/images/pixel.gif" height = "18" width = "200"></td>
-	  		</tr>
-		  </table>
-	  </td>
-  </tr>
-</table>
-
-<?php builddiv_start() ?>
-
-<center>
-<!--Shadow Top-->
-<table cellspacing = "0" cellpadding = "0" border = "0"><tr><td><img src = "<?php echo $currtmp; ?>/images/shadow-top-left.gif" width = "5" height = "4"></td><td background = "<?php echo $currtmp; ?>/images/shadow-top.gif">
-<img src = "<?php echo $currtmp; ?>/images/shadow-top-left-left.gif" width = "12" height = "4"></td><td align = "right" background = "<?php echo $currtmp; ?>/images/shadow-top.gif">
-<img src = "<?php echo $currtmp; ?>/images/shadow-top-right-right.gif" width = "12" height = "4"></td><td><img src = "<?php echo $currtmp; ?>/images/shadow-top-right.gif" width = "9" height = "4"></td></tr><tr>
-<td valign = "top" background = "<?php echo $currtmp; ?>/images/shadow-left.gif"><img src = "<?php echo $currtmp; ?>/images/shadow-left-top.gif" width = "5" height = "12"></td>
-<td colspan = "2" rowspan = "2" style="background-image:url('<?php echo $currtmp; ?>/images/header-left2.jpg'); background-repeat: no-repeat;">
-<!--Shadow Top-->
-<table cellspacing = "0" cellpadding = "4" border = "0">
-<tr>
-	<td>
-<h3 class="title"><font color="white"><?php echo $lang['change_your_info'];?></font></h3>
-<p>
-
-<center>
-
-
-<form name="mainform" method="post" action="index.php?n=account&sub=manage&action=change" enctype="multipart/form-data" onsubmit="return validateforms(this)">
-<table width = "510" cellspacing = "0" cellpadding = "0" border = "0">
-<tr>
-
-	<td>
-	<span>
-   <?php echo add_pictureletter("$lang[accountmanange_intro]"); ?>
-	</span>
-	</td>
-
-</tr>
-</table>
-</center>
-<br />
-<?php write_subheader($lang['general_info']); ?>
-
-<table width = "520" style = "border-width: 1px; border-style: dotted; border-color: #928058;"><tr><td><table style = "border-width: 1px; border-style: solid; border-color: black; background-image: url('<?php echo $currtmp; ?>/images/light3.jpg');"><tr><td>
-
-<table border=0 cellspacing=0 cellpadding=4>
-<tr>
-      <td align=right valign = "top">
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['username'];?><br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-      <input type='text' size='40' disabled="disabled" style="background-color:#FFFFFF" value='&nbsp;&nbsp;<?php echo $profile['username'];?>' readonly>
-			</td><td valign = "top">
-
-	   </td></tr></table>
-      </td>
-</tr>
-<tr>
-      <td width=200 align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['hideemail'];?>&#058;<br />
-      </b></span></font>
-      </td>
-
-   	  <td><table border=0 cellspacing=0 cellpadding=0><tr><td>
-			             <select name="profile[hideemail]" style="margin:1px;">
-            <option value="0"<?php if($profile['hideemail']==0)echo' selected';?>><?php echo $lang['no'];?> </option>
-            <option value="1"<?php if($profile['hideemail']==1)echo' selected';?>><?php echo $lang['yes'];?> </option>
+        <div class="toggle-row">
+          <?php if((int)($user['gmlevel'] ?? 0) >= 3): ?>
+          <label class="field compact">
+            <span>Hide profile</span>
+            <select name="profile[hideprofile]">
+              <option value="0"<?php if((int)$profile['hideprofile']===0)echo' selected';?>><?php echo $lang['no']; ?></option>
+              <option value="1"<?php if((int)$profile['hideprofile']===1)echo' selected';?>><?php echo $lang['yes']; ?></option>
             </select>
-			 </td><td valign = "top">
-	   </td></tr></table></td>
-</tr>
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['hideprofile'];?>&#058;<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-			<select name="profile[hideprofile]" style="margin:1px;">
-            <option value="0"<?php if($profile['hideprofile']==0)echo' selected';?>><?php echo $lang['no'];?> </option>
-            <option value="1"<?php if($profile['hideprofile']==1)echo' selected';?>><?php echo $lang['yes'];?> </option>
-      </select>
-			</td><td valign = "top">
-	   </td></tr></table></td>
-</tr>
+          </label>
+          <?php endif; ?>
+        </div>
 
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['gender'];?>&#058;<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-			<select name="profile[gender]">
-            <option value="0"<?php if($profile['gender']==0)echo' selected';?>><?php echo $lang['notselected'];?> </option>
-            <option value="1"<?php if($profile['gender']==1)echo' selected';?>><?php echo $lang['male'];?> </option>
-            <option value="2"<?php if($profile['gender']==2)echo' selected';?>><?php echo $lang['female'];?> </option>
-      </select>
-			</td><td valign = "top">
-	   </td></tr></table></td>
-</tr>
+        <div class="password-inline">
+          <div class="field">
+            <label><?php echo $lang['newpass']; ?></label>
+            <input type="password" name="new_pass" form="password-change-form">
+          </div>
+          <div class="field password-submit">
+            <label>&nbsp;</label>
+            <button type="submit" form="password-change-form" class="btn primary">Change Password</button>
+          </div>
+        </div>
 
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['homepage'];?>&#058;<br />
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td><input name="profile[homepage]" type="text" size="36" style="margin:1px;" value="<?php echo$profile['homepage'];?>" />
-	   </td></tr></table></td>
-      <br />
-      </td>
-</tr>
-
-<tr>
-      <td align=right NOWRAP>
-
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['icq'];?>
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td><input name="profile[icq]" type="text" size="36" style="margin:1px;" value="<?php echo$profile['icq'];?>" /></td><td valign = "top">
-	   </td></tr></table></td>
-</tr>
-
-<tr>
-      <td align=right valign = "top">
-
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['msn'];?>
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td><input name="profile[msn]" type="text" size="36" style="margin:1px;" value="<?php echo$profile['msn'];?>" /><span></span></td><td valign = "top">
-	   </td></tr></table></td>
-      </td>
-
-</tr>
-
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php echo $lang['wherefrom'];?>
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-			<input name="profile[location]" type="text" size="36" style="margin:1px;" value="<?php echo$profile['location'];?>" />
-</td><td valign = "top">
-	   </td></tr></table>
-      </td>
-
-</tr>
-<?php if((int)$MW->getConfig->generic->change_template) { ?>
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-     	<?php echo$lang['theme'];?>
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-			<select name="profile[theme]" style="margin:1px;">
+        <?php if((int)$MW->getConfig->generic->change_template) { ?>
+        <div class="field">
+          <label><?php echo $lang['theme']; ?></label>
+          <select name="profile[theme]">
             <?php
             $i = 0;
             foreach($MW->getConfig->templates->template as $template){ ?>
-            <option value="<?php echo$i;?>"<?php if($profile['theme']==$i)echo' selected';?>><?php echo (string)$template;?>
+            <option value="<?php echo $i; ?>"<?php if((int)$profile['theme']===$i)echo' selected';?>><?php echo htmlspecialchars((string)$template); ?></option>
             <?php $i++; } ?>
-            </option>
           </select>
-</td><td valign = "top">
-	   </td></tr></table>
-      </td>
+        </div>
+        <?php } ?>
 
-</tr>
-<?php } ?>
+        <div class="avatar-block">
+          <div class="avatar-preview">
+            <?php if(!empty($profile['avatar'])) { ?>
+              <img src="images/avatars/<?php echo htmlspecialchars($profile['avatar']); ?>" alt="Avatar">
+            <?php } else { ?>
+              <div class="avatar-placeholder"><?php echo strtoupper(substr($profile['username'], 0, 1)); ?></div>
+            <?php } ?>
+          </div>
+          <div class="avatar-controls">
+            <label class="field">
+              <span>Upload avatar</span>
+              <input type="file" name="avatar">
+            </label>
+            <div class="help-text">
+              Max file size: <?php echo (int)$MW->getConfig->generic->max_avatar_file; ?> bytes. Max size: <?php echo htmlspecialchars((string)$MW->getConfig->generic->max_avatar_size); ?> px.
+            </div>
+            <?php if(!empty($profile['avatar'])) { ?>
+            <label class="checkbox-row">
+              <input type="checkbox" name="deleteavatar" value="1">
+              <span>Delete current avatar</span>
+            </label>
+            <input type="hidden" name="avatarfile" value="<?php echo htmlspecialchars($profile['avatar']); ?>">
+            <?php } ?>
+          </div>
+        </div>
 
-<?php if($profile['avatar']) { ?>
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-     	<?php echo $lang['avatar'];?>
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-          <img src="<?php echo (string)$MW->getConfig->generic->avatar_path;?><?php echo$profile['avatar'];?>" style="margin:1px;"> <br/>
-          <input type="hidden" name="avatarfile" value="<?php echo$profile['avatar'];?>">
-          <b><?php echo $lang['delavatar'];?></b>
-          <input type="checkbox" size="36" name="deleteavatar" style="margin:1px;" value="1">
-</td><td valign = "top">
-	   </td></tr></table>
-      </td>
+        <div class="field">
+          <label><?php echo $lang['signature']; ?></label>
+          <textarea name="profile[signature]" maxlength="255" rows="4"><?php echo htmlspecialchars(my_previewreverse($profile['signature'])); ?></textarea>
+          <div class="help-text">Supports normal BBCode. Keep it short and readable.</div>
+        </div>
 
-</tr>
-<?php }else{ ?>
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-			<?php echo $lang['avatar'];?>
-			<img src="<?php echo $currtmp; ?>/images/icons2/warning.gif" width="15" height="15"
-			 onmouseover="ddrivetip('<?php echo $lang['maxavatarsize'];?>: <?php echo (int)$MW->getConfig->generic->max_avatar_file;?> bytes, <?php echo $lang['maxavatarres'];?> <?php echo (string)$MW->getConfig->generic->max_avatar_size;?> px.<br/>','#ffffff')";
-			 onmouseout="hideddrivetip()">
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-<input type="file" size="36" name="avatar" style="margin:1px;">
-</td><td valign = "top">
-	   </td></tr></table>
-      </td>
+        <div class="actions">
+          <button type="reset" class="btn secondary"><?php echo $lang['reset']; ?></button>
+          <button type="submit" class="btn primary"><?php echo $lang['dochange']; ?></button>
+        </div>
+      </form>
+    </section>
 
-</tr>
-<?php } ?>
+    <section class="settings-card">
+      <div class="card-title">Access Settings</div>
 
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-			<?php echo $lang['signature'];?>
-			<img src="<?php echo $currtmp; ?>/images/icons2/info.gif" width="16" height="16"
-			 onmouseover="ddrivetip('You may use normal BBcode tags in signature.','#ffffff')";
-			 onmouseout="hideddrivetip()">
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-<textarea name="profile[signature]" maxlength="255" rows="3" cols="40"><?php echo my_previewreverse($profile['signature']);?></textarea>
-</td><td valign = "top">
-	   </td></tr></table>
-      </td>
+      <div class="expansion-panel section-gap">
+        <div class="mini-title">Game Expansion</div>
+        <div class="expansion-grid">
+          <form method="post" action="index.php?n=account&sub=manage&action=change_gameplay">
+            <input type="hidden" name="switch_wow_type" value="classic">
+            <button type="submit" class="expansion-btn<?php if((int)$profile['expansion']===0)echo' active'; ?>">Classic</button>
+          </form>
+          <form method="post" action="index.php?n=account&sub=manage&action=change_gameplay">
+            <input type="hidden" name="switch_wow_type" value="tbc">
+            <button type="submit" class="expansion-btn<?php if((int)$profile['expansion']===1)echo' active'; ?>">TBC</button>
+          </form>
+          <form method="post" action="index.php?n=account&sub=manage&action=change_gameplay">
+            <input type="hidden" name="switch_wow_type" value="wotlk">
+            <button type="submit" class="expansion-btn<?php if((int)$profile['expansion']===2)echo' active'; ?>">WotLK</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
 
-</tr>
-<tr>
-    <td align=left colspan="2">
-        <font color="#FF0000">*</font><input type="checkbox" name="legal" value="yes">&nbsp;
-      <font face="arial,helvetica" size=-1 ><span><b>
-      <span><small><font color="black"><?php echo $lang['agreeement_detailschange']; ?></font></small></span><br/>
-      </b></span></font></td>
+  <section class="settings-card recovery-card">
+    <div class="card-title">Account Tools</div>
+    <div class="recovery-grid">
+      <form id="password-change-form" method="post" action="index.php?n=account&sub=manage&action=changepass" class="stack-form tool-panel">
+        <div class="mini-title">Password</div>
+        <div class="help-text">Use the password field in the profile settings card above to update your account password.</div>
+      </form>
 
-       <td valign = "top">
-
-
-      </td>
-</tr>
-
-
-
-</table>
-<div align="center">
-	<input type="image" src="<?php echo $currtmp; ?>/images/button-cancel.gif" size="16" class="button" style="font-size:12px;" value="<?php echo $lang['reset'];?>">
-	<input type="image" src="<?php echo $currtmp; ?>/images/button-update.gif" class="button" style="font-size:12px;" value="<?php echo $lang['dochange'];?>">
+      <form method="post" action="index.php?n=account&sub=manage&action=renamechar" class="stack-form tool-panel">
+        <div class="mini-title">Character Rename</div>
+        <div class="help-text">Rename a character on this account for the currently selected realm: <?php echo htmlspecialchars($manageRealmName ?? 'Current Realm'); ?>.</div>
+        <div class="field">
+          <label>Character</label>
+          <select name="character_guid">
+            <?php if(!empty($accountCharacters)): ?>
+              <?php foreach($accountCharacters as $character): ?>
+              <option value="<?php echo (int)$character['guid']; ?>">
+                <?php echo htmlspecialchars($character['name']); ?><?php if(!empty($character['level'])) echo ' (Lvl ' . (int)$character['level'] . ')'; ?>
+              </option>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <option value="0">No characters available</option>
+            <?php endif; ?>
+          </select>
+        </div>
+        <div class="field">
+          <label>New Character Name</label>
+          <input type="text" name="new_character_name" maxlength="20">
+        </div>
+        <div class="help-text">The character must be offline and the new name must be unused.</div>
+        <div class="actions">
+          <button type="submit" class="btn primary"<?php if(empty($accountCharacters)) echo ' disabled="disabled"'; ?>>Rename Character</button>
+        </div>
+      </form>
+    </div>
+  </section>
 </div>
-</td></tr></table>
-</td></tr></table>
 
-</form>
+<style>
+.settings-page {
+  color: #ddd;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
 
+.settings-hero,
+.settings-card {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 214, 120, 0.18);
+  background: linear-gradient(180deg, rgba(15,15,15,0.92), rgba(8,8,8,0.82));
+  box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+}
 
-<br /><br />
-<table width = "510" cellspacing = "0" cellpadding = "0" border = "0">
-<tr>
+.settings-hero {
+  padding: 20px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
 
-	<td>
-	<span>
-  <?php echo add_pictureletter($lang['accountmanage_important']); ?>
-	</span>
-	</td>
+.settings-kicker,
+.card-title,
+.mini-title {
+  color: #c7a56a;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+}
 
-</tr>
-</table>
-</center>
-<br />
-<?php write_subheader($lang['other_info']); ?>
+.settings-hero h2 {
+  margin: 6px 0 8px;
+  color: #ffcc66;
+  font-size: 2rem;
+}
 
+.settings-intro {
+  margin: 0;
+  max-width: 640px;
+  color: #c9c9c9;
+  line-height: 1.5;
+}
 
-<table width = "520" style = "border-width: 1px; border-style: dotted; border-color: #928058;"><tr><td>
-<table style = "width:100%; border-width: 1px; border-style: solid; border-color: black; background-image: url('<?php echo $currtmp; ?>/images/light3.jpg');"><tr><td>
+.settings-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
 
-<table border=0 cellspacing=0 cellpadding=4>
-    <?php if((int)$MW->getConfig->generic->change_pass) { ?>
+.settings-badges span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+}
 
-		<tr>
-		<form method="post" action="index.php?n=account&sub=manage&action=changepass">
-      <td align=right valign = "top">
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 18px;
+}
 
-      <font face="arial,helvetica" size=-1><span><b>
-      <?php if (isset($lang['newpass']))echo $lang['newpass'];?>
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td><input type="password" size="22" name="new_pass">
-			<input type="submit" value="Change password" class="button" style="font-size:11px;"><span></span></td><td valign = "top">
-	   </td></tr></table></td>
-      </td>
-    </form>
-		</tr>
+.settings-card {
+  padding: 18px 20px;
+}
 
-    <?php } ?>
-   <?php if((int)$MW->getConfig->generic->change_email) { ?>
+.stack-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
 
-		<tr>
-		<form method="post" action="index.php?n=account&sub=manage&action=changeemail">
-      <td align=right valign = "top">
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
-      <font face="arial,helvetica" size=-1><span><b>
-     <?php if (isset($lang['newemail']))echo $lang['newemail'];?>
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-			<input type='text' name='new_email' size='36' value='&nbsp;&nbsp;<?php echo $profile['email'];?>'>
-                <input type="submit" value="<?php echo $lang['change_email_button'] ?>" class="button" style="font-size:11px;"><span></span></td><td valign = "top">
-	   </td></tr></table></td>
-      </td>
-    </form>
-		</tr>
+.field label,
+.field span {
+  color: #bdbdbd;
+  font-size: 0.95rem;
+}
 
-    <?php }else{ ?>
-				<tr>
-      <td align=right valign = "top">
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 214, 120, 0.22);
+  background: rgba(15, 18, 22, 0.84);
+  color: #f1f1f1;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
 
-      <font face="arial,helvetica" size=-1><span><b>
-     <?php echo $lang['email'];?>
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-			<input type="text" size="36" value="&nbsp;&nbsp;<?php echo $profile['email'];?>" readonly>
-               <span></span></td><td valign = "top">
-	   </td></tr></table></td>
-      </td>
-		</tr>
-		<?php } ?>
+.field input::placeholder,
+.field textarea::placeholder {
+  color: rgba(226, 226, 226, 0.45);
+}
 
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: rgba(255, 206, 102, 0.55);
+  box-shadow: 0 0 0 3px rgba(216, 158, 57, 0.12);
+}
 
+.field input:disabled {
+  opacity: 0.8;
+}
 
+.toggle-row,
+.recovery-grid {
+  display: grid;
+  gap: 14px;
+}
 
-<!--Secret QUESTION-->
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-        <?php
-        if ($profile['secretq1'] == '0'){
-        echo '<span style="color: red">'.$lang['not_have_secretq'].'</span>';
-        }else{
-        echo '<span style="color: green">'.$lang['have_secretq'].'</span>';
-        }
-?>
-</td><td valign = "top">
-	   </td></tr></table>
-      </td>
-</tr>
-		<form method="post" action="index.php?n=account&sub=manage&action=changesecretq">
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-			<?php echo $lang['secretq'];?> 1
-			<img src="<?php echo $currtmp; ?>/images/icons2/warning.gif" width="15" height="15"
-			 onmouseover="ddrivetip('<?php echo $lang['secretq_info']; ?>: <ul><li><?php echo $lang['secretq_info_mincharacters']; ?>.</li><li><?php echo $lang['secretq_info_nosymbols']; ?>.</li><li><?php echo $lang['secretq_info_bothfields']; ?>.</li></ul>','#ffffff')";
-			 onmouseout="hideddrivetip()">
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-        <select name="secretq1">
-          <option <?php if($profile['secretq1'] == 0)echo "selected"; ?> value="0">None</option>
-          <?php
-          foreach ($MW->getConfig->secret_questions->question as $question){
-          ?>
-          <option value="<?php echo htmlspecialchars($question); ?>" <?php if ($profile['secretq1'] == htmlspecialchars($question)){ echo "selected"; } ?>><?php echo $question; ?></option>
-          <?php
-          }
-          ?>
-        </select>
-        <input type="name" name="secreta1" style="margin:1px;">
-     </td><td valign = "top">
-	   </td></tr></table>
-     </td>
-</tr>
+.toggle-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-			<?php echo $lang['secretq'];?> 2
-			<img src="<?php echo $currtmp; ?>/images/icons2/warning.gif" width="15" height="15"
-			 onmouseover="ddrivetip('<?php echo $lang['secretq_info']; ?>: <ul><li><?php echo $lang['secretq_info_mincharacters']; ?>.</li><li><?php echo $lang['secretq_info_nosymbols']; ?>.</li><li><?php echo $lang['secretq_info_bothfields']; ?>.</li></ul>','#ffffff')";
-			 onmouseout="hideddrivetip()">
-			<br />
-      </b></span></font>
-      </td>
-      <td align=left><table border=0 cellspacing=0 cellpadding=0><tr><td>
-        <select name="secretq2">
-          <option <?php if($profile['secretq2'] == 0)echo "selected"; ?> value="0">None</option>
-          <?php
-          foreach ($MW->getConfig->secret_questions->question as $question){
-          ?>
-          <option value="<?php echo htmlspecialchars($question); ?>" <?php if ($profile['secretq2'] == htmlspecialchars($question)){ echo "selected"; } ?>><?php echo $question; ?></option>
-          <?php
-          }
-          ?>
-          </select>
-          <input type="name" name="secreta2" style="margin:1px;">
-      </td><td valign = "top">
-	    </td></tr></table>
-      </td>
-</tr>
+.recovery-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
-<tr>
-      <td align=right>
-      <font face="arial,helvetica" size=-1><span><b>
-			<br />
-      </b></span></font>
-      </td>
-      <td align=center><table border=0 cellspacing=0 cellpadding=0><tr><td>
-        <input type="submit" value="Change Secret questions" class="button"></form>
-      </td><td valign = "top">
-        <form method="post" action="index.php?n=account&sub=manage&action=resetsecretq" style="{MARGIN-LEFT: 0pt; MARGIN-RIGHT: 0pt; MARGIN-TOP: 0pt; MARGIN-BOTTOM: 0pt;}">
-        <input type="hidden" name="reset_secretq" value="reset_secretq">
-        <input type="submit" value="Reset Secret questions" name="reset_secretq">
-        </form>
-	    </td></tr></table>
-      </td>
-</tr>
+.tool-panel {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+}
 
-<!--Secret QUESTION END-->
-<!-- Gameplay option start -->
-<tr>
-		<td>
-		<form method="POST" action="<?php echo$_SERVER['PHP_SELF'];?>?n=account&sub=manage&action=change_gameplay">
-		  <input type="hidden" name="switch_wow_type" value="wotlk" />
-		  <input type='image' class="button"  src='<?php echo $currtmp; ?>/images/wotlk.gif' />
-	      </td>
-		<td>
-                  <b><font size="2"><?php echo $lang['make_acct_wotlk'];?></font></b>
-				</form>
-		</td>
-</tr>
-<tr>
-		<td>
-		<form method="POST" action="<?php echo$_SERVER['PHP_SELF'];?>?n=account&sub=manage&action=change_gameplay">
-		  <input type="hidden" name="switch_wow_type" value="tbc" />
-		  <input type='image' class="button"  src='<?php echo $currtmp; ?>/images/tbc.gif' />
-	      </td>
-		<td>
-                  <b><font size="2"><?php echo $lang['make_acct_tbc'];?></font></b>
-				</form>
-		</td>
-</tr>
-<tr>
-		<form method="POST" action="<?php echo$_SERVER['PHP_SELF'];?>?n=account&sub=manage&action=change_gameplay">
-		<td>
-		  <input type="hidden" name="switch_wow_type" value="classic" />
-		  <input type='image' class="button" src='<?php echo $currtmp; ?>/images/nontbc.gif' />
-	  </td>
-		<td>
-                  <b><font size="2"><?php echo $lang['make_acct_classic'];?></font></b>
+.compact select {
+  width: 100%;
+}
 
-		</td>
-    </form>
-</tr>
-<!-- Gameplay option STOP -->
+.avatar-block {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  align-items: start;
+}
 
-</table>
-</td></tr></table>
-</td></tr></table>
-</center>
+.avatar-preview img,
+.avatar-placeholder {
+  width: 104px;
+  height: 104px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 214, 120, 0.2);
+  object-fit: cover;
+  background: rgba(255,255,255,0.04);
+}
 
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #ffd27a;
+  font-weight: bold;
+}
 
+.help-text {
+  color: #9d9d9d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
 
-</td></tr></table>
-</center>
-<!--Shadow Bottom-->
-</td><td valign = "top" background = "<?php echo $currtmp; ?>/images/shadow-right.gif">
-<img src = "<?php echo $currtmp; ?>/images/shadow-right-top.gif" width = "9" height = "12"></td></tr>
-<tr><td valign = "bottom" background = "<?php echo $currtmp; ?>/images/shadow-left.gif">
-<img src = "<?php echo $currtmp; ?>/images/shadow-left-bot.gif" width = "5" height = "12"></td>
-<td valign = "bottom" background = "<?php echo $currtmp; ?>/images/shadow-right.gif">
-<img src = "<?php echo $currtmp; ?>/images/shadow-right-bot.gif" width = "9" height = "12"></td></tr>
-<tr><td><img src = "<?php echo $currtmp; ?>/images/shadow-bot-left.gif" width = "5" height = "10"></td>
-<td background = "<?php echo $currtmp; ?>/images/shadow-bot.gif">
-<img src = "<?php echo $currtmp; ?>/images/shadow-bot-left-left.gif" width = "12" height = "10"></td>
-<td align = "right" background = "<?php echo $currtmp; ?>/images/shadow-bot.gif">
-<img src = "<?php echo $currtmp; ?>/images/shadow-bot-right-right.gif" width = "12" height = "10"></td>
-<td><img src = "<?php echo $currtmp; ?>/images/shadow-bot-right.gif" width = "9" height = "10"></td></tr></table>
-<!--Shadow Bottom-->
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #d5d5d5;
+}
 
-</center>
+.checkbox-row input {
+  width: auto;
+}
+
+.password-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.password-submit {
+  min-width: 180px;
+}
+
+.password-submit .btn {
+  width: 100%;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn,
+.expansion-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn.primary,
+.expansion-btn.active {
+  background: linear-gradient(180deg, #ffd27a, #d89e39);
+  color: #17120a;
+}
+
+.btn.secondary,
+.expansion-btn {
+  background: rgba(255,255,255,0.07);
+  color: #eee;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.section-gap {
+  margin-top: 18px;
+}
+
+.expansion-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expansion-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.expansion-grid form {
+  margin: 0;
+}
+
+.expansion-btn {
+  width: 100%;
+}
+
+.recovery-card {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 920px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recovery-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .settings-hero {
+    flex-direction: column;
+  }
+
+  .settings-badges {
+    justify-content: flex-start;
+  }
+
+  .toggle-row,
+  .avatar-block,
+  .expansion-grid,
+  .password-inline {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 
 <?php builddiv_end() ?>
-
-<?php
-}
- ?>
+<?php } ?>
