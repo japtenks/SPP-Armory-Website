@@ -229,6 +229,26 @@
   flex-wrap: wrap;
 }
 
+.admin-signature-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-signature-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.admin-signature-row label {
+  color: #c3a46a;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .admin-avatar-preview {
   display: flex;
   align-items: center;
@@ -394,7 +414,8 @@
 
 @media (max-width: 860px) {
   .admin-form-grid,
-  .admin-meta {
+  .admin-meta,
+  .admin-signature-row {
     grid-template-columns: 1fr;
   }
 
@@ -481,20 +502,51 @@
     </div>
 
     <div class="admin-form-panel">
-      <p class="admin-subheading">Security</p>
-      <h3 class="admin-heading" style="font-size:1.1rem;">Change Password</h3>
-      <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=changepass" class="admin-form-stack">
-        <div class="admin-form-grid">
-          <label for="member_new_pass">New Password</label>
-          <input type="password" id="member_new_pass" name="new_pass" />
+      <?php if (!empty($profile['is_bot_account'])) { ?>
+        <p class="admin-subheading">Bot Profiles</p>
+        <h3 class="admin-heading" style="font-size:1.1rem;">Character Signatures</h3>
+        <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=setbotsignatures" class="admin-form-stack">
+          <div class="admin-signature-stack">
+            <?php if (!empty($userchars)) { ?>
+              <?php foreach ($userchars as $char) { ?>
+                <?php $charGuid = (int)($char['guid'] ?? 0); ?>
+                <div class="admin-signature-row">
+                  <label for="character_signature_<?php echo $charGuid; ?>"><?php echo htmlspecialchars($char['name']); ?></label>
+                  <input
+                    type="text"
+                    id="character_signature_<?php echo $charGuid; ?>"
+                    name="character_signature[<?php echo $charGuid; ?>]"
+                    maxlength="255"
+                    value="<?php echo htmlspecialchars((string)($profile['character_signatures'][$charGuid] ?? '')); ?>"
+                  />
+                </div>
+              <?php } ?>
+            <?php } else { ?>
+              <div class="admin-form-help">This bot account has no characters on the active realm.</div>
+            <?php } ?>
+          </div>
+          <div class="admin-form-help">Set one forum signature line per bot character. These signatures follow the character that posts.</div>
+          <div class="admin-form-actions">
+            <input type="submit" value="Set Signatures" />
+          </div>
+        </form>
+      <?php } ?>
+      <?php if (empty($profile['is_bot_account'])) { ?>
+        <p class="admin-subheading">Security</p>
+        <h3 class="admin-heading" style="font-size:1.1rem;">Change Password</h3>
+        <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=changepass" class="admin-form-stack">
+          <div class="admin-form-grid">
+            <label for="member_new_pass">New Password</label>
+            <input type="password" id="member_new_pass" name="new_pass" />
 
-          <label for="member_confirm_new_pass">Confirm Password</label>
-          <input type="password" id="member_confirm_new_pass" name="confirm_new_pass" />
-        </div>
-        <div class="admin-form-actions">
-          <input type="submit" value="Change Password" />
-        </div>
-      </form>
+            <label for="member_confirm_new_pass">Confirm Password</label>
+            <input type="password" id="member_confirm_new_pass" name="confirm_new_pass" />
+          </div>
+          <div class="admin-form-actions">
+            <input type="submit" value="Change Password" />
+          </div>
+        </form>
+      <?php } ?>
     </div>
   </div>
 
@@ -524,60 +576,78 @@
     </div>
 
     <div class="admin-form-panel">
-      <p class="admin-subheading">Website Profile</p>
-      <h3 class="admin-heading" style="font-size:1.1rem;">Forum Settings</h3>
-      <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=change2" enctype="multipart/form-data" class="admin-form-stack">
-        <div class="admin-form-grid">
-          <label for="profile_gid">Group</label>
-          <select id="profile_gid" name="profile[g_id]">
-            <?php foreach ($allgroups as $group_id => $group_name) { ?>
-              <option value="<?php echo (int)$group_id; ?>"<?php if ((int)$profile['g_id'] === (int)$group_id) echo ' selected'; ?>><?php echo htmlspecialchars($group_name); ?></option>
-            <?php } ?>
-          </select>
+      <?php if (!empty($profile['is_bot_account'])) { ?>
+        <p class="admin-subheading">Security</p>
+        <h3 class="admin-heading" style="font-size:1.1rem;">Change Password</h3>
+        <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=changepass" class="admin-form-stack">
+          <div class="admin-form-grid">
+            <label for="member_new_pass_bot">New Password</label>
+            <input type="password" id="member_new_pass_bot" name="new_pass" />
 
-          <?php if ((int)$MW->getConfig->generic->change_template) { ?>
-            <label for="profile_theme">Theme</label>
-            <select id="profile_theme" name="profile[theme]">
-              <?php
-              $i = 0;
-              foreach ($MW->getConfig->templates->template as $template) {
-                  echo '<option value="' . (int)$i . '"' . ((int)$profile['theme'] === $i ? ' selected' : '') . '>' . htmlspecialchars($template) . '</option>';
-                  $i++;
-              }
-              ?>
-            </select>
-          <?php } ?>
-
-          <label for="profile_hideprofile">Hide Profile</label>
-          <select id="profile_hideprofile" name="profile[hideprofile]">
-            <option value="0"<?php if ((int)$profile['hideprofile'] === 0) echo ' selected'; ?>>No</option>
-            <option value="1"<?php if ((int)$profile['hideprofile'] === 1) echo ' selected'; ?>>Yes</option>
-          </select>
-
-          <label for="profile_signature">Signature</label>
-          <textarea id="profile_signature" name="profile[signature]" maxlength="255"><?php echo htmlspecialchars($profile['signature']); ?></textarea>
-
-          <div class="admin-field-label">Avatar</div>
-          <div>
-            <?php if ($profile['avatar']) { ?>
-              <div class="admin-avatar-preview">
-                <img src="images/avatars/<?php echo htmlspecialchars($profile['avatar']); ?>" alt="Avatar" />
-                <div>
-                  <input type="hidden" name="avatarfile" value="<?php echo htmlspecialchars($profile['avatar']); ?>">
-                  <label><input type="checkbox" name="deleteavatar" value="1"> Delete current avatar</label>
-                </div>
-              </div>
-            <?php } else { ?>
-              <div class="admin-form-help">Max file size: <?php echo (int)$MW->getConfig->generic->max_avatar_file; ?> bytes. Max resolution: <?php echo htmlspecialchars((string)$MW->getConfig->generic->max_avatar_size); ?>.</div>
-              <input type="file" name="avatar" />
-            <?php } ?>
+            <label for="member_confirm_new_pass_bot">Confirm Password</label>
+            <input type="password" id="member_confirm_new_pass_bot" name="confirm_new_pass" />
           </div>
-        </div>
-        <div class="admin-form-actions">
-          <input type="reset" value="Reset" />
-          <input type="submit" value="Save Profile" />
-        </div>
-      </form>
+          <div class="admin-form-actions">
+            <input type="submit" value="Change Password" />
+          </div>
+        </form>
+      <?php } ?>
+      <?php if (empty($profile['is_bot_account'])) { ?>
+        <p class="admin-subheading">Website Profile</p>
+        <h3 class="admin-heading" style="font-size:1.1rem;">Forum Settings</h3>
+        <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=change2" enctype="multipart/form-data" class="admin-form-stack">
+          <div class="admin-form-grid">
+            <label for="profile_gid">Group</label>
+            <select id="profile_gid" name="profile[g_id]">
+              <?php foreach ($allgroups as $group_id => $group_name) { ?>
+                <option value="<?php echo (int)$group_id; ?>"<?php if ((int)$profile['g_id'] === (int)$group_id) echo ' selected'; ?>><?php echo htmlspecialchars($group_name); ?></option>
+              <?php } ?>
+            </select>
+
+            <?php if ((int)$MW->getConfig->generic->change_template) { ?>
+              <label for="profile_theme">Theme</label>
+              <select id="profile_theme" name="profile[theme]">
+                <?php
+                $i = 0;
+                foreach ($MW->getConfig->templates->template as $template) {
+                    echo '<option value="' . (int)$i . '"' . ((int)$profile['theme'] === $i ? ' selected' : '') . '>' . htmlspecialchars($template) . '</option>';
+                    $i++;
+                }
+                ?>
+              </select>
+            <?php } ?>
+
+            <label for="profile_hideprofile">Hide Profile</label>
+            <select id="profile_hideprofile" name="profile[hideprofile]">
+              <option value="0"<?php if ((int)$profile['hideprofile'] === 0) echo ' selected'; ?>>No</option>
+              <option value="1"<?php if ((int)$profile['hideprofile'] === 1) echo ' selected'; ?>>Yes</option>
+            </select>
+
+            <label for="profile_signature">Signature</label>
+            <textarea id="profile_signature" name="profile[signature]" maxlength="255"><?php echo htmlspecialchars($profile['signature']); ?></textarea>
+
+            <div class="admin-field-label">Avatar</div>
+            <div>
+              <?php if ($profile['avatar']) { ?>
+                <div class="admin-avatar-preview">
+                  <img src="images/avatars/<?php echo htmlspecialchars($profile['avatar']); ?>" alt="Avatar" />
+                  <div>
+                    <input type="hidden" name="avatarfile" value="<?php echo htmlspecialchars($profile['avatar']); ?>">
+                    <label><input type="checkbox" name="deleteavatar" value="1"> Delete current avatar</label>
+                  </div>
+                </div>
+              <?php } else { ?>
+                <div class="admin-form-help">Max file size: <?php echo (int)$MW->getConfig->generic->max_avatar_file; ?> bytes. Max resolution: <?php echo htmlspecialchars((string)$MW->getConfig->generic->max_avatar_size); ?>.</div>
+                <input type="file" name="avatar" />
+              <?php } ?>
+            </div>
+          </div>
+          <div class="admin-form-actions">
+            <input type="reset" value="Reset" />
+            <input type="submit" value="Save Profile" />
+          </div>
+        </form>
+      <?php } ?>
     </div>
   </div>
 

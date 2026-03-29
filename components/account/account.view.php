@@ -186,6 +186,20 @@ if($user['id']<=0){
                 }
             }
 
+            if (!empty($profile['character_id']) && !empty($profileRealmId)) {
+                try {
+                    $characterIdentity = spp_get_char_identity((int)$profileRealmId, (int)$profile['character_id']);
+                    if (!empty($characterIdentity['identity_id'])) {
+                        $identitySignature = spp_get_identity_signature((int)$characterIdentity['identity_id']);
+                        if ($identitySignature !== '') {
+                            $profile['signature'] = $identitySignature;
+                        }
+                    }
+                } catch (Throwable $e) {
+                    error_log('[account.view] Identity signature lookup failed: ' . $e->getMessage());
+                }
+            }
+
             try {
                 foreach ($realmDbMap as $realmId => $realmInfo) {
                     $realmAccountId = null;

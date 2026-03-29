@@ -387,10 +387,12 @@ if (!empty($this_topic['topic_id'])) {
             website_accounts.*,
             website_accounts.avatar AS website_avatar,
             website_accounts.signature AS website_signature,
+            website_identity_profiles.signature AS identity_signature,
             website_account_groups.*
          FROM f_posts
          LEFT JOIN account ON f_posts.poster_id=account.id
          LEFT JOIN website_accounts ON f_posts.poster_id=website_accounts.account_id
+         LEFT JOIN website_identity_profiles ON f_posts.poster_identity_id=website_identity_profiles.identity_id
          LEFT JOIN website_account_groups ON website_accounts.g_id = website_account_groups.g_id
          WHERE topic_id=?
          ORDER BY posted"
@@ -453,7 +455,9 @@ if (!empty($this_topic['topic_id'])) {
             $cur_post['avatar'] = 'images/avatars/' . rawurlencode(basename($uploadedAvatar));
         }
 
-        if (!empty($cur_post['website_signature'])) {
+        if (!empty($cur_post['identity_signature'])) {
+            $cur_post['signature'] = $cur_post['identity_signature'];
+        } elseif (!empty($cur_post['website_signature'])) {
             $cur_post['signature'] = $cur_post['website_signature'];
         }
 
@@ -512,6 +516,7 @@ if (!empty($this_topic['topic_id'])) {
         "\n",
         html_entity_decode($rawMessage, ENT_QUOTES, 'UTF-8')
     );
+    $normalizedMessage = spp_forum_normalize_legacy_markup($normalizedMessage);
     $cur_post['rendered_message'] = bbcode($normalizedMessage, true, true, true, false);
 
     $posts[] = $cur_post;

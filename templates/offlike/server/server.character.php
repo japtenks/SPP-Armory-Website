@@ -935,7 +935,7 @@ function spp_character_rep_rank($standing) {
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $tab = strtolower(trim((string)($_GET['tab'] ?? 'overview')));
-$tabs = array('overview', 'talents', 'reputation', 'skills', 'professions', 'quest log', 'achievements');
+$tabs = array('overview', 'talents', 'reputation', 'skills', 'professions', 'quest log', 'achievements', 'social');
 if (!in_array($tab, $tabs, true)) $tab = 'overview';
 
 $classNames = array(1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest', 6 => 'Death Knight', 7 => 'Shaman', 8 => 'Mage', 9 => 'Warlock', 11 => 'Druid');
@@ -981,6 +981,20 @@ $gearProgression = array(
     'first_snapshot_label' => '',
     'latest_snapshot_label' => '',
 );
+$forumSocial = array(
+    'identity_id' => 0,
+    'account_id' => 0,
+    'account_username' => '',
+    'account_link' => '',
+    'signature' => '',
+    'rendered_signature' => '',
+    'posts' => 0,
+    'topics' => 0,
+    'last_post' => 0,
+    'last_topic' => 0,
+    'recent_posts' => array(),
+    'recent_topics' => array(),
+);
 
 builddiv_start(1, 'Character Profile', 0);
 
@@ -992,9 +1006,10 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
     try {
         $charsPdo = spp_get_pdo('chars', $realmId);
         $worldPdo = spp_get_pdo('world', $realmId);
+        $realmdPdo = spp_get_pdo('realmd', $realmId);
         $armoryPdo = spp_get_pdo('armory', $realmId);
         $characterColumns = spp_character_columns($charsPdo, 'characters');
-        $selectColumns = array('guid', 'name', 'race', 'class', 'gender', 'level', 'zone', 'map', 'online', 'totaltime', 'leveltime');
+        $selectColumns = array('guid', 'name', 'account', 'race', 'class', 'gender', 'level', 'zone', 'map', 'online', 'totaltime', 'leveltime');
         foreach (array('health', 'power1', 'power2', 'stored_honorable_kills', 'stored_honor_rating', 'honor_highest_rank', 'totalKills', 'totalHonorPoints') as $columnName) {
             if (isset($characterColumns[$columnName])) $selectColumns[] = $columnName;
         }
@@ -1008,7 +1023,6 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
         $characterName = (string)$character['name'];
 
         try {
-            $realmdPdo = spp_get_pdo('realmd', $realmId);
             if ($realmdPdo instanceof PDO && spp_character_table_exists($realmdPdo, 'bot_rotation_ilvl_log')) {
                 $gearProgression['supported'] = true;
                 $stmt = $realmdPdo->prepare(
@@ -1051,6 +1065,100 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             }
         } catch (Exception $e) {
             error_log('[character-gear-progress] ' . $e->getMessage());
+        }
+
+        try {
+            if (
+                $realmdPdo instanceof PDO &&
+                spp_character_table_exists($realmdPdo, 'f_posts') &&
+                spp_character_table_exists($realmdPdo, 'f_topics') &&
+                spp_character_table_exists($realmdPdo, 'f_forums')
+            ) {
+                $characterAccountId = (int)($character['account'] ?? 0);
+                $forumSocial['account_id'] = $characterAccountId;
+                if ($characterAccountId > 0) {
+                    $forumSocial['account_link'] = 'index.php?n=admin&sub=members&id=' . $characterAccountId;
+                    if (spp_character_table_exists($realmdPdo, 'account')) {
+                        $stmt = $realmdPdo->prepare('SELECT `username` FROM `account` WHERE `id` = ? LIMIT 1');
+                        $stmt->execute(array($characterAccountId));
+                        $forumSocial['account_username'] = (string)$stmt->fetchColumn();
+                    }
+                }
+                $identity = spp_get_char_identity($realmId, $characterGuid);
+                $identityId = (int)($identity['identity_id'] ?? 0);
+                if ($identityId <= 0 && $characterAccountId > 0) {
+                    $identityId = spp_ensure_char_identity($realmId, $characterGuid, $characterAccountId, $characterName);
+                }
+
+                $forumSocial['identity_id'] = $identityId;
+                if ($identityId > 0) {
+                    $forumSocial['signature'] = (string)spp_get_identity_signature($identityId);
+                    if ($forumSocial['signature'] !== '') {
+                        $normalizedSignature = str_replace(
+                            array('<br />', '<br/>', '<br>'),
+                            "\n",
+                            html_entity_decode($forumSocial['signature'], ENT_QUOTES, 'UTF-8')
+                        );
+                        $normalizedSignature = spp_forum_normalize_legacy_markup($normalizedSignature);
+                        $forumSocial['rendered_signature'] = bbcode($normalizedSignature, true, true, true, false);
+                    }
+
+                    $stmt = $realmdPdo->prepare('SELECT COUNT(*) FROM `f_posts` WHERE `poster_identity_id` = ?');
+                    $stmt->execute(array($identityId));
+                    $forumSocial['posts'] = (int)$stmt->fetchColumn();
+
+                    $stmt = $realmdPdo->prepare('SELECT COUNT(*) FROM `f_topics` WHERE `topic_poster_identity_id` = ?');
+                    $stmt->execute(array($identityId));
+                    $forumSocial['topics'] = (int)$stmt->fetchColumn();
+
+                    $stmt = $realmdPdo->prepare('SELECT MAX(`posted`) FROM `f_posts` WHERE `poster_identity_id` = ?');
+                    $stmt->execute(array($identityId));
+                    $forumSocial['last_post'] = (int)$stmt->fetchColumn();
+
+                    $stmt = $realmdPdo->prepare('SELECT MAX(`topic_posted`) FROM `f_topics` WHERE `topic_poster_identity_id` = ?');
+                    $stmt->execute(array($identityId));
+                    $forumSocial['last_topic'] = (int)$stmt->fetchColumn();
+
+                    $stmt = $realmdPdo->prepare("
+                        SELECT
+                            p.`post_id`,
+                            p.`posted`,
+                            LEFT(TRIM(REPLACE(REPLACE(REPLACE(COALESCE(p.`message`, ''), '<br />', ' '), '<br/>', ' '), '<br>', ' ')), 180) AS `excerpt`,
+                            t.`topic_id`,
+                            t.`topic_name`,
+                            f.`forum_id`,
+                            f.`forum_name`
+                        FROM `f_posts` p
+                        LEFT JOIN `f_topics` t ON t.`topic_id` = p.`topic_id`
+                        LEFT JOIN `f_forums` f ON f.`forum_id` = t.`forum_id`
+                        WHERE p.`poster_identity_id` = ?
+                        ORDER BY p.`posted` DESC
+                        LIMIT 5
+                    ");
+                    $stmt->execute(array($identityId));
+                    $forumSocial['recent_posts'] = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: array();
+
+                    $stmt = $realmdPdo->prepare("
+                        SELECT
+                            t.`topic_id`,
+                            t.`topic_name`,
+                            t.`topic_posted`,
+                            t.`last_post`,
+                            t.`num_replies`,
+                            f.`forum_id`,
+                            f.`forum_name`
+                        FROM `f_topics` t
+                        LEFT JOIN `f_forums` f ON f.`forum_id` = t.`forum_id`
+                        WHERE t.`topic_poster_identity_id` = ?
+                        ORDER BY t.`topic_posted` DESC
+                        LIMIT 5
+                    ");
+                    $stmt->execute(array($identityId));
+                    $forumSocial['recent_topics'] = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: array();
+                }
+            }
+        } catch (Exception $e) {
+            error_log('[character-social] ' . $e->getMessage());
         }
 
         if (spp_character_table_exists($charsPdo, 'character_stats')) {
@@ -2067,8 +2175,27 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 ?>
 
 <style>
-.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-hero>*{position:relative;z-index:1}.character-hero-mark{position:absolute;right:320px;top:34px;bottom:34px;width:min(360px,26vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}.character-hero-mark img{width:100%;max-width:340px;max-height:100%;object-fit:contain;opacity:.14;filter:drop-shadow(0 10px 24px rgba(0,0,0,.3))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45)}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img,.character-achievement-icon{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub,.character-achievement-meta{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}.character-achievement-list{gap:14px}.character-achievement-item{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:start}.character-achievement-icon{width:48px;height:48px;display:block}.character-achievement-title{color:#f7edd0;font-size:1.02rem;font-weight:800;line-height:1.2}.character-achievement-points-badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,204,72,.08);color:#ffd467;font-weight:800}.character-achievement-sections{display:grid;gap:18px}.character-achievement-section{display:grid;gap:12px}.character-achievement-disclosure{border:1px solid rgba(255,196,0,.16);border-radius:18px;background:rgba(5,8,18,.38)}.character-achievement-disclosure[open]{background:rgba(5,8,18,.5)}.character-achievement-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;cursor:pointer;list-style:none}.character-achievement-summary::-webkit-details-marker{display:none}.character-achievement-summary::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}.character-achievement-disclosure[open]>.character-achievement-summary::after{content:'-'}.character-achievement-summary-text{display:flex;flex-direction:column;gap:4px;min-width:0}.character-achievement-section-title{margin:0;color:#ffe39a;font-size:1.15rem}.character-achievement-count{color:#aa9870;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-disclosure-body{display:grid;gap:12px;padding:0 18px 18px}.character-achievement-subtitle{margin:0 0 4px;color:#c7b07b;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}.character-hero-mark{right:24px;top:auto;bottom:18px;width:min(300px,52vw);height:180px;justify-content:flex-end}.character-hero-mark img{max-width:220px;opacity:.1}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}.character-hero-mark{display:none}.character-achievement-item{grid-template-columns:40px minmax(0,1fr)}.character-achievement-points-badge{grid-column:2}.character-achievement-summary{padding:12px 14px}.character-achievement-disclosure-body{padding:0 14px 14px}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid,.character-achievement-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
+.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-hero>*{position:relative;z-index:1}.character-hero-mark{position:absolute;right:320px;top:34px;bottom:34px;width:min(360px,26vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}.character-hero-mark img{width:100%;max-width:340px;max-height:100%;object-fit:contain;opacity:.14;filter:drop-shadow(0 10px 24px rgba(0,0,0,.3))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700;transition:background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease,transform .2s ease}.character-tab:hover{color:#fff3c4;border-color:rgba(255,204,72,.34);background:linear-gradient(180deg,rgba(255,216,122,.16),rgba(130,84,14,.18));box-shadow:0 0 0 1px rgba(255,204,72,.1),0 8px 20px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,245,214,.08);transform:translateY(-1px)}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45);box-shadow:0 10px 22px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.18)}.character-tab.is-active:hover{color:#120d03;transform:none}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img,.character-achievement-icon{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub,.character-achievement-meta{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}.character-achievement-list{gap:14px}.character-achievement-item{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:start}.character-achievement-icon{width:48px;height:48px;display:block}.character-achievement-title{color:#f7edd0;font-size:1.02rem;font-weight:800;line-height:1.2}.character-achievement-points-badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,204,72,.08);color:#ffd467;font-weight:800}.character-achievement-sections{display:grid;gap:18px}.character-achievement-section{display:grid;gap:12px}.character-achievement-disclosure{border:1px solid rgba(255,196,0,.16);border-radius:18px;background:rgba(5,8,18,.38)}.character-achievement-disclosure[open]{background:rgba(5,8,18,.5)}.character-achievement-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;cursor:pointer;list-style:none}.character-achievement-summary::-webkit-details-marker{display:none}.character-achievement-summary::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}.character-achievement-disclosure[open]>.character-achievement-summary::after{content:'-'}.character-achievement-summary-text{display:flex;flex-direction:column;gap:4px;min-width:0}.character-achievement-section-title{margin:0;color:#ffe39a;font-size:1.15rem}.character-achievement-count{color:#aa9870;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-disclosure-body{display:grid;gap:12px;padding:0 18px 18px}.character-achievement-subtitle{margin:0 0 4px;color:#c7b07b;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}.character-hero-mark{right:24px;top:auto;bottom:18px;width:min(300px,52vw);height:180px;justify-content:flex-end}.character-hero-mark img{max-width:220px;opacity:.1}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}.character-hero-mark{display:none}.character-achievement-item{grid-template-columns:40px minmax(0,1fr)}.character-achievement-points-badge{grid-column:2}.character-achievement-summary{padding:12px 14px}.character-achievement-disclosure-body{padding:0 14px 14px}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid,.character-achievement-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
 .character-grid.character-grid-overview{grid-template-columns:minmax(300px,.86fr) minmax(0,1.5fr)}
+.character-social-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.character-social-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}
+.character-social-card-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}
+.character-social-card-value{display:block;margin-top:8px;color:#fff3c4;font-size:1.45rem;font-weight:800;line-height:1.05}
+.character-social-card-meta{margin-top:8px;color:#9ea8c7;font-size:.82rem}
+.character-social-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.character-social-list{display:grid;gap:12px}
+.character-social-item{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}
+.character-social-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.character-social-item-title{color:#7fb7ff;font-size:1.02rem;font-weight:800;text-decoration:none}
+.character-social-item-title:hover{color:#cfe4ff}
+.character-social-item-meta{margin-top:6px;color:#aa9870;font-size:.88rem}
+.character-social-item-forum{display:inline-flex;align-items:center;margin-top:8px;color:#ffe39a;text-decoration:none;font-weight:700}
+.character-social-item-forum:hover{color:#fff3c4}
+.character-social-item-excerpt{margin-top:8px;color:#d8c89f;font-size:.93rem;line-height:1.45}
+.character-social-empty{color:#c8b78c;padding:16px;border:1px dashed rgba(255,204,72,.16);border-radius:16px;background:rgba(255,255,255,.03)}
+.character-social-signature{padding:18px 20px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9));color:#e7d9b1;line-height:1.6}
+.character-social-signature p:first-child{margin-top:0}
+.character-social-signature p:last-child{margin-bottom:0}
 .character-grid.character-grid-sheet{grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr)}
 .character-progress-panel{display:grid;gap:18px}
 .character-progress-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
@@ -2145,7 +2272,7 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-fact-link{padding:10px 12px;border-radius:14px;border:1px solid rgba(255,204,72,.1);background:rgba(255,255,255,.03);font-size:1rem;font-weight:800;letter-spacing:.02em}
 .character-fact-link img{width:26px;height:26px}
 .character-fact-link.is-quest{padding:6px 0;border:0;background:transparent;color:#ffe6af;font-size:1.04rem;line-height:1.35}
-@media (max-width:1100px){.character-grid.character-grid-overview,.character-grid.character-grid-sheet{grid-template-columns:1fr}}
+@media (max-width:1100px){.character-grid.character-grid-overview,.character-grid.character-grid-sheet,.character-social-grid{grid-template-columns:1fr}}
 @media (max-width:720px){.character-sheet-grid,.character-sheet-stats{grid-template-columns:1fr}.character-sheet-bar-row{grid-template-columns:1fr}.character-gear-stage{width:100%;min-height:auto;display:grid;gap:18px}.character-gear-stage > .character-gear-column:first-child,.character-gear-stage > .character-gear-column:nth-child(3),.character-gear-center,.character-gear-bottom{position:relative;inset:auto;left:auto;right:auto;bottom:auto;transform:none}.character-gear-center{order:-1}.character-gear-column,.character-gear-bottom{grid-template-columns:repeat(4,64px);justify-content:center}.character-gear-portrait-wrap{max-width:220px}}
 </style>
 <style>
@@ -2221,7 +2348,7 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .legacy-paperdoll .character-stats i{line-height:10px;font-size:10px;color:#fff;font-style:normal}
 
 
-@media (max-width:1100px){.character-grid.character-grid-overview{grid-template-columns:1fr}}
+@media (max-width:1100px){.character-grid.character-grid-overview,.character-social-grid{grid-template-columns:1fr}}
 @media (max-width:760px){.character-paperdoll-shell{padding:10px 6px 8px;overflow-x:auto}.legacy-paperdoll{transform:scale(.88);transform-origin:top center;margin-bottom:-48px}}
 </style>
 <style>
@@ -2719,6 +2846,113 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
 
   <?php if ($tab === 'talents'): ?><div style="margin-top:4px;"><?php $__savedGet = $_GET; $_GET['realm'] = (string)$realmId; $_GET['character'] = (string)$characterName; $_GET['mode'] = 'profile'; $_GET['embed'] = '1'; unset($_GET['class']); include($siteRoot . '/templates/offlike/server/server.talents.php'); $_GET = $__savedGet; ?></div><?php endif; ?>
   <?php if ($tab === 'reputation'): ?><section class="character-panel"><h2 class="character-panel-title">Reputation</h2><?php if (!empty($reputationSections)): ?><div class="character-reputation-sections"><?php foreach ($reputationSections as $sectionLabel => $sectionReputations): ?><section class="character-reputation-section"><h3 class="character-reputation-section-title"><?php echo htmlspecialchars($sectionLabel); ?></h3><div class="character-reputation-list"><?php foreach ($sectionReputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier']); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php elseif (!empty($reputations)): ?><div class="character-reputation-list"><?php foreach ($reputations as $reputation): ?><article class="character-reputation-item rep-<?php echo htmlspecialchars($reputation['tier'] ?? spp_character_reputation_tier($reputation['label'] ?? 'neutral')); ?>"><div class="character-reputation-head"><h4 class="character-reputation-name"><?php echo htmlspecialchars($reputation['name']); ?></h4><span class="character-reputation-rank"><?php echo htmlspecialchars($reputation['label']); ?></span></div><div class="character-reputation-track"><div class="character-reputation-fill" style="width: <?php echo (int)$reputation['percent']; ?>%"></div><div class="character-reputation-value"><?php echo (int)$reputation['value']; ?>/<?php echo (int)$reputation['max']; ?></div></div><div class="character-reputation-meta"><?php if ($reputation['description'] !== ''): ?><?php echo htmlspecialchars($reputation['description']); ?><?php endif; ?></div></article><?php endforeach; ?></div><?php else: ?><div class="character-empty">No visible reputations were found for this character.</div><?php endif; ?></section><?php endif; ?>
+  <?php if ($tab === 'social'): ?>
+    <section class="character-panel">
+      <h2 class="character-panel-title">Social</h2>
+      <div class="character-social-summary">
+        <div class="character-social-card">
+          <span class="character-social-card-label">Forum Posts</span>
+          <span class="character-social-card-value"><?php echo (int)$forumSocial['posts']; ?></span>
+          <div class="character-social-card-meta"><?php echo !empty($forumSocial['last_post']) ? htmlspecialchars(date('M j, Y g:i A', (int)$forumSocial['last_post'])) : 'No posts yet'; ?></div>
+        </div>
+        <div class="character-social-card">
+          <span class="character-social-card-label">Topics Started</span>
+          <span class="character-social-card-value"><?php echo (int)$forumSocial['topics']; ?></span>
+          <div class="character-social-card-meta"><?php echo !empty($forumSocial['last_topic']) ? htmlspecialchars(date('M j, Y g:i A', (int)$forumSocial['last_topic'])) : 'No topics yet'; ?></div>
+        </div>
+        <?php if ((int)($user['gmlevel'] ?? 0) >= 3): ?>
+          <div class="character-social-card">
+            <span class="character-social-card-label">Forum Account</span>
+            <span class="character-social-card-value">
+              <?php if (!empty($forumSocial['account_username']) && !empty($forumSocial['account_link'])): ?>
+                <a href="<?php echo htmlspecialchars((string)$forumSocial['account_link']); ?>" style="color:inherit;text-decoration:none;"><?php echo htmlspecialchars((string)$forumSocial['account_username']); ?></a>
+              <?php elseif (!empty($forumSocial['account_username'])): ?>
+                <?php echo htmlspecialchars((string)$forumSocial['account_username']); ?>
+              <?php elseif ((int)$forumSocial['account_id'] > 0): ?>
+                Account #<?php echo (int)$forumSocial['account_id']; ?>
+              <?php else: ?>
+                Unlinked
+              <?php endif; ?>
+            </span>
+            <div class="character-social-card-meta">
+              <?php if ((int)$forumSocial['identity_id'] > 0): ?>
+                Identity #<?php echo (int)$forumSocial['identity_id']; ?> linked to this character
+              <?php else: ?>
+                No character forum identity found
+              <?php endif; ?>
+            </div>
+          </div>
+        <?php else: ?>
+          <div class="character-social-card">
+            <span class="character-social-card-label">Forum Identity</span>
+            <span class="character-social-card-value"><?php echo (int)$forumSocial['identity_id'] > 0 ? 'Linked' : 'Unlinked'; ?></span>
+            <div class="character-social-card-meta"><?php echo (int)$forumSocial['identity_id'] > 0 ? ('Identity #' . (int)$forumSocial['identity_id']) : 'No character forum identity found'; ?></div>
+          </div>
+        <?php endif; ?>
+      </div>
+      <div style="margin-top:18px;">
+        <h3 class="character-skill-section-title">Signature</h3>
+        <?php if (!empty(trim((string)$forumSocial['rendered_signature']))): ?>
+          <div class="character-social-signature"><?php echo $forumSocial['rendered_signature']; ?></div>
+        <?php else: ?>
+          <div class="character-social-empty">This character does not have a forum signature yet.</div>
+        <?php endif; ?>
+      </div>
+    </section>
+
+    <section class="character-social-grid">
+      <section class="character-panel">
+        <h2 class="character-panel-title">Recent Posts</h2>
+        <?php if (!empty($forumSocial['recent_posts'])): ?>
+          <div class="character-social-list">
+            <?php foreach ($forumSocial['recent_posts'] as $post): ?>
+              <article class="character-social-item">
+                <div class="character-social-item-top">
+                  <a class="character-social-item-title" href="<?php echo htmlspecialchars('index.php?n=forum&sub=viewtopic&tid=' . (int)$post['topic_id'] . '&to=' . (int)$post['post_id'] . '#post' . (int)$post['post_id']); ?>"><?php echo htmlspecialchars((string)($post['topic_name'] ?? ('Topic #' . (int)$post['topic_id']))); ?></a>
+                </div>
+                <div class="character-social-item-meta"><?php echo !empty($post['posted']) ? htmlspecialchars(date('M j, Y g:i A', (int)$post['posted'])) : 'Unknown date'; ?></div>
+                <?php if (!empty($post['forum_name'])): ?>
+                  <a class="character-social-item-forum" href="<?php echo htmlspecialchars('index.php?n=forum&sub=viewforum&fid=' . (int)$post['forum_id']); ?>"><?php echo htmlspecialchars((string)$post['forum_name']); ?></a>
+                <?php endif; ?>
+                <?php if (!empty(trim((string)($post['excerpt'] ?? '')))): ?>
+                  <div class="character-social-item-excerpt"><?php echo htmlspecialchars((string)$post['excerpt']); ?><?php if (strlen((string)$post['excerpt']) >= 180) echo '...'; ?></div>
+                <?php endif; ?>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="character-social-empty">This character has not posted on the forum yet.</div>
+        <?php endif; ?>
+      </section>
+
+      <section class="character-panel">
+        <h2 class="character-panel-title">Recent Topics</h2>
+        <?php if (!empty($forumSocial['recent_topics'])): ?>
+          <div class="character-social-list">
+            <?php foreach ($forumSocial['recent_topics'] as $topic): ?>
+              <article class="character-social-item">
+                <div class="character-social-item-top">
+                  <a class="character-social-item-title" href="<?php echo htmlspecialchars('index.php?n=forum&sub=viewtopic&tid=' . (int)$topic['topic_id']); ?>"><?php echo htmlspecialchars((string)($topic['topic_name'] ?? ('Topic #' . (int)$topic['topic_id']))); ?></a>
+                </div>
+                <div class="character-social-item-meta">
+                  Started <?php echo !empty($topic['topic_posted']) ? htmlspecialchars(date('M j, Y g:i A', (int)$topic['topic_posted'])) : 'Unknown date'; ?>
+                  • <?php echo (int)($topic['num_replies'] ?? 0); ?> replies
+                </div>
+                <?php if (!empty($topic['forum_name'])): ?>
+                  <a class="character-social-item-forum" href="<?php echo htmlspecialchars('index.php?n=forum&sub=viewforum&fid=' . (int)$topic['forum_id']); ?>"><?php echo htmlspecialchars((string)$topic['forum_name']); ?></a>
+                <?php endif; ?>
+                <?php if (!empty($topic['last_post'])): ?>
+                  <div class="character-social-item-excerpt">Last reply <?php echo htmlspecialchars(date('M j, Y g:i A', (int)$topic['last_post'])); ?></div>
+                <?php endif; ?>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="character-social-empty">This character has not started any forum topics yet.</div>
+        <?php endif; ?>
+      </section>
+    </section>
+  <?php endif; ?>
   <?php if ($tab === 'skills'): ?><section class="character-panel"><h2 class="character-panel-title">Skills</h2><?php if (!empty($skillsByCategory)): ?><div class="character-skill-sections"><?php foreach ($skillsByCategory as $categoryName => $categorySkills): ?><section class="character-skill-section"><h3 class="character-skill-section-title"><?php echo htmlspecialchars($categoryName); ?></h3><div class="character-skill-grid"><?php foreach ($categorySkills as $skill): ?><article class="character-skill-card"><div class="character-skill-card-head"><div class="character-skill-card-title"><img src="<?php echo htmlspecialchars($skill['icon']); ?>" alt=""><div><strong><?php echo htmlspecialchars($skill['name']); ?></strong><?php if ($skill['description'] !== ''): ?><div class="character-skill-meta"><?php echo htmlspecialchars($skill['description']); ?></div><?php endif; ?></div></div><span class="character-skill-rank"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></span></div><div class="character-bar-track"><div class="character-bar-fill" style="width: <?php echo (int)$skill['percent']; ?>%"></div><div class="character-skill-value"><?php echo htmlspecialchars($skill['display_value'] ?? ((int)$skill['value'] . '/' . (int)$skill['max'])); ?></div></div></article><?php endforeach; ?></div></section><?php endforeach; ?></div><?php else: ?><div class="character-empty">No non-class skills could be read from the realm database.</div><?php endif; ?></section><?php endif; ?>
 <?php if ($tab === 'professions'): ?>
 <section class="character-panel">
@@ -3083,16 +3317,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <?php builddiv_end(); ?>
-
-
-
-
-
-
-
-
-
-
 
 
 

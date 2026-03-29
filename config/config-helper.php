@@ -546,7 +546,19 @@ if (!function_exists('spp_ensure_char_identity')) {
 
         $stmt = $pdo->prepare("SELECT identity_id FROM `website_identities` WHERE identity_key = ? LIMIT 1");
         $stmt->execute([$key]);
-        return (int)$stmt->fetchColumn();
+        $identityId = (int)$stmt->fetchColumn();
+        if ($identityId > 0 && function_exists('spp_seed_identity_signature_defaults')) {
+            spp_seed_identity_signature_defaults($identityId, [
+                'realm_id' => (int)$realmId,
+                'character_guid' => (int)$charGuid,
+                'owner_account_id' => (int)$accountId,
+                'display_name' => (string)$charName,
+                'identity_type' => $type,
+                'guild_id' => $guildId ? (int)$guildId : null,
+                'is_bot' => (int)$isBot,
+            ]);
+        }
+        return $identityId;
     }
 }
 
@@ -588,6 +600,256 @@ if (!function_exists('spp_resolve_identity_names')) {
         } catch (Throwable $e) {
             return [];
         }
+    }
+}
+
+// ================================================================
+// Character identity profile helpers
+// ================================================================
+
+if (!function_exists('spp_identity_profile_table_name')) {
+    function spp_identity_profile_table_name() {
+        return 'website_identity_profiles';
+    }
+}
+
+if (!function_exists('spp_ensure_identity_profile_table')) {
+    function spp_ensure_identity_profile_table() {
+        static $ensured = false;
+
+        if ($ensured) {
+            return true;
+        }
+
+        try {
+            $pdo = spp_identity_pdo();
+            $tableName = spp_identity_profile_table_name();
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `{$tableName}` (
+                  `identity_id` INT(11) UNSIGNED NOT NULL,
+                  `signature` TEXT DEFAULT NULL,
+                  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`identity_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ");
+            $ensured = true;
+            return true;
+        } catch (Throwable $e) {
+            error_log('[config] Failed ensuring identity profile table: ' . $e->getMessage());
+            return false;
+        }
+    }
+}
+
+if (!function_exists('spp_get_identity_signature')) {
+    function spp_get_identity_signature($identityId) {
+        $identityId = (int)$identityId;
+        if ($identityId <= 0 || !spp_ensure_identity_profile_table()) {
+            return '';
+        }
+
+        try {
+            $pdo = spp_identity_pdo();
+            $tableName = spp_identity_profile_table_name();
+            $stmt = $pdo->prepare("SELECT signature FROM `{$tableName}` WHERE identity_id = ? LIMIT 1");
+            $stmt->execute([$identityId]);
+            $signature = $stmt->fetchColumn();
+            $signature = $signature !== false ? (string)$signature : '';
+            if (!spp_identity_signature_has_value($signature) && function_exists('spp_seed_identity_signature_defaults')) {
+                $seededSignature = spp_seed_identity_signature_defaults($identityId);
+                if (spp_identity_signature_has_value($seededSignature)) {
+                    return $seededSignature;
+                }
+            }
+            return $signature;
+        } catch (Throwable $e) {
+            error_log('[config] Failed loading identity signature: ' . $e->getMessage());
+            return '';
+        }
+    }
+}
+
+if (!function_exists('spp_update_identity_signature')) {
+    function spp_update_identity_signature($identityId, $signature) {
+        $identityId = (int)$identityId;
+        if ($identityId <= 0 || !spp_ensure_identity_profile_table()) {
+            return false;
+        }
+
+        try {
+            $pdo = spp_identity_pdo();
+            $tableName = spp_identity_profile_table_name();
+            $stmt = $pdo->prepare("
+                INSERT INTO `{$tableName}` (`identity_id`, `signature`)
+                VALUES (?, ?)
+                ON DUPLICATE KEY UPDATE `signature` = VALUES(`signature`)
+            ");
+            return $stmt->execute([$identityId, (string)$signature]);
+        } catch (Throwable $e) {
+            error_log('[config] Failed saving identity signature: ' . $e->getMessage());
+            return false;
+        }
+    }
+}
+
+if (!function_exists('spp_identity_signature_has_value')) {
+    function spp_identity_signature_has_value($signature) {
+        return trim((string)$signature) !== '';
+    }
+}
+
+if (!function_exists('spp_get_identity_account_username')) {
+    function spp_get_identity_account_username($realmId, $accountId) {
+        $realmId = (int)$realmId;
+        $accountId = (int)$accountId;
+        if ($realmId <= 0 || $accountId <= 0) {
+            return '';
+        }
+
+        try {
+            $pdo = spp_get_pdo('realmd', $realmId);
+            $stmt = $pdo->prepare("SELECT `username` FROM `account` WHERE `id` = ? LIMIT 1");
+            $stmt->execute([$accountId]);
+            $username = $stmt->fetchColumn();
+            return $username !== false ? (string)$username : '';
+        } catch (Throwable $e) {
+            error_log('[config] Failed loading identity account username: ' . $e->getMessage());
+            return '';
+        }
+    }
+}
+
+if (!function_exists('spp_get_identity_guild_context')) {
+    function spp_get_identity_guild_context($realmId, $charGuid, $guildId = null) {
+        $realmId = (int)$realmId;
+        $charGuid = (int)$charGuid;
+        $guildId = $guildId !== null ? (int)$guildId : 0;
+
+        if ($realmId <= 0 || $charGuid <= 0) {
+            return ['guild_id' => 0, 'guild_name' => '', 'leader_guid' => 0, 'is_leader' => false];
+        }
+
+        try {
+            $pdo = spp_get_pdo('chars', $realmId);
+            if ($guildId <= 0) {
+                $stmt = $pdo->prepare("SELECT `guildid` FROM `guild_member` WHERE `guid` = ? LIMIT 1");
+                $stmt->execute([$charGuid]);
+                $guildId = (int)($stmt->fetchColumn() ?: 0);
+            }
+
+            if ($guildId <= 0) {
+                return ['guild_id' => 0, 'guild_name' => '', 'leader_guid' => 0, 'is_leader' => false];
+            }
+
+            $stmt = $pdo->prepare("SELECT `name`, `leaderguid` FROM `guild` WHERE `guildid` = ? LIMIT 1");
+            $stmt->execute([$guildId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $leaderGuid = (int)($row['leaderguid'] ?? 0);
+
+            return [
+                'guild_id' => $guildId,
+                'guild_name' => (string)($row['name'] ?? ''),
+                'leader_guid' => $leaderGuid,
+                'is_leader' => $leaderGuid > 0 && $leaderGuid === $charGuid,
+            ];
+        } catch (Throwable $e) {
+            error_log('[config] Failed loading identity guild context: ' . $e->getMessage());
+            return ['guild_id' => 0, 'guild_name' => '', 'leader_guid' => 0, 'is_leader' => false];
+        }
+    }
+}
+
+if (!function_exists('spp_build_default_identity_signature')) {
+    function spp_build_default_identity_signature(array $identityRow) {
+        $realmId = (int)($identityRow['realm_id'] ?? 0);
+        $charGuid = (int)($identityRow['character_guid'] ?? 0);
+        $accountId = (int)($identityRow['owner_account_id'] ?? 0);
+        $charName = trim((string)($identityRow['display_name'] ?? ''));
+        $guildId = isset($identityRow['guild_id']) ? (int)$identityRow['guild_id'] : 0;
+        $isBot = (int)($identityRow['is_bot'] ?? 0) === 1 || (string)($identityRow['identity_type'] ?? '') === 'bot_character';
+        $accountUsername = spp_get_identity_account_username($realmId, $accountId);
+        $guildContext = spp_get_identity_guild_context($realmId, $charGuid, $guildId);
+
+        if (!empty($guildContext['is_leader']) && !empty($guildContext['guild_name'])) {
+            return "[b]Guild Master[/b] of <{$guildContext['guild_name']}>\nRecruiting strong players for the road ahead.";
+        }
+
+        if ($isBot && $charGuid > 0) {
+            $seed = sprintf('%u', crc32('sig:' . $realmId . ':' . $charGuid . ':' . strtolower($accountUsername ?: $charName)));
+            if (((int)$seed % 100) >= 45) {
+                return '';
+            }
+
+            $botSignatures = [
+                "Watching the roads for the next adventure.",
+                "Training hard. Posting harder.",
+                "Always one pull away from greatness.",
+                "Keeping the blades sharp and the bags full.",
+                "Questing, crafting, and causing a little trouble.",
+                "One more run, then one more after that.",
+                "Built by chaos, held together by loot.",
+                "Marching toward better gear and bad decisions.",
+                "Ready for dungeons, danger, and detours.",
+                "Some bots idle. This one has plans.",
+            ];
+
+            return $botSignatures[((int)$seed) % count($botSignatures)];
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('spp_seed_identity_signature_defaults')) {
+    function spp_seed_identity_signature_defaults($identityId, array $identityRow = []) {
+        $identityId = (int)$identityId;
+        if ($identityId <= 0 || !spp_ensure_identity_profile_table()) {
+            return '';
+        }
+
+        try {
+            $pdo = spp_identity_pdo();
+            $tableName = spp_identity_profile_table_name();
+            $stmt = $pdo->prepare("SELECT signature FROM `{$tableName}` WHERE identity_id = ? LIMIT 1");
+            $stmt->execute([$identityId]);
+            $existingSignature = $stmt->fetchColumn();
+            $existingSignature = $existingSignature !== false ? (string)$existingSignature : '';
+            if (spp_identity_signature_has_value($existingSignature)) {
+                return $existingSignature;
+            }
+        } catch (Throwable $e) {
+            error_log('[config] Failed checking existing identity signature: ' . $e->getMessage());
+            return '';
+        }
+
+        if (empty($identityRow)) {
+            try {
+                $stmt = $pdo->prepare("
+                    SELECT `identity_id`, `identity_type`, `owner_account_id`, `realm_id`,
+                           `character_guid`, `display_name`, `guild_id`, `is_bot`
+                    FROM `website_identities`
+                    WHERE `identity_id` = ?
+                    LIMIT 1
+                ");
+                $stmt->execute([$identityId]);
+                $identityRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            } catch (Throwable $e) {
+                error_log('[config] Failed loading identity row for signature seeding: ' . $e->getMessage());
+                return '';
+            }
+        }
+
+        if (empty($identityRow)) {
+            return '';
+        }
+
+        $signature = spp_build_default_identity_signature($identityRow);
+        if (!spp_identity_signature_has_value($signature)) {
+            return '';
+        }
+
+        return spp_update_identity_signature($identityId, $signature) ? $signature : '';
     }
 }
 

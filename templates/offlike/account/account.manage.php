@@ -121,6 +121,28 @@ if ($currentExpansionId === 0) {
           </div>
         </div>
 
+        <?php if(!empty($accountCharacters)): ?>
+        <div class="field">
+          <label>Signature Character</label>
+          <select id="signature-character-guid" name="signature_character_guid">
+            <?php foreach($accountCharacters as $character): ?>
+              <?php
+                $sigGuid = (int)$character['guid'];
+                $sigValue = (string)($profile['character_signatures'][$sigGuid]['signature'] ?? '');
+              ?>
+              <option
+                value="<?php echo $sigGuid; ?>"
+                data-signature="<?php echo htmlspecialchars($sigValue); ?>"
+                <?php if((int)($profile['signature_character_guid'] ?? 0) === $sigGuid) echo 'selected'; ?>
+              >
+                <?php echo htmlspecialchars($character['name']); ?><?php if(!empty($character['level'])) echo ' (Lvl ' . (int)$character['level'] . ')'; ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+          <div class="help-text">This signature will be used by the selected character when posting on the forum.</div>
+        </div>
+        <?php endif; ?>
+
         <div class="field">
           <label><?php echo $lang['signature']; ?></label>
           <textarea id="profile-signature" name="profile[signature]" maxlength="255" rows="4"><?php echo htmlspecialchars(my_previewreverse($profile['signature'])); ?></textarea>
@@ -556,6 +578,23 @@ if ($currentExpansionId === 0) {
   }
 }
 </style>
+
+<?php if(!empty($accountCharacters)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var signatureSelect = document.getElementById('signature-character-guid');
+  var signatureField = document.getElementById('profile-signature');
+  if (!signatureSelect || !signatureField) {
+    return;
+  }
+
+  signatureSelect.addEventListener('change', function () {
+    var selectedOption = signatureSelect.options[signatureSelect.selectedIndex];
+    signatureField.value = selectedOption ? (selectedOption.getAttribute('data-signature') || '') : '';
+  });
+});
+</script>
+<?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

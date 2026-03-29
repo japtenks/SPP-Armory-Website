@@ -311,13 +311,17 @@ function build_post_content(array $event, bool $selfPost = false): array {
     }
 
     if ($type === 'guild_roster_update') {
+        return ['title' => null, 'body' => build_guild_roster_post_body($payload)];
+    }
+
+    if ($type === 'guild_roster_update') {
         $guild       = htmlspecialchars($payload['guild_name']  ?? 'Our guild');
         $memberCount = (int)($payload['member_count'] ?? 0);
         $joinedCount = (int)($payload['joined_count'] ?? 0);
         $leftCount   = (int)($payload['left_count']   ?? 0);
         $joinedNames = array_filter((array)($payload['joined_names'] ?? []));
 
-        $lines = ["<b>Guild Roster Update — {$guild}</b>", ''];
+        $lines = ["[b]Guild Roster Update - {$guild}[/b]", ''];
 
         if ($joinedCount > 0) {
             if (!empty($joinedNames) && count($joinedNames) <= 5) {
@@ -339,7 +343,7 @@ function build_post_content(array $event, bool $selfPost = false): array {
 
         $lines[] = '';
         if ($memberCount > 0) {
-            $lines[] = "Current roster: <b>{$memberCount}</b> members.";
+            $lines[] = "Current roster: [b]{$memberCount}[/b] members.";
         }
         $lines[] = "We are always looking for dedicated adventurers — whisper our leadership in-game to apply!";
 
@@ -365,6 +369,189 @@ function build_post_content(array $event, bool $selfPost = false): array {
     }
 
     return ['title' => 'Server Event', 'body' => json_encode($payload)];
+}
+
+function encode_forum_post_body(string $body): string {
+    return nl2br(htmlspecialchars($body));
+}
+
+function guild_roster_member_line(array $member, bool $includeDate = true, string $dateLabel = 'Date'): string {
+    $name = trim((string)($member['name'] ?? 'Unknown'));
+    $level = max(0, (int)($member['level'] ?? 0));
+    $line = '- ' . $name;
+    if ($level > 0) {
+        $line .= ' - Level ' . $level;
+    }
+    if ($includeDate && !empty($member['changed_at'])) {
+        $line .= ' - ' . $dateLabel . ': ' . trim((string)$member['changed_at']);
+    }
+    return $line;
+}
+
+function guild_roster_pick_phrase(array $options, string $seedBase): string {
+    if (empty($options)) {
+        return '';
+    }
+
+    $index = abs((int)crc32($seedBase)) % count($options);
+    return (string)$options[$index];
+}
+
+function build_guild_roster_post_body(array $payload): string {
+    $guild = trim((string)($payload['guild_name'] ?? 'Our guild'));
+    $memberCount = (int)($payload['member_count'] ?? 0);
+    $joinedCount = (int)($payload['joined_count'] ?? 0);
+    $leftCount = (int)($payload['left_count'] ?? 0);
+    $joinedMembers = array_values(array_filter((array)($payload['joined_members'] ?? []), 'is_array'));
+    $leftMembers = array_values(array_filter((array)($payload['left_members'] ?? []), 'is_array'));
+    $currentMembers = array_values(array_filter((array)($payload['current_members'] ?? []), 'is_array'));
+    $changeDate = trim((string)($payload['change_date'] ?? ''));
+    $seedBase = strtolower($guild) . '|' . $joinedCount . '|' . $leftCount . '|' . $memberCount . '|' . $changeDate;
+
+    $lines = ["[b]Guild Roster Update - {$guild}[/b]", ''];
+    $joinedDateByKey = [];
+    foreach ($joinedMembers as $member) {
+        $memberGuid = (int)($member['guid'] ?? 0);
+        $memberName = trim((string)($member['name'] ?? ''));
+        if ($memberGuid > 0) {
+            $joinedDateByKey['guid:' . $memberGuid] = trim((string)($member['changed_at'] ?? ''));
+        }
+        if ($memberName !== '') {
+            $joinedDateByKey['name:' . strtolower($memberName)] = trim((string)($member['changed_at'] ?? ''));
+        }
+    }
+
+    if ($joinedCount > 0) {
+        $lines[] = guild_roster_pick_phrase([
+            $joinedCount === 1
+                ? 'Welcome to 1 new member who has joined our ranks!'
+                : "Welcome to {$joinedCount} new members who have joined our ranks!",
+            $joinedCount === 1
+                ? 'Our banner rises higher with 1 new arrival in the guild.'
+                : "Our banner rises higher with {$joinedCount} new arrivals in the guild.",
+            $joinedCount === 1
+                ? 'Fresh blood joins the pack: 1 new guildmate answered the call.'
+                : "Fresh blood joins the pack: {$joinedCount} new guildmates answered the call.",
+        ], $seedBase . '|joined');
+        $joinedNames = array_values(array_filter(array_map(function ($member) {
+            return trim((string)($member['name'] ?? ''));
+        }, $joinedMembers)));
+        if (!empty($joinedNames)) {
+            $lines[] = implode(', ', $joinedNames);
+        }
+    }
+    if ($leftCount > 0) {
+        $lines[] = guild_roster_pick_phrase([
+            $leftCount === 1
+                ? '1 member has departed since our last update.'
+                : "{$leftCount} members have departed since our last update.",
+            $leftCount === 1
+                ? 'One familiar face has moved on since the last roster call.'
+                : "{$leftCount} familiar faces have moved on since the last roster call.",
+            $leftCount === 1
+                ? 'The road has claimed 1 guildmate since our previous report.'
+                : "The road has claimed {$leftCount} guildmates since our previous report.",
+        ], $seedBase . '|left');
+    }
+    if ($joinedCount <= 0 && $leftCount <= 0) {
+        $lines[] = guild_roster_pick_phrase([
+            'Roster unchanged since the last update.',
+            'Our ranks hold steady since the last roster call.',
+            'No changes to the roster since the previous report.',
+        ], $seedBase . '|steady');
+    }
+
+    $lines[] = '';
+    $lines[] = "Current roster: [b]{$memberCount}[/b] members.";
+
+    if (!empty($currentMembers)) {
+        foreach ($currentMembers as $member) {
+            $memberGuid = (int)($member['guid'] ?? 0);
+            $memberName = trim((string)($member['name'] ?? ''));
+            $joinedAt = '';
+            if ($memberGuid > 0 && !empty($joinedDateByKey['guid:' . $memberGuid])) {
+                $joinedAt = $joinedDateByKey['guid:' . $memberGuid];
+            } elseif ($memberName !== '' && !empty($joinedDateByKey['name:' . strtolower($memberName)])) {
+                $joinedAt = $joinedDateByKey['name:' . strtolower($memberName)];
+            }
+            if ($joinedAt !== '') {
+                $member['changed_at'] = $joinedAt;
+            }
+            $lines[] = guild_roster_member_line($member, $joinedAt !== '', 'Joined');
+        }
+    }
+
+    if (!empty($leftMembers)) {
+        $lines[] = '';
+        $lines[] = guild_roster_pick_phrase([
+            'Some familiar faces have departed since our last update.',
+            'A few familiar names have stepped away from the banner.',
+            'These guildmates have parted ways with us since the last call.',
+        ], $seedBase . '|previous');
+        $lines[] = '[b]Previous Guildies[/b]';
+        foreach ($leftMembers as $member) {
+            $lines[] = guild_roster_member_line($member, true, 'Left');
+        }
+    }
+
+    $lines[] = '';
+    $lines[] = guild_roster_pick_phrase([
+        'We are always looking for dedicated adventurers - whisper our leadership in-game to apply!',
+        'Strong hearts and steady blades are always welcome - reach out to our leadership in-game if you want in.',
+        'Looking for a home? Whisper our leadership in-game and march with us.',
+    ], strtolower($guild) . '|cta');
+
+    return implode("\n", $lines);
+}
+
+function get_guild_roster_snapshot(int $realmId, int $guildId): array {
+    $result = [
+        'member_guids' => [],
+        'member_details' => [],
+        'member_count' => 0,
+        'current_members' => [],
+    ];
+
+    if ($realmId <= 0 || $guildId <= 0) {
+        return $result;
+    }
+
+    try {
+        $pdo = spp_get_pdo('chars', $realmId);
+        $stmt = $pdo->prepare("
+            SELECT gm.guid AS memberGuid, c.name, c.level
+            FROM `guild_member` gm
+            JOIN `characters` c ON c.guid = gm.guid
+            WHERE gm.guildid = ?
+        ");
+        $stmt->execute([$guildId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $memberGuid = (int)($row['memberGuid'] ?? 0);
+            if ($memberGuid <= 0) {
+                continue;
+            }
+            $result['member_guids'][] = $memberGuid;
+            $result['member_details'][$memberGuid] = [
+                'guid' => $memberGuid,
+                'name' => (string)($row['name'] ?? ('Player #' . $memberGuid)),
+                'level' => (int)($row['level'] ?? 0),
+            ];
+        }
+        $result['member_count'] = count($result['member_guids']);
+        $result['current_members'] = array_values($result['member_details']);
+        usort($result['current_members'], function ($a, $b) {
+            $levelDiff = (int)($b['level'] ?? 0) <=> (int)($a['level'] ?? 0);
+            if ($levelDiff !== 0) {
+                return $levelDiff;
+            }
+            return strcasecmp((string)($a['name'] ?? ''), (string)($b['name'] ?? ''));
+        });
+    } catch (Throwable $e) {
+        error_log('[process_bot_events] Guild roster snapshot failed: ' . $e->getMessage());
+    }
+
+    return $result;
 }
 
 // ---- Post a reply into an existing forum topic as a bot identity ----
@@ -400,7 +587,7 @@ function post_forum_reply(
             VALUES (?, ?, ?, ?, '', ?, ?, ?, ?)
         ")->execute([
             $posterName, $posterId, $charGuid, $identityId,
-            nl2br(htmlspecialchars($body)),
+            encode_forum_post_body($body),
             $postTime, $topicId,
             $contentSource,
         ]);
@@ -436,6 +623,95 @@ function post_forum_reply(
     } catch (Throwable $e) {
         if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
         error_log('[process_bot_events] Reply failed: ' . $e->getMessage());
+        throw $e;
+    }
+}
+
+function upsert_guild_roster_post(
+    int $realmId,
+    int $topicId,
+    ?int $postId,
+    array $identity,
+    string $body,
+    string $contentSource,
+    int $postTime,
+    bool $dryRun
+): int {
+    $postId = (int)$postId;
+    $postTime = clamp_live_post_time($postTime, $dryRun);
+
+    if ($postId <= 0) {
+        return post_forum_reply($realmId, $topicId, $identity, $body, $contentSource, $postTime, $dryRun);
+    }
+
+    if ($dryRun) {
+        log_line("    [dry-run] Would update guild roster post #{$postId} in topic #{$topicId} at " . date('Y-m-d H:i:s', $postTime));
+        return $postId;
+    }
+
+    $pdo = spp_get_pdo('realmd', $realmId);
+    $posterName = $identity['display_name'];
+    $posterId = (int)($identity['owner_account_id'] ?? 0);
+    $posterCharId = (int)($identity['character_guid'] ?? 0);
+    $identityId = (int)($identity['identity_id'] ?? 0);
+
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE `f_posts`
+            SET `poster` = ?, `poster_id` = ?, `poster_character_id` = ?, `poster_identity_id` = ?,
+                `message` = ?, `posted` = ?, `content_source` = ?
+            WHERE `post_id` = ? AND `topic_id` = ?
+            LIMIT 1
+        ");
+        $stmt->execute([
+            $posterName,
+            $posterId,
+            $posterCharId,
+            $identityId,
+            encode_forum_post_body($body),
+            $postTime,
+            $contentSource,
+            $postId,
+            $topicId,
+        ]);
+
+        if ($stmt->rowCount() <= 0) {
+            $existsStmt = $pdo->prepare("SELECT COUNT(*) FROM `f_posts` WHERE `post_id` = ? AND `topic_id` = ?");
+            $existsStmt->execute([$postId, $topicId]);
+            if ((int)$existsStmt->fetchColumn() <= 0) {
+                $pdo->rollBack();
+                return post_forum_reply($realmId, $topicId, $identity, $body, $contentSource, $postTime, false);
+            }
+        }
+
+        $pdo->prepare("
+            UPDATE `f_topics`
+            SET `last_post` = ?, `last_post_id` = ?, `last_poster` = ?, `last_bumped_at` = ?
+            WHERE `topic_id` = ?
+        ")->execute([$postTime, $postId, $posterName, $postTime, $topicId]);
+        if (function_exists('spp_enforce_topic_view_floor')) {
+            spp_enforce_topic_view_floor($pdo, $topicId, 2);
+        }
+
+        $forumStmt = $pdo->prepare("SELECT `forum_id` FROM `f_topics` WHERE `topic_id` = ?");
+        $forumStmt->execute([$topicId]);
+        $forumId = (int)$forumStmt->fetchColumn();
+        if ($forumId > 0) {
+            $pdo->prepare("
+                UPDATE `f_forums`
+                SET `last_topic_id` = ?
+                WHERE `forum_id` = ?
+            ")->execute([$topicId, $forumId]);
+        }
+
+        $pdo->commit();
+        return $postId;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('[process_bot_events] Guild roster upsert failed: ' . $e->getMessage());
         throw $e;
     }
 }
@@ -1010,11 +1286,12 @@ foreach ($events as $event) {
 
         $content           = build_post_content($event);
         $scheduledPostTime = (int)($scheduledPostTimes[$eventId] ?? time());
+        $rosterPostId = (int)($payload['roster_post_id'] ?? ($guildSummary['roster_post_id'] ?? 0));
 
         try {
-            $postId = post_forum_reply(
-                $realmId, $threadTopicId, $identity,
-                $content['body'], 'system_event', $scheduledPostTime, $dryRun
+            $postId = upsert_guild_roster_post(
+                $realmId, $threadTopicId, $rosterPostId,
+                $identity, $content['body'], 'system_event', $scheduledPostTime, $dryRun
             );
 
             if (!$dryRun) {
@@ -1022,17 +1299,12 @@ foreach ($events as $event) {
 
                 // Refresh the guild roster snapshot so the next scan sees a clean baseline.
                 if ($guildSummary !== null) {
-                    try {
-                        $charPdo = spp_get_pdo('chars', $realmId);
-                        $mstmt   = $charPdo->prepare("SELECT guid AS memberGuid FROM `guild_member` WHERE guildid = ?");
-                        $mstmt->execute([$guildId]);
-                        $newGuids = array_values(array_map('intval', array_column($mstmt->fetchAll(PDO::FETCH_ASSOC), 'memberGuid')));
-                    } catch (Throwable $e) {
-                        $newGuids = $guildSummary['roster']['member_guids'] ?? [];
-                    }
+                    $snapshot = get_guild_roster_snapshot($realmId, $guildId);
                     $guildSummary['thread_topic_id']        = $threadTopicId;
-                    $guildSummary['roster']['member_guids'] = $newGuids;
-                    $guildSummary['roster']['member_count'] = count($newGuids);
+                    $guildSummary['roster_post_id']         = $postId;
+                    $guildSummary['roster']['member_guids'] = $snapshot['member_guids'] ?? ($guildSummary['roster']['member_guids'] ?? []);
+                    $guildSummary['roster']['member_details'] = $snapshot['member_details'] ?? ($guildSummary['roster']['member_details'] ?? []);
+                    $guildSummary['roster']['member_count'] = (int)($snapshot['member_count'] ?? count($guildSummary['roster']['member_guids'] ?? []));
                     $guildSummary['roster']['captured_at']  = date('Y-m-d H:i:s');
                     $guildSummary['last_forum_roster_post'] = [
                         'post_id'      => $postId,
@@ -1045,7 +1317,7 @@ foreach ($events as $event) {
                 }
             }
 
-            log_line("  Replied to topic #{$threadTopicId} (post #{$postId}) at " . date('Y-m-d H:i:s', $scheduledPostTime) . " as {$identity['display_name']}");
+            log_line("  Synced guild roster post #{$postId} in topic #{$threadTopicId} at " . date('Y-m-d H:i:s', $scheduledPostTime) . " as {$identity['display_name']}");
             $results['posted']++;
             post_guild_thread_reactions(
                 $realmId,
@@ -1227,9 +1499,71 @@ foreach ($events as $event) {
         $results['posted']++;
 
         if ($eventType === 'guild_created' && !empty($event['guild_id'])) {
+            $guildId = (int)$event['guild_id'];
+            $rosterSnapshot = get_guild_roster_snapshot($realmId, $guildId);
+            $rosterPayload = [
+                'guild_name' => (string)($payload['guild_name'] ?? 'Our guild'),
+                'leader_name' => (string)($payload['leader_name'] ?? $identity['display_name']),
+                'leader_guid' => (int)($payload['leader_guid'] ?? ($event['character_guid'] ?? 0)),
+                'joined_count' => (int)($rosterSnapshot['member_count'] ?? 0),
+                'left_count' => 0,
+                'joined_members' => array_map(function ($member) {
+                    $member['changed_at'] = date('M j, Y');
+                    return $member;
+                }, $rosterSnapshot['current_members'] ?? []),
+                'left_members' => [],
+                'current_members' => $rosterSnapshot['current_members'] ?? [],
+                'member_count' => (int)($rosterSnapshot['member_count'] ?? 0),
+                'change_date' => date('M j, Y'),
+                'thread_topic_id' => (int)$topicId,
+                'roster_post_id' => null,
+            ];
+            $rosterBody = build_guild_roster_post_body($rosterPayload);
+            $rosterPostTime = $scheduledPostTime + 1;
+            $rosterPostId = upsert_guild_roster_post(
+                $realmId,
+                (int)$topicId,
+                null,
+                $identity,
+                $rosterBody,
+                'system_event',
+                $rosterPostTime,
+                $dryRun
+            );
+
+            if (!$dryRun) {
+                $guildSummary = guild_json_read($realmId, $guildId);
+                if ($guildSummary === null) {
+                    $guildSummary = guild_json_skeleton(
+                        $realmId,
+                        $guildId,
+                        (string)($payload['guild_name'] ?? 'Our guild'),
+                        (int)($payload['leader_guid'] ?? ($event['character_guid'] ?? 0)),
+                        (string)($payload['leader_name'] ?? $identity['display_name']),
+                        $rosterSnapshot['member_guids'] ?? [],
+                        $rosterSnapshot['member_details'] ?? []
+                    );
+                }
+                $guildSummary['thread_topic_id'] = (int)$topicId;
+                $guildSummary['roster_post_id'] = (int)$rosterPostId;
+                $guildSummary['recruitment_status'] = 'active';
+                $guildSummary['roster']['member_guids'] = $rosterSnapshot['member_guids'] ?? [];
+                $guildSummary['roster']['member_details'] = $rosterSnapshot['member_details'] ?? [];
+                $guildSummary['roster']['member_count'] = (int)($rosterSnapshot['member_count'] ?? 0);
+                $guildSummary['roster']['captured_at'] = date('Y-m-d H:i:s', $rosterPostTime);
+                $guildSummary['last_forum_roster_post'] = [
+                    'post_id' => (int)$rosterPostId,
+                    'posted_at' => date('Y-m-d H:i:s', $rosterPostTime),
+                    'joined_count' => (int)($rosterSnapshot['member_count'] ?? 0),
+                    'left_count' => 0,
+                ];
+                $guildSummary['pending_delta'] = ['joined_guids' => [], 'left_guids' => []];
+                guild_json_write($realmId, $guildId, $guildSummary);
+            }
+
             post_guild_thread_reactions(
                 $realmId,
-                (int)$event['guild_id'],
+                $guildId,
                 (int)$topicId,
                 (int)$identity['identity_id'],
                 $eventType,

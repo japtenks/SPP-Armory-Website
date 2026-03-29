@@ -110,6 +110,7 @@ $stmtPosts = $forumPdo->prepare("
     SELECT * FROM f_posts
     LEFT JOIN account ON f_posts.poster_id=account.id
     LEFT JOIN website_accounts ON f_posts.poster_id=website_accounts.account_id
+    LEFT JOIN website_identity_profiles ON f_posts.poster_identity_id=website_identity_profiles.identity_id
     LEFT JOIN website_account_groups ON website_accounts.g_id = website_account_groups.g_id
     WHERE topic_id=? ORDER BY posted LIMIT " . (int)$limit_start . "," . (int)$items_per_pages);
 $stmtPosts->execute([(int)$this_topic['topic_id']]);
@@ -156,6 +157,14 @@ foreach($result as $cur_post)
     $cur_post['linktoquote'] = $_vtCanPost ? $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newpost&t='.$this_topic['topic_id'].'&quote='.$cur_post['post_id'] : '';
     $cur_post['linktoedit'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=editpost&post='.$cur_post['post_id'];
     $cur_post['linktodelete'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletepost&post='.$cur_post['post_id'];
+    if (!empty($cur_post['poster_character_id'])) {
+        $cur_post['linktocharacter_social'] = $MW->getConfig->temp->site_href
+            . 'index.php?n=server&sub=character&realm=' . (int)$realmId
+            . '&guid=' . (int)$cur_post['poster_character_id']
+            . '&tab=social';
+    } else {
+        $cur_post['linktocharacter_social'] = $cur_post['linktoprofile'];
+    }
     // ================================================= //
 
     $stmtCi = $charPdoVt->prepare("
@@ -236,15 +245,20 @@ foreach($result as $cur_post)
         "\n",
         html_entity_decode($rawMessage, ENT_QUOTES, 'UTF-8')
     );
+    $normalizedMessage = spp_forum_normalize_legacy_markup($normalizedMessage);
     $cur_post['rendered_message'] = bbcode($normalizedMessage, true, true, true, false);
 
     $rawSignature = (string)($cur_post['signature'] ?? '');
+    if (!empty($cur_post['identity_signature'])) {
+        $rawSignature = (string)$cur_post['identity_signature'];
+    }
     if ($rawSignature !== '') {
         $normalizedSignature = str_replace(
             array('<br />', '<br/>', '<br>'),
             "\n",
             html_entity_decode($rawSignature, ENT_QUOTES, 'UTF-8')
         );
+        $normalizedSignature = spp_forum_normalize_legacy_markup($normalizedSignature);
         $cur_post['rendered_signature'] = bbcode($normalizedSignature, true, true, true, false);
     } else {
         $cur_post['rendered_signature'] = '';

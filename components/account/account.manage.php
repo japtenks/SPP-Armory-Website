@@ -108,6 +108,40 @@ if($user['id']<=0){
         $stmtChars = $manageCharPdo->prepare("SELECT guid, name, level, online FROM characters WHERE account=? ORDER BY name ASC");
         $stmtChars->execute([(int)$user['id']]);
         $accountCharacters = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
+        $profile['character_signatures'] = array();
+        $profile['signature_character_guid'] = 0;
+        $profile['signature_character_name'] = '';
+
+        $availableCharacterGuids = array();
+        foreach ($accountCharacters as $character) {
+            $availableCharacterGuids[(int)$character['guid']] = (string)$character['name'];
+        }
+
+        $requestedSignatureGuid = (int)($_GET['sigchar'] ?? 0);
+        if ($requestedSignatureGuid <= 0) {
+            $requestedSignatureGuid = (int)($profile['character_id'] ?? 0);
+        }
+        if ($requestedSignatureGuid <= 0 && !empty($accountCharacters[0]['guid'])) {
+            $requestedSignatureGuid = (int)$accountCharacters[0]['guid'];
+        }
+        if (!isset($availableCharacterGuids[$requestedSignatureGuid])) {
+            $requestedSignatureGuid = 0;
+        }
+
+        foreach ($accountCharacters as $character) {
+            $characterGuid = (int)$character['guid'];
+            $identityId = spp_ensure_char_identity($currentRealmId, $characterGuid, $user['id'], (string)$character['name']);
+            $profile['character_signatures'][$characterGuid] = array(
+                'name' => (string)$character['name'],
+                'signature' => $identityId > 0 ? str_replace('<br />', '', spp_get_identity_signature($identityId)) : '',
+            );
+        }
+
+        if ($requestedSignatureGuid > 0) {
+            $profile['signature_character_guid'] = $requestedSignatureGuid;
+            $profile['signature_character_name'] = $availableCharacterGuids[$requestedSignatureGuid] ?? '';
+            $profile['signature'] = (string)($profile['character_signatures'][$requestedSignatureGuid]['signature'] ?? $profile['signature']);
+        }
         $profile['avatar_fallback_url'] = '';
         if (empty($profile['avatar'])) {
             $profile['avatar_fallback_url'] = spp_account_avatar_fallback_url($manageCharPdo, $profile, $accountCharacters);
@@ -185,6 +219,7 @@ if($user['id']<=0){
         $backgroundPreferencesAvailable = spp_website_accounts_has_columns(['background_mode', 'background_image']);
         $backgroundModeOptions = spp_background_mode_options();
         $availableBackgroundImages = spp_background_image_catalog();
+        $selectedSignatureGuid = (int)($_POST['signature_character_guid'] ?? 0);
 
         if(is_uploaded_file($_FILES['avatar']['tmp_name'])){
             if($_FILES['avatar']['size'] <= (int)$MW->getConfig->generic->max_avatar_file){
@@ -232,6 +267,24 @@ if($user['id']<=0){
             unset($_POST['profile']['background_mode'], $_POST['profile']['background_image']);
         }
         $_POST['profile']['signature'] = htmlspecialchars($_POST['profile']['signature']);
+
+        if ($selectedSignatureGuid > 0) {
+            $stmtOwnedChar = $manageCharPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+            $stmtOwnedChar->execute([$selectedSignatureGuid, (int)$user['id']]);
+            $ownedCharacter = $stmtOwnedChar->fetch(PDO::FETCH_ASSOC);
+            if ($ownedCharacter) {
+                $identityId = spp_ensure_char_identity(
+                    $currentRealmId,
+                    (int)$ownedCharacter['guid'],
+                    (int)$user['id'],
+                    (string)$ownedCharacter['name']
+                );
+                if ($identityId > 0) {
+                    spp_update_identity_signature($identityId, $_POST['profile']['signature']);
+                }
+            }
+            unset($_POST['profile']['signature']);
+        }
         
         $profile = RemoveXSS($_POST['profile']);
         if (!empty($profile) && is_array($profile)) {

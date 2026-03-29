@@ -136,8 +136,8 @@ builddiv_start(1, $lang['spp_forum']);
       <?php if (empty($catitem) || !is_array($catitem)) continue; ?>
       <section class="forum-category modern-block">
         <div class="modern-title">
-          <img src="<?php echo $currtmp; ?>/images/nav_m.gif" alt="Category"/>
-          <?php echo htmlspecialchars($catitem[0]['cat_name']); ?>
+ 
+          <?php echo htmlspecialchars(preg_replace('/^\s*Category\s+/i', '', (string)$catitem[0]['cat_name'])); ?>
         </div>
 
         <?php foreach ($catitem as $forumitem): ?>

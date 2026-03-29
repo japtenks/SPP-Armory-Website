@@ -66,6 +66,20 @@ if($_GET['id'] > 0){
         $stmt = $membersCharsPdo->prepare("SELECT `guid`, `name`, `race`, `class`, `level` FROM `characters` WHERE `account` = ? ORDER BY guid");
         $stmt->execute([(int)$_GET['id']]);
         $userchars = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $profile['is_bot_account'] = stripos((string)($profile['username'] ?? ''), 'rndbot') === 0;
+        $profile['character_signatures'] = array();
+        if (!empty($userchars)) {
+            $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
+            foreach ($userchars as $char) {
+                $charGuid = (int)($char['guid'] ?? 0);
+                $charName = (string)($char['name'] ?? '');
+                if ($charGuid <= 0 || $charName === '') {
+                    continue;
+                }
+                $identityId = spp_ensure_char_identity($activeRealmId, $charGuid, (int)$_GET['id'], $charName);
+                $profile['character_signatures'][$charGuid] = $identityId > 0 ? str_replace('<br />', '', spp_get_identity_signature($identityId)) : '';
+            }
+        }
         
         $pathway_info[] = array('title' => $lang['users_manage'], 'link' => $com_links['sub_members']);
         $pathway_info[] = array('title' => $profile['username'], 'link' => '');
@@ -189,6 +203,35 @@ if($_GET['id'] > 0){
         $stmt = $membersPdo->prepare("UPDATE website_accounts SET $setClause2 WHERE account_id=? LIMIT 1");
         $stmt->execute($values2);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1); exit;
+    }elseif($_GET['action'] == 'setbotsignatures'){
+        $id = (int)$_GET['id'];
+        $stmtBot = $membersPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
+        $stmtBot->execute([$id]);
+        $botUsername = (string)$stmtBot->fetchColumn();
+        if (stripos($botUsername, 'rndbot') === 0) {
+            $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
+            $postedSignatures = $_POST['character_signature'] ?? array();
+            foreach ($postedSignatures as $guid => $signature) {
+                $characterGuid = (int)$guid;
+                if ($characterGuid <= 0) {
+                    continue;
+                }
+
+                $stmtChar = $membersCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+                $stmtChar->execute([$characterGuid, $id]);
+                $charRow = $stmtChar->fetch(PDO::FETCH_ASSOC);
+                if (!$charRow) {
+                    continue;
+                }
+
+                $cleanSignature = htmlspecialchars((string)$signature);
+                $identityId = spp_ensure_char_identity($activeRealmId, (int)$charRow['guid'], $id, (string)$charRow['name']);
+                if ($identityId > 0) {
+                    spp_update_identity_signature($identityId, $cleanSignature);
+                }
+            }
+        }
+        redirect('index.php?n=admin&sub=members&id=' . $id, 1); exit;
     }elseif($_GET['action'] == 'dodeleteacc'){
         $deleteId = (int)$_GET['id'];
         $deleteRealmId = spp_resolve_realm_id($realmDbMap);

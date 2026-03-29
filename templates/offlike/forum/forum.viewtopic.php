@@ -70,11 +70,21 @@
   text-align: center;
   width: 120px;
 }
+.post-avatar a {
+  display: inline-block;
+}
 .post-avatar img {
   width: 64px;
   height: 64px;
   border-radius: 8px;
   border: 2px solid #333;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.post-avatar a:hover img,
+.post-avatar a:focus img {
+  border-color: #ffcc66;
+  box-shadow: 0 0 14px rgba(255, 204, 102, 0.28);
+  transform: translateY(-1px);
 }
 .post-user h3 {
   font-size: 1rem;
@@ -106,9 +116,12 @@
   padding-bottom: 30px;
 }
 .post-message {
-  line-height: 1.5;
+  line-height: 1.22;
   font-size: 0.95rem;
   word-break: break-word;
+}
+.post-message br {
+  line-height: 1;
 }
 .post-number {
   position: absolute;
@@ -269,7 +282,9 @@ builddiv_start(1, $forumTitle, 0, false, $this_forum['forum_id'], $this_forum['c
       <?php foreach ($posts as $post): ?>
         <article class="post">
           <div class="post-avatar">
-            <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
+            <a href="<?php echo htmlspecialchars((string)($post['linktocharacter_social'] ?? $post['linktoprofile']), ENT_QUOTES, 'UTF-8'); ?>">
+              <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
+            </a>
             <div class="post-user">
               <h3><?php echo htmlspecialchars($post['poster']); ?></h3>
               <?php if (!empty($post['guild'])): ?>

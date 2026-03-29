@@ -54,12 +54,13 @@ $this_forum['allowed_page_sizes'] = $allowedTopicPageSizes;
 $allowedSortFields = array(
     'subject' => 'f_topics.topic_name',
     'author' => 'topic_author_display',
+    'posted' => 'f_topics.topic_posted',
     'replies' => 'f_topics.num_replies',
     'views' => 'f_topics.num_views',
     'last_reply' => 'f_topics.last_post',
 );
-$requestedSort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'last_reply';
-$sortField = isset($allowedSortFields[$requestedSort]) ? $requestedSort : 'last_reply';
+$requestedSort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'posted';
+$sortField = isset($allowedSortFields[$requestedSort]) ? $requestedSort : 'posted';
 $requestedDir = isset($_GET['dir']) ? strtolower((string)$_GET['dir']) : 'desc';
 $sortDir = ($requestedDir === 'asc') ? 'ASC' : 'DESC';
 $this_forum['sort_field'] = $sortField;

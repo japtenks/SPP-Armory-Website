@@ -50,13 +50,15 @@ function guild_json_skeleton(
     string $guildName,
     int    $leaderGuid,
     string $leaderName,
-    array  $memberGuids
+    array  $memberGuids,
+    array  $memberDetails = []
 ): array {
     return [
         'realm_id'           => $realmId,
         'guild_id'           => $guildId,
         'guild_name'         => $guildName,
         'thread_topic_id'    => null,
+        'roster_post_id'     => null,
         'recruitment_status' => 'unknown',
         'posting_identity'   => [
             'mode'          => 'guild_leader_or_marked_officer',
@@ -66,9 +68,10 @@ function guild_json_skeleton(
             'officer_names' => [],
         ],
         'roster' => [
-            'member_count' => count($memberGuids),
-            'member_guids' => $memberGuids,
-            'captured_at'  => date('Y-m-d H:i:s'),
+            'member_count'   => count($memberGuids),
+            'member_guids'   => $memberGuids,
+            'member_details' => $memberDetails,
+            'captured_at'    => date('Y-m-d H:i:s'),
         ],
         'last_forum_roster_post' => null,
         'pending_delta' => [

@@ -1249,6 +1249,35 @@ function alphanum($sstr, $num=true, $alpha=true, $extra="") {
 
 }
 
+if (!function_exists('spp_forum_normalize_legacy_markup')) {
+    function spp_forum_normalize_legacy_markup($str) {
+        $str = (string)$str;
+        if ($str === '') {
+            return $str;
+        }
+
+        return preg_replace(
+            [
+                '/<\s*b\s*>/i',
+                '/<\s*\/\s*b\s*>/i',
+                '/<\s*i\s*>/i',
+                '/<\s*\/\s*i\s*>/i',
+                '/<\s*u\s*>/i',
+                '/<\s*\/\s*u\s*>/i',
+            ],
+            [
+                '[b]',
+                '[/b]',
+                '[i]',
+                '[/i]',
+                '[u]',
+                '[/u]',
+            ],
+            $str
+        );
+    }
+}
+
 function bbcode($str, $entities=true, $null=true, $isbb=true, $issmile=true) {
 
     if ($entities) $str = htmlentities($str);
@@ -1878,5 +1907,4 @@ function header_image_gif($img) {
 <?php
 }
 ?>
-
 

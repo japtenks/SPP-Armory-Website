@@ -260,7 +260,7 @@ foreach ($realms as $realmId) {
 
                     // Load current roster
                     $memberStmt = $charPdo->prepare("
-                        SELECT gm.guid AS memberGuid, c.name
+                        SELECT gm.guid AS memberGuid, c.name, c.level
                         FROM `guild_member` gm
                         JOIN `characters` c ON c.guid = gm.guid
                         WHERE gm.guildid = ?
@@ -269,12 +269,24 @@ foreach ($realms as $realmId) {
                     $memberRows   = $memberStmt->fetchAll(PDO::FETCH_ASSOC);
                     $currentGuids = array_values(array_map('intval', array_column($memberRows, 'memberGuid')));
                     $nameByGuid   = array_column($memberRows, 'name', 'memberGuid');
+                    $currentMemberDetails = [];
+                    foreach ($memberRows as $memberRow) {
+                        $memberGuid = (int)($memberRow['memberGuid'] ?? 0);
+                        if ($memberGuid <= 0) {
+                            continue;
+                        }
+                        $currentMemberDetails[$memberGuid] = [
+                            'guid' => $memberGuid,
+                            'name' => (string)($memberRow['name'] ?? ('Player #' . $memberGuid)),
+                            'level' => (int)($memberRow['level'] ?? 0),
+                        ];
+                    }
 
                     $summary = guild_json_read($realmId, $guildId);
 
                     if ($summary === null) {
                         // First scan: write baseline snapshot, don't fire an event yet.
-                        $skeleton = guild_json_skeleton($realmId, $guildId, $guildName, $leaderGuid, $leaderName, $currentGuids);
+                        $skeleton = guild_json_skeleton($realmId, $guildId, $guildName, $leaderGuid, $leaderName, $currentGuids, $currentMemberDetails);
                         if (!$dryRun) {
                             guild_json_write($realmId, $guildId, $skeleton);
                         } else {
@@ -290,10 +302,12 @@ foreach ($realms as $realmId) {
 
                     // Delta vs the roster snapshot at time of last forum post.
                     $prevGuids   = array_values(array_map('intval', $summary['roster']['member_guids'] ?? []));
+                    $prevMemberDetails = is_array($summary['roster']['member_details'] ?? null) ? $summary['roster']['member_details'] : [];
                     $joinedGuids = array_values(array_diff($currentGuids, $prevGuids));
                     $leftGuids   = array_values(array_diff($prevGuids, $currentGuids));
                     $joinedCount = count($joinedGuids);
                     $leftCount   = count($leftGuids);
+                    $changeDate  = date('M j, Y');
 
                     // Always update pending_delta so admins can see accumulated drift.
                     $summary['pending_delta'] = [
@@ -323,6 +337,28 @@ foreach ($realms as $realmId) {
                     $joinedNames = array_values(array_filter(
                         array_map(function ($g) use ($nameByGuid) { return $nameByGuid[$g] ?? null; }, array_slice($joinedGuids, 0, 10))
                     ));
+                    $joinedMembers = [];
+                    foreach ($joinedGuids as $joinedGuid) {
+                        $joinedGuid = (int)$joinedGuid;
+                        $memberDetail = $currentMemberDetails[$joinedGuid] ?? ['guid' => $joinedGuid, 'name' => 'Unknown', 'level' => 0];
+                        $memberDetail['changed_at'] = $changeDate;
+                        $joinedMembers[] = $memberDetail;
+                    }
+                    $leftMembers = [];
+                    foreach ($leftGuids as $leftGuid) {
+                        $leftGuid = (int)$leftGuid;
+                        $memberDetail = $prevMemberDetails[$leftGuid] ?? ['guid' => $leftGuid, 'name' => 'Unknown', 'level' => 0];
+                        $memberDetail['changed_at'] = $changeDate;
+                        $leftMembers[] = $memberDetail;
+                    }
+                    $currentMembers = array_values($currentMemberDetails);
+                    usort($currentMembers, function ($a, $b) {
+                        $levelDiff = (int)($b['level'] ?? 0) <=> (int)($a['level'] ?? 0);
+                        if ($levelDiff !== 0) {
+                            return $levelDiff;
+                        }
+                        return strcasecmp((string)($a['name'] ?? ''), (string)($b['name'] ?? ''));
+                    });
 
                     // Dedupe key scoped to one cooldown window so INSERT IGNORE prevents
                     // duplicates if the scanner runs multiple times in the same window.
@@ -341,8 +377,13 @@ foreach ($realms as $realmId) {
                             'joined_count'    => $joinedCount,
                             'left_count'      => $leftCount,
                             'joined_names'    => $joinedNames,
+                            'joined_members'  => $joinedMembers,
+                            'left_members'    => $leftMembers,
+                            'current_members' => $currentMembers,
                             'member_count'    => count($currentGuids),
+                            'change_date'     => $changeDate,
                             'thread_topic_id' => $summary['thread_topic_id'] ?? null,
+                            'roster_post_id'  => $summary['roster_post_id'] ?? null,
                         ],
                         'dedupe_key'      => $dedupeKey,
                         'target_forum_id' => (int)$targetForum,

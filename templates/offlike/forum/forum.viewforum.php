@@ -38,7 +38,7 @@
 .forum-list-head,
 .forum-row {
   display: grid;
-  grid-template-columns: 50px 1.8fr 1fr 0.5fr 0.5fr 1.2fr;
+  grid-template-columns: 50px 1.8fr 1fr 0.75fr 0.5fr 0.5fr 1.1fr;
   align-items: center;
   gap: 8px;
   padding: 10px;
@@ -183,7 +183,7 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
 
 $forumPageCount = max(1, (int)($this_forum['pnum'] ?? 1));
 $forumItemsPerPage = (int)($this_forum['items_per_page'] ?? 25);
-$forumSortField = (string)($this_forum['sort_field'] ?? 'last_reply');
+$forumSortField = (string)($this_forum['sort_field'] ?? 'posted');
 $forumSortDir = (string)($this_forum['sort_dir'] ?? 'desc');
 $forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['forum_id'] . '&per_page=' . $forumItemsPerPage . '&sort=' . urlencode($forumSortField) . '&dir=' . urlencode($forumSortDir);
 
@@ -242,6 +242,7 @@ $forumSortLabel = function (string $field, string $label) use ($forumSortUrl, $f
     <div></div>
     <div><?php echo $forumSortLabel('subject', 'Subject'); ?></div>
     <div><?php echo $forumSortLabel('author', 'Author'); ?></div>
+    <div><?php echo $forumSortLabel('posted', 'Posted'); ?></div>
     <div><?php echo $forumSortLabel('replies', 'Replies'); ?></div>
     <div><?php echo $forumSortLabel('views', 'Views'); ?></div>
     <div><?php echo $forumSortLabel('last_reply', 'Last Reply'); ?></div>
@@ -249,7 +250,7 @@ $forumSortLabel = function (string $field, string $label) use ($forumSortUrl, $f
 
   <?php if (empty($topics)): ?>
     <div class="forum-row">
-      <div class="col-subject" style="grid-column: span 6;">No topics found.</div>
+      <div class="col-subject" style="grid-column: span 7;">No topics found.</div>
     </div>
   <?php else: ?>
     <?php foreach ($topics as $t): ?>
@@ -262,6 +263,7 @@ $forumSortLabel = function (string $field, string $label) use ($forumSortUrl, $f
           <?php if ($t['closed']): ?><span class="new-tag">Closed</span><?php endif; ?>
         </div>
         <div><?php echo htmlspecialchars($t['topic_author_display']); ?></div>
+        <div><?php echo htmlspecialchars((string)$t['topic_posted']); ?></div>
         <div><?php echo (int)$t['num_replies']; ?></div>
         <div><?php echo (int)$t['num_views']; ?></div>
         <div>
