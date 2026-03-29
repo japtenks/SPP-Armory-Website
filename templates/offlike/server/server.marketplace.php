@@ -310,7 +310,7 @@ try {
          INNER JOIN `character_skills` cs ON cs.`guid` = c.`guid`
          LEFT JOIN `ai_playerbot_names` apn ON apn.`name` = c.`name`
          WHERE cs.`skill` IN (' . $skillPlaceholders . ')
-           AND (c.`account` IN (SELECT id FROM `{$_mpRealmdDb}`.`account` WHERE LOWER(username) LIKE \'rndbot%\') OR apn.`name_id` IS NOT NULL)
+           AND (c.`account` IN (SELECT id FROM `' . $_mpRealmdDb . '`.`account` WHERE LOWER(username) LIKE \'rndbot%\') OR apn.`name_id` IS NOT NULL)
          ORDER BY cs.`skill`, cs.`max` DESC, cs.`value` DESC, c.`name` ASC'
     );
     $botSkillStmt->execute($craftProfessionIds);
