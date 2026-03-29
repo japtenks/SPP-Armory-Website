@@ -67,6 +67,32 @@ if ($currentExpansionId === 0) {
         </div>
         <?php } ?>
 
+        <?php if(!empty($backgroundPreferencesAvailable)): ?>
+        <div class="field">
+          <label>Site Background Behavior</label>
+          <select name="profile[background_mode]" id="background-mode-select">
+            <?php foreach($backgroundModeOptions as $backgroundModeValue => $backgroundModeLabel): ?>
+            <option value="<?php echo htmlspecialchars($backgroundModeValue); ?>"<?php if(($profile['background_mode'] ?? 'as_is') === $backgroundModeValue) echo ' selected'; ?>>
+              <?php echo htmlspecialchars($backgroundModeLabel); ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+          <div class="help-text">As Is keeps the current random-per-page behavior. Once a Day keeps one background all day. By Main Section keeps one image per top-level area like Armory, Workshop, Forums, or Game Guide. Fixed Background locks the site to one image you pick.</div>
+        </div>
+
+        <div class="field background-image-picker" id="background-image-picker">
+          <label>Fixed Background Image</label>
+          <select name="profile[background_image]">
+            <?php foreach($availableBackgroundImages as $backgroundFilename => $backgroundPath): ?>
+            <option value="<?php echo htmlspecialchars($backgroundFilename); ?>"<?php if(($profile['background_image'] ?? '') === $backgroundFilename) echo ' selected'; ?>>
+              <?php echo htmlspecialchars(spp_background_image_label($backgroundFilename)); ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+          <div class="help-text">This image is used when Fixed Background is selected.</div>
+        </div>
+        <?php endif; ?>
+
         <div class="avatar-block">
           <div class="avatar-preview">
             <?php if(!empty($profile['avatar'])) { ?>
@@ -168,6 +194,10 @@ if ($currentExpansionId === 0) {
         <div class="field">
           <label><?php echo $lang['newpass']; ?></label>
           <input type="password" name="new_pass">
+        </div>
+        <div class="field">
+          <label>Confirm New Password</label>
+          <input type="password" name="confirm_new_pass">
         </div>
         <div class="actions">
           <button type="submit" class="btn primary">Change Password</button>
@@ -413,6 +443,10 @@ if ($currentExpansionId === 0) {
   line-height: 1.5;
 }
 
+.background-image-picker.is-hidden {
+  display: none;
+}
+
 .checkbox-row {
   display: flex;
   align-items: center;
@@ -522,6 +556,24 @@ if ($currentExpansionId === 0) {
   }
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const backgroundModeSelect = document.getElementById('background-mode-select');
+  const backgroundImagePicker = document.getElementById('background-image-picker');
+
+  if (!backgroundModeSelect || !backgroundImagePicker) {
+    return;
+  }
+
+  const syncBackgroundPicker = () => {
+    backgroundImagePicker.classList.toggle('is-hidden', backgroundModeSelect.value !== 'fixed');
+  };
+
+  backgroundModeSelect.addEventListener('change', syncBackgroundPicker);
+  syncBackgroundPicker();
+});
+</script>
 
 <?php builddiv_end() ?>
 <?php } ?>

@@ -21,6 +21,9 @@
   margin-top: 10px;
   flex-wrap: wrap;
 }
+.topic-jump-link {
+  margin-left: auto;
+}
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -137,6 +140,9 @@
   font-size: 0.9rem;
 }
 @media (max-width: 720px) {
+  .topic-jump-link {
+    margin-left: 0;
+  }
   .post {
     flex-direction: column;
   }
@@ -238,6 +244,9 @@ builddiv_start(1, $forumTitle, 0, false, $this_forum['forum_id'], $this_forum['c
         <a href="<?php echo $this_topic['linktoreply']; ?>" class="btn primary">Reply</a>
       <?php endif; ?>
       <a href="<?php echo $this_forum['linktothis']; ?>" class="btn secondary">Back to Forums</a>
+      <?php if ((int)($this_topic['page_count'] ?? 1) > 1 && !empty($this_topic['linktolastpost'])): ?>
+        <a href="<?php echo htmlspecialchars($this_topic['linktolastpost'], ENT_QUOTES, 'UTF-8'); ?>" class="btn secondary topic-jump-link">Most Recent Post</a>
+      <?php endif; ?>
       <?php if ((int)($user['g_forum_moderate'] ?? 0) === 1): ?>
         <?php if (!empty($this_topic['sticky'])): ?>
           <a href="<?php echo $this_topic['linktounstick']; ?>" class="btn secondary">Unpin Topic</a>

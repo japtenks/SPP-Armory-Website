@@ -62,7 +62,7 @@ if (!function_exists('spp_account_avatar_fallback_url')) {
 if($user['id']<=0){
     redirect('index.php?n=account&sub=login',1);
 }else{
-    $managePdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+    $managePdo = spp_get_pdo('realmd', 1);
     spp_ensure_website_account_row($managePdo, $user['id']);
     $currentRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? $_COOKIE['cur_selected_realm'] ?? spp_resolve_realm_id($realmDbMap));
     if (!isset($realmDbMap[$currentRealmId])) {
@@ -81,9 +81,30 @@ if($user['id']<=0){
     } catch (Throwable $e) {
         error_log('[account.manage] Realm name lookup failed: ' . $e->getMessage());
     }
+    if (isset($_GET['pwchange'])) {
+        if ($_GET['pwchange'] === '1') {
+            output_message('notice', '<b>' . $lang['change_pass_succ'] . '</b>');
+        } elseif ($_GET['pwchange'] === 'mismatch') {
+            output_message('alert', '<b>New password confirmation does not match.</b>');
+        } elseif ($_GET['pwchange'] === 'failed') {
+            output_message('alert', '<b>Password change failed: SRP values were not saved.</b>');
+        } elseif ($_GET['pwchange'] === 'short') {
+            output_message('alert', '<b>' . $lang['change_pass_short'] . '</b>');
+        }
+    }
     if(!$_GET['action']){
         $profile = $auth->getprofile($user['id']);
         $profile['signature'] = str_replace('<br />','',$profile['signature']);
+        $backgroundPreferencesAvailable = spp_website_accounts_has_columns(['background_mode', 'background_image']);
+        $backgroundModeOptions = spp_background_mode_options();
+        $availableBackgroundImages = spp_background_image_catalog();
+        $profile['background_mode'] = isset($profile['background_mode']) && isset($backgroundModeOptions[$profile['background_mode']])
+            ? (string)$profile['background_mode']
+            : 'as_is';
+        $defaultBackgroundImage = (string)spp_array_first_key($availableBackgroundImages);
+        $profile['background_image'] = !empty($profile['background_image']) && isset($availableBackgroundImages[$profile['background_image']])
+            ? (string)$profile['background_image']
+            : $defaultBackgroundImage;
         $stmtChars = $manageCharPdo->prepare("SELECT guid, name, level, online FROM characters WHERE account=? ORDER BY name ASC");
         $stmtChars->execute([(int)$user['id']]);
         $accountCharacters = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
@@ -117,16 +138,26 @@ if($user['id']<=0){
         }
     }elseif($_GET['action']=='changepass'){
         $newpass = trim($_POST['new_pass']);
+        $confirmPass = trim($_POST['confirm_new_pass'] ?? '');
         if(strlen($newpass)>3){
+            if ($confirmPass === '' || $newpass !== $confirmPass) {
+                redirect('index.php?n=account&sub=manage&pwchange=mismatch', 1);
+                exit;
+            }
+
             $stmt = $managePdo->prepare("UPDATE account SET sessionkey = NULL WHERE id = ?");
             $stmt->execute([(int)$user['id']]);
-            $stmt = $managePdo->prepare("UPDATE account SET s = NULL WHERE id = ?");
+            list($salt, $verifier) = getRegistrationData((string)$user['username'], $newpass);
+            $stmt = $managePdo->prepare("UPDATE account SET s = ?, v = ? WHERE id = ?");
+            $stmt->execute([$salt, $verifier, (int)$user['id']]);
+
+            $stmt = $managePdo->prepare("SELECT s, v FROM account WHERE id = ? LIMIT 1");
             $stmt->execute([(int)$user['id']]);
-            $stmt = $managePdo->prepare("UPDATE account SET v = NULL WHERE id = ?");
-            $stmt->execute([(int)$user['id']]);
-            $sha_pass = sha_password($user['username'],$newpass);
-            $stmt = $managePdo->prepare("UPDATE account SET sha_pass_hash = ? WHERE id = ?");
-            $stmt->execute([strtoupper($sha_pass), (int)$user['id']]);
+            $updatedAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (empty($updatedAccount['s']) || empty($updatedAccount['v'])) {
+                redirect('index.php?n=account&sub=manage&pwchange=failed', 1);
+                exit;
+            }
 
             if((int)$MW->getConfig->generic->use_purepass_table) {
                 $stmt = $managePdo->prepare("SELECT count(*) FROM account_pass WHERE id = ?");
@@ -143,14 +174,18 @@ if($user['id']<=0){
             
             //$uservars_hash_new = serialize(array($user['id'], sha1(base64_encode(md5(utf8_encode($sha_pass))))));
             //setcookie((string)$MW->getConfig->generic->site_cookie, $uservars_hash_new, time()+(60*60*24*365),$MW->getConfig->temp->site_href,$MW->getConfig->temp->site_domain); // expires in 365 days
-            
-            
-            output_message('notice','<b>'.$lang['change_pass_succ'].'</b><meta http-equiv=refresh content="2;url=index.php?n=account&sub=manage">');
-            
+
+            redirect('index.php?n=account&sub=manage&pwchange=1', 1);
+            exit;
         }else{
-            output_message('alert','<b>'.$lang['change_pass_short'].'</b><meta http-equiv=refresh content="2;url=index.php?n=account&sub=manage">');
+            redirect('index.php?n=account&sub=manage&pwchange=short', 1);
+            exit;
         }
     }elseif($_GET['action']=='change'){
+        $backgroundPreferencesAvailable = spp_website_accounts_has_columns(['background_mode', 'background_image']);
+        $backgroundModeOptions = spp_background_mode_options();
+        $availableBackgroundImages = spp_background_image_catalog();
+
         if(is_uploaded_file($_FILES['avatar']['tmp_name'])){
             if($_FILES['avatar']['size'] <= (int)$MW->getConfig->generic->max_avatar_file){
                 $ext = strtolower(substr(strrchr($_FILES['avatar']['name'],'.'), 1));
@@ -179,6 +214,22 @@ if($user['id']<=0){
         }
         if ((int)($user['gmlevel'] ?? 0) < 3 && isset($_POST['profile']['hideprofile'])) {
             unset($_POST['profile']['hideprofile']);
+        }
+        if ($backgroundPreferencesAvailable) {
+            $requestedBackgroundMode = strtolower(trim((string)($_POST['profile']['background_mode'] ?? 'as_is')));
+            if (!isset($backgroundModeOptions[$requestedBackgroundMode])) {
+                $requestedBackgroundMode = 'as_is';
+            }
+            $_POST['profile']['background_mode'] = $requestedBackgroundMode;
+
+            $defaultBackgroundImage = (string)spp_array_first_key($availableBackgroundImages);
+            $requestedBackgroundImage = basename(trim((string)($_POST['profile']['background_image'] ?? '')));
+            if (!isset($availableBackgroundImages[$requestedBackgroundImage])) {
+                $requestedBackgroundImage = $defaultBackgroundImage;
+            }
+            $_POST['profile']['background_image'] = $requestedBackgroundImage;
+        } else {
+            unset($_POST['profile']['background_mode'], $_POST['profile']['background_image']);
         }
         $_POST['profile']['signature'] = htmlspecialchars($_POST['profile']['signature']);
         

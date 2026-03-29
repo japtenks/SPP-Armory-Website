@@ -4,7 +4,7 @@ if(INCLUDED !== true)exit;
 $oldInactiveTime = 3600 * 24 * 7;
 $deleteInactiveAccountsEnabled = false;
 $deleteInactiveCharactersEnabled = false;
-$membersPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$membersPdo = spp_get_pdo('realmd', 1);
 $membersCharsPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
 
 if (!function_exists('spp_ensure_website_account_row')) {
@@ -37,6 +37,18 @@ if($_POST['search_member'] == TRUE){
     }
 }
 if($_GET['id'] > 0){
+    if (isset($_GET['pwreset'])) {
+        if ($_GET['pwreset'] === '1') {
+            output_message('notice', '<b>' . $lang['change_pass_succ'] . '</b>');
+        } elseif ($_GET['pwreset'] === 'mismatch') {
+            output_message('alert', '<b>New password confirmation does not match.</b>');
+        } elseif ($_GET['pwreset'] === 'missing') {
+            output_message('alert', '<b>Account not found.</b>');
+        } elseif ($_GET['pwreset'] === 'failed') {
+            output_message('alert', '<b>Password reset failed: SRP values were not saved.</b>');
+        }
+    }
+
     if(!$_GET['action']){
         $profile = $auth->getprofile($_GET['id']);
         spp_ensure_website_account_row($membersPdo, $_GET['id']);
@@ -73,19 +85,37 @@ if($_GET['id'] > 0){
         $profile['signature'] = str_replace('<br />', '', $profile['signature']);
     }elseif($_GET['action'] == 'changepass'){
         $newpass = trim($_POST['new_pass']);
+        $confirmPass = trim($_POST['confirm_new_pass'] ?? '');
         if(strlen($newpass) > 3){
+            if ($confirmPass === '' || $newpass !== $confirmPass) {
+                redirect('index.php?n=admin&sub=members&id=' . $_GET['id'] . '&pwreset=mismatch', 1);
+                exit;
+            }
+
             $id = (int)$_GET['id'];
             $stmt = $membersPdo->prepare("SELECT username FROM account WHERE id=?");
             $stmt->execute([$id]);
             $maneresu = $stmt->fetchColumn();
+            if (!$maneresu) {
+                redirect('index.php?n=admin&sub=members&id=' . $_GET['id'] . '&pwreset=missing', 1);
+                exit;
+            }
             $stmt = $membersPdo->prepare("UPDATE account SET sessionkey = NULL WHERE id=?");
             $stmt->execute([$id]);
-            $sha_pass = sha_password($maneresu, $newpass);
-            $stmt = $membersPdo->prepare("UPDATE account SET sha_pass_hash=? WHERE id=?");
-            $stmt->execute([strtoupper($sha_pass), $id]);
-            {
-                output_message('notice', '<b>' . $lang['change_pass_succ'] . '</b><meta http-equiv=refresh content="2;url=index.php?n=admin&sub=members&id=' . $_GET['id'] . '">');
+            list($salt, $verifier) = getRegistrationData((string)$maneresu, $newpass);
+            $stmt = $membersPdo->prepare("UPDATE account SET s=?, v=? WHERE id=?");
+            $stmt->execute([$salt, $verifier, $id]);
+
+            $stmt = $membersPdo->prepare("SELECT s, v FROM account WHERE id=? LIMIT 1");
+            $stmt->execute([$id]);
+            $updatedAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (empty($updatedAccount['s']) || empty($updatedAccount['v'])) {
+                redirect('index.php?n=admin&sub=members&id=' . $_GET['id'] . '&pwreset=failed', 1);
+                exit;
             }
+
+            redirect('index.php?n=admin&sub=members&id=' . $_GET['id'] . '&pwreset=1', 1);
+            exit;
         }else{
             output_message('alert', '<b>' . $lang['change_pass_short'] . '</b><meta http-equiv=refresh content="2;url=index.php?n=admin&sub=members&id=' . $_GET['id'] . '">');
         }

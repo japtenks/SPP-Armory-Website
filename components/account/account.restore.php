@@ -7,7 +7,7 @@ if($_POST['retr_login'] && $_POST['retr_email'] && $_POST['secretq1'] && $_POST[
   //set return as true - we will make false if something is wrong
   $return = TRUE;
 
-  $restorePdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+  $restorePdo = spp_get_pdo('realmd', 1);
 
   /*Check 1*/
   $username = strip_if_magic_quotes($_POST['retr_login']);
@@ -54,9 +54,9 @@ if($_POST['retr_login'] && $_POST['retr_email'] && $_POST['secretq1'] && $_POST[
     }
     if($we == true){
       $pas = random_string(7);
-      $c_pas = sha_password($username_name,$pas);
-      $stmtUp1 = $restorePdo->prepare("UPDATE `account` SET sha_pass_hash=? WHERE id=?");
-      $stmtUp1->execute([$c_pas, (int)$username]);
+      list($salt, $verifier) = getRegistrationData((string)$username_name, $pas);
+      $stmtUp1 = $restorePdo->prepare("UPDATE `account` SET s=?, v=? WHERE id=?");
+      $stmtUp1->execute([$salt, $verifier, (int)$username]);
       $stmtUp2 = $restorePdo->prepare("UPDATE `account` SET sessionkey=NULL WHERE id=?");
       $stmtUp2->execute([(int)$username]);
       output_message('notice','<b>'.$lang['restore_pass_ok'].'<br /> New password: '.$pas.'</b>');

@@ -1015,6 +1015,61 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
   color: var(--class-color, #f3e6bf);
   font-weight: 700;
 }
+.guild-level-breakdown {
+  margin-top: 18px;
+}
+.guild-level-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(34px, 44px));
+  justify-content: center;
+  gap: 8px;
+  align-items: end;
+  min-height: 190px;
+  margin-top: 12px;
+}
+.guild-level-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.guild-level-value {
+  color: #f3d58d;
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+.guild-level-track {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  width: 100%;
+  height: 140px;
+  padding: 6px;
+  border-radius: 12px 12px 8px 8px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+    repeating-linear-gradient(
+      to top,
+      rgba(255,255,255,0.05) 0,
+      rgba(255,255,255,0.05) 1px,
+      transparent 1px,
+      transparent 20%
+    );
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+.guild-level-fill {
+  width: 100%;
+  min-height: 8px;
+  border-radius: 8px 8px 6px 6px;
+  background: var(--class-color, #ffcc66);
+}
+.guild-level-label {
+  color: var(--class-color, #f3e6bf);
+  font-weight: 700;
+  font-size: 0.74rem;
+  text-align: center;
+  line-height: 1.15;
+}
 .class-warrior { --class-color:#C79C6E; --class-color-rgb:199,156,110; }
 .class-mage { --class-color:#69CCF0; --class-color-rgb:105,204,240; }
 .class-priest { --class-color:#FFFFFF; --class-color-rgb:255,255,255; }
@@ -1088,6 +1143,39 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
 </style>
 
 <?php $maxBreakdown = $classBreakdown ? max($classBreakdown) : 1; ?>
+<?php
+$guildClassLevelBuckets = [];
+foreach ($members as $member) {
+  $classId = (int)($member['class'] ?? 0);
+  $level = (int)($member['level'] ?? 0);
+  if ($classId <= 0 || $level <= 0) {
+    continue;
+  }
+  if (!isset($guildClassLevelBuckets[$classId])) {
+    $guildClassLevelBuckets[$classId] = [];
+  }
+  $guildClassLevelBuckets[$classId][] = $level;
+}
+
+$guildClassLevelCards = [];
+$guildMedianLevelMax = 0;
+foreach ($orderedClassBreakdown as $classId => $classCount) {
+  $levels = $guildClassLevelBuckets[$classId] ?? [];
+  sort($levels, SORT_NUMERIC);
+  $levelCount = count($levels);
+  $medianLevel = 0;
+  if ($levelCount > 0) {
+    $middle = (int)floor(($levelCount - 1) / 2);
+    if ($levelCount % 2 === 0) {
+      $medianLevel = (int)round(($levels[$middle] + $levels[$middle + 1]) / 2);
+    } else {
+      $medianLevel = (int)$levels[$middle];
+    }
+  }
+  $guildMedianLevelMax = max($guildMedianLevelMax, $medianLevel);
+  $guildClassLevelCards[$classId] = $medianLevel;
+}
+?>
 <div class="guild-page">
 <div class="guild-detail">
   <div class="guild-hero">
@@ -1324,10 +1412,33 @@ if ($selectedMax) $baseUrl .= '&maxonly=1';
               </div>
             <?php endforeach; ?>
           </div>
+
+          <?php if (!empty($guildClassLevelCards)): ?>
+            <div class="guild-level-breakdown">
+              <h3 class="guild-side-title">Typical Class Level</h3>
+              <p class="guild-side-copy">Median level per class inside this guild.</p>
+              <div class="guild-level-columns">
+                <?php foreach($orderedClassBreakdown as $classId => $classCount): ?>
+                  <?php
+                    $levelClassName = $classNames[$classId] ?? ('Class ' . $classId);
+                    $levelClassSlug = strtolower(str_replace(' ', '', $levelClassName));
+                    $medianLevel = (int)($guildClassLevelCards[$classId] ?? 0);
+                    $height = $guildMedianLevelMax > 0 ? max(4, (int)round(($medianLevel / $guildMedianLevelMax) * 100)) : 0;
+                  ?>
+                  <div class="guild-level-column class-<?php echo $levelClassSlug; ?>">
+                    <div class="guild-level-value"><?php echo $medianLevel; ?></div>
+                    <div class="guild-level-track">
+                      <div class="guild-level-fill" style="height: <?php echo $height; ?>%;"></div>
+                    </div>
+                    <div class="guild-level-label"><?php echo htmlspecialchars($levelClassName); ?></div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endif; ?>
         </div>
       </section>
     </div>
 </div>
 </div>
 </div>
-

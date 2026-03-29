@@ -145,6 +145,200 @@ if (!function_exists('spp_get_realm_service_config')) {
     }
 }
 
+if (!function_exists('spp_website_accounts_columns')) {
+    function spp_website_accounts_columns() {
+        static $columns = null;
+
+        if ($columns !== null) {
+            return $columns;
+        }
+
+        $columns = [];
+
+        try {
+            $pdo = spp_get_pdo('realmd', 1);
+            $rows = $pdo->query("SHOW COLUMNS FROM website_accounts")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $row) {
+                if (!empty($row['Field'])) {
+                    $columns[(string)$row['Field']] = true;
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[config] Failed loading website_accounts columns: ' . $e->getMessage());
+        }
+
+        return $columns;
+    }
+}
+
+if (!function_exists('spp_website_accounts_has_columns')) {
+    function spp_website_accounts_has_columns(array $requiredColumns) {
+        $availableColumns = spp_website_accounts_columns();
+        foreach ($requiredColumns as $column) {
+            if (empty($availableColumns[$column])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+
+if (!function_exists('spp_background_image_directory')) {
+    function spp_background_image_directory() {
+        return 'templates/offlike/images/modern/bkgd/';
+    }
+}
+
+if (!function_exists('spp_background_image_catalog')) {
+    function spp_background_image_catalog() {
+        static $catalog = null;
+
+        if ($catalog !== null) {
+            return $catalog;
+        }
+
+        $catalog = [];
+        $directory = spp_background_image_directory();
+        $files = glob($directory . '*.{webp,jpg,jpeg,png,gif}', GLOB_BRACE);
+
+        if (!is_array($files)) {
+            $files = [];
+        }
+
+        natsort($files);
+        foreach ($files as $path) {
+            $filename = basename((string)$path);
+            if ($filename === '') {
+                continue;
+            }
+            $catalog[$filename] = str_replace('\\', '/', (string)$path);
+        }
+
+        if (empty($catalog)) {
+            $catalog['19.jpg'] = $directory . '19.jpg';
+        }
+
+        return $catalog;
+    }
+}
+
+if (!function_exists('spp_background_mode_options')) {
+    function spp_background_mode_options() {
+        return [
+            'as_is' => 'As Is',
+            'daily' => 'Once a Day',
+            'section' => 'By Main Section',
+            'fixed' => 'Fixed Background',
+        ];
+    }
+}
+
+if (!function_exists('spp_background_image_label')) {
+    function spp_background_image_label($filename) {
+        $base = pathinfo((string)$filename, PATHINFO_FILENAME);
+        $base = preg_replace('/[^a-zA-Z0-9]+/', ' ', (string)$base);
+        $base = trim((string)$base);
+        if ($base === '') {
+            return 'Background';
+        }
+
+        if (ctype_digit($base)) {
+            return 'Background ' . $base;
+        }
+
+        return ucwords($base);
+    }
+}
+
+if (!function_exists('spp_array_first_key')) {
+    function spp_array_first_key(array $items) {
+        foreach ($items as $key => $value) {
+            return $key;
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('spp_background_section_key')) {
+    function spp_background_section_key($mainRoute = null, $subRoute = null) {
+        $mainRoute = strtolower(trim((string)($mainRoute ?? ($_GET['n'] ?? 'frontpage'))));
+        $subRoute = strtolower(trim((string)($subRoute ?? ($_GET['sub'] ?? ''))));
+
+        if ($mainRoute === '' || $mainRoute === 'index') {
+            $mainRoute = 'frontpage';
+        }
+
+        if ($mainRoute === 'server') {
+            $armorySubs = ['chars', 'guilds', 'honor', 'talents', 'items', 'marketplace'];
+            $gameGuideSubs = ['commands', 'botcommands'];
+
+            if (in_array($subRoute, $armorySubs, true)) {
+                return 'armory';
+            }
+            if (in_array($subRoute, $gameGuideSubs, true)) {
+                return 'gameguide';
+            }
+
+            return 'workshop';
+        }
+
+        if ($mainRoute === 'gameguide') {
+            return 'gameguide';
+        }
+        if ($mainRoute === 'forum') {
+            return 'forums';
+        }
+        if ($mainRoute === 'armory') {
+            return 'armory';
+        }
+        if ($mainRoute === 'account' || $mainRoute === 'admin') {
+            return 'account';
+        }
+        if ($mainRoute === 'media') {
+            return 'media';
+        }
+        if ($mainRoute === 'community' || $mainRoute === 'whoisonline') {
+            return 'community';
+        }
+        if ($mainRoute === 'statistic') {
+            return 'workshop';
+        }
+
+        return 'frontpage';
+    }
+}
+
+if (!function_exists('spp_pick_background_path')) {
+    function spp_pick_background_path($mode = 'as_is', $selectedImage = '', array $catalog = null, $sectionKey = null) {
+        $catalog = $catalog ?: spp_background_image_catalog();
+        if (empty($catalog)) {
+            return 'templates/offlike/images/modern/bkgd/19.jpg';
+        }
+
+        $mode = strtolower(trim((string)$mode));
+        $sectionKey = (string)($sectionKey ?: spp_background_section_key());
+        $orderedPaths = array_values($catalog);
+
+        if ($mode === 'fixed' && $selectedImage !== '' && isset($catalog[$selectedImage])) {
+            return $catalog[$selectedImage];
+        }
+
+        if ($mode === 'daily') {
+            $index = abs(crc32('daily|' . date('Y-m-d'))) % count($orderedPaths);
+            return $orderedPaths[$index];
+        }
+
+        if ($mode === 'section') {
+            $index = abs(crc32('section|' . $sectionKey)) % count($orderedPaths);
+            return $orderedPaths[$index];
+        }
+
+        return $orderedPaths[array_rand($orderedPaths)];
+    }
+}
+
 // ================================================================
 // Identity helpers  (Phase 1 — website_identities table)
 // ================================================================

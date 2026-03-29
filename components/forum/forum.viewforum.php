@@ -90,7 +90,7 @@ foreach($alltopics as $cur_topic)
         $cur_topic['isnew']=true;
     }
 
-    $pnum = ceil($cur_topic['num_replies']/(int)$MW->getConfig->generic->posts_per_page);
+    $pnum = max(1, (int)ceil(((int)$cur_topic['num_replies'] + 1)/(int)$MW->getConfig->generic->posts_per_page));
     if($pnum>1){
         $cur_topic['pages_str'] = '&laquo; ';
         for($pi=1;$pi<=$pnum;$pi++){ $cur_topic['pages_str'].='<a href="index.php?n=forum&sub=viewtopic&tid='.$cur_topic['topic_id'].'&p='.$pi.'">'.$pi.'</a> '; }

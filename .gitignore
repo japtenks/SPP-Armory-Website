@@ -26,3 +26,4 @@ CLAUDE.md
 .claude/settings.local.json
 LEGACY.md
 /jsons/guilds
+/core/cache

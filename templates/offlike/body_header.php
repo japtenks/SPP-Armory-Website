@@ -1,14 +1,33 @@
 <?php
 if (!defined('Armory')) { define('Armory', 1); }
 
-// path to your background images
-$bgDir = 'templates/offlike/images/modern/bkgd/';
+$backgroundCatalog = function_exists('spp_background_image_catalog')
+    ? spp_background_image_catalog()
+    : ['19.jpg' => 'templates/offlike/images/modern/bkgd/19.jpg'];
+$backgroundMode = 'as_is';
+$backgroundImage = '';
+$backgroundSection = function_exists('spp_background_section_key')
+    ? spp_background_section_key()
+    : 'frontpage';
 
-// gather all images in the directory
-$bgImages = glob($bgDir . '*.{webp,jpg,jpeg,png,gif}', GLOB_BRACE);
+if (!empty($user['id']) && (int)$user['id'] > 0) {
+    $backgroundModeOptions = function_exists('spp_background_mode_options')
+        ? spp_background_mode_options()
+        : ['as_is' => 'As Is'];
+    $requestedMode = strtolower(trim((string)($user['background_mode'] ?? 'as_is')));
+    if (isset($backgroundModeOptions[$requestedMode])) {
+        $backgroundMode = $requestedMode;
+    }
 
-// pick a random one
-$randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/images/modern/bkgd/19.jpg';
+    $requestedImage = basename(trim((string)($user['background_image'] ?? '')));
+    if (isset($backgroundCatalog[$requestedImage])) {
+        $backgroundImage = $requestedImage;
+    }
+}
+
+$resolvedBackground = function_exists('spp_pick_background_path')
+    ? spp_pick_background_path($backgroundMode, $backgroundImage, $backgroundCatalog, $backgroundSection)
+    : 'templates/offlike/images/modern/bkgd/19.jpg';
 ?>
 
 <!DOCTYPE html>
@@ -35,7 +54,7 @@ function changeLanguage(lang) {
 }
 </script>
 </head>
-<body style="background: url('<?php echo $randomBg; ?>') no-repeat center center fixed; 
+<body style="background: url('<?php echo htmlspecialchars($resolvedBackground, ENT_QUOTES); ?>') no-repeat center center fixed; 
              background-size: cover;">
 
 

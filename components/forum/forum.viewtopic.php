@@ -37,10 +37,12 @@ $dtmp = "templates/".( string ) $MW->getConfig->generic->template;
 $bgswitch = '2';
   //===== Calc pages =====//
   $items_per_pages = (int)$MW->getConfig->generic->posts_per_page;
-  $itemnum = $this_topic['num_replies'];
-  $pnum = ceil($itemnum/$items_per_pages);
+  $itemnum = (int)$this_topic['num_replies'] + 1;
+  $pnum = max(1, (int)ceil($itemnum/$items_per_pages));
   $limit_start = ($p-1)*$items_per_pages;
   $pages_str = default_paginate($pnum, $p, 'index.php?n=forum&sub=viewtopic&tid='.(int)$this_topic['topic_id']);
+  $this_topic['page_count'] = $pnum;
+  $this_topic['linktolastpost'] = $this_topic['linktothis'].'&to=lastpost';
 
 $forumPdo = spp_get_pdo('realmd', $realmId);
 $charPdoVt = spp_get_pdo('chars', $realmId);

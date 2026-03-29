@@ -487,6 +487,9 @@
         <div class="admin-form-grid">
           <label for="member_new_pass">New Password</label>
           <input type="password" id="member_new_pass" name="new_pass" />
+
+          <label for="member_confirm_new_pass">Confirm Password</label>
+          <input type="password" id="member_confirm_new_pass" name="confirm_new_pass" />
         </div>
         <div class="admin-form-actions">
           <input type="submit" value="Change Password" />

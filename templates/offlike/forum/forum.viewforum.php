@@ -71,6 +71,9 @@
 .forum-row:nth-child(even) {
   background: #161616;
 }
+.forum-row:nth-child(even):hover {
+  background: rgba(255, 204, 102, 0.08);
+}
 
 .col-subject a {
   color: #b0d0ff;
