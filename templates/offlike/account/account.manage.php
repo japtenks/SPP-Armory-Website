@@ -5,6 +5,11 @@
 $currentExpansionId = (int)($profile['expansion'] ?? 0);
 $nextExpansionLabel = '';
 $transferPathLabel = '';
+$languageOptions = isset($languages) && is_array($languages) ? $languages : [];
+$selectedLanguage = strtolower(trim((string)($GLOBALS['user_cur_lang'] ?? $MW->getConfig->generic->default_lang ?? 'en')));
+if ($selectedLanguage === '') {
+  $selectedLanguage = 'en';
+}
 if ($currentExpansionId === 0) {
   $nextExpansionLabel = 'TBC';
   $transferPathLabel = 'Classic -> TBC';
@@ -41,6 +46,20 @@ if ($currentExpansionId === 0) {
           <label>Username</label>
           <input type="text" value="<?php echo htmlspecialchars($profile['username']); ?>" disabled="disabled">
         </div>
+
+        <?php if(!empty($languageOptions)): ?>
+        <div class="field">
+          <label>Language</label>
+          <select onchange="changeLanguage(this.value)">
+            <?php foreach($languageOptions as $langCode => $langName): ?>
+            <option value="<?php echo htmlspecialchars((string)$langCode); ?>"<?php if(strtolower((string)$langCode) === $selectedLanguage) echo ' selected'; ?>>
+              <?php echo htmlspecialchars((string)$langName); ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+          <div class="help-text">English is the default. Changing this updates the site language for your browser.</div>
+        </div>
+        <?php endif; ?>
 
         <div class="toggle-row">
           <?php if((int)($user['gmlevel'] ?? 0) >= 3): ?>

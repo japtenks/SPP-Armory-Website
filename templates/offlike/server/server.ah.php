@@ -406,39 +406,37 @@ if ($maxReqLevel !== null) $baseUrl .= '&max_level=' . $maxReqLevel;
 <div class="ah-results-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo (int)$total; ?> auctions</div>
 
 <!-- Pagination + Filters -->
-<?php if ($numofpgs > 1): ?>
-  <div class="pagination-controls">
-    <div class="page-links">
-      <?php echo compact_paginate($page, $numofpgs, $baseUrl); ?>
-    </div>
-
-    <div class="ah-filter-bar">
-      <?php
-      $filters = [
-        'ally'  => $lang['ah_alliance'],
-        'horde' => $lang['ah_horde'],
-        'black' => $lang['ah_blackwater'],
-        'all'   => $lang['all']
-      ];
-      foreach ($filters as $key => $label) {
-        $active = ($currentFilter === $key) ? 'is-active' : '';
-        if ($key === 'ally')       $class = 'faction-alliance';
-        elseif ($key === 'horde')  $class = 'faction-horde';
-        elseif ($key === 'black')  $class = 'faction-blackwater';
-        else                       $class = 'faction-neutral';
-        $filterUrl = "index.php?n=server&sub=ah&realm={$currentRealm}&filter={$key}";
-        if ($search !== '') $filterUrl .= '&search=' . urlencode($search);
-        if ($qualityFilter >= 0) $filterUrl .= '&quality=' . $qualityFilter;
-        if ($itemClassFilter >= 0) $filterUrl .= '&item_class=' . $itemClassFilter;
-        if ($classMaskFilter > 0) $filterUrl .= '&usable_class=' . $classMaskFilter;
-        if ($minReqLevel !== null) $filterUrl .= '&min_level=' . $minReqLevel;
-        if ($maxReqLevel !== null) $filterUrl .= '&max_level=' . $maxReqLevel;
-        echo "<a href='{$filterUrl}' class='ah-filter {$class} {$active}'>{$label}</a>";
-      }
-      ?>
-    </div>
+<div class="pagination-controls">
+  <div class="page-links">
+    <?php echo compact_paginate($page, $numofpgs, $baseUrl); ?>
   </div>
-<?php endif; ?>
+
+  <div class="ah-filter-bar">
+    <?php
+    $filters = [
+      'ally'  => $lang['ah_alliance'],
+      'horde' => $lang['ah_horde'],
+      'black' => $lang['ah_blackwater'],
+      'all'   => $lang['all']
+    ];
+    foreach ($filters as $key => $label) {
+      $active = ($currentFilter === $key) ? 'is-active' : '';
+      if ($key === 'ally')       $class = 'faction-alliance';
+      elseif ($key === 'horde')  $class = 'faction-horde';
+      elseif ($key === 'black')  $class = 'faction-blackwater';
+      else                       $class = 'faction-neutral';
+      $filterUrl = "index.php?n=server&sub=ah&realm={$currentRealm}&filter={$key}";
+      if ($search !== '') $filterUrl .= '&search=' . urlencode($search);
+      if ($qualityFilter >= 0) $filterUrl .= '&quality=' . $qualityFilter;
+      if ($itemClassFilter >= 0) $filterUrl .= '&item_class=' . $itemClassFilter;
+      if ($classMaskFilter > 0) $filterUrl .= '&usable_class=' . $classMaskFilter;
+      if ($minReqLevel !== null) $filterUrl .= '&min_level=' . $minReqLevel;
+      if ($maxReqLevel !== null) $filterUrl .= '&max_level=' . $maxReqLevel;
+      echo "<a href='{$filterUrl}' class='ah-filter {$class} {$active}'>{$label}</a>";
+    }
+    ?>
+  </div>
+</div>
 
 <?php
 function sort_link($key, $label, $currentSort, $currentDir, $baseUrl) {
@@ -586,7 +584,6 @@ function modernHideTooltip() {
 </script>
 
 <?php builddiv_end(); ?>
-
 
 
 

@@ -74,7 +74,20 @@ $botEventConfig = [
     // ----------------------------------------------------------------
     // How many days back to scan on each run.
     // INSERT IGNORE + dedupe keys prevent double-posting, so wider = more history on first run.
-    'achievement_lookback_days' => 30,
+    'achievement_lookback_days' => 1,
+
+    // Achievement filters.
+    // Tighten this section to keep the forum from being flooded with low-signal badges.
+    'achievement_badge_min_points' => 10,
+    'achievement_badge_min_level' => 20,
+    'achievement_badge_exclude_categories' => [
+        92,   // General
+        96,   // Quests
+        97,   // Exploration
+        122,  // World Events
+    ],
+    'achievement_badge_featured_ids' => [
+    ],
 
     // Achievement IDs to skip entirely.
     // Level achievements are covered by the level_up scanner.
@@ -99,7 +112,7 @@ $botEventConfig = [
     // A post also fires when any members have left, subject to cooldown.
     // ----------------------------------------------------------------
     'guild_roster_thresholds' => [
-        'min_joins'    => 8,
+        'min_joins'    => 5,
         'cooldown_sec' => 43200, // 12 hours
     ],
 

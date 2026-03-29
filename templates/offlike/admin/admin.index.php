@@ -79,6 +79,7 @@
       <h3>Site Management</h3>
       <ul class="admin-home__links">
         <li><a href="index.php?n=admin&amp;sub=members"><?php echo $lang['users_manage']; ?></a></li>
+        <li><a href="index.php?n=admin&amp;sub=cleanup">Site Cleanup</a></li>
         <li><a href="index.php?n=admin&amp;sub=realms"><?php echo $lang['realms_manage']; ?></a></li>
       </ul>
     </section>

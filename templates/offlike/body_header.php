@@ -84,13 +84,11 @@ function changeLanguage(lang) {
       <ul class="mobile-main">
         <?php build_main_menu(true); ?>
         <li class="menu-spacer"><br></li>
-        <?php build_language_menu(true); ?>
       </ul>
     </div>
 
     <ul class="nav-menu desktop-menu">
       <?php build_main_menu(true); ?>
-      <?php build_language_menu(true); ?>
 
     </ul>
 

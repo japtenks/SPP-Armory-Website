@@ -403,6 +403,10 @@ foreach ($realms as $realmId) {
         $targetForum  = $forums['achievement_badge'] ?? null;
         $lookbackDays = (int)($botEventConfig['achievement_lookback_days'] ?? 30);
         $excludeIds   = $botEventConfig['achievement_badge_exclude'] ?? [];
+        $featuredIds  = array_map('intval', (array)($botEventConfig['achievement_badge_featured_ids'] ?? []));
+        $excludeCategories = array_map('intval', (array)($botEventConfig['achievement_badge_exclude_categories'] ?? []));
+        $minPoints = (int)($botEventConfig['achievement_badge_min_points'] ?? 10);
+        $minLevel = (int)($botEventConfig['achievement_badge_min_level'] ?? 20);
 
         if ($targetForum) {
             log_line("  Scanning achievement badges ({$lookbackDays}d window)...");
@@ -417,7 +421,7 @@ foreach ($realms as $realmId) {
                 }
 
                 $stmt = $charPdo->prepare("
-                    SELECT ca.guid, ca.achievement, ca.date, c.name, c.account
+                    SELECT ca.guid, ca.achievement, ca.date, c.name, c.account, c.level
                     FROM `character_achievement` ca
                     JOIN `characters` c ON c.guid = ca.guid
                     WHERE ca.date >= ?
@@ -462,10 +466,22 @@ foreach ($realms as $realmId) {
                     }
 
                     $inserted = 0;
+                    $filteredOut = 0;
                     foreach ($rows as $row) {
                         $achId   = (int)$row['achievement'];
                         $meta    = $achMeta[$achId] ?? [];
                         $achName = $meta['name'] ?? ('Achievement #' . $achId);
+                        $achPoints = (int)($meta['points'] ?? 0);
+                        $achCategory = (int)($meta['category'] ?? 0);
+                        $charLevel = (int)($row['level'] ?? 0);
+                        $isFeatured = in_array($achId, $featuredIds, true);
+
+                        if (!$isFeatured) {
+                            if ($charLevel < $minLevel || $achPoints < $minPoints || in_array($achCategory, $excludeCategories, true)) {
+                                $filteredOut++;
+                                continue;
+                            }
+                        }
 
                         $dedupeKey = "achievement_badge:realm{$realmId}:char{$row['guid']}:achieve{$achId}";
                         $added = insert_event($masterPdo, [
@@ -477,7 +493,9 @@ foreach ($realms as $realmId) {
                                 'char_name'      => $row['name'],
                                 'achievement'    => $achName,
                                 'achievement_id' => $achId,
-                                'points'         => $meta['points'] ?? 0,
+                                'points'         => $achPoints,
+                                'category'       => $achCategory,
+                                'character_level'=> $charLevel,
                                 'badge_type'     => 'achievement',
                             ],
                             'dedupe_key'      => $dedupeKey,
@@ -486,7 +504,7 @@ foreach ($realms as $realmId) {
                         ], $dryRun);
                         if ($added) $inserted++;
                     }
-                    log_line("  Achievement badges: " . count($rows) . " rows found, {$inserted} new events queued.");
+                    log_line("  Achievement badges: " . count($rows) . " rows found, {$filteredOut} filtered out, {$inserted} new events queued.");
                     $totals['achievement_badge'] = ($totals['achievement_badge'] ?? 0) + $inserted;
                 }
             } catch (Exception $e) {

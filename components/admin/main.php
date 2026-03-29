@@ -20,6 +20,13 @@ $com_content['admin'] = array(
         '',
         1
     ),
+    'cleanup' => array(
+        'g_is_admin',
+        'Site Cleanup',
+        'index.php?n=admin&sub=cleanup',
+        '',
+        1
+    ),
     'config' => array(
         'g_is_admin',
         'site_config',

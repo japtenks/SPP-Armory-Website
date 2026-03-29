@@ -47,6 +47,10 @@
   color: #c9c9c9;
 }
 
+.admin-note.status-summary {
+  margin-bottom: 14px;
+}
+
 .admin-actions {
   display: flex;
   flex-wrap: wrap;
@@ -164,6 +168,35 @@
 .admin-character-list li {
   margin: 0 0 10px;
   color: #ddd;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-character-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 10px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.35);
+}
+
+.admin-character-status-dot.online {
+  background: #56d37d;
+  box-shadow: 0 0 8px rgba(86, 211, 125, 0.45);
+}
+
+.admin-character-status-dot.offline {
+  background: #d35b5b;
+  box-shadow: 0 0 8px rgba(211, 91, 91, 0.4);
+}
+
+.admin-character-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .admin-character-list a {
@@ -227,6 +260,17 @@
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.admin-tool-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-tool-divider {
+  height: 1px;
+  background: rgba(255, 206, 102, 0.14);
 }
 
 .admin-signature-stack {
@@ -482,6 +526,9 @@
     <div class="admin-character-list">
       <p class="admin-subheading">Realm Characters</p>
       <h3 class="admin-heading" style="font-size:1.1rem;">Characters</h3>
+      <p class="admin-note status-summary">
+        <?php echo (int)($onlineCharacterCount ?? 0); ?> / <?php echo count($userchars); ?> online
+      </p>
       <?php if (!empty($userchars)) { ?>
         <ul>
           <?php
@@ -489,9 +536,16 @@
           foreach ($userchars as $char) {
               $profileRealm = (int)($GLOBALS['activeRealmId'] ?? 1);
               $charUrl = 'index.php?n=server&sub=character&realm=' . $profileRealm . '&character=' . urlencode($char['name']);
-              echo '<li><a href="' . $charUrl . '">' . htmlspecialchars($char['name']) . '</a> &middot; Level ' . (int)$char['level'] . ' &middot; ' .
+              $statusClass = !empty($char['online']) ? 'online' : 'offline';
+              $statusTitle = !empty($char['online']) ? 'Online' : 'Offline';
+              echo '<li>';
+              echo '<span class="admin-character-status-dot ' . $statusClass . '" title="' . $statusTitle . '"></span>';
+              echo '<span class="admin-character-entry">';
+              echo '<a href="' . $charUrl . '">' . htmlspecialchars($char['name']) . '</a> &middot; Level ' . (int)$char['level'] . ' &middot; ' .
                   htmlspecialchars($MANG->characterInfoByID['character_race'][$char['race']] ?? '') . ' ' .
-                  htmlspecialchars($MANG->characterInfoByID['character_class'][$char['class']] ?? '') . '</li>';
+                  htmlspecialchars($MANG->characterInfoByID['character_class'][$char['class']] ?? '');
+              echo '</span>';
+              echo '</li>';
           }
           unset($MANG);
           ?>
@@ -530,6 +584,7 @@
             <input type="submit" value="Set Signatures" />
           </div>
         </form>
+        <div style="height:18px;"></div>
       <?php } ?>
       <?php if (empty($profile['is_bot_account'])) { ?>
         <p class="admin-subheading">Security</p>
@@ -550,29 +605,100 @@
     </div>
   </div>
 
-  <div class="admin-detail-grid">
-    <div class="admin-form-panel">
-      <p class="admin-subheading">Account Controls</p>
-      <h3 class="admin-heading" style="font-size:1.1rem;">Game Account</h3>
-      <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=change" class="admin-form-stack">
+  <div class="admin-form-panel">
+    <p class="admin-subheading">Character Tools</p>
+    <h3 class="admin-heading" style="font-size:1.1rem;">Character Transfer And Cleanup</h3>
+    <div class="admin-tool-stack">
+      <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=transferchar" class="admin-form-stack">
         <div class="admin-form-grid">
-          <?php if ($user['gmlevel'] == 3) { ?>
-            <label for="profile_gmlevel">GM Level</label>
-            <input type="text" id="profile_gmlevel" name="profile[gmlevel]" value="<?php echo htmlspecialchars($profile['gmlevel']); ?>" />
-          <?php } ?>
+          <label for="transfer_character_guid">Character</label>
+          <select id="transfer_character_guid" name="transfer_character_guid">
+            <?php
+            if (!empty($userchars)) {
+                foreach ($userchars as $char) {
+                    echo '<option value="' . (int)($char['guid'] ?? 0) . '">';
+                    echo htmlspecialchars((string)($char['name'] ?? 'Unknown'));
+                    if (!empty($char['level'])) {
+                        echo ' (Lvl ' . (int)$char['level'] . ')';
+                    }
+                    echo '</option>';
+                }
+            } else {
+            ?>
+              <option value="0">No characters available</option>
+            <?php } ?>
+          </select>
 
-          <label for="profile_expansion">Account Expansion</label>
-          <select id="profile_expansion" name="profile[expansion]">
-            <option value="0"<?php if ((int)$profile['expansion'] === 0) echo ' selected'; ?>>Classic</option>
-            <option value="1"<?php if ((int)$profile['expansion'] === 1) echo ' selected'; ?>>TBC</option>
-            <option value="2"<?php if ((int)$profile['expansion'] === 2) echo ' selected'; ?>>WotLK</option>
+          <label for="target_account_id">Target Account</label>
+          <select id="target_account_id" name="target_account_id">
+            <?php if (!empty($eligibleTransferAccounts)) { ?>
+              <?php foreach ($eligibleTransferAccounts as $eligibleAccount) { ?>
+                <option value="<?php echo (int)($eligibleAccount['id'] ?? 0); ?>">
+                  <?php echo '#' . (int)($eligibleAccount['id'] ?? 0) . ' - ' . htmlspecialchars((string)($eligibleAccount['username'] ?? 'Unknown')); ?>
+                </option>
+              <?php } ?>
+            <?php } else { ?>
+              <option value="0">No eligible human accounts available</option>
+            <?php } ?>
           </select>
         </div>
+        <div class="admin-form-help">Move a character to another account on the active realm. Useful for splitting characters between accounts. Forum ownership follows the destination account. The transfer only goes through when the source account, destination account, and selected character are all offline.</div>
         <div class="admin-form-actions">
-          <input type="reset" value="Reset" />
-          <input type="submit" value="Save Changes" />
+          <input type="submit" value="Transfer Character" <?php if (empty($userchars) || empty($eligibleTransferAccounts)) echo 'disabled="disabled"'; ?> onclick="return confirm('Transfer this character to the target account?');" />
         </div>
       </form>
+      <div class="admin-tool-divider"></div>
+      <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=deletechar" class="admin-form-stack">
+        <div class="admin-form-grid">
+          <label for="delete_character_guid">Delete Character</label>
+          <select id="delete_character_guid" name="delete_character_guid">
+            <?php
+            if (!empty($userchars)) {
+                foreach ($userchars as $char) {
+                    echo '<option value="' . (int)($char['guid'] ?? 0) . '">';
+                    echo htmlspecialchars((string)($char['name'] ?? 'Unknown'));
+                    if (!empty($char['level'])) {
+                        echo ' (Lvl ' . (int)$char['level'] . ')';
+                    }
+                    echo '</option>';
+                }
+            } else {
+            ?>
+              <option value="0">No characters available</option>
+            <?php } ?>
+          </select>
+        </div>
+        <div class="admin-form-help">Deletes the selected character from the active realm and clears that character from the account’s selected-character slot if needed.</div>
+        <div class="admin-form-actions">
+          <input type="submit" value="Delete Character" class="danger" <?php if (empty($userchars)) echo 'disabled="disabled"'; ?> onclick="return confirm('Delete this character from the active realm? This cannot be undone.');" />
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="admin-detail-grid">
+    <div class="admin-form-panel">
+        <p class="admin-subheading">Account Controls</p>
+        <h3 class="admin-heading" style="font-size:1.1rem;">Game Account</h3>
+        <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=change" class="admin-form-stack">
+          <div class="admin-form-grid">
+            <?php if ($user['gmlevel'] == 3) { ?>
+              <label for="profile_gmlevel">GM Level</label>
+              <input type="text" id="profile_gmlevel" name="profile[gmlevel]" value="<?php echo htmlspecialchars($profile['gmlevel']); ?>" />
+            <?php } ?>
+
+            <label for="profile_expansion">Account Expansion</label>
+            <select id="profile_expansion" name="profile[expansion]">
+              <option value="0"<?php if ((int)$profile['expansion'] === 0) echo ' selected'; ?>>Classic</option>
+              <option value="1"<?php if ((int)$profile['expansion'] === 1) echo ' selected'; ?>>TBC</option>
+              <option value="2"<?php if ((int)$profile['expansion'] === 2) echo ' selected'; ?>>WotLK</option>
+            </select>
+          </div>
+          <div class="admin-form-actions">
+            <input type="reset" value="Reset" />
+            <input type="submit" value="Save Changes" />
+          </div>
+        </form>
     </div>
 
     <div class="admin-form-panel">
@@ -591,8 +717,7 @@
             <input type="submit" value="Change Password" />
           </div>
         </form>
-      <?php } ?>
-      <?php if (empty($profile['is_bot_account'])) { ?>
+      <?php } else { ?>
         <p class="admin-subheading">Website Profile</p>
         <h3 class="admin-heading" style="font-size:1.1rem;">Forum Settings</h3>
         <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=change2" enctype="multipart/form-data" class="admin-form-stack">
@@ -654,15 +779,6 @@
 <?php } else { ?>
   <div class="admin-list-toolbar">
     <div class="toolbar-row">
-      <div class="toolbar-group" style="min-width:240px;">
-        <span class="admin-subheading" style="margin:0;">Maintenance</span>
-        <div class="admin-note">Bulk account and character deletion is disabled until the cleanup flow is reviewed in detail.</div>
-        <div class="toolbar-links">
-          <a class="danger" href="#" aria-disabled="true">Delete Inactive Accounts</a>
-          <a class="danger" href="#" aria-disabled="true">Delete Old Characters</a>
-        </div>
-      </div>
-
       <form action="index.php?n=admin&sub=members" method="post" class="toolbar-form">
         <div class="toolbar-group">
           <label class="admin-field-label" for="search_member">Search Username</label>

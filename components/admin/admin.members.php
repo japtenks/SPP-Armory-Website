@@ -24,6 +24,112 @@ if (!function_exists('spp_ensure_website_account_row')) {
         $stmtEnsure->execute([$accountId, $accountId]);
     }
 }
+
+if (!function_exists('spp_admin_character_delete_tables')) {
+    function spp_admin_character_delete_tables() {
+        return array(
+            'characters'                  => 'guid',
+            'character_inventory'         => 'guid',
+            'character_action'            => 'guid',
+            'character_aura'              => 'guid',
+            'character_gifts'             => 'guid',
+            'character_homebind'          => 'guid',
+            'character_instance'          => 'guid',
+            'character_queststatus_daily' => 'guid',
+            'character_kill'              => 'guid',
+            'character_pet'               => 'owner',
+            'character_queststatus'       => 'guid',
+            'character_reputation'        => 'guid',
+            'character_social'            => 'guid',
+            'character_spell'             => 'guid',
+            'character_spell_cooldown'    => 'guid',
+            'character_ticket'            => 'guid',
+            'character_tutorial'          => 'guid',
+            'corpse'                      => 'guid',
+            'item_instance'               => 'owner_guid',
+            'petition'                    => 'ownerguid',
+            'petition_sign'               => 'ownerguid',
+        );
+    }
+}
+
+if (!function_exists('spp_admin_account_is_online')) {
+    function spp_admin_account_is_online(PDO $realmPdo, $accountId) {
+        $stmt = $realmPdo->prepare("SELECT online FROM account WHERE id=? LIMIT 1");
+        $stmt->execute([(int)$accountId]);
+        return (int)$stmt->fetchColumn() === 1;
+    }
+}
+
+if (!function_exists('spp_admin_character_is_online')) {
+    function spp_admin_character_is_online(PDO $charsPdo, $characterGuid, $accountId = 0) {
+        if ((int)$accountId > 0) {
+            $stmt = $charsPdo->prepare("SELECT online FROM characters WHERE guid=? AND account=? LIMIT 1");
+            $stmt->execute([(int)$characterGuid, (int)$accountId]);
+        } else {
+            $stmt = $charsPdo->prepare("SELECT online FROM characters WHERE guid=? LIMIT 1");
+            $stmt->execute([(int)$characterGuid]);
+        }
+        return (int)$stmt->fetchColumn() === 1;
+    }
+}
+
+if (!function_exists('spp_admin_online_characters_for_account')) {
+    function spp_admin_online_characters_for_account(PDO $charsPdo, $accountId) {
+        $stmt = $charsPdo->prepare("
+            SELECT guid, name
+            FROM characters
+            WHERE account=? AND online=1
+            ORDER BY name ASC, guid ASC
+        ");
+        $stmt->execute([(int)$accountId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: array();
+    }
+}
+
+if (!function_exists('spp_admin_force_characters_offline')) {
+    function spp_admin_force_characters_offline($realmId, array $characters, &$errorMessage = '') {
+        if (empty($characters)) {
+            $errorMessage = '';
+            return true;
+        }
+        if (!function_exists('spp_mangos_soap_execute_command')) {
+            $errorMessage = 'SOAP helper is unavailable.';
+            return false;
+        }
+
+        $errors = array();
+        $attemptedKick = false;
+        foreach ($characters as $character) {
+            $characterName = trim((string)($character['name'] ?? ''));
+            if ($characterName === '') {
+                continue;
+            }
+            $attemptedKick = true;
+            $soapError = '';
+            $soapResult = spp_mangos_soap_execute_command((int)$realmId, 'kick ' . $characterName, $soapError);
+            if ($soapResult !== false) {
+                continue;
+            }
+            if ($soapError !== '') {
+                $errors[] = $characterName . ': ' . $soapError;
+            }
+        }
+
+        if (!$attemptedKick) {
+            $errorMessage = '';
+            return true;
+        }
+
+        if (!empty($errors)) {
+            $errorMessage = implode(' | ', array_unique($errors));
+            return false;
+        }
+
+        $errorMessage = '';
+        return true;
+    }
+}
 // ==================== //
 if($_POST['search_member'] == TRUE){
     $s_string = trim($_POST['search_member']);
@@ -37,6 +143,34 @@ if($_POST['search_member'] == TRUE){
     }
 }
 if($_GET['id'] > 0){
+    if (isset($_GET['xfer'])) {
+        if ($_GET['xfer'] === 'success') {
+            output_message('notice', '<b>Character transferred to the target account.</b>');
+        } elseif ($_GET['xfer'] === 'missing_target') {
+            output_message('alert', '<b>Target account was not found.</b>');
+        } elseif ($_GET['xfer'] === 'source_online') {
+            output_message('alert', '<b>Source account is still online. Log it out before transferring.</b>');
+        } elseif ($_GET['xfer'] === 'target_online') {
+            output_message('alert', '<b>Target account is still online. Log it out before transferring.</b>');
+        } elseif ($_GET['xfer'] === 'char_online') {
+            output_message('alert', '<b>The selected character is still online. Log it out before transferring.</b>');
+        } elseif ($_GET['xfer'] === 'same_target') {
+            output_message('alert', '<b>Target account must be different from the current account.</b>');
+        } elseif ($_GET['xfer'] === 'missing_character') {
+            output_message('alert', '<b>That character was not found on this account.</b>');
+        } elseif ($_GET['xfer'] === 'failed') {
+            output_message('alert', '<b>Character transfer failed. No changes were saved.</b>');
+        }
+    }
+    if (isset($_GET['chardelete'])) {
+        if ($_GET['chardelete'] === 'success') {
+            output_message('notice', '<b>Character deleted from the active realm.</b>');
+        } elseif ($_GET['chardelete'] === 'missing') {
+            output_message('alert', '<b>That character was not found on this account.</b>');
+        } elseif ($_GET['chardelete'] === 'failed') {
+            output_message('alert', '<b>Character deletion failed. No changes were saved.</b>');
+        }
+    }
     if (isset($_GET['pwreset'])) {
         if ($_GET['pwreset'] === '1') {
             output_message('notice', '<b>' . $lang['change_pass_succ'] . '</b>');
@@ -52,6 +186,7 @@ if($_GET['id'] > 0){
     if(!$_GET['action']){
         $profile = $auth->getprofile($_GET['id']);
         spp_ensure_website_account_row($membersPdo, $_GET['id']);
+        $eligibleTransferAccounts = array();
         $stmt = $membersPdo->query("SELECT g_id, g_title FROM website_account_groups");
         $allgroups = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
         $stmt = $membersPdo->prepare("SELECT donator FROM website_accounts WHERE account_id=?");
@@ -63,9 +198,24 @@ if($_GET['id'] > 0){
         $act = $stmt->fetchColumn();
         $active = $act;
 
-        $stmt = $membersCharsPdo->prepare("SELECT `guid`, `name`, `race`, `class`, `level` FROM `characters` WHERE `account` = ? ORDER BY guid");
+        $stmt = $membersCharsPdo->prepare("SELECT `guid`, `name`, `race`, `class`, `level`, `online` FROM `characters` WHERE `account` = ? ORDER BY guid");
         $stmt->execute([(int)$_GET['id']]);
         $userchars = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $onlineCharacterCount = 0;
+        foreach ($userchars as $userchar) {
+            if (!empty($userchar['online'])) {
+                $onlineCharacterCount++;
+            }
+        }
+        $stmtEligible = $membersPdo->prepare("
+            SELECT id, username
+            FROM account
+            WHERE id <> ?
+              AND LOWER(username) NOT LIKE 'rndbot%'
+            ORDER BY username ASC, id ASC
+        ");
+        $stmtEligible->execute([(int)$_GET['id']]);
+        $eligibleTransferAccounts = $stmtEligible->fetchAll(PDO::FETCH_ASSOC);
         $profile['is_bot_account'] = stripos((string)($profile['username'] ?? ''), 'rndbot') === 0;
         $profile['character_signatures'] = array();
         if (!empty($userchars)) {
@@ -232,6 +382,200 @@ if($_GET['id'] > 0){
             }
         }
         redirect('index.php?n=admin&sub=members&id=' . $id, 1); exit;
+    }elseif($_GET['action'] == 'transferchar' || $_GET['action'] == 'transferbotchar'){
+        $sourceAccountId = (int)$_GET['id'];
+        $stmtBot = $membersPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
+        $stmtBot->execute([$sourceAccountId]);
+        $sourceUsername = (string)$stmtBot->fetchColumn();
+
+        $characterGuid = (int)($_POST['transfer_character_guid'] ?? 0);
+        $targetAccountId = (int)($_POST['target_account_id'] ?? 0);
+        if ($characterGuid <= 0) {
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=missing_character', 1); exit;
+        }
+
+        $stmtTarget = $membersPdo->prepare("
+            SELECT id, username
+            FROM account
+            WHERE id = ?
+              AND LOWER(username) NOT LIKE 'rndbot%'
+            LIMIT 1
+        ");
+        $stmtTarget->execute([$targetAccountId]);
+        $targetAccount = $stmtTarget->fetch(PDO::FETCH_ASSOC) ?: null;
+        $targetAccountId = (int)($targetAccount['id'] ?? 0);
+        $targetUsername = (string)($targetAccount['username'] ?? '');
+
+        if ($targetAccountId <= 0) {
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=missing_target', 1); exit;
+        }
+        if ($targetAccountId === $sourceAccountId) {
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=same_target', 1); exit;
+        }
+
+        $stmtChar = $membersCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+        $stmtChar->execute([$characterGuid, $sourceAccountId]);
+        $charRow = $stmtChar->fetch(PDO::FETCH_ASSOC);
+        if (!$charRow) {
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=missing_character', 1); exit;
+        }
+
+        $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
+        $sourceAccountOnline = spp_admin_account_is_online($membersPdo, $sourceAccountId);
+        $targetAccountOnline = spp_admin_account_is_online($membersPdo, $targetAccountId);
+        $characterOnline = spp_admin_character_is_online($membersCharsPdo, $characterGuid, $sourceAccountId);
+
+        if ($sourceAccountOnline || $targetAccountOnline || $characterOnline) {
+            if ($sourceAccountOnline || $characterOnline) {
+                $sourceOnlineCharacters = spp_admin_online_characters_for_account($membersCharsPdo, $sourceAccountId);
+                $soapError = '';
+                if (!spp_admin_force_characters_offline($activeRealmId, $sourceOnlineCharacters, $soapError) && $soapError !== '') {
+                    error_log('[admin.members] Source character kick attempt failed for ' . $sourceUsername . ': ' . $soapError);
+                }
+            }
+            if ($targetAccountOnline) {
+                $targetOnlineCharacters = spp_admin_online_characters_for_account($membersCharsPdo, $targetAccountId);
+                $soapError = '';
+                if (!spp_admin_force_characters_offline($activeRealmId, $targetOnlineCharacters, $soapError) && $soapError !== '') {
+                    error_log('[admin.members] Target character kick attempt failed for ' . $targetUsername . ': ' . $soapError);
+                }
+            }
+
+            for ($i = 0; $i < 5; $i++) {
+                usleep(500000);
+                $sourceAccountOnline = spp_admin_account_is_online($membersPdo, $sourceAccountId);
+                $targetAccountOnline = spp_admin_account_is_online($membersPdo, $targetAccountId);
+                $characterOnline = spp_admin_character_is_online($membersCharsPdo, $characterGuid, $sourceAccountId);
+                if (!$sourceAccountOnline && !$targetAccountOnline && !$characterOnline) {
+                    break;
+                }
+            }
+
+            if ($characterOnline) {
+                redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=char_online', 1); exit;
+            }
+            if ($sourceAccountOnline) {
+                redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=source_online', 1); exit;
+            }
+            if ($targetAccountOnline) {
+                redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=target_online', 1); exit;
+            }
+        }
+
+        try {
+            $membersCharsPdo->beginTransaction();
+            $membersPdo->beginTransaction();
+
+            $stmtMove = $membersCharsPdo->prepare("UPDATE characters SET account=? WHERE guid=? AND account=? LIMIT 1");
+            $stmtMove->execute([$targetAccountId, $characterGuid, $sourceAccountId]);
+            if ($stmtMove->rowCount() <= 0) {
+                throw new RuntimeException('Character account update failed.');
+            }
+
+            spp_ensure_website_account_row($membersPdo, $targetAccountId);
+
+            $identity = function_exists('spp_get_char_identity') ? spp_get_char_identity($activeRealmId, $characterGuid) : null;
+            if (!empty($identity['identity_id'])) {
+                $targetIsBot = stripos($targetUsername, 'rndbot') === 0;
+                $stmtIdentity = $membersPdo->prepare("
+                    UPDATE website_identities
+                    SET owner_account_id = ?, identity_type = ?, is_bot = ?, is_active = 1, updated_at = NOW()
+                    WHERE identity_id = ?
+                    LIMIT 1
+                ");
+                $stmtIdentity->execute([
+                    $targetAccountId,
+                    $targetIsBot ? 'bot_character' : 'character',
+                    $targetIsBot ? 1 : 0,
+                    (int)$identity['identity_id']
+                ]);
+            }
+
+            $stmtWebsiteSource = $membersPdo->prepare("
+                UPDATE website_accounts
+                SET character_id = CASE WHEN character_id = ? THEN NULL ELSE character_id END,
+                    character_name = CASE WHEN character_id = ? THEN NULL ELSE character_name END
+                WHERE account_id = ?
+            ");
+            $stmtWebsiteSource->execute([$characterGuid, $characterGuid, $sourceAccountId]);
+
+            $stmtWebsiteTarget = $membersPdo->prepare("SELECT character_id FROM website_accounts WHERE account_id=? LIMIT 1");
+            $stmtWebsiteTarget->execute([$targetAccountId]);
+            $targetSelectedCharacter = (int)$stmtWebsiteTarget->fetchColumn();
+            if ($targetSelectedCharacter <= 0) {
+                $stmtWebsiteAssign = $membersPdo->prepare("UPDATE website_accounts SET character_id=?, character_name=? WHERE account_id=?");
+                $stmtWebsiteAssign->execute([$characterGuid, (string)$charRow['name'], $targetAccountId]);
+            }
+
+            $membersCharsPdo->commit();
+            $membersPdo->commit();
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=success', 1); exit;
+        } catch (Throwable $e) {
+            if ($membersCharsPdo->inTransaction()) {
+                $membersCharsPdo->rollBack();
+            }
+            if ($membersPdo->inTransaction()) {
+                $membersPdo->rollBack();
+            }
+            error_log('[admin.members] Bot character transfer failed: ' . $e->getMessage());
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=failed', 1); exit;
+        }
+    }elseif($_GET['action'] == 'deletechar'){
+        $sourceAccountId = (int)$_GET['id'];
+        $characterGuid = (int)($_POST['delete_character_guid'] ?? 0);
+        if ($characterGuid <= 0) {
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&chardelete=missing', 1); exit;
+        }
+
+        $stmtChar = $membersCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+        $stmtChar->execute([$characterGuid, $sourceAccountId]);
+        $charRow = $stmtChar->fetch(PDO::FETCH_ASSOC);
+        if (!$charRow) {
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&chardelete=missing', 1); exit;
+        }
+
+        $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
+        try {
+            $membersCharsPdo->beginTransaction();
+            $membersPdo->beginTransaction();
+
+            foreach (spp_admin_character_delete_tables() as $table => $column) {
+                $stmtDelete = $membersCharsPdo->prepare("DELETE FROM `$table` WHERE `$column` = ?");
+                $stmtDelete->execute([$characterGuid]);
+            }
+
+            $identity = function_exists('spp_get_char_identity') ? spp_get_char_identity($activeRealmId, $characterGuid) : null;
+            if (!empty($identity['identity_id'])) {
+                $stmtIdentity = $membersPdo->prepare("
+                    UPDATE website_identities
+                    SET is_active = 0, updated_at = NOW()
+                    WHERE identity_id = ?
+                    LIMIT 1
+                ");
+                $stmtIdentity->execute([(int)$identity['identity_id']]);
+            }
+
+            $stmtWebsiteSource = $membersPdo->prepare("
+                UPDATE website_accounts
+                SET character_id = CASE WHEN character_id = ? THEN NULL ELSE character_id END,
+                    character_name = CASE WHEN character_id = ? THEN NULL ELSE character_name END
+                WHERE account_id = ?
+            ");
+            $stmtWebsiteSource->execute([$characterGuid, $characterGuid, $sourceAccountId]);
+
+            $membersCharsPdo->commit();
+            $membersPdo->commit();
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&chardelete=success', 1); exit;
+        } catch (Throwable $e) {
+            if ($membersCharsPdo->inTransaction()) {
+                $membersCharsPdo->rollBack();
+            }
+            if ($membersPdo->inTransaction()) {
+                $membersPdo->rollBack();
+            }
+            error_log('[admin.members] Character delete failed: ' . $e->getMessage());
+            redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&chardelete=failed', 1); exit;
+        }
     }elseif($_GET['action'] == 'dodeleteacc'){
         $deleteId = (int)$_GET['id'];
         $deleteRealmId = spp_resolve_realm_id($realmDbMap);
@@ -275,30 +619,6 @@ if($_GET['id'] > 0){
         } else {
         // Action to delete all characters that is so and so old. look at $delete_in_days variable beneath.
         $delete_in_days = 90;
-        $chartables = array(
-            'characters'                  => 'guid',
-            'character_inventory'         => 'guid',
-            'character_action'            => 'guid',
-            'character_aura'              => 'guid',
-            'character_gifts'             => 'guid',
-            'character_homebind'          => 'guid',
-            'character_instance'          => 'guid',
-            'character_inventory'         => 'guid',
-            'character_queststatus_daily' => 'guid',
-            'character_kill'              => 'guid',
-            'character_pet'               => 'owner',
-            'character_queststatus'       => 'guid',
-            'character_reputation'        => 'guid',
-            'character_social'            => 'guid',
-            'character_spell'             => 'guid',
-            'character_spell_cooldown'    => 'guid',
-            'character_ticket'            => 'guid',
-            'character_tutorial'          => 'guid',
-            'corpse'                      => 'guid',
-            'item_instance'               => 'owner_guid',
-            'petition'                    => 'ownerguid',
-            'petition_sign'               => 'ownerguid',
-        );
         $cur_timestamp = date('Y-m-d H:i:s', mktime(date('H'), date('i'), date('s'), date('m'), date('d') - $delete_in_days, date('Y')));
         $stmt = $membersPdo->prepare("SELECT id FROM account LEFT JOIN website_accounts ON account.id=website_accounts.account_id WHERE ? >= last_login AND website_accounts.vip=0");
         $stmt->execute([$cur_timestamp]);
@@ -314,7 +634,7 @@ if($_GET['id'] > 0){
         if(count($charguids)){
             $guidPlaceholders = implode(',', array_fill(0, count($charguids), '?'));
             $guidInts = array_map('intval', $charguids);
-            foreach ($chartables as $table => $col) {
+            foreach (spp_admin_character_delete_tables() as $table => $col) {
                 $stmt = $membersCharsPdo->prepare("DELETE FROM `$table` WHERE `$col` IN ($guidPlaceholders)");
                 $stmt->execute($guidInts);
             }
