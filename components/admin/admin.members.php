@@ -2,6 +2,8 @@
 if(INCLUDED !== true)exit;
 // ==================== //
 $oldInactiveTime = 3600 * 24 * 7;
+$deleteInactiveAccountsEnabled = false;
+$deleteInactiveCharactersEnabled = false;
 $membersPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
 $membersCharsPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
 
@@ -173,6 +175,9 @@ if($_GET['id'] > 0){
     }
 }else{
     if($_GET['action'] == 'deleteinactive'){
+        if (!$deleteInactiveAccountsEnabled) {
+            output_message('alert', 'Inactive account deletion is currently disabled until this maintenance workflow is reviewed.');
+        } else {
         $cur_timestamp = date('YmdHis', time() - $oldInactiveTime);
         $stmt = $membersPdo->prepare("
             SELECT account_id FROM website_accounts
@@ -190,7 +195,11 @@ if($_GET['id'] > 0){
             $stmt->execute($accInts);
         }
         redirect('index.php?n=admin&sub=members', 1); exit;
+        }
     }elseif($_GET['action'] == 'deleteinactive_characters'){
+        if (!$deleteInactiveCharactersEnabled) {
+            output_message('alert', 'Inactive character deletion is currently disabled until this maintenance workflow is reviewed.');
+        } else {
         // Action to delete all characters that is so and so old. look at $delete_in_days variable beneath.
         $delete_in_days = 90;
         $chartables = array(
@@ -238,6 +247,7 @@ if($_GET['id'] > 0){
             }
         }
         output_message('alert', 'Accounts checked: ' . count($accountids) . '. Characters deleted: ' . count($charguids) . '.');
+        }
     }
     $pathway_info[] = array('title' => $lang['users_manage'], 'link' => '');
     //===== Filter ==========//

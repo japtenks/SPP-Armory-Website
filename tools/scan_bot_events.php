@@ -24,6 +24,7 @@ $siteRoot = dirname(__DIR__);
 $_SERVER['DOCUMENT_ROOT'] = $siteRoot;
 require_once($siteRoot . '/config/config-protected.php');
 require_once($siteRoot . '/config/bot_event_config.php');
+require_once($siteRoot . '/tools/guild_json.php');
 
 // ---- Parse args ----
 $dryRun      = in_array('--dry-run', $argv, true);
@@ -38,7 +39,8 @@ foreach ($argv as $arg) {
     }
 }
 
-$realms = array_keys($realmDbMap);
+$realms = $botEventConfig['enabled_realms'] ?? array_keys($realmDbMap);
+$realms = array_values(array_intersect(array_map('intval', $realms), array_keys($realmDbMap)));
 if ($realmFilter !== null) {
     $realms = array_values(array_intersect($realms, $realmFilter));
 }
@@ -228,6 +230,226 @@ foreach ($realms as $realmId) {
                 $totals['profession_milestone'] = ($totals['profession_milestone'] ?? 0) + $inserted;
             } catch (Exception $e) {
                 log_line("  ERROR (profession_milestone): " . $e->getMessage());
+            }
+        }
+    }
+    // ---- Guild roster update scan ----
+    if (should_scan('guild_roster_update', $eventFilter)) {
+        $targetForum  = $forums['guild_roster_update'] ?? null;
+        $thresholds   = $botEventConfig['guild_roster_thresholds'] ?? [];
+        $minJoins     = (int)($thresholds['min_joins']    ?? 8);
+        $cooldownSec  = (int)($thresholds['cooldown_sec'] ?? 43200);
+
+        if ($targetForum) {
+            log_line("  Scanning guild roster updates...");
+            try {
+                $guildsStmt = $charPdo->query("
+                    SELECT g.guildid, g.name, g.leaderguid,
+                           c.name AS leader_name
+                    FROM `guild` g
+                    JOIN `characters` c ON c.guid = g.leaderguid
+                ");
+                $guilds  = $guildsStmt->fetchAll(PDO::FETCH_ASSOC);
+                $inserted = 0;
+
+                foreach ($guilds as $guild) {
+                    $guildId    = (int)$guild['guildid'];
+                    $guildName  = $guild['name'];
+                    $leaderGuid = (int)$guild['leaderguid'];
+                    $leaderName = $guild['leader_name'];
+
+                    // Load current roster
+                    $memberStmt = $charPdo->prepare("
+                        SELECT gm.guid AS memberGuid, c.name
+                        FROM `guild_member` gm
+                        JOIN `characters` c ON c.guid = gm.guid
+                        WHERE gm.guildid = ?
+                    ");
+                    $memberStmt->execute([$guildId]);
+                    $memberRows   = $memberStmt->fetchAll(PDO::FETCH_ASSOC);
+                    $currentGuids = array_values(array_map('intval', array_column($memberRows, 'memberGuid')));
+                    $nameByGuid   = array_column($memberRows, 'name', 'memberGuid');
+
+                    $summary = guild_json_read($realmId, $guildId);
+
+                    if ($summary === null) {
+                        // First scan: write baseline snapshot, don't fire an event yet.
+                        $skeleton = guild_json_skeleton($realmId, $guildId, $guildName, $leaderGuid, $leaderName, $currentGuids);
+                        if (!$dryRun) {
+                            guild_json_write($realmId, $guildId, $skeleton);
+                        } else {
+                            log_line("    [dry-run] Guild '{$guildName}': wrote baseline (" . count($currentGuids) . " members).");
+                        }
+                        continue;
+                    }
+
+                    // Refresh mutable fields in case they changed in-game.
+                    $summary['guild_name']                            = $guildName;
+                    $summary['posting_identity']['leader_guid']       = $leaderGuid;
+                    $summary['posting_identity']['leader_name']       = $leaderName;
+
+                    // Delta vs the roster snapshot at time of last forum post.
+                    $prevGuids   = array_values(array_map('intval', $summary['roster']['member_guids'] ?? []));
+                    $joinedGuids = array_values(array_diff($currentGuids, $prevGuids));
+                    $leftGuids   = array_values(array_diff($prevGuids, $currentGuids));
+                    $joinedCount = count($joinedGuids);
+                    $leftCount   = count($leftGuids);
+
+                    // Always update pending_delta so admins can see accumulated drift.
+                    $summary['pending_delta'] = [
+                        'joined_guids' => $joinedGuids,
+                        'left_guids'   => $leftGuids,
+                    ];
+                    if (!$dryRun) {
+                        guild_json_write($realmId, $guildId, $summary);
+                    }
+
+                    // Threshold: enough joins OR any leaves
+                    $shouldPost = ($joinedCount >= $minJoins || $leftCount > 0);
+
+                    // Cooldown: last post must be far enough in the past
+                    $lastPostAt   = $summary['last_forum_roster_post']['posted_at'] ?? null;
+                    $lastPostTime = $lastPostAt ? (strtotime($lastPostAt) ?: 0) : 0;
+                    $cooldownOk   = (time() - $lastPostTime) >= $cooldownSec;
+
+                    if (!$shouldPost || !$cooldownOk) {
+                        if ($dryRun && ($joinedCount > 0 || $leftCount > 0)) {
+                            $reason = !$cooldownOk ? 'cooldown not met' : 'threshold not met';
+                            log_line("    [dry-run] Guild '{$guildName}': +{$joinedCount}/-{$leftCount} — {$reason}.");
+                        }
+                        continue;
+                    }
+
+                    $joinedNames = array_values(array_filter(
+                        array_map(function ($g) use ($nameByGuid) { return $nameByGuid[$g] ?? null; }, array_slice($joinedGuids, 0, 10))
+                    ));
+
+                    // Dedupe key scoped to one cooldown window so INSERT IGNORE prevents
+                    // duplicates if the scanner runs multiple times in the same window.
+                    $windowTs  = (int)floor(time() / $cooldownSec) * $cooldownSec;
+                    $dedupeKey = "guild_roster_update:realm{$realmId}:guild{$guildId}:w{$windowTs}";
+
+                    $added = insert_event($masterPdo, [
+                        'event_type'     => 'guild_roster_update',
+                        'realm_id'       => $realmId,
+                        'guild_id'       => $guildId,
+                        'character_guid' => $leaderGuid,
+                        'payload'        => [
+                            'guild_name'      => $guildName,
+                            'leader_name'     => $leaderName,
+                            'leader_guid'     => $leaderGuid,
+                            'joined_count'    => $joinedCount,
+                            'left_count'      => $leftCount,
+                            'joined_names'    => $joinedNames,
+                            'member_count'    => count($currentGuids),
+                            'thread_topic_id' => $summary['thread_topic_id'] ?? null,
+                        ],
+                        'dedupe_key'      => $dedupeKey,
+                        'target_forum_id' => (int)$targetForum,
+                    ], $dryRun);
+                    if ($added) $inserted++;
+                }
+
+                log_line("  Guild roster: " . count($guilds) . " guilds checked, {$inserted} new events queued.");
+                $totals['guild_roster_update'] = ($totals['guild_roster_update'] ?? 0) + $inserted;
+            } catch (Exception $e) {
+                log_line("  ERROR (guild_roster_update): " . $e->getMessage());
+            }
+        }
+    }
+    // ---- Achievement badge scan (character_achievement table) ----
+    if (should_scan('achievement_badge', $eventFilter)) {
+        $targetForum  = $forums['achievement_badge'] ?? null;
+        $lookbackDays = (int)($botEventConfig['achievement_lookback_days'] ?? 30);
+        $excludeIds   = $botEventConfig['achievement_badge_exclude'] ?? [];
+
+        if ($targetForum) {
+            log_line("  Scanning achievement badges ({$lookbackDays}d window)...");
+            try {
+                $cutoff    = time() - ($lookbackDays * 86400);
+                $excludeSql = '';
+                $excludeParams = [];
+                if (!empty($excludeIds)) {
+                    $exPh        = implode(',', array_fill(0, count($excludeIds), '?'));
+                    $excludeSql  = "AND ca.achievement NOT IN ({$exPh})";
+                    $excludeParams = $excludeIds;
+                }
+
+                $stmt = $charPdo->prepare("
+                    SELECT ca.guid, ca.achievement, ca.date, c.name, c.account
+                    FROM `character_achievement` ca
+                    JOIN `characters` c ON c.guid = ca.guid
+                    WHERE ca.date >= ?
+                    {$excludeSql}
+                    ORDER BY ca.date ASC
+                ");
+                $stmt->execute(array_merge([$cutoff], $excludeParams));
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (empty($rows)) {
+                    log_line("  No achievement rows found in window.");
+                } else {
+                    // Build achievement name/category map.
+                    // Use the chars PDO with a cross-DB join to achievement_dbc in the world DB
+                    // (same DB instance, so cross-schema joins work — matches how manual queries run).
+                    $achIds     = array_values(array_unique(array_column($rows, 'achievement')));
+                    $achPh      = implode(',', array_fill(0, count($achIds), '?'));
+                    $achMeta    = []; // [id => ['name' => ..., 'points' => ..., 'category' => ...]]
+                    $worldDbName = $realmDbMap[$realmId]['world'] ?? null;
+
+                    if ($worldDbName) {
+                        try {
+                            $mStmt = $charPdo->prepare("
+                                SELECT a.`ID`, a.`Title_Lang_enUS` AS name,
+                                       a.`Points` AS points, a.`Category` AS category
+                                FROM `{$worldDbName}`.`achievement_dbc` a
+                                WHERE a.`ID` IN ({$achPh})
+                            ");
+                            $mStmt->execute($achIds);
+                            foreach ($mStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                                $achMeta[(int)$r['ID']] = [
+                                    'name'     => $r['name'],
+                                    'points'   => (int)$r['points'],
+                                    'category' => (int)$r['category'],
+                                ];
+                            }
+                        } catch (Throwable $e) {
+                            log_line("  WARN: achievement name lookup failed (" . $e->getMessage() . ") — IDs will be used as fallback.");
+                        }
+                    } else {
+                        log_line("  WARN: world DB name not found in realmDbMap — achievement names will fall back to IDs.");
+                    }
+
+                    $inserted = 0;
+                    foreach ($rows as $row) {
+                        $achId   = (int)$row['achievement'];
+                        $meta    = $achMeta[$achId] ?? [];
+                        $achName = $meta['name'] ?? ('Achievement #' . $achId);
+
+                        $dedupeKey = "achievement_badge:realm{$realmId}:char{$row['guid']}:achieve{$achId}";
+                        $added = insert_event($masterPdo, [
+                            'event_type'     => 'achievement_badge',
+                            'realm_id'       => $realmId,
+                            'account_id'     => (int)$row['account'],
+                            'character_guid' => (int)$row['guid'],
+                            'payload'        => [
+                                'char_name'      => $row['name'],
+                                'achievement'    => $achName,
+                                'achievement_id' => $achId,
+                                'points'         => $meta['points'] ?? 0,
+                                'badge_type'     => 'achievement',
+                            ],
+                            'dedupe_key'      => $dedupeKey,
+                            'target_forum_id' => (int)$targetForum,
+                            'occurred_at'     => date('Y-m-d H:i:s', (int)$row['date']),
+                        ], $dryRun);
+                        if ($added) $inserted++;
+                    }
+                    log_line("  Achievement badges: " . count($rows) . " rows found, {$inserted} new events queued.");
+                    $totals['achievement_badge'] = ($totals['achievement_badge'] ?? 0) + $inserted;
+                }
+            } catch (Exception $e) {
+                log_line("  ERROR (achievement_badge): " . $e->getMessage());
             }
         }
     }

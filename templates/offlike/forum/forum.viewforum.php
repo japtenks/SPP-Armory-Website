@@ -49,6 +49,17 @@
   font-weight: bold;
   border-bottom: 1px solid #444;
 }
+.forum-list-head a {
+  color: inherit;
+  text-decoration: none;
+}
+.forum-list-head a:hover {
+  color: #ffd97a;
+}
+.sort-indicator {
+  margin-left: 4px;
+  color: #c3a46a;
+}
 .forum-row {
   background: #111;
   border-bottom: 1px solid #333;
@@ -169,7 +180,25 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
 
 $forumPageCount = max(1, (int)($this_forum['pnum'] ?? 1));
 $forumItemsPerPage = (int)($this_forum['items_per_page'] ?? 25);
-$forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['forum_id'] . '&per_page=' . $forumItemsPerPage;
+$forumSortField = (string)($this_forum['sort_field'] ?? 'last_reply');
+$forumSortDir = (string)($this_forum['sort_dir'] ?? 'desc');
+$forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['forum_id'] . '&per_page=' . $forumItemsPerPage . '&sort=' . urlencode($forumSortField) . '&dir=' . urlencode($forumSortDir);
+
+$forumSortUrl = function (string $field) use ($this_forum, $forumItemsPerPage, $forumSortField, $forumSortDir): string {
+    $nextDir = ($forumSortField === $field && $forumSortDir === 'asc') ? 'desc' : 'asc';
+    return 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['forum_id']
+        . '&per_page=' . $forumItemsPerPage
+        . '&sort=' . urlencode($field)
+        . '&dir=' . urlencode($nextDir);
+};
+
+$forumSortLabel = function (string $field, string $label) use ($forumSortUrl, $forumSortField, $forumSortDir): string {
+    $indicator = '';
+    if ($forumSortField === $field) {
+        $indicator = '<span class="sort-indicator">' . ($forumSortDir === 'asc' ? '&#9650;' : '&#9660;') . '</span>';
+    }
+    return '<a href="' . htmlspecialchars($forumSortUrl($field), ENT_QUOTES, 'UTF-8') . '">' . $label . $indicator . '</a>';
+};
 ?>
 
 <?php builddiv_start(1, $this_forum['forum_name'], 0, true, $this_forum['forum_id'], $this_forum['closed']); ?>
@@ -194,6 +223,8 @@ $forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['f
       <input type="hidden" name="n" value="forum" />
       <input type="hidden" name="sub" value="viewforum" />
       <input type="hidden" name="fid" value="<?php echo (int)$this_forum['forum_id']; ?>" />
+      <input type="hidden" name="sort" value="<?php echo htmlspecialchars($forumSortField, ENT_QUOTES, 'UTF-8'); ?>" />
+      <input type="hidden" name="dir" value="<?php echo htmlspecialchars($forumSortDir, ENT_QUOTES, 'UTF-8'); ?>" />
       <label for="forum_per_page">Show</label>
       <select id="forum_per_page" name="per_page" onchange="this.form.submit()">
         <?php foreach (($this_forum['allowed_page_sizes'] ?? array(10, 25, 50)) as $pageSize): ?>
@@ -206,11 +237,11 @@ $forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['f
 
   <div class="forum-list-head">
     <div></div>
-    <div>Subject</div>
-    <div>Author</div>
-    <div>Replies</div>
-    <div>Views</div>
-    <div>Last Reply</div>
+    <div><?php echo $forumSortLabel('subject', 'Subject'); ?></div>
+    <div><?php echo $forumSortLabel('author', 'Author'); ?></div>
+    <div><?php echo $forumSortLabel('replies', 'Replies'); ?></div>
+    <div><?php echo $forumSortLabel('views', 'Views'); ?></div>
+    <div><?php echo $forumSortLabel('last_reply', 'Last Reply'); ?></div>
   </div>
 
   <?php if (empty($topics)): ?>

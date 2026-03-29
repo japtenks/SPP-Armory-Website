@@ -96,6 +96,17 @@
   color: #ffe2e2;
 }
 
+.admin-btn[aria-disabled="true"],
+.toolbar-form .toolbar-link[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  color: #b9b9b9;
+  background: rgba(90, 90, 90, 0.14);
+  border-color: rgba(180, 180, 180, 0.18);
+  box-shadow: none;
+  pointer-events: none;
+}
+
 .admin-detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
@@ -572,9 +583,10 @@
     <div class="toolbar-row">
       <div class="toolbar-group" style="min-width:240px;">
         <span class="admin-subheading" style="margin:0;">Maintenance</span>
+        <div class="admin-note">Bulk account and character deletion is disabled until the cleanup flow is reviewed in detail.</div>
         <div class="toolbar-links">
-          <a class="danger" href="index.php?n=admin&sub=members&action=deleteinactive" onclick="return confirm('Are you sure?');">Delete Inactive Accounts</a>
-          <a class="danger" href="index.php?n=admin&sub=members&action=deleteinactive_characters" onclick="return confirm('Are you sure that you want to delete all characs. that are old?');">Delete Old Characters</a>
+          <a class="danger" href="#" aria-disabled="true">Delete Inactive Accounts</a>
+          <a class="danger" href="#" aria-disabled="true">Delete Old Characters</a>
         </div>
       </div>
 

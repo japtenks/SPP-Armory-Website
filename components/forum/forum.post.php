@@ -252,6 +252,9 @@ if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
                     ':last_poster' => $user['character_name'],
                     ':topic_id' => $new_topic_id,
                 ]);
+                if (function_exists('spp_enforce_topic_view_floor')) {
+                    spp_enforce_topic_view_floor($forumPdo, $new_topic_id, 1);
+                }
 
                 $stmt = $forumPdo->prepare(
                     "UPDATE f_forums
@@ -344,6 +347,9 @@ if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
                 $execParams[':bumped_at'] = $post_time;
             }
             $stmt->execute($execParams);
+            if (function_exists('spp_enforce_topic_view_floor')) {
+                spp_enforce_topic_view_floor($forumPdo, (int)$this_topic['topic_id'], 2);
+            }
 
             $stmt = $forumPdo->prepare(
                 "UPDATE f_forums

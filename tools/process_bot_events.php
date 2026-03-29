@@ -137,6 +137,44 @@ function build_batch_post_schedule(array $events): array {
     return $schedule;
 }
 
+function build_next_scheduled_post_map(array $events, array $scheduledPostTimes): array {
+    $nextScheduledPostMap = [];
+    $grouped = [];
+
+    foreach ($events as $event) {
+        $eventId = (int)($event['event_id'] ?? 0);
+        if ($eventId <= 0 || !isset($scheduledPostTimes[$eventId])) {
+            continue;
+        }
+
+        $realmId = (int)($event['realm_id'] ?? 0);
+        $forumId = (int)($event['target_forum_id'] ?? 0);
+        $grouped[$realmId . ':' . $forumId][] = [
+            'event_id' => $eventId,
+            'post_time' => (int)$scheduledPostTimes[$eventId],
+        ];
+    }
+
+    foreach ($grouped as $groupEvents) {
+        usort($groupEvents, static function (array $a, array $b): int {
+            if ($a['post_time'] === $b['post_time']) {
+                return $a['event_id'] <=> $b['event_id'];
+            }
+            return $a['post_time'] <=> $b['post_time'];
+        });
+
+        $count = count($groupEvents);
+        for ($i = 0; $i < $count; $i++) {
+            $eventId = (int)$groupEvents[$i]['event_id'];
+            $nextScheduledPostMap[$eventId] = ($i + 1 < $count)
+                ? (int)$groupEvents[$i + 1]['post_time']
+                : null;
+        }
+    }
+
+    return $nextScheduledPostMap;
+}
+
 // ---- --skip-all mode ----
 if ($skipAll) {
     if (!$dryRun) {
@@ -167,6 +205,7 @@ $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 log_line("Found " . count($events) . " pending events.");
 $scheduledPostTimes = build_batch_post_schedule($events);
+$nextScheduledPostMap = build_next_scheduled_post_map($events, $scheduledPostTimes);
 
 // ---- Herald cache: realm_id => identity row ----
 $heraldCache = [];
@@ -297,16 +336,19 @@ function build_post_content(array $event, bool $selfPost = false): array {
 
     if ($type === 'achievement_badge') {
         $name    = htmlspecialchars($payload['char_name']   ?? 'Someone');
-        $achieve = htmlspecialchars($payload['achievement'] ?? 'an achievement');
+        $achieve = htmlspecialchars($payload['achievement'] ?? 'a milestone');
+        $points  = (int)($payload['points'] ?? 0);
+        $ptStr   = $points > 0 ? " (+{$points} pts)" : '';
+
         if ($selfPost) {
             return [
-                'title' => "Just earned [{$achieve}]!",
-                'body'  => "I just earned the [{$achieve}] achievement! Feels good to get that one done.",
+                'title' => "Earned: {$achieve}",
+                'body'  => "Just earned the [{$achieve}] achievement{$ptStr}. Feels great to get that one!",
             ];
         }
         return [
             'title' => "{$name} earned [{$achieve}]",
-            'body'  => "{$name} has earned the [{$achieve}] achievement. Well done!",
+            'body'  => "{$name} has earned the [{$achieve}] achievement{$ptStr}.",
         ];
     }
 
@@ -356,6 +398,9 @@ function post_forum_reply(
                 num_replies = num_replies + 1, last_bumped_at = ?
             WHERE topic_id = ?
         ")->execute([$postTime, $postId, $posterName, $postTime, $topicId]);
+        if (function_exists('spp_enforce_topic_view_floor')) {
+            spp_enforce_topic_view_floor($pdo, $topicId, 2);
+        }
 
         $forumStmt = $pdo->prepare("SELECT forum_id FROM `f_topics` WHERE topic_id = ?");
         $forumStmt->execute([$topicId]);
@@ -442,6 +487,9 @@ function post_forum_topic(
             SET last_post = ?, last_post_id = ?, last_poster = ?
             WHERE topic_id = ?
         ")->execute([$postTime, $postId, $posterName, $topicId]);
+        if (function_exists('spp_enforce_topic_view_floor')) {
+            spp_enforce_topic_view_floor($pdo, $topicId, 1);
+        }
 
         $pdo->prepare("
             UPDATE `f_forums`
@@ -459,6 +507,410 @@ function post_forum_topic(
         if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
         error_log('[process_bot_events] Post failed: ' . $e->getMessage());
         throw $e;
+    }
+}
+
+function maybe_bump_topic_views(
+    int  $realmId,
+    int  $topicId,
+    bool $dryRun,
+    int  $chancePercent = 70,
+    int  $minViews = 1,
+    int  $maxViews = 3
+): void {
+    $chancePercent = max(0, min(100, $chancePercent));
+    if ($topicId <= 0 || random_int(1, 100) > $chancePercent) {
+        return;
+    }
+
+    $viewBump = random_int(max(1, $minViews), max($minViews, $maxViews));
+
+    if ($dryRun) {
+        log_line("    [dry-run] View bump: +{$viewBump} views");
+        return;
+    }
+
+    try {
+        $pdo = spp_get_pdo('realmd', $realmId);
+        $stmt = $pdo->prepare("
+            UPDATE `f_topics`
+            SET num_views = GREATEST(num_views + ?, num_replies + 1)
+            WHERE topic_id = ?
+        ");
+        $stmt->execute([$viewBump, $topicId]);
+    } catch (Throwable $e) {
+        error_log('[process_bot_events] View bump failed: ' . $e->getMessage());
+    }
+}
+
+function build_reaction_offsets(int $count, int $minDelay, int $maxDelay): array {
+    if ($count <= 0 || $maxDelay < $minDelay) {
+        return [];
+    }
+
+    $offsets = [];
+    for ($i = 0; $i < $count; $i++) {
+        $min = max($minDelay, (int)floor(($maxDelay * $i) / $count));
+        $max = (int)floor(($maxDelay * ($i + 1)) / $count) - 1;
+        if ($i === $count - 1) {
+            $max = $maxDelay;
+        }
+        if ($max < $min) {
+            $max = $min;
+        }
+        $offsets[] = ($max > $min) ? random_int($min, $max) : $min;
+    }
+
+    sort($offsets, SORT_NUMERIC);
+    return $offsets;
+}
+
+function get_guild_chatter_identities(
+    int $realmId,
+    int $guildId,
+    int $excludeIdentityId,
+    int $limit,
+    PDO $masterPdo
+): array {
+    if ($guildId <= 0 || $limit <= 0) {
+        return [];
+    }
+
+    try {
+        $charPdo = spp_get_pdo('chars', $realmId);
+        $initiateRankStmt = $charPdo->prepare("
+            SELECT MAX(rid)
+            FROM `guild_rank`
+            WHERE guildid = ?
+        ");
+        $initiateRankStmt->execute([$guildId]);
+        $initiateRank = (int)($initiateRankStmt->fetchColumn() ?? 0);
+
+        $memberSql = "
+            SELECT gm.guid
+            FROM `guild_member` gm
+            WHERE gm.guildid = ?
+        ";
+        $memberParams = [$guildId];
+        if ($initiateRank > 0) {
+            $memberSql .= " AND gm.rank < ? ";
+            $memberParams[] = $initiateRank;
+        }
+        $memberSql .= " ORDER BY RAND() LIMIT " . (int)max($limit * 3, 6);
+
+        $memberStmt = $charPdo->prepare($memberSql);
+        $memberStmt->execute($memberParams);
+        $memberGuids = array_values(array_unique(array_map('intval', $memberStmt->fetchAll(PDO::FETCH_COLUMN))));
+        if (empty($memberGuids)) {
+            return [];
+        }
+
+        $identityKeys = array_map(static function (int $guid) use ($realmId): string {
+            return "char:{$realmId}:{$guid}";
+        }, $memberGuids);
+        $placeholders = implode(',', array_fill(0, count($identityKeys), '?'));
+
+        $identityStmt = $masterPdo->prepare("
+            SELECT identity_id, character_guid, owner_account_id, display_name
+            FROM `website_identities`
+            WHERE realm_id = ?
+              AND identity_type = 'bot_character'
+              AND is_active = 1
+              AND identity_id != ?
+              AND identity_key IN ({$placeholders})
+        ");
+        $identityStmt->execute(array_merge([$realmId, $excludeIdentityId], $identityKeys));
+        $identities = $identityStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($identities)) {
+            return [];
+        }
+
+        shuffle($identities);
+        return array_slice($identities, 0, $limit);
+    } catch (Throwable $e) {
+        error_log('[process_bot_events] Guild chatter identity fetch failed: ' . $e->getMessage());
+        return [];
+    }
+}
+
+// ---- Reaction template pool ----
+function pick_reaction(string $eventType, array $payload): string {
+    $name    = $payload['char_name']   ?? 'them';
+    $level   = (int)($payload['level'] ?? 0);
+    $skill   = $payload['skill_name']  ?? 'that';
+    $achieve = $payload['achievement'] ?? 'that';
+
+    $byType = [
+        'level_up' => [
+            "grats!",
+            "gratz on the ding!",
+            "nice ding",
+            "huge",
+            "woooooo {$level}!!",
+            "finally!! lol",
+            "took you long enough",
+            "{$level} already, damn",
+            "keep grinding!",
+            "nice one {$name}",
+            "save some mobs for the rest of us",
+            "monster",
+            "see you at 60",
+            "catching up to me i see lol",
+            "realm first to press the xp bar",
+            "clean work",
+        ],
+        'profession_milestone' => [
+            "grats!",
+            "lobster for dinner tonight boy!",
+            "nice {$skill} gains",
+            "future grandmaster incoming",
+            "the grind is real",
+            "those skillups hit different",
+            "teach me your ways",
+            "you selling cooldowns yet",
+            "bags full of mats finally paid off",
+            "crafting arc in full effect",
+            "the economy is about to shift",
+            "trade chat about to know your name",
+        ],
+        'achievement_badge' => [
+            "grats!",
+            "wicked!",
+            "achievement hunter spotted",
+            "nice one",
+            "worth the grind",
+            "carry me next time lol",
+            "actual legend",
+            "lol nice",
+            "okay okay i see you",
+            "this server's finest",
+            "one more thing to flex in town",
+            "earned that one proper",
+        ],
+    ];
+
+    // Generic realm chatter mixed in regardless of event type.
+    $generic = [
+        "big day for {$name}",
+        "ez",
+        "gz",
+        "W",
+        "not bad not bad",
+        "this person is going places",
+        "meanwhile I'm still stuck on a flight path",
+        "strong showing",
+        "unreal",
+        "certified moment",
+        "doing numbers out here",
+        "server's heating up tonight",
+        "hall of fame material",
+        "i was there",
+        "i remember when they were level 1 lol",
+        "someone post this on the town board",
+        "another local hero rises",
+    ];
+
+    $pool = array_merge($byType[$eventType] ?? [], $generic);
+    return $pool[array_rand($pool)];
+}
+
+function pick_guild_reaction(string $eventType, array $payload): string {
+    $name  = $payload['char_name'] ?? ($payload['leader_name'] ?? 'them');
+    $guild = $payload['guild_name'] ?? 'the guild';
+    $skill = $payload['skill_name'] ?? 'that';
+
+    $byType = [
+        'guild_created' => [
+            "guild's up, let's build it right",
+            "good home for anyone still unguilded",
+            "we're live boys",
+            "whisper one of us if you want in",
+            "banner's up, time to recruit",
+            "{$guild} starts now",
+        ],
+        'guild_roster_update' => [
+            "welcome aboard",
+            "good to see fresh faces",
+            "roster looking healthy",
+            "guild bank crying already",
+            "more hands for dungeon night",
+            "lineup getting serious now",
+        ],
+        'level_up' => [
+            "good stuff {$name}",
+            "keep it moving",
+            "save some quests for the rest of us",
+            "guild run soon then",
+            "we'll get you geared",
+            "clean ding",
+        ],
+        'profession_milestone' => [
+            "good work {$name}",
+            "about time we had a real {$skill} player",
+            "guild bank thanks you",
+            "you are on consumable duty now",
+            "nice, that's useful for all of us",
+            "keep skilling that up",
+        ],
+        'achievement_badge' => [
+            "nice one {$name}",
+            "good pull",
+            "that's going in the guild stories",
+            "earned that proper",
+            "solid work",
+            "grats from the crew",
+        ],
+    ];
+
+    $generic = [
+        "good showing",
+        "guild's active tonight",
+        "love to see it",
+        "that's one of ours",
+        "another win for the tabard",
+        "we take those",
+    ];
+
+    $pool = array_merge($byType[$eventType] ?? [], $generic);
+    return $pool[array_rand($pool)];
+}
+
+// Post random bot reactions to a newly created public topic.
+function post_bot_reactions(
+    int    $realmId,
+    int    $topicId,
+    int    $excludeIdentityId,
+    string $eventType,
+    array  $payload,
+    int    $basePostTime,
+    ?int   $nextScheduledPostTime,
+    bool   $dryRun,
+    PDO    $masterPdo
+): void {
+    global $botEventConfig;
+
+    $countRange = $botEventConfig['reaction_count']       ?? [1, 2];
+    $minDelay   = max(0, (int)($botEventConfig['reaction_min_delay_sec'] ?? 120));
+    $maxDelay   = max($minDelay, (int)($botEventConfig['reaction_max_delay_sec'] ?? 900));
+    $count      = random_int((int)$countRange[0], (int)$countRange[1]);
+
+    maybe_bump_topic_views($realmId, $topicId, $dryRun);
+
+    if ($nextScheduledPostTime !== null) {
+        $maxAllowedDelay = max(0, ($nextScheduledPostTime - $basePostTime) - 1);
+        $maxDelay = min($maxDelay, $maxAllowedDelay);
+    }
+
+    if ($maxDelay < $minDelay) {
+        log_line("    Skipping reactions: next scheduled post leaves no believable gap.");
+        return;
+    }
+
+    // Fetch random reactor identities (exclude original poster)
+    try {
+        $rStmt = $masterPdo->prepare("
+            SELECT identity_id, character_guid, owner_account_id, display_name
+            FROM `website_identities`
+            WHERE realm_id = ? AND identity_type = 'bot_character' AND is_active = 1
+              AND identity_id != ?
+            ORDER BY RAND()
+            LIMIT " . (int)($count + 2) . "
+        ");
+        $rStmt->execute([$realmId, $excludeIdentityId]);
+        $reactors = $rStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        error_log('[process_bot_events] Reactor fetch failed: ' . $e->getMessage());
+        return;
+    }
+
+    if (empty($reactors)) return;
+
+    // Spread reactions within the available delay window so they stay
+    // after the original post but before the next scheduled forum post.
+    $count    = min($count, count($reactors));
+    $offsets = build_reaction_offsets($count, $minDelay, $maxDelay);
+
+    foreach (array_slice($reactors, 0, $count) as $i => $reactor) {
+        $reactionTime = $basePostTime + $offsets[$i];
+        $body         = pick_reaction($eventType, $payload);
+
+        if ($dryRun) {
+            log_line("    [dry-run] Reaction by {$reactor['display_name']} at " . date('H:i:s', $reactionTime) . ": \"{$body}\"");
+            continue;
+        }
+
+        try {
+            post_forum_reply(
+                $realmId, $topicId, $reactor,
+                $body, 'bot_generated', $reactionTime, false
+            );
+            maybe_bump_topic_views($realmId, $topicId, false, 45, 1, 2);
+            log_line("    Reaction by {$reactor['display_name']} at " . date('H:i:s', $reactionTime) . ": \"{$body}\"");
+        } catch (Throwable $e) {
+            error_log('[process_bot_events] Reaction post failed: ' . $e->getMessage());
+        }
+    }
+}
+
+function post_guild_thread_reactions(
+    int    $realmId,
+    int    $guildId,
+    int    $topicId,
+    int    $excludeIdentityId,
+    string $eventType,
+    array  $payload,
+    int    $basePostTime,
+    ?int   $nextScheduledPostTime,
+    bool   $dryRun,
+    PDO    $masterPdo
+): void {
+    global $botEventConfig;
+
+    $countRange = $botEventConfig['guild_reaction_count'] ?? [1, 2];
+    $minDelay   = max(0, (int)($botEventConfig['guild_reaction_min_delay_sec'] ?? 180));
+    $maxDelay   = max($minDelay, (int)($botEventConfig['guild_reaction_max_delay_sec'] ?? 1200));
+    $count      = random_int((int)$countRange[0], (int)$countRange[1]);
+
+    maybe_bump_topic_views($realmId, $topicId, $dryRun, 80, 1, 3);
+
+    if ($nextScheduledPostTime !== null) {
+        $maxAllowedDelay = max(0, ($nextScheduledPostTime - $basePostTime) - 1);
+        $maxDelay = min($maxDelay, $maxAllowedDelay);
+    }
+
+    if ($maxDelay < $minDelay) {
+        log_line("    Skipping guild chatter: next scheduled post leaves no believable gap.");
+        return;
+    }
+
+    $reactors = get_guild_chatter_identities($realmId, $guildId, $excludeIdentityId, $count, $masterPdo);
+    if (empty($reactors)) {
+        log_line("    Skipping guild chatter: no eligible non-initiate guild identities.");
+        return;
+    }
+
+    $count   = min($count, count($reactors));
+    $offsets = build_reaction_offsets($count, $minDelay, $maxDelay);
+
+    foreach (array_slice($reactors, 0, $count) as $i => $reactor) {
+        $reactionTime = $basePostTime + $offsets[$i];
+        $body         = pick_guild_reaction($eventType, $payload);
+
+        if ($dryRun) {
+            log_line("    [dry-run] Guild chatter by {$reactor['display_name']} at " . date('H:i:s', $reactionTime) . ": \"{$body}\"");
+            continue;
+        }
+
+        try {
+            post_forum_reply(
+                $realmId, $topicId, $reactor,
+                $body, 'bot_generated', $reactionTime, false
+            );
+            maybe_bump_topic_views($realmId, $topicId, false, 55, 1, 2);
+            log_line("    Guild chatter by {$reactor['display_name']} at " . date('H:i:s', $reactionTime) . ": \"{$body}\"");
+        } catch (Throwable $e) {
+            error_log('[process_bot_events] Guild chatter post failed: ' . $e->getMessage());
+        }
     }
 }
 
@@ -579,6 +1031,18 @@ foreach ($events as $event) {
 
             log_line("  Replied to topic #{$threadTopicId} (post #{$postId}) at " . date('Y-m-d H:i:s', $scheduledPostTime) . " as {$identity['display_name']}");
             $results['posted']++;
+            post_guild_thread_reactions(
+                $realmId,
+                $guildId,
+                $threadTopicId,
+                (int)$identity['identity_id'],
+                $eventType,
+                $payload,
+                $scheduledPostTime,
+                $nextScheduledPostMap[$eventId] ?? null,
+                $dryRun,
+                $masterPdo
+            );
         } catch (Throwable $e) {
             log_line("  FAILED: " . $e->getMessage());
             if (!$dryRun) {
@@ -684,6 +1148,18 @@ foreach ($events as $event) {
                 }
                 log_line("  → Guild thread #{$recruitTopicId} (post #{$postId}) at " . date('Y-m-d H:i:s', $scheduledPostTime) . ": \"{$content['title']}\" (as {$identity['display_name']})");
                 $results['posted']++;
+                post_guild_thread_reactions(
+                    $realmId,
+                    $guildIdForChar,
+                    $recruitTopicId,
+                    (int)$identity['identity_id'],
+                    $eventType,
+                    $payload,
+                    $scheduledPostTime,
+                    $nextScheduledPostMap[$eventId] ?? null,
+                    $dryRun,
+                    $masterPdo
+                );
             } catch (Throwable $e) {
                 log_line("  FAILED: " . $e->getMessage());
                 if (!$dryRun) {
@@ -731,6 +1207,31 @@ foreach ($events as $event) {
 
         log_line("  Posted topic #{$topicId} at " . date('Y-m-d H:i:s', $scheduledPostTime) . ": \"{$content['title']}\" (as {$identity['display_name']})");
         $results['posted']++;
+
+        if ($eventType === 'guild_created' && !empty($event['guild_id'])) {
+            post_guild_thread_reactions(
+                $realmId,
+                (int)$event['guild_id'],
+                (int)$topicId,
+                (int)$identity['identity_id'],
+                $eventType,
+                $payload,
+                $scheduledPostTime,
+                $nextScheduledPostMap[$eventId] ?? null,
+                $dryRun,
+                $masterPdo
+            );
+        } elseif (in_array($eventType, ['level_up', 'profession_milestone', 'achievement_badge'])) {
+            post_bot_reactions(
+                $realmId, (int)$topicId,
+                (int)$identity['identity_id'],
+                $eventType, $payload,
+                $scheduledPostTime,
+                $nextScheduledPostMap[$eventId] ?? null,
+                $dryRun,
+                $masterPdo
+            );
+        }
     } catch (Throwable $e) {
         log_line("  FAILED: " . $e->getMessage());
         if (!$dryRun) {

@@ -61,6 +61,20 @@ function spp_increment_forum_unread(PDO $pdo, int $forumId, int $excludeMemberId
     ]);
 }
 
+function spp_enforce_topic_view_floor(PDO $pdo, int $topicId, int $minimumViews = 1): void
+{
+    if ($topicId <= 0) {
+        return;
+    }
+
+    $stmt = $pdo->prepare("
+        UPDATE f_topics
+        SET num_views = GREATEST(num_views, num_replies + 1, ?)
+        WHERE topic_id = ?
+    ");
+    $stmt->execute([(int)$minimumViews, $topicId]);
+}
+
 function declension($int, $expressions)
 {
     /*

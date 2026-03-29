@@ -51,6 +51,20 @@ $this_forum['pnum'] = $pnum;
 $this_forum['items_per_page'] = $items_per_pages;
 $this_forum['allowed_page_sizes'] = $allowedTopicPageSizes;
 
+$allowedSortFields = array(
+    'subject' => 'f_topics.topic_name',
+    'author' => 'topic_author_display',
+    'replies' => 'f_topics.num_replies',
+    'views' => 'f_topics.num_views',
+    'last_reply' => 'f_topics.last_post',
+);
+$requestedSort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'last_reply';
+$sortField = isset($allowedSortFields[$requestedSort]) ? $requestedSort : 'last_reply';
+$requestedDir = isset($_GET['dir']) ? strtolower((string)$_GET['dir']) : 'desc';
+$sortDir = ($requestedDir === 'asc') ? 'ASC' : 'DESC';
+$this_forum['sort_field'] = $sortField;
+$this_forum['sort_dir'] = strtolower($sortDir);
+
 $topics = array();
 $stmtAt = $vfPdo->prepare("
     SELECT f_topics.*,account.username,
@@ -58,7 +72,7 @@ $stmtAt = $vfPdo->prepare("
     FROM f_topics
     LEFT JOIN account ON f_topics.topic_poster_id=account.id
     WHERE forum_id=?
-    ORDER BY sticky DESC,last_post DESC
+    ORDER BY sticky DESC, " . $allowedSortFields[$sortField] . " " . $sortDir . ", f_topics.last_post DESC, f_topics.topic_id DESC
     LIMIT " . (int)$limit_start . "," . (int)$items_per_pages);
 $stmtAt->execute([(int)$this_forum['forum_id']]);
 $alltopics = $stmtAt->fetchAll(PDO::FETCH_ASSOC);

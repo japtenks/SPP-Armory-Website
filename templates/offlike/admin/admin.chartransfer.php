@@ -1,4 +1,8 @@
 <?php builddiv_start(0, 'Character Transfer') ?>
+<?php
+$transferEnabled = false;
+$cleanDbEnabled = false;
+?>
 <style>
 .admin-transfer-shell {
   display: flex;
@@ -86,6 +90,15 @@
   box-shadow: 0 0 10px rgba(255, 193, 72, 0.18);
 }
 
+.admin-transfer-actions input[type=submit][disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  color: #b9b9b9;
+  background: rgba(90, 90, 90, 0.14);
+  border-color: rgba(180, 180, 180, 0.18);
+  box-shadow: none;
+}
+
 .admin-transfer-actions .danger-submit {
   border-color: rgba(255, 110, 110, 0.38);
   background: rgba(170, 35, 35, 0.18);
@@ -127,6 +140,7 @@
     <p class="admin-transfer-kicker">Character Tools</p>
     <h2 class="admin-transfer-title">Transfer Character</h2>
     <p class="admin-transfer-copy">Move a character between installed realms. The character must be offline, and the target realm cannot already have a character with the same name.</p>
+    <div class="admin-transfer-msg error" style="margin-top:14px;">This feature is still a work in progress. Transfer and cleanup actions are currently disabled.</div>
   </div>
 
   <div class="admin-transfer-card">
@@ -151,8 +165,8 @@
       </div>
 
       <div class="admin-transfer-actions">
-        <input type="submit" name="move_char" value="<?php echo htmlspecialchars($transfer); ?>" />
-        <input type="submit" name="clean_db" class="danger-submit" value="<?php echo htmlspecialchars($cleandb); ?>" />
+        <input type="submit" name="move_char" value="<?php echo htmlspecialchars($transfer); ?> (WIP)"<?php if (!$transferEnabled) echo ' disabled="disabled"'; ?> />
+        <input type="submit" name="clean_db" class="danger-submit" value="<?php echo htmlspecialchars($cleandb); ?> (Disabled)"<?php if (!$cleanDbEnabled) echo ' disabled="disabled"'; ?> />
       </div>
     </form>
 
@@ -166,7 +180,17 @@
         $db2 = $DBS[$_POST['newrealm']];
     }
 
-    if (isset($_POST['move_char'])) {
+    if (isset($_POST['move_char']) && !$transferEnabled) {
+        echo '<div class="admin-transfer-msg error">Character transfer is temporarily disabled while this tool is being finished.</div>';
+    } elseif (isset($_POST['clean_db']) && !$cleanDbEnabled) {
+        echo '<div class="admin-transfer-msg error">Realm cleanup is temporarily disabled until the workflow is reviewed in detail.</div>';
+    } elseif (isset($_POST['clean_db'])) {
+        $db1 = $DBS[$_POST['realm']];
+        clean_after_delete($db1);
+        echo '<div class="admin-transfer-msg success">' . htmlspecialchars($clearDBsuccess) . '</div>';
+    }
+
+    if ($transferEnabled && isset($_POST['move_char'])) {
         if (($_POST['name']) == '') {
             echo '<div class="admin-transfer-msg error">' . htmlspecialchars($mustentername) . '</div>';
         } else {
@@ -208,10 +232,6 @@
             }
             transfer_done:;
         }
-    } elseif (isset($_POST['clean_db'])) {
-        $db1 = $DBS[$_POST['realm']];
-        clean_after_delete($db1);
-        echo '<div class="admin-transfer-msg success">' . htmlspecialchars($clearDBsuccess) . '</div>';
     }
     ?>
   </div>
