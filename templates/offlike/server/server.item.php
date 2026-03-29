@@ -108,7 +108,7 @@ if (!function_exists('spp_race_icon_url')) {
 
 if (!function_exists('spp_modern_item_inventory_type_name')) {
     function spp_modern_item_inventory_type_name($inventoryType) {
-        $map = [1 => 'Head', 2 => 'Neck', 3 => 'Shoulder', 5 => 'Chest', 6 => 'Waist', 7 => 'Legs', 8 => 'Feet', 9 => 'Wrist', 10 => 'Hands', 11 => 'Finger', 12 => 'Trinket', 13 => 'One Hand', 14 => 'Shield', 15 => 'Weapon', 16 => 'Back', 17 => 'Two-Hand', 21 => 'Main Hand', 22 => 'Off Hand', 23 => 'Held In Off-hand'];
+        $map = [0 => 'None', 1 => 'Head', 2 => 'Neck', 3 => 'Shoulder', 5 => 'Chest', 6 => 'Waist', 7 => 'Legs', 8 => 'Feet', 9 => 'Wrist', 10 => 'Hands', 11 => 'Finger', 12 => 'Trinket', 13 => 'One Hand', 14 => 'Shield', 15 => 'Weapon', 16 => 'Back', 17 => 'Two-Hand', 21 => 'Main Hand', 22 => 'Off Hand', 23 => 'Held In Off-hand'];
         $inventoryType = (int)$inventoryType;
         return $map[$inventoryType] ?? ('Slot ' . $inventoryType);
     }
@@ -789,7 +789,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <?php builddiv_end(); ?>
-
 
 
 

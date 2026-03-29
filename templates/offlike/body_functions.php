@@ -237,12 +237,22 @@ function build_account_menu($asList = true) {
         $selectedRealmId = (int)($activeCharacter['realm_id'] ?? $selectedRealmId);
     }
 
-    $returnUrl = $_SERVER['REQUEST_URI'] ?? 'index.php';
-    $returnUrl = preg_replace('/([?&])(setchar|setchar_realm|changerealm_to|returnto)=[^&]*/', '$1', $returnUrl);
-    $returnUrl = preg_replace('/\?&/', '?', $returnUrl);
-    $returnUrl = preg_replace('/[?&]+$/', '', $returnUrl);
-    if ($returnUrl === '' || $returnUrl === '/') {
-        $returnUrl = 'index.php';
+    // For PMs and forum pages, return to the section root after switching
+    // character — avoids stale thread/message context with the wrong identity.
+    $currentN   = $_GET['n']   ?? '';
+    $currentSub = $_GET['sub'] ?? '';
+    if ($currentN === 'account' && $currentSub === 'pms') {
+        $returnUrl = 'index.php?n=account&sub=pms';
+    } elseif ($currentN === 'forum') {
+        $returnUrl = 'index.php?n=forum';
+    } else {
+        $returnUrl = $_SERVER['REQUEST_URI'] ?? 'index.php';
+        $returnUrl = preg_replace('/([?&])(setchar|setchar_realm|changerealm_to|returnto)=[^&]*/', '$1', $returnUrl);
+        $returnUrl = preg_replace('/\?&/', '?', $returnUrl);
+        $returnUrl = preg_replace('/[?&]+$/', '', $returnUrl);
+        if ($returnUrl === '' || $returnUrl === '/') {
+            $returnUrl = 'index.php';
+        }
     }
 
     if ($asList) {

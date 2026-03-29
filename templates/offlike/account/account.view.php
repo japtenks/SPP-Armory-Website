@@ -63,18 +63,18 @@ builddiv_start(1, $lang['si_acc']);
         </section>
 
         <section class="member-panel">
-            <div class="panel-label">Forum Character</div>
-            <?php if(!empty($profile['character_summary'])): ?>
+            <div class="panel-label">Selected Forum Character</div>
+            <?php if(!empty($profile['selected_forum_character'])): ?>
                 <div class="character-card">
-                    <div class="character-name"><?php echo htmlspecialchars($profile['character_summary']['name']); ?></div>
-                    <?php if(!empty($profile['character_summary']['level'])): ?>
-                        <div class="character-meta">Level <?php echo (int)$profile['character_summary']['level']; ?></div>
+                    <div class="character-name"><?php echo htmlspecialchars($profile['selected_forum_character']['name']); ?></div>
+                    <?php if(!empty($profile['selected_forum_character']['level'])): ?>
+                        <div class="character-meta">Level <?php echo (int)$profile['selected_forum_character']['level']; ?></div>
                     <?php endif; ?>
-                    <?php if(!empty($profile['character_summary']['guild'])): ?>
-                        <div class="character-meta"><?php echo htmlspecialchars($profile['character_summary']['guild']); ?></div>
+                    <?php if(!empty($profile['selected_forum_character']['guild'])): ?>
+                        <div class="character-meta">&lt;<?php echo htmlspecialchars($profile['selected_forum_character']['guild']); ?>&gt;</div>
                     <?php endif; ?>
-                    <?php if(!empty($profile['character_summary']['realm'])): ?>
-                        <div class="character-meta"><?php echo htmlspecialchars($profile['character_summary']['realm']); ?></div>
+                    <?php if(!empty($profile['selected_forum_character']['realm'])): ?>
+                        <div class="character-meta"><?php echo htmlspecialchars($profile['selected_forum_character']['realm']); ?></div>
                     <?php endif; ?>
                 </div>
             <?php else: ?>
@@ -82,6 +82,36 @@ builddiv_start(1, $lang['si_acc']);
             <?php endif; ?>
         </section>
     </div>
+
+    <?php if(!empty($profile['is_human_account'])): ?>
+    <section class="member-panel">
+        <div class="panel-label">Chars</div>
+        <div class="chars-groups">
+            <?php foreach(($profile['grouped_characters'] ?? array()) as $realmLabel => $realmChars): ?>
+                <div class="chars-group">
+                    <div class="chars-group-title"><?php echo htmlspecialchars($realmLabel); ?></div>
+                    <?php if(!empty($realmChars)): ?>
+                        <div class="chars-list">
+                            <?php foreach($realmChars as $realmChar): ?>
+                                <div class="chars-item">
+                                    <div class="chars-item-main"><?php echo htmlspecialchars($realmChar['name']); ?></div>
+                                    <div class="chars-item-meta">
+                                        Level <?php echo (int)$realmChar['level']; ?>
+                                        <?php if(!empty($realmChar['guild'])): ?>
+                                            · &lt;<?php echo htmlspecialchars($realmChar['guild']); ?>&gt;
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="empty-copy">No characters yet.</div>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <?php if(!empty(trim((string)($profile['signature'] ?? '')))): ?>
     <section class="member-panel signature-panel">
@@ -281,6 +311,53 @@ builddiv_start(1, $lang['si_acc']);
   margin-top: 4px;
 }
 
+.chars-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.chars-group {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 204, 102, 0.05);
+  border: 1px solid rgba(255, 204, 102, 0.12);
+}
+
+.chars-group-title {
+  color: #ffcc66;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.chars-list {
+  display: grid;
+  gap: 10px;
+}
+
+.chars-item {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.chars-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.chars-item-main {
+  color: #f0f0f0;
+  font-weight: 600;
+}
+
+.chars-item-meta {
+  color: #bdbdbd;
+  margin-top: 4px;
+  font-size: 0.92rem;
+}
+
 .signature-panel {
   grid-column: 1 / -1;
 }
@@ -301,6 +378,10 @@ builddiv_start(1, $lang['si_acc']);
   }
 
   .member-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chars-groups {
     grid-template-columns: 1fr;
   }
 }

@@ -19,6 +19,7 @@
   display: flex;
   gap: 10px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 /* ---------- Buttons ---------- */
@@ -77,26 +78,50 @@
   margin: 6px 0 0;
   color: #ffcc66;
 }
+.post-user .guild {
+  color: #b8b8b8;
+  font-size: 0.84rem;
+  margin-top: 6px;
+}
 .post-user .level {
   color: #aaa;
   font-size: 0.85rem;
+  margin: 8px 0 0;
+}
+.post-user .post-count {
+  color: #8f8f8f;
+  font-size: 0.8rem;
+  margin-top: 8px;
 }
 
 /* ---------- Post Body ---------- */
 .post-body {
   flex: 1;
   padding-left: 16px;
-}
-.post-meta {
-  font-size: 0.85rem;
-  color: #999;
-  margin-bottom: 8px;
+  position: relative;
+  padding-right: 118px;
+  padding-bottom: 30px;
 }
 .post-message {
   line-height: 1.5;
   font-size: 0.95rem;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+.post-number {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: #9a9a9a;
+  font-size: 0.82rem;
+  text-align: right;
+}
+.post-time {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  color: #8d8d8d;
+  font-size: 0.8rem;
+  text-align: right;
 }
 .post-edit-note {
   margin-top: 8px;
@@ -110,6 +135,30 @@
   border-top: 1px solid #2e2e2e;
   color: #b9b9b9;
   font-size: 0.9rem;
+}
+@media (max-width: 720px) {
+  .post {
+    flex-direction: column;
+  }
+  .post-avatar {
+    width: auto;
+    margin-bottom: 10px;
+  }
+  .post-body {
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+  }
+  .post-number,
+  .post-time {
+    position: static;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+  .post-time {
+    margin-top: 12px;
+    margin-bottom: 0;
+  }
 }
 
 /* ---------- Pagination ---------- */
@@ -132,7 +181,9 @@ img[src*="forum_top.png"] {
 
 
 <?php
-builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_forum['forum_id'], $this_forum['closed']);
+$topicTitle = htmlspecialchars(html_entity_decode((string)$this_topic['topic_name'], ENT_QUOTES, 'UTF-8'));
+$forumTitle = htmlspecialchars(html_entity_decode((string)$this_forum['forum_name'], ENT_QUOTES, 'UTF-8'));
+builddiv_start(1, $forumTitle, 0, false, $this_forum['forum_id'], $this_forum['closed']);
 ?>
 
 <div class="modern-content">
@@ -142,11 +193,30 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
 
   <!-- Topic Header -->
   <header class="topic-header">
-    <h1><?php echo htmlspecialchars($this_topic['topic_name']); ?></h1>
+    <h1><?php echo $topicTitle; ?></h1>
     <p class="meta">
-      Started by <strong><?php echo htmlspecialchars($this_topic['topic_poster']); ?></strong> ·
+      Started by <strong><?php echo htmlspecialchars(html_entity_decode((string)$this_topic['topic_poster'], ENT_QUOTES, 'UTF-8')); ?></strong> ·
       <?php echo date('M d, Y H:i', $this_topic['topic_posted']); ?>
     </p>
+    <div class="topic-controls">
+      <?php if (!empty($this_topic['linktoreply'])): ?>
+        <a href="<?php echo $this_topic['linktoreply']; ?>" class="btn primary">Reply</a>
+      <?php endif; ?>
+      <a href="<?php echo $this_forum['linktothis']; ?>" class="btn secondary">Back to Forums</a>
+      <?php if ((int)($user['g_forum_moderate'] ?? 0) === 1): ?>
+        <?php if (!empty($this_topic['sticky'])): ?>
+          <a href="<?php echo $this_topic['linktounstick']; ?>" class="btn secondary">Unpin Topic</a>
+        <?php else: ?>
+          <a href="<?php echo $this_topic['linktostick']; ?>" class="btn secondary">Pin Topic</a>
+        <?php endif; ?>
+        <?php if (!empty($this_topic['closed'])): ?>
+          <a href="<?php echo $this_topic['linktoopen']; ?>" class="btn secondary">Unlock Topic</a>
+        <?php else: ?>
+          <a href="<?php echo $this_topic['linktoclose']; ?>" class="btn secondary">Lock Topic</a>
+        <?php endif; ?>
+        <a href="<?php echo $this_topic['linktodelete']; ?>" class="btn secondary" onclick="return confirm('Delete this topic and all of its posts?');">Delete Topic</a>
+      <?php endif; ?>
+    </div>
   </header>
 
   <!-- Topic Posts -->
@@ -158,21 +228,21 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
             <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
             <div class="post-user">
               <h3><?php echo htmlspecialchars($post['poster']); ?></h3>
+              <?php if (!empty($post['guild'])): ?>
+                <div class="guild">&lt;<?php echo htmlspecialchars($post['guild']); ?>&gt;</div>
+              <?php endif; ?>
               <p class="level">Lvl <?php echo (int)$post['level']; ?></p>
+              <div class="post-count">Post count: <?php echo (int)($post['forum_post_count'] ?? 0); ?></div>
             </div>
           </div>
 
           <div class="post-body">
-            <header class="post-meta">
-              <span>#<?php echo $post['pos_num']; ?></span> ·
-              <span><?php echo date('M d, Y H:i', $post['posted']); ?></span>
-            </header>
+            <div class="post-number">#<?php echo (int)$post['pos_num']; ?></div>
+            <div class="post-message"><?php echo $post['rendered_message']; ?></div>
 
-            <div class="post-message"><?php echo $post['message']; ?></div>
-
-            <?php if (!empty(trim((string)$post['signature']))): ?>
+            <?php if (!empty(trim((string)$post['rendered_signature']))): ?>
               <div class="post-signature">
-                <?php echo my_preview($post['signature']); ?>
+                <?php echo $post['rendered_signature']; ?>
               </div>
             <?php endif; ?>
 
@@ -182,6 +252,8 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
                 <?php echo date('M d, Y H:i', $post['edited']); ?>
               </footer>
             <?php endif; ?>
+
+            <div class="post-time"><?php echo htmlspecialchars((string)$post['posted']); ?></div>
           </div>
         </article>
       <?php endforeach; ?>
@@ -197,4 +269,3 @@ builddiv_start(1, htmlspecialchars($this_topic['topic_name']), 0, true, $this_fo
 </div>
 
 <?php builddiv_end(); ?>
-

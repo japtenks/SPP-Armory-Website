@@ -31,6 +31,19 @@ if (empty($alltopics)) {
     $alltopics = $stmtTopics->fetchAll(PDO::FETCH_ASSOC);
 }
 
+if (!empty($alltopics)) {
+    foreach ($alltopics as &$topic) {
+        $rawMessage = (string)($topic['message'] ?? '');
+        $normalizedMessage = str_replace(
+            array('<br />', '<br/>', '<br>'),
+            "\n",
+            html_entity_decode($rawMessage, ENT_QUOTES, 'UTF-8')
+        );
+        $topic['rendered_message'] = bbcode($normalizedMessage, true, true, true, false);
+    }
+    unset($topic);
+}
+
 if ((int)$MW->getConfig->components->right_section->hitcounter){
     $count_my_page = "templates/offlike/hitcounter.txt";
     $hits = (int)file_get_contents($count_my_page);
@@ -57,19 +70,19 @@ foreach ($multirealms as $realmnow_arr){
         }
         $changerealmtoparam = array("changerealm_to" => $realmnow_arr['id']);
 
+        $_fpRealmdDb = $realmDbMap[(int)$realmnow_arr['id']]['realmd'] ?? 'classicrealmd';
         try {
             $charPdo = spp_get_pdo('chars', (int)$realmnow_arr['id']);
             if((int)$MW->getConfig->components->server_information->online){
-                $server['playersonline'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1 AND account<=504")->fetchColumn();
+                $server['playersonline'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1 AND account IN (SELECT id FROM `{$_fpRealmdDb}`.`account` WHERE LOWER(username) LIKE 'rndbot%')")->fetchColumn();
                 $server['onlineurl'] = mw_url('server', 'playersonline', $changerealmtoparam);
-                //new code for humans
-                $server['realplayersonline'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1 AND account>504")->fetchColumn();
+                $server['realplayersonline'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1 AND account NOT IN (SELECT id FROM `{$_fpRealmdDb}`.`account` WHERE LOWER(username) LIKE 'rndbot%')")->fetchColumn();
             }
             if((int)$MW->getConfig->components->server_information->population){
                 $server['population'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE online=1")->fetchColumn();
             }
             if((int)$MW->getConfig->components->server_information->characters){
-                $server['characters'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE account>504")->fetchColumn();
+                $server['characters'] = (int)$charPdo->query("SELECT count(1) FROM `characters` WHERE account NOT IN (SELECT id FROM `{$_fpRealmdDb}`.`account` WHERE LOWER(username) LIKE 'rndbot%')")->fetchColumn();
             }
         } catch (PDOException $e) { /* realm chars DB not available */ }
 
@@ -86,8 +99,7 @@ foreach ($multirealms as $realmnow_arr){
             $server['language'] = $realm_timezone_def[$data['timezone']];
         }
         if((int)$MW->getConfig->components->server_information->accounts){
-            //$server['accounts'] = count all accounts; old counts bots as well
-            $server['accounts'] = (int)$realmPdo->query("SELECT count(1) FROM `account` WHERE id>504")->fetchColumn();
+            $server['accounts'] = (int)$realmPdo->query("SELECT count(1) FROM `account` WHERE LOWER(username) NOT LIKE 'rndbot%'")->fetchColumn();
         }
         //updated code to current
         if((int)$MW->getConfig->components->server_information->active_accounts){

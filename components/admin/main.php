@@ -90,6 +90,20 @@ $com_content['admin'] = array(
         '',
         1
     ),
+    'botevents' => array(
+        'g_is_admin',
+        'Bot Events',
+        'index.php?n=admin&sub=botevents',
+        '',
+        1
+    ),
+    'botrotation' => array(
+        'g_is_admin',
+        'Bot Rotation Health',
+        'index.php?n=admin&sub=botrotation',
+        '',
+        1
+    ),
     'viewlogs' => array(
         'g_is_admin',
         'viewlogs',

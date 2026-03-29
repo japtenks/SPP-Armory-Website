@@ -38,10 +38,21 @@
   color: #ffcc66;
   font-weight: bold;
 }
-.reply-post-level,
 .reply-post-guild {
+  color: #b8b8b8;
+  font-size: 0.84rem;
+  margin-top: 6px;
+}
+.reply-post-level,
+.reply-post-count {
   color: #9b9b9b;
   font-size: 0.82rem;
+}
+.reply-post-level {
+  margin-top: 8px;
+}
+.reply-post-count {
+  margin-top: 8px;
 }
 .reply-post-body {
   flex: 1;
@@ -57,7 +68,6 @@
   color: #d6d6d6;
   line-height: 1.5;
   font-size: 0.95rem;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 .reply-panel {
@@ -76,6 +86,28 @@
   font-size: 1.2rem;
   margin: 0 0 14px;
   font-weight: bold;
+}
+.reply-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0 auto 14px;
+  max-width: 980px;
+}
+.reply-nav .btn {
+  padding: 7px 14px;
+  font-weight: bold;
+  border-radius: 6px;
+  border: 1px solid #444;
+  text-decoration: none;
+}
+.reply-nav .btn.secondary {
+  background: #222;
+  color: #ccc;
+}
+.reply-nav .btn.secondary:hover {
+  background: #333;
+  color: #ffcc66;
 }
 .reply-panel label {
   font-weight: bold;
@@ -194,12 +226,23 @@ $is_newtopic = ($action === 'newtopic');
 $pageTitle = $is_newtopic ? 'Create New Topic' : 'Reply to Thread';
 $forumId = $this_forum['forum_id'] ?? 0;
 $topicId = $this_topic['topic_id'] ?? 0;
+$forumUrl = 'index.php?n=forum&sub=viewforum&fid=' . $forumId;
+$indexUrl = 'index.php?n=forum';
+$topicUrl = $topicId > 0 ? 'index.php?n=forum&sub=viewtopic&tid=' . $topicId : $forumUrl;
 $formAction = $is_newtopic
     ? 'index.php?n=forum&sub=post&action=donewtopic&f=' . $forumId
     : 'index.php?n=forum&sub=post&action=donewpost&t=' . $topicId . '&f=' . $forumId;
 ?>
 
 <?php builddiv_start(1, $pageTitle); ?>
+
+<div class="reply-nav">
+  <?php if (!$is_newtopic && $topicId > 0): ?>
+    <a href="<?php echo $topicUrl; ?>" class="btn secondary">Back to Thread</a>
+  <?php endif; ?>
+  <a href="<?php echo $forumUrl; ?>" class="btn secondary">Back to Forum</a>
+  <a href="<?php echo $indexUrl; ?>" class="btn secondary">Forum Index</a>
+</div>
 
 <?php if (!$is_newtopic && !empty($posts)): ?>
 <section class="reply-context">
@@ -210,14 +253,15 @@ $formAction = $is_newtopic
         <div class="reply-post-avatar">
           <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
           <div class="reply-post-user"><?php echo htmlspecialchars($post['poster']); ?></div>
-          <div class="reply-post-level">Lvl <?php echo (int)$post['level']; ?></div>
           <?php if (!empty($post['guild'])): ?>
-            <div class="reply-post-guild"><?php echo htmlspecialchars($post['guild']); ?></div>
+            <div class="reply-post-guild">&lt;<?php echo htmlspecialchars($post['guild']); ?>&gt;</div>
           <?php endif; ?>
+          <div class="reply-post-level">Lvl <?php echo (int)$post['level']; ?></div>
+          <div class="reply-post-count">Post count: <?php echo (int)($post['forum_post_count'] ?? 0); ?></div>
         </div>
         <div class="reply-post-body">
-          <div class="reply-post-meta">#<?php echo (int)$post['pos_num']; ?> Â· <?php echo date('M d, Y H:i', $post['posted']); ?></div>
-          <div class="reply-post-message"><?php echo $post['message']; ?></div>
+          <div class="reply-post-meta">#<?php echo (int)$post['pos_num']; ?> · <?php echo htmlspecialchars((string)$post['posted']); ?></div>
+          <div class="reply-post-message"><?php echo $post['rendered_message'] ?? ''; ?></div>
         </div>
       </article>
     <?php endforeach; ?>

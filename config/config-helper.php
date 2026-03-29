@@ -145,6 +145,128 @@ if (!function_exists('spp_get_realm_service_config')) {
     }
 }
 
+// ================================================================
+// Identity helpers  (Phase 1 — website_identities table)
+// ================================================================
+// All identity data lives in classicrealmd (realm 1, the master realmd).
+// Use spp_identity_pdo() instead of spp_get_pdo('realmd', $realmId) so
+// callers don't need to know or hardcode which realm hosts the table.
+
+if (!function_exists('spp_identity_pdo')) {
+    function spp_identity_pdo() {
+        // Always realm 1 — that is where website_identities lives.
+        return spp_get_pdo('realmd', 1);
+    }
+}
+
+// Returns the identity row for an account, or null if not found.
+if (!function_exists('spp_get_account_identity')) {
+    function spp_get_account_identity($realmId, $accountId) {
+        $pdo  = spp_identity_pdo();
+        $stmt = $pdo->prepare("
+            SELECT * FROM `website_identities`
+            WHERE identity_key = ?
+            LIMIT 1
+        ");
+        $stmt->execute(["account:{$realmId}:{$accountId}"]);
+        return $stmt->fetch() ?: null;
+    }
+}
+
+// Returns the identity row for a character, or null if not found.
+if (!function_exists('spp_get_char_identity')) {
+    function spp_get_char_identity($realmId, $charGuid) {
+        $pdo  = spp_identity_pdo();
+        $stmt = $pdo->prepare("
+            SELECT * FROM `website_identities`
+            WHERE identity_key = ?
+            LIMIT 1
+        ");
+        $stmt->execute(["char:{$realmId}:{$charGuid}"]);
+        return $stmt->fetch() ?: null;
+    }
+}
+
+// Ensures an account identity row exists. Returns identity_id.
+// Safe to call on every login or registration — INSERT IGNORE skips duplicates.
+if (!function_exists('spp_ensure_account_identity')) {
+    function spp_ensure_account_identity($realmId, $accountId, $displayName) {
+        $pdo  = spp_identity_pdo();
+        $key  = "account:{$realmId}:{$accountId}";
+        $pdo->prepare("
+            INSERT IGNORE INTO `website_identities`
+              (identity_type, owner_account_id, realm_id, display_name, identity_key, is_bot, is_active)
+            VALUES ('account', ?, ?, ?, ?, 0, 1)
+        ")->execute([(int)$accountId, (int)$realmId, (string)$displayName, $key]);
+
+        $stmt = $pdo->prepare("SELECT identity_id FROM `website_identities` WHERE identity_key = ? LIMIT 1");
+        $stmt->execute([$key]);
+        return (int)$stmt->fetchColumn();
+    }
+}
+
+// Ensures a character identity row exists. Returns identity_id.
+// Call when a player selects their forum character.
+if (!function_exists('spp_ensure_char_identity')) {
+    function spp_ensure_char_identity($realmId, $charGuid, $accountId, $charName, $isBot = 0, $guildId = null) {
+        $pdo  = spp_identity_pdo();
+        $key  = "char:{$realmId}:{$charGuid}";
+        $type = $isBot ? 'bot_character' : 'character';
+        $pdo->prepare("
+            INSERT IGNORE INTO `website_identities`
+              (identity_type, owner_account_id, realm_id, character_guid,
+               display_name, identity_key, guild_id, is_bot, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ")->execute([$type, (int)$accountId, (int)$realmId, (int)$charGuid,
+                     (string)$charName, $key, $guildId ? (int)$guildId : null, (int)$isBot]);
+
+        $stmt = $pdo->prepare("SELECT identity_id FROM `website_identities` WHERE identity_key = ? LIMIT 1");
+        $stmt->execute([$key]);
+        return (int)$stmt->fetchColumn();
+    }
+}
+
+// Soft-deletes all identity rows for an account across all types.
+// Call when an account is deleted or banned in admin.members.
+if (!function_exists('spp_deactivate_account_identities')) {
+    function spp_deactivate_account_identities($realmId, $accountId) {
+        $pdo = spp_identity_pdo();
+        $pdo->prepare("
+            UPDATE `website_identities`
+            SET is_active = 0, updated_at = NOW()
+            WHERE owner_account_id = ? AND realm_id = ?
+        ")->execute([(int)$accountId, (int)$realmId]);
+    }
+}
+
+// Batch-resolve display names from website_identities.
+// Returns array keyed by identity_id => display_name.
+// Safe to call with empty input. Falls back gracefully on DB errors.
+if (!function_exists('spp_resolve_identity_names')) {
+    function spp_resolve_identity_names(array $identityIds): array {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $identityIds))));
+        if (empty($ids)) {
+            return [];
+        }
+        try {
+            $pdo = spp_identity_pdo();
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $pdo->prepare("
+                SELECT identity_id, display_name FROM `website_identities`
+                WHERE identity_id IN ({$placeholders})
+            ");
+            $stmt->execute($ids);
+            $map = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $map[(int)$row['identity_id']] = (string)$row['display_name'];
+            }
+            return $map;
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+}
+
 if (!function_exists('spp_get_armory_realm_name')) {
     function spp_get_armory_realm_name($realmId = null) {
         static $cache = [];

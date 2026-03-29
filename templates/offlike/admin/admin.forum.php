@@ -1,12 +1,9 @@
 <br>
 <?php builddiv_start(0, $lang['forums']) ?>
 <style type="text/css">
-dt.page_label { background: transparent url(<?php echo $currtmp; ?>/images/icons/page_copy.gif) no-repeat 0 50%; }
-dt.topic_started_label, dt.last_activity_label { background: transparent url(<?php echo $currtmp; ?>/images/icons/time.gif) no-repeat 0 50%; }
-dt.last_reply_label, dt.by_label { background: transparent url(<?php echo $currtmp; ?>/images/icons/user_comment.gif) no-repeat 0 50%; }
-
-dd.topic_content { background: transparent url(<?php echo $currtmp; ?>/images/icons/resultset_next.gif) no-repeat 0 50%; }
-dd.t_closed { background: transparent url(<?php echo $currtmp; ?>/images/icons/stop.gif) no-repeat 0 50%; }
+dt.page_label, dt.topic_started_label, dt.last_activity_label,
+dt.last_reply_label, dt.by_label { padding-left: 4px; }
+dd.topic_content, dd.t_closed { padding-left: 4px; }
 
 dl.topic_view, 
 dl.topic_view dt, 
@@ -105,7 +102,7 @@ dl.sticky_topic {
     <td class="windowbg2" nowrap><?php echo htmlspecialchars($item['poster']); ?></td>
     <td class="windowbg2" nowrap><?php echo date('d-m-Y H:i', $item['posted']); ?></td>
     <td class="windowbg2" align="center">
-      <a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo (int)$_GET['topic_id']; ?>&post_id=<?php echo $item['post_id']; ?>&action=deletepost" onclick="return confirm('Delete this post?');" title="Delete post"><img src="<?php echo $currtmp; ?>/images/icons/bin_closed.gif" align="absmiddle"></a>
+      <a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo (int)$_GET['topic_id']; ?>&post_id=<?php echo $item['post_id']; ?>&action=deletepost" onclick="return confirm('Delete this post?');" title="Delete post" style="color:red;text-decoration:none;">&#x1F5D1;</a>
     </td>
   </tr>
   <?php } ?>
@@ -132,7 +129,7 @@ dl.sticky_topic {
     <td class="windowbg2" nowrap><?php echo date('d-m-Y', $item['topic_posted']); ?></td>
     <td class="windowbg2" align="center"><?php echo $item['num_replies']; ?></td>
     <td class="windowbg2" align="center">
-      <a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo $item['topic_id']; ?>&action=deletetopic" onclick="return confirm('Delete this topic and all its posts?');" title="Delete topic"><img src="<?php echo $currtmp; ?>/images/icons/bin_closed.gif" align="absmiddle"></a>
+      <a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo $item['topic_id']; ?>&action=deletetopic" onclick="return confirm('Delete this topic and all its posts?');" title="Delete topic" style="color:red;text-decoration:none;">&#x1F5D1;</a>
     </td>
   </tr>
   <?php } ?>
@@ -144,22 +141,22 @@ dl.sticky_topic {
     <dl class="topic_view" style="padding:1px;padding-left:5px;">
         <dt class="topic_label">aa</dt>
         <dd class="" style="font-size:11px;">
-            <?php if($item['closed']==0){ ?><a title="<?php echo $lang['close'];?>" href="index.php?n=admin&sub=forum&action=close&forum_id=<?php echo $item['forum_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons2/normal_post.gif" align="absmiddle"></a><?php } ?>
-            <?php if($item['closed']==1){ ?><a title="<?php echo $lang['open'];?>" href="index.php?n=admin&sub=forum&action=open&forum_id=<?php echo $item['forum_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons2/normal_post_locked.gif" align="absmiddle"></a><?php } ?>
-            <?php if($item['hidden']==0){ ?><a title="<?php echo $lang['hide'];?>" href="index.php?n=admin&sub=forum&action=hide&forum_id=<?php echo $item['forum_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons2/normal_post_sticky.gif" align="absmiddle"></a><?php } ?>
-            <?php if($item['hidden']==1){ ?><a title="<?php echo $lang['show'];?>" href="index.php?n=admin&sub=forum&action=show&forum_id=<?php echo $item['forum_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons2/my_normal_post.gif" align="absmiddle"></a><?php } ?>
-            <a title="<?php echo $lang['recount'];?>" href="index.php?n=admin&sub=forum&action=recount&forum_id=<?php echo $item['forum_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons2/normal_poll.gif" align="absmiddle"></a>
+            <?php if($item['closed']==0){ ?><a title="<?php echo $lang['close'];?>" href="index.php?n=admin&sub=forum&action=close&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Close">&#x1F513;</a><?php } ?>
+            <?php if($item['closed']==1){ ?><a title="<?php echo $lang['open'];?>" href="index.php?n=admin&sub=forum&action=open&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Open">&#x1F512;</a><?php } ?>
+            <?php if($item['hidden']==0){ ?><a title="<?php echo $lang['hide'];?>" href="index.php?n=admin&sub=forum&action=hide&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Hide">&#x1F441;</a><?php } ?>
+            <?php if($item['hidden']==1){ ?><a title="<?php echo $lang['show'];?>" href="index.php?n=admin&sub=forum&action=show&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Show">&#x1F576;</a><?php } ?>
+            <a title="<?php echo $lang['recount'];?>" href="index.php?n=admin&sub=forum&action=recount&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Recount">&#x21BA;</a>
             <b><?php echo $item['forum_name'];?></b> / <?php echo $item['forum_desc'];?>
             <span style="position:relative; float:right;">
             <a href="index.php?n=admin&sub=forum&forum_id=<?php echo $item['forum_id'];?>" style="font-size:10px;">[Topics]</a> &nbsp;
-            <a title="<?php echo $lang['dodelete'];?>" href="index.php?n=admin&sub=forum&action=deleteforum&forum_id=<?php echo $item['forum_id'];?>" onclick="return confirm('Are you sure?');"><img src="<?php echo $currtmp; ?>/images/icons/bin_closed.gif" align="absmiddle"></a> &nbsp;
+            <a title="<?php echo $lang['dodelete'];?>" href="index.php?n=admin&sub=forum&action=deleteforum&forum_id=<?php echo $item['forum_id'];?>" onclick="return confirm('Are you sure?');" style="color:red;text-decoration:none;">&#x1F5D1;</a> &nbsp;
             </span>
       </dd>
         <dt class="topic_started_label"></dt>
         <dd class="topic_started_content">
             &nbsp;&nbsp;<?php echo $lang['order'];?>: <input type="text" size="1" name="forumorder[<?php echo $item['forum_id'];?>]" value="<?php echo $item['disp_position'];?>">
-            <?php if($item_c > 0){ ?><a href="index.php?n=admin&sub=forum&action=moveup&cat_id=<?php echo $item['cat_id'];?>&forum_id=<?php echo $item['forum_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons/resultset_up.gif" align="absmiddle"></a><?php } ?>
-            <?php if($item_c < count($items)-1){ ?><a href="index.php?n=admin&sub=forum&action=movedown&cat_id=<?php echo $item['cat_id'];?>&forum_id=<?php echo $item['forum_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons/resultset_down.gif" align="absmiddle"></a><?php } ?>
+            <?php if($item_c > 0){ ?><a href="index.php?n=admin&sub=forum&action=moveup&cat_id=<?php echo $item['cat_id'];?>&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;">&#x25B2;</a><?php } ?>
+            <?php if($item_c < count($items)-1){ ?><a href="index.php?n=admin&sub=forum&action=movedown&cat_id=<?php echo $item['cat_id'];?>&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;">&#x25BC;</a><?php } ?>
         </dd>
     </dl>
 <?php } ?>
@@ -182,13 +179,13 @@ dl.sticky_topic {
         <dd class="topic_content" style="font-size:11px;">
             <a href="index.php?n=admin&sub=forum&cat_id=<?php echo $item['cat_id'];?>"><b><?php echo $item['cat_name'];?></b></a> 
             <span style="position:relative; float:right;">
-            <a title="<?php echo $lang['dodelete'];?>" href="index.php?n=admin&sub=forum&action=deletecat&cat_id=<?php echo $item['cat_id'];?>" onclick="return confirm('Are you sure?');"><img src="<?php echo $currtmp; ?>/images/icons/bin_closed.gif" align="absmiddle"></a> &nbsp; 
+            <a title="<?php echo $lang['dodelete'];?>" href="index.php?n=admin&sub=forum&action=deletecat&cat_id=<?php echo $item['cat_id'];?>" onclick="return confirm('Are you sure?');" style="color:red;text-decoration:none;">&#x1F5D1;</a> &nbsp;
             </span>
         </dd>
         <dt class="topic_started_label"></dt>
         <dd class="topic_started_content">&nbsp;&nbsp;<?php echo $lang['order'];?>: <?php echo $item['cat_disp_position'];?>&nbsp;
-            <?php if($item_c > 0){ ?><a href="index.php?n=admin&sub=forum&action=moveup&cat_id=<?php echo $item['cat_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons/resultset_up.gif"></a><?php } ?>
-            <?php if($item_c < count($items)-1){ ?><a href="index.php?n=admin&sub=forum&action=movedown&cat_id=<?php echo $item['cat_id'];?>"><img src="<?php echo $currtmp; ?>/images/icons/resultset_down.gif"></a><?php } ?>
+            <?php if($item_c > 0){ ?><a href="index.php?n=admin&sub=forum&action=moveup&cat_id=<?php echo $item['cat_id'];?>" style="text-decoration:none;">&#x25B2;</a><?php } ?>
+            <?php if($item_c < count($items)-1){ ?><a href="index.php?n=admin&sub=forum&action=movedown&cat_id=<?php echo $item['cat_id'];?>" style="text-decoration:none;">&#x25BC;</a><?php } ?>
             <input type="text" size="1" name="catorder[<?php echo $item['cat_id'];?>]" value="<?php echo $item['cat_disp_position'];?>">
         </dd>
     </dl>

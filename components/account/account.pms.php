@@ -58,11 +58,34 @@ if ($_GET['action'] == 'view') {
     $stmt->execute([(int)$user['id'], (int)$user['id'], (int)$user['id']]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Batch-resolve identity display names (for bot/character senders).
+    $allIdentityIds = [];
+    foreach ($rows as $row) {
+        if (!empty($row['sender_identity_id']))    $allIdentityIds[] = (int)$row['sender_identity_id'];
+        if (!empty($row['recipient_identity_id'])) $allIdentityIds[] = (int)$row['recipient_identity_id'];
+    }
+    $identityNames = function_exists('spp_resolve_identity_names')
+        ? spp_resolve_identity_names($allIdentityIds)
+        : [];
+
     $conversationMap = array();
     foreach ($rows as $row) {
         $isIncoming = (($row['pm_box'] ?? '') === 'in');
         $peerId = $isIncoming ? (int)($row['sender_id'] ?? 0) : (int)($row['owner_id'] ?? 0);
-        $peerName = $isIncoming ? (string)($row['sender'] ?? '') : (string)($row['receiver'] ?? '');
+
+        // Prefer identity display_name, fall back to account username.
+        if ($isIncoming) {
+            $identId  = (int)($row['sender_identity_id'] ?? 0);
+            $peerName = $identId && isset($identityNames[$identId])
+                ? $identityNames[$identId]
+                : (string)($row['sender'] ?? '');
+        } else {
+            $identId  = (int)($row['recipient_identity_id'] ?? 0);
+            $peerName = $identId && isset($identityNames[$identId])
+                ? $identityNames[$identId]
+                : (string)($row['receiver'] ?? '');
+        }
+
         if ($peerId <= 0 || $peerName === '') {
             continue;
         }
@@ -162,24 +185,51 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
         $threadPeerId = ((string)($item['pm_box'] ?? '') === 'in')
             ? (int)($item['sender_id'] ?? 0)
             : (int)($item['owner_id'] ?? 0);
-        $threadPeer = ((string)($item['pm_box'] ?? '') === 'in')
-            ? (string)($item['sender'] ?? '')
-            : (string)($item['receiver'] ?? '');
+
+        // Prefer identity display_name for the peer name in the thread header.
+        if ((string)($item['pm_box'] ?? '') === 'in') {
+            $identId = (int)($item['sender_identity_id'] ?? 0);
+            $_viewPeerName = $identId && function_exists('spp_resolve_identity_names')
+                ? (spp_resolve_identity_names([$identId])[$identId] ?? (string)($item['sender'] ?? ''))
+                : (string)($item['sender'] ?? '');
+        } else {
+            $identId = (int)($item['recipient_identity_id'] ?? 0);
+            $_viewPeerName = $identId && function_exists('spp_resolve_identity_names')
+                ? (spp_resolve_identity_names([$identId])[$identId] ?? (string)($item['receiver'] ?? ''))
+                : (string)($item['receiver'] ?? '');
+        }
+        $threadPeer = $_viewPeerName;
 
         if ($threadPeerId > 0 && !empty($_POST['reply_message'])) {
             $replyMessage = trim((string)$_POST['reply_message']);
             if ($replyMessage !== '') {
+                // Resolve identity IDs for this reply.
+                $replyRealmId = spp_resolve_realm_id($realmDbMap);
+                $replySenderIdentId    = null;
+                $replyRecipientIdentId = null;
+                if (function_exists('spp_ensure_account_identity')) {
+                    $replySenderIdentId = spp_ensure_account_identity($replyRealmId, (int)$user['id'], $user['username']) ?: null;
+                    $stmtRpName = $pmsPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
+                    $stmtRpName->execute([$threadPeerId]);
+                    $rpUsername = (string)($stmtRpName->fetchColumn() ?: '');
+                    if ($rpUsername !== '') {
+                        $replyRecipientIdentId = spp_ensure_account_identity($replyRealmId, $threadPeerId, $rpUsername) ?: null;
+                    }
+                }
+
                 $stmtReply = $pmsPdo->prepare("
                     INSERT INTO website_pms
-                        (owner_id, subject, message, sender_id, posted, sender_ip, showed)
+                        (owner_id, subject, message, sender_id, sender_identity_id, recipient_identity_id, posted, sender_ip, showed)
                     VALUES
-                        (?, ?, ?, ?, ?, ?, 0)
+                        (?, ?, ?, ?, ?, ?, ?, ?, 0)
                 ");
                 $stmtReply->execute([
                     $threadPeerId,
                     '',
                     $replyMessage,
                     (int)$user['id'],
+                    $replySenderIdentId,
+                    $replyRecipientIdentId,
                     time(),
                     $_SERVER['REMOTE_ADDR'] ?? ''
                 ]);
@@ -219,6 +269,27 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
                 $threadPeerId
             ]);
             $threadItems = $stmtThread->fetchAll(PDO::FETCH_ASSOC);
+
+            // Batch-resolve identity display names for this thread.
+            $threadIdentityIds = [];
+            foreach ($threadItems as $tRow) {
+                if (!empty($tRow['sender_identity_id']))    $threadIdentityIds[] = (int)$tRow['sender_identity_id'];
+                if (!empty($tRow['recipient_identity_id'])) $threadIdentityIds[] = (int)$tRow['recipient_identity_id'];
+            }
+            $threadIdentityNames = function_exists('spp_resolve_identity_names')
+                ? spp_resolve_identity_names($threadIdentityIds)
+                : [];
+            foreach ($threadItems as &$tRow) {
+                $sIdentId = (int)($tRow['sender_identity_id'] ?? 0);
+                $tRow['sender_display'] = $sIdentId && isset($threadIdentityNames[$sIdentId])
+                    ? $threadIdentityNames[$sIdentId]
+                    : (string)($tRow['sender'] ?? '');
+                $rIdentId = (int)($tRow['recipient_identity_id'] ?? 0);
+                $tRow['receiver_display'] = $rIdentId && isset($threadIdentityNames[$rIdentId])
+                    ? $threadIdentityNames[$rIdentId]
+                    : (string)($tRow['receiver'] ?? '');
+            }
+            unset($tRow);
 
             $stmtMarkThreadRead = $pmsPdo->prepare("
                 UPDATE website_pms
@@ -289,13 +360,28 @@ elseif ($_GET['action'] == 'add') {
         $owner_id = (int)$stmt->fetchColumn();
 
         if ($owner_id > 0) {
+            // Resolve (or ensure) identity IDs for sender and recipient.
+            $sendRealmId = spp_resolve_realm_id($realmDbMap);
+            $pmSenderIdentId    = null;
+            $pmRecipientIdentId = null;
+            if (function_exists('spp_ensure_account_identity')) {
+                $pmSenderIdentId    = spp_ensure_account_identity($sendRealmId, (int)$sender_id, $user['username']) ?: null;
+                // Look up recipient username for the identity display name.
+                $stmtRName = $pmsPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
+                $stmtRName->execute([$owner_id]);
+                $recipientUsername = (string)($stmtRName->fetchColumn() ?: '');
+                if ($recipientUsername !== '') {
+                    $pmRecipientIdentId = spp_ensure_account_identity($sendRealmId, $owner_id, $recipientUsername) ?: null;
+                }
+            }
+
             $stmt = $pmsPdo->prepare("
                 INSERT INTO website_pms
-                    (owner_id, subject, message, sender_id, posted, sender_ip, showed)
+                    (owner_id, subject, message, sender_id, sender_identity_id, recipient_identity_id, posted, sender_ip, showed)
                 VALUES
-                    (?, ?, ?, ?, ?, ?, 0)
+                    (?, ?, ?, ?, ?, ?, ?, ?, 0)
             ");
-            $stmt->execute([$owner_id, '', $message, (int)$sender_id, time(), $sender_ip]);
+            $stmt->execute([$owner_id, '', $message, (int)$sender_id, $pmSenderIdentId, $pmRecipientIdentId, time(), $sender_ip]);
 
             output_message('notice', $lang['post_sent']);
             redirect('index.php?n=account&sub=pms&action=view', 1);

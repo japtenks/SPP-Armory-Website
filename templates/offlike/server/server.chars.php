@@ -275,7 +275,8 @@ if (!in_array($factionFilter, ['all', 'alliance', 'horde'], true)) {
 $searchTerms = parse_character_search($search);
 
 $baseWhere = [];
-$baseWhere[] = $includeBots ? 'account >= 1' : 'account > 504';
+$_realmdDb = $realmDbMap[(int)$realmId]['realmd'] ?? 'classicrealmd';
+$baseWhere[] = $includeBots ? 'c.account >= 1' : "c.account NOT IN (SELECT id FROM `{$_realmdDb}`.`account` WHERE LOWER(username) LIKE 'rndbot%')";
 $baseWhere[] = '(xp > 0 OR level > 1)';
 if ($onlineOnly) {
     $baseWhere[] = 'online = 1';
@@ -284,8 +285,11 @@ $baseWhereSql = implode(' AND ', $baseWhere);
 
 $charPdo = spp_get_pdo('chars', $realmId);
 $rawCharacters = $charPdo->query("
-  SELECT c.guid, c.account, c.name, c.race, c.class, c.gender, c.level, c.zone, c.online, g.guildid AS guild_id, g.name AS guild_name
+  SELECT c.guid, c.account, c.name, c.race, c.class, c.gender, c.level, c.zone, c.online,
+         g.guildid AS guild_id, g.name AS guild_name,
+         IF(LOWER(a.username) LIKE 'rndbot%', 1, 0) AS is_bot
   FROM characters c
+  INNER JOIN `{$_realmdDb}`.`account` a ON a.id = c.account
   LEFT JOIN guild_member gm ON c.guid = gm.guid
   LEFT JOIN guild g ON gm.guildid = g.guildid
   WHERE {$baseWhereSql}
@@ -347,7 +351,7 @@ foreach ($rawCharacters as $item) {
 $count = count($filteredCharacters);
 $filteredBotCount = 0;
 foreach ($filteredCharacters as $filteredCharacter) {
-    if ((int)$filteredCharacter['account'] <= 504) {
+    if ((int)$filteredCharacter['is_bot']) {
         $filteredBotCount++;
     }
 }

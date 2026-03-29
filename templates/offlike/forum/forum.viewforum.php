@@ -33,6 +33,14 @@
   color: #aaa;
   margin: 10px 0;
 }
+.pagination a {
+  color: #b0d0ff;
+  text-decoration: none;
+  margin: 0 4px;
+}
+.pagination a:hover {
+  color: #ffd97a;
+}
 
 /* ---------- Topic Table ---------- */
 .forum-list-head,
@@ -139,6 +147,9 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
     output_message('alert', 'Invalid forum.');
     return;
 }
+
+$forumPageCount = max(1, (int)($this_forum['pnum'] ?? 1));
+$forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['forum_id'];
 ?>
 
 <?php builddiv_start(1, $this_forum['forum_name'], 0, true, $this_forum['forum_id'], $this_forum['closed']); ?>
@@ -156,6 +167,13 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
     <a href="index.php?n=forum&sub=post&action=newtopic&fid=<?php echo (int)$this_forum['forum_id']; ?>" class="btn primary">New Topic</a>
   </div>
   <?php endif; ?>
+
+  <?php if ($forumPageCount > 1): ?>
+  <div class="pagination">
+    <?php echo compact_paginate((int)$p, $forumPageCount, $forumPageBaseUrl); ?>
+  </div>
+  <?php endif; ?>
+
   <div class="forum-list-head">
     <div></div>
     <div>Subject</div>
@@ -190,6 +208,12 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
     <?php endforeach; ?>
   <?php endif; ?>
 
+  <?php if ($forumPageCount > 1): ?>
+  <div class="pagination">
+    <?php echo compact_paginate((int)$p, $forumPageCount, $forumPageBaseUrl); ?>
+  </div>
+  <?php endif; ?>
+
   <div class="forum-legend">
     <div>
       <img src="<?php echo $currtmp; ?>/images/news-community.gif" alt="New Posts"/>
@@ -205,5 +229,4 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
     </div>
   </div>
 <?php builddiv_end(); ?>
-
 

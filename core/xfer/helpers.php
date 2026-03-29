@@ -325,6 +325,7 @@ function stat_name(int $id): string {
 
 function inventory_type_name(int $id): string {
     $map = [
+        0  => "None",
         1  => "Head",
         2  => "Neck",
         3  => "Shoulder",
@@ -366,7 +367,6 @@ function armor_set_variants($raw) {
   }
   return $out;
 }
-
 
 
 

@@ -178,7 +178,7 @@
         <div class="news-item">
           <blockquote>
             <div class="blog-post">
-              <?php echo $topic['message']; ?>
+              <?php echo $topic['rendered_message'] ?? ''; ?>
               <div style="text-align:right;margin-top:6px;">
                 <a href="<?php echo mw_url('forum', 'viewtopic', ['tid'=>$topic['topic_id'],'to'=>'lastpost']);?>">
                   <?php echo $lang['lastcomment'];?>

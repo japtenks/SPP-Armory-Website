@@ -111,6 +111,38 @@ $stmtPosts = $forumPdo->prepare("
     WHERE topic_id=? ORDER BY posted LIMIT " . (int)$limit_start . "," . (int)$items_per_pages);
 $stmtPosts->execute([(int)$this_topic['topic_id']]);
 $result = $stmtPosts->fetchAll(PDO::FETCH_ASSOC);
+$posterPostCountCache = array();
+$posterIdentityMeta = array();
+if (!empty($result)) {
+    $identityIds = array();
+    foreach ($result as $row) {
+        $identityId = (int)($row['poster_identity_id'] ?? 0);
+        if ($identityId > 0) {
+            $identityIds[] = $identityId;
+        }
+    }
+
+    $identityIds = array_values(array_unique($identityIds));
+    if (!empty($identityIds)) {
+        try {
+            $placeholders = implode(',', array_fill(0, count($identityIds), '?'));
+            $stmtIdentityMeta = $forumPdo->prepare("
+                SELECT identity_id, identity_type, is_bot
+                FROM website_identities
+                WHERE identity_id IN ({$placeholders})
+            ");
+            $stmtIdentityMeta->execute($identityIds);
+            foreach ($stmtIdentityMeta->fetchAll(PDO::FETCH_ASSOC) as $identityRow) {
+                $posterIdentityMeta[(int)$identityRow['identity_id']] = array(
+                    'identity_type' => (string)($identityRow['identity_type'] ?? ''),
+                    'is_bot' => (int)($identityRow['is_bot'] ?? 0),
+                );
+            }
+        } catch (Throwable $e) {
+            error_log('[forum.viewtopic] Identity meta lookup failed: ' . $e->getMessage());
+        }
+    }
+}
 foreach($result as $cur_post)
 {
     unset($result['password']);
@@ -132,30 +164,89 @@ foreach($result as $cur_post)
     $stmtCi->execute([(int)$cur_post["poster_character_id"]]);
     $charinfo = $stmtCi->fetch(PDO::FETCH_ASSOC);
 
-  
-	$cur_post['avatar'] = get_character_portrait_path(
-    $cur_post["poster_character_id"],
-    $charinfo['gender'],
-    $charinfo['race'],
-    $charinfo['class']
-);
-//gender race class
-	$cur_post['mini_race'] = "$charinfo[race]-$charinfo[gender].gif";
-	$cur_post['mini_class'] = "$charinfo[class].gif";
-    $cur_post['level'] = $charinfo['level'];
-	if($charinfo['race']==1 || $charinfo['race']==3 || $charinfo['race']==4 || $charinfo['race']==7 || $charinfo['race']==11)$faction = 'alliance';
-        else $faction = 'horde';
-	$cur_post['faction'] = "$faction.gif";
-    if (!empty($charinfo['guild'])) {
-        $cur_post['guild'] = $charinfo['guild'];
+    if (!empty($charinfo) && !empty($cur_post['poster_character_id'])) {
+	    $cur_post['avatar'] = get_character_portrait_path(
+        $cur_post["poster_character_id"],
+        $charinfo['gender'],
+        $charinfo['race'],
+        $charinfo['class']
+    );
+    //gender race class
+	    $cur_post['mini_race'] = "$charinfo[race]-$charinfo[gender].gif";
+	    $cur_post['mini_class'] = "$charinfo[class].gif";
+        $cur_post['level'] = (int)$charinfo['level'];
+	    if($charinfo['race']==1 || $charinfo['race']==3 || $charinfo['race']==4 || $charinfo['race']==7 || $charinfo['race']==11)$faction = 'alliance';
+            else $faction = 'horde';
+	    $cur_post['faction'] = "$faction.gif";
+        $cur_post['guild'] = $charinfo['guild'] ?? '';
+    } else {
+        $cur_post['avatar'] = get_forum_avatar_fallback($cur_post['poster'] ?? '');
+        $cur_post['mini_race'] = '';
+        $cur_post['mini_class'] = '';
+        $cur_post['level'] = 0;
+        $cur_post['faction'] = '';
+        $cur_post['guild'] = '';
     }
+
+    $posterId = (int)($cur_post['poster_id'] ?? 0);
+    $posterIdentityId = (int)($cur_post['poster_identity_id'] ?? 0);
+    $identityMeta = $posterIdentityMeta[$posterIdentityId] ?? null;
+    $countByIdentity = $posterIdentityId > 0 && !empty($identityMeta)
+        && (((int)$identityMeta['is_bot']) === 1 || ($identityMeta['identity_type'] ?? '') === 'bot_character');
+
+    if ($countByIdentity) {
+        $cacheKey = 'identity:' . $posterIdentityId;
+        if (!isset($posterPostCountCache[$cacheKey])) {
+            $stmtPostCount = $forumPdo->prepare("SELECT COUNT(*) FROM f_posts WHERE poster_identity_id = ?");
+            $stmtPostCount->execute([$posterIdentityId]);
+            $posterPostCountCache[$cacheKey] = (int)$stmtPostCount->fetchColumn();
+        }
+        $cur_post['forum_post_count'] = $posterPostCountCache[$cacheKey];
+    } elseif ($posterId > 0) {
+        $cacheKey = 'account:' . $posterId;
+        if (!isset($posterPostCountCache[$cacheKey])) {
+            $stmtPostCount = $forumPdo->prepare("SELECT COUNT(*) FROM f_posts WHERE poster_id = ?");
+            $stmtPostCount->execute([$posterId]);
+            $posterPostCountCache[$cacheKey] = (int)$stmtPostCount->fetchColumn();
+        }
+        $cur_post['forum_post_count'] = $posterPostCountCache[$cacheKey];
+    } else {
+        $cur_post['forum_post_count'] = 0;
+    }
+
     $pnc++;
     if($bgswitch=='2')$bgswitch = '1';else $bgswitch = '2';
     $cur_post['bg'] = $bgswitch;
     $cur_post['pos_num'] = $pnc+(($p-1)*$items_per_pages);
-    if(date('d',$cur_post['posted'])==date('d') && $_SERVER['REQUEST_TIME']-$cur_post['posted']<86400)$cur_post['posted'] = $lang['today_at'].date('H:i:s',$cur_post['posted']);
-    elseif(date('d',$cur_post['posted'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$cur_post['posted']<2*86400)$cur_post['posted'] = $lang['yesterday_at'].date('H:i:s',$cur_post['posted']);
-    else $cur_post['posted'] = date('d-m-Y, H:i:s',$cur_post['posted']);
+    $postedTs = (int)$cur_post['posted'];
+    if (date('d', $postedTs) == date('d') && $_SERVER['REQUEST_TIME'] - $postedTs < 86400) {
+        $cur_post['posted'] = rtrim((string)$lang['today_at']) . ' ' . date('H:i:s', $postedTs);
+    } elseif (date('d', $postedTs) == date('d', $yesterday_ts) && $_SERVER['REQUEST_TIME'] - $postedTs < 2 * 86400) {
+        $cur_post['posted'] = rtrim((string)$lang['yesterday_at']) . ' ' . date('H:i:s', $postedTs);
+    } else {
+        $cur_post['posted'] = date('M d, Y H:i:s', $postedTs);
+    }
+
+    $rawMessage = (string)($cur_post['message'] ?? '');
+    $normalizedMessage = str_replace(
+        array('<br />', '<br/>', '<br>'),
+        "\n",
+        html_entity_decode($rawMessage, ENT_QUOTES, 'UTF-8')
+    );
+    $cur_post['rendered_message'] = bbcode($normalizedMessage, true, true, true, false);
+
+    $rawSignature = (string)($cur_post['signature'] ?? '');
+    if ($rawSignature !== '') {
+        $normalizedSignature = str_replace(
+            array('<br />', '<br/>', '<br>'),
+            "\n",
+            html_entity_decode($rawSignature, ENT_QUOTES, 'UTF-8')
+        );
+        $cur_post['rendered_signature'] = bbcode($normalizedSignature, true, true, true, false);
+    } else {
+        $cur_post['rendered_signature'] = '';
+    }
+
     $posts[] = $cur_post;
 }
 unset($result);

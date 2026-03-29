@@ -44,6 +44,23 @@ function get_post_pos($tid,$pid){
     return $stmt->fetchColumn();
 }
 
+function spp_increment_forum_unread(PDO $pdo, int $forumId, int $excludeMemberId = 0): void
+{
+    $stmt = $pdo->prepare("
+        UPDATE f_markread
+        SET marker_unread = marker_unread + 1,
+            marker_last_update = ?
+        WHERE marker_forum_id = ?
+          AND (? = 0 OR marker_member_id <> ?)
+    ");
+    $stmt->execute([
+        (int)$_SERVER['REQUEST_TIME'],
+        $forumId,
+        $excludeMemberId,
+        $excludeMemberId,
+    ]);
+}
+
 function declension($int, $expressions)
 {
     /*
@@ -65,6 +82,117 @@ function declension($int, $expressions)
         }
     }
     return $result;
+}
+
+// Expansion slug map — realm_id → expansion string used in scope_value.
+function spp_realm_to_expansion(int $realmId): string {
+    $map = [1 => 'classic', 2 => 'tbc', 3 => 'wotlk'];
+    return $map[$realmId] ?? '';
+}
+
+// Returns true if the character's current realm is allowed to post in $forum.
+// $forum is the row from f_forums (must include scope_type / scope_value).
+// $realmId is the character's active realm.
+function check_forum_scope(array $forum, int $realmId): bool {
+    $scopeType = $forum['scope_type'] ?? 'all';
+    if (!$scopeType || $scopeType === 'all') {
+        return true;
+    }
+
+    $scopeValue = (string)($forum['scope_value'] ?? '');
+
+    if ($scopeType === 'realm') {
+        return ((string)$realmId === $scopeValue);
+    }
+
+    if ($scopeType === 'expansion') {
+        return (spp_realm_to_expansion($realmId) === $scopeValue);
+    }
+
+    if ($scopeType === 'guild_recruitment') {
+        $user = $GLOBALS['user'] ?? [];
+        $charGuid  = (int)($user['character_id'] ?? 0);
+        $accountId = (int)($user['id'] ?? 0);
+        return get_char_recruitment_guild($realmId, $charGuid, $accountId) !== null;
+    }
+
+    // event_feed — reserved for Phase 5 (bot-only writes).
+    return true;
+}
+
+// MaNGOS guild rank rights bit for INVITE (can recruit members).
+define('GUILD_RIGHT_INVITE', 0x10);
+
+// Returns guild info for a character if they are allowed to post in a
+// guild_recruitment forum (guild leader or member with invite rights).
+// Returns null if the character is not in a guild or lacks permission.
+//
+// Return shape: ['guildid' => int, 'name' => str, 'rank' => int, 'is_leader' => bool]
+function get_char_recruitment_guild(int $realmId, int $charGuid, int $accountId): ?array {
+    if ($charGuid <= 0 || $accountId <= 0) {
+        return null;
+    }
+
+    try {
+        $charsPdo = spp_get_pdo('chars', $realmId);
+
+        // Verify the character belongs to this account and fetch guild membership.
+        $stmt = $charsPdo->prepare("
+            SELECT g.guildid, g.name AS guild_name, g.leaderguid,
+                   gm.rank,
+                   COALESCE(gr.rights, 0) AS rank_rights
+            FROM characters c
+            JOIN guild_member gm ON gm.guid = c.guid
+            JOIN guild g ON g.guildid = gm.guildid
+            LEFT JOIN guild_rank gr ON gr.guildid = gm.guildid AND gr.rid = gm.rank
+            WHERE c.guid = ? AND c.account = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$charGuid, $accountId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return null; // not in a guild or wrong account
+        }
+
+        $isLeader   = ((int)$row['leaderguid'] === $charGuid) || ((int)$row['rank'] === 0);
+        $canRecruit = $isLeader || (((int)$row['rank_rights'] & GUILD_RIGHT_INVITE) !== 0);
+
+        if (!$canRecruit) {
+            return null;
+        }
+
+        return [
+            'guildid'   => (int)$row['guildid'],
+            'name'      => (string)$row['guild_name'],
+            'rank'      => (int)$row['rank'],
+            'is_leader' => $isLeader,
+        ];
+    } catch (Throwable $e) {
+        error_log('[forum.func] get_char_recruitment_guild failed: ' . $e->getMessage());
+        return null;
+    }
+}
+
+// Returns the topic_id of an existing active recruitment thread for $guildId
+// in $forumId, or null if none exists. Pass $excludeTopicId to ignore a
+// specific topic (e.g., when editing the thread itself).
+function find_active_recruitment_thread(int $realmId, int $forumId, int $guildId, int $excludeTopicId = 0): ?int {
+    try {
+        $pdo  = spp_get_pdo('realmd', $realmId);
+        $stmt = $pdo->prepare("
+            SELECT topic_id FROM f_topics
+            WHERE forum_id = ? AND guild_id = ? AND recruitment_status = 'active'
+              AND (? = 0 OR topic_id <> ?)
+            LIMIT 1
+        ");
+        $stmt->execute([$forumId, $guildId, $excludeTopicId, $excludeTopicId]);
+        $id = $stmt->fetchColumn();
+        return $id !== false ? (int)$id : null;
+    } catch (Throwable $e) {
+        error_log('[forum.func] find_active_recruitment_thread failed: ' . $e->getMessage());
+        return null;
+    }
 }
 
 function isValidChar($user, $realmId = null)
@@ -164,8 +292,47 @@ function get_character_portrait_path($guid, $gender, $race, $class)
     return "/templates/offlike/images/icons/race/" . $race . '-' . $gender . ".gif";
 }
 
+function get_forum_staff_avatar_data_uri()
+{
+    static $uri = null;
+    if ($uri !== null) {
+        return $uri;
+    }
+
+    $svg = <<<SVG
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2b1a06"/>
+      <stop offset="100%" stop-color="#6f4a12"/>
+    </linearGradient>
+    <linearGradient id="trim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffd57c"/>
+      <stop offset="100%" stop-color="#b7862c"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="14" fill="url(#bg)" stroke="url(#trim)" stroke-width="4"/>
+  <circle cx="48" cy="36" r="15" fill="#e8d0a0"/>
+  <path d="M26 73c4-13 15-21 22-21s18 8 22 21" fill="#1e2f3e"/>
+  <path d="M48 20l4 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1z" fill="#ffd57c"/>
+  <text x="48" y="85" text-anchor="middle" font-family="Trebuchet MS, Arial, sans-serif" font-size="14" font-weight="bold" fill="#ffd57c">SPP</text>
+</svg>
+SVG;
+
+    $uri = 'data:image/svg+xml;base64,' . base64_encode($svg);
+    return $uri;
+}
+
+function get_forum_avatar_fallback($posterName = '')
+{
+    $normalized = strtolower(trim((string)$posterName));
+    if ($normalized === 'web team' || $normalized === 'spp team') {
+        return get_forum_staff_avatar_data_uri();
+    }
+
+    return '/templates/offlike/images/forum/icons/lock-icon.gif';
+}
+
 $yesterday_ts = mktime(0, 0, 0, date("m")  , date("d")-1, date("Y"));
 
 ?>
-
-

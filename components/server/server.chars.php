@@ -76,7 +76,8 @@ if ($_GET['sort']) {
 }
 
 $showBots = isset($_GET['show_bots']) && $_GET['show_bots'] == '1';
-$filterBots = $showBots ? "" : "AND account > 504";
+$_scRealmdDb = $realmDbMap[(int)$user['cur_selected_realmd']]['realmd'] ?? 'classicrealmd';
+$filterBots = $showBots ? "" : "AND account NOT IN (SELECT id FROM `{$_scRealmdDb}`.`account` WHERE LOWER(username) LIKE 'rndbot%')";
 
 
 ## output_message('alert',$filter);

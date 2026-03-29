@@ -295,6 +295,9 @@ function load_characters_for_user() {
                     $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
                     $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
                 }
+                if (function_exists('spp_ensure_account_identity')) {
+                    spp_ensure_account_identity(1, $acc_id, $params['username']);
+                }
                 $act_link = (string)$MW->getConfig->temp->base_href.'index.php?n=account&sub=activate&id='.$acc_id.'&key='.$tmp_act_key;
                 $email_text  = '== Account activation =='."\n\n";
                 $email_text .= 'Username: '.$params['username']."\n";
@@ -317,6 +320,9 @@ function load_characters_for_user() {
                 if((int)$MW->getConfig->generic->use_purepass_table) {
                     $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
                     $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
+                }
+                if (function_exists('spp_ensure_account_identity')) {
+                    spp_ensure_account_identity(1, $acc_id, $params['username']);
                 }
                 return true;
             } else {

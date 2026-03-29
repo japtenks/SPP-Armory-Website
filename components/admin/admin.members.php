@@ -158,12 +158,17 @@ if($_GET['id'] > 0){
         $stmt->execute($values2);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1); exit;
     }elseif($_GET['action'] == 'dodeleteacc'){
+        $deleteId = (int)$_GET['id'];
+        $deleteRealmId = spp_resolve_realm_id($realmDbMap);
+        if (function_exists('spp_deactivate_account_identities')) {
+            spp_deactivate_account_identities($deleteRealmId, $deleteId);
+        }
         $stmt = $membersPdo->prepare("DELETE FROM account WHERE id=? LIMIT 1");
-        $stmt->execute([(int)$_GET['id']]);
+        $stmt->execute([$deleteId]);
         $stmt = $membersPdo->prepare("DELETE FROM website_accounts WHERE account_id=? LIMIT 1");
-        $stmt->execute([(int)$_GET['id']]);
+        $stmt->execute([$deleteId]);
         $stmt = $membersPdo->prepare("DELETE FROM pms WHERE owner_id=? LIMIT 1");
-        $stmt->execute([(int)$_GET['id']]);
+        $stmt->execute([$deleteId]);
         redirect('index.php?n=admin&sub=members', 1); exit;
     }
 }else{
@@ -240,7 +245,7 @@ if($_GET['id'] > 0){
     $conditions = [];
     $filterParams = [];
     if (!$includeBots) {
-        $conditions[] = '`id` > 504';
+        $conditions[] = "LOWER(`username`) NOT LIKE 'rndbot%'";
     }
     if($_GET['char'] && preg_match("/[a-z]/", $_GET['char'])){
         $conditions[] = '`username` LIKE ?';

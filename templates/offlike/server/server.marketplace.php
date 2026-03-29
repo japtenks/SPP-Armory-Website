@@ -1,12 +1,5 @@
 <?php
-$siteDatabaseHandle = $GLOBALS['DB'] ?? null;
-$siteRoot = dirname(__DIR__, 3);
-require_once($siteRoot . '/config/config-protected.php');
-require_once($siteRoot . '/config/armory/settings.php');
-if ($siteDatabaseHandle !== null) {
-    $GLOBALS['DB'] = $siteDatabaseHandle;
-    $DB = $siteDatabaseHandle;
-}
+$siteRoot = $_SERVER['DOCUMENT_ROOT'];
 
 if (!function_exists('spp_marketplace_icon_url')) {
     function spp_marketplace_icon_url($iconName)
@@ -289,6 +282,8 @@ if (is_file($_mpCacheFile) && (time() - filemtime($_mpCacheFile)) < $_mpCacheTTL
     unset($_mpData);
 }
 
+$_mpRealmdDb = $realmDbMap[(int)$realmId]['realmd'] ?? 'classicrealmd';
+
 if (!$_mpFromCache):
 try {
     $charsPdo = spp_get_pdo('chars', $realmId);
@@ -315,7 +310,7 @@ try {
          INNER JOIN `character_skills` cs ON cs.`guid` = c.`guid`
          LEFT JOIN `ai_playerbot_names` apn ON apn.`name` = c.`name`
          WHERE cs.`skill` IN (' . $skillPlaceholders . ')
-           AND (c.`account` <= 504 OR apn.`name_id` IS NOT NULL)
+           AND (c.`account` IN (SELECT id FROM `{$_mpRealmdDb}`.`account` WHERE LOWER(username) LIKE \'rndbot%\') OR apn.`name_id` IS NOT NULL)
          ORDER BY cs.`skill`, cs.`max` DESC, cs.`value` DESC, c.`name` ASC'
     );
     $botSkillStmt->execute($craftProfessionIds);

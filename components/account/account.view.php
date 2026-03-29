@@ -60,6 +60,25 @@ if (!function_exists('spp_account_view_avatar_fallback_url')) {
         return '';
     }
 }
+
+if (!function_exists('spp_account_view_open_named_pdo')) {
+    function spp_account_view_open_named_pdo($dbName) {
+        $db = $GLOBALS['db'] ?? null;
+        if (!is_array($db) || empty($db['host']) || empty($db['user'])) {
+            throw new RuntimeException('Database config not available.');
+        }
+
+        return new PDO(
+            "mysql:host={$db['host']};port={$db['port']};dbname={$dbName};charset=utf8mb4",
+            $db['user'],
+            $db['pass'],
+            array(
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            )
+        );
+    }
+}
 // ==================== //
 if($user['id']<=0){
   redirect('index.php?n=account&sub=login',1);
@@ -99,6 +118,13 @@ if($user['id']<=0){
             $profile['total_played_seconds'] = 0;
             $profile['total_played_label'] = '0m';
             $profile['character_count'] = 0;
+            $profile['grouped_characters'] = array(
+                'Classic' => array(),
+                'TBC' => array(),
+                'WotLK' => array(),
+            );
+            $profile['selected_forum_character'] = array();
+            $profile['is_human_account'] = (stripos((string)($profile['username'] ?? ''), 'rndbot') !== 0);
             $profileRealmId = null;
             $profile['character_summary'] = array();
 
@@ -161,14 +187,50 @@ if($user['id']<=0){
             }
 
             try {
-                $summaryCharPdo = spp_get_pdo('chars', $profileRealmId);
-                $stmtPlayed = $summaryCharPdo->prepare("SELECT COALESCE(SUM(totaltime), 0) FROM characters WHERE account = ?");
-                $stmtPlayed->execute([(int)$uid]);
-                $profile['total_played_seconds'] = (int)$stmtPlayed->fetchColumn();
+                foreach ($realmDbMap as $realmId => $realmInfo) {
+                    $realmAccountId = null;
+                    try {
+                        $realmProfilePdo = spp_account_view_open_named_pdo((string)$realmInfo['realmd']);
+                        $stmtRealmAccount = $realmProfilePdo->prepare("SELECT id FROM account WHERE username = ? LIMIT 1");
+                        $stmtRealmAccount->execute([(string)$profile['username']]);
+                        $realmAccountId = $stmtRealmAccount->fetchColumn();
+                    } catch (Throwable $e) {
+                        error_log('[account.view] Realm account lookup failed: ' . $e->getMessage());
+                    }
 
-                $stmtCharacterCount = $summaryCharPdo->prepare("SELECT COUNT(*) FROM characters WHERE account = ?");
-                $stmtCharacterCount->execute([(int)$uid]);
-                $profile['character_count'] = (int)$stmtCharacterCount->fetchColumn();
+                    if (empty($realmAccountId)) {
+                        continue;
+                    }
+
+                    $summaryCharPdo = spp_account_view_open_named_pdo((string)$realmInfo['chars']);
+                    $stmtChars = $summaryCharPdo->prepare("
+                        SELECT c.guid, c.name, c.level, g.name AS guild_name
+                        FROM characters c
+                        LEFT JOIN guild_member gm ON c.guid = gm.guid
+                        LEFT JOIN guild g ON gm.guildid = g.guildid
+                        WHERE c.account = ?
+                        ORDER BY c.level DESC, c.name ASC
+                    ");
+                    $stmtChars->execute([(int)$realmAccountId]);
+                    $realmChars = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
+
+                    if (!empty($realmChars)) {
+                        $realmLabel = $expansionMap[max(0, (int)$realmId - 1)] ?? ('Realm ' . (int)$realmId);
+                        foreach ($realmChars as $realmChar) {
+                            $profile['grouped_characters'][$realmLabel][] = array(
+                                'guid' => (int)($realmChar['guid'] ?? 0),
+                                'name' => (string)($realmChar['name'] ?? ''),
+                                'level' => (int)($realmChar['level'] ?? 0),
+                                'guild' => (string)($realmChar['guild_name'] ?? ''),
+                            );
+                            $profile['character_count']++;
+                        }
+                    }
+
+                    $stmtPlayed = $summaryCharPdo->prepare("SELECT COALESCE(SUM(totaltime), 0) FROM characters WHERE account = ?");
+                    $stmtPlayed->execute([(int)$realmAccountId]);
+                    $profile['total_played_seconds'] += (int)$stmtPlayed->fetchColumn();
+                }
             } catch (Throwable $e) {
                 error_log('[account.view] Summary lookup failed: ' . $e->getMessage());
             }
@@ -182,6 +244,10 @@ if($user['id']<=0){
                     'guild' => '',
                     'realm' => '',
                 );
+            }
+
+            if (!empty($profile['character_summary'])) {
+                $profile['selected_forum_character'] = $profile['character_summary'];
             }
 
             $pathway_info[] = array('title'=>$profile['username'],'link'=>'');

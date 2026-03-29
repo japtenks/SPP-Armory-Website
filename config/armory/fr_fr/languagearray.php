@@ -50,6 +50,7 @@ $equipslots = array(
 22 => "Sac 4",
 );
 $inventorytype = array(
+0 => "None",
 1 => "Tête",
 2 => "Cou",
 3 => "Épaules",

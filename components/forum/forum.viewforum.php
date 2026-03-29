@@ -67,13 +67,13 @@ foreach($alltopics as $cur_topic)
         $cur_topic['pages_str'] .= ' &raquo;';
     }
     $cur_topic['pnum'] = $pnum;
-    if(date('d',$cur_topic['topic_posted'])==date('d') && $_SERVER['REQUEST_TIME']-$cur_topic['topic_posted']<86400)$cur_topic['topic_posted'] = $lang['today_at'].date('H:i',$cur_topic['topic_posted']);
-    elseif(date('d',$cur_topic['topic_posted'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$cur_topic['topic_posted']<2*86400)$cur_topic['topic_posted'] = $lang['yesterday_at'].date('H:i',$cur_topic['topic_posted']);
-    else $cur_topic['topic_posted'] = date('d-m-Y, H:i',$cur_topic['topic_posted']);
+    if(date('d',$cur_topic['topic_posted'])==date('d') && $_SERVER['REQUEST_TIME']-$cur_topic['topic_posted']<86400)$cur_topic['topic_posted'] = rtrim((string)$lang['today_at']) . ' ' . date('H:i',$cur_topic['topic_posted']);
+    elseif(date('d',$cur_topic['topic_posted'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$cur_topic['topic_posted']<2*86400)$cur_topic['topic_posted'] = rtrim((string)$lang['yesterday_at']) . ' ' . date('H:i',$cur_topic['topic_posted']);
+    else $cur_topic['topic_posted'] = date('M d, Y H:i',$cur_topic['topic_posted']);
 
-    if(date('d',$cur_topic['last_post'])==date('d') && $_SERVER['REQUEST_TIME']-$cur_topic['last_post']<86400)$cur_topic['last_post'] = $lang['today_at'].date('H:i',$cur_topic['last_post']);
-    elseif(date('d',$cur_topic['last_post'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$cur_topic['last_post']<2*86400)$cur_topic['last_post'] = $lang['yesterday_at'].date('H:i',$cur_topic['last_post']);
-    else $cur_topic['last_post'] = date('d-m-Y, H:i',$cur_topic['last_post']);
+    if(date('d',$cur_topic['last_post'])==date('d') && $_SERVER['REQUEST_TIME']-$cur_topic['last_post']<86400)$cur_topic['last_post'] = rtrim((string)$lang['today_at']) . ' ' . date('H:i',$cur_topic['last_post']);
+    elseif(date('d',$cur_topic['last_post'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$cur_topic['last_post']<2*86400)$cur_topic['last_post'] = rtrim((string)$lang['yesterday_at']) . ' ' . date('H:i',$cur_topic['last_post']);
+    else $cur_topic['last_post'] = date('M d, Y H:i',$cur_topic['last_post']);
 
     $cur_topic['linktothis'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$cur_topic['topic_id'].'';
     $cur_topic['linktolastpost'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$cur_topic['topic_id'].'&to=lastpost';
@@ -84,6 +84,5 @@ foreach($alltopics as $cur_topic)
 }
 unset($alltopics);
 ?>
-
 
 
