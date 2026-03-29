@@ -44,7 +44,7 @@ foreach($result as $item)
             }
         }
     }else{
-        $item['isnew']=false;
+        $item['isnew']=true;
     }
     if(date('d',$item['last_post'])==date('d') && $_SERVER['REQUEST_TIME']-$item['last_post']<86400)$item['last_post'] = $lang['today_at'].' '.date('H:i:s',$item['last_post']);
     elseif(date('d',$item['last_post'])==date('d',$yesterday_ts) && $_SERVER['REQUEST_TIME']-$item['last_post']<2*86400)$item['last_post'] = $lang['yesterday_at'].' '.date('H:i:s',$item['last_post']);

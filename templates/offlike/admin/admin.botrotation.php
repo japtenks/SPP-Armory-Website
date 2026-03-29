@@ -32,8 +32,19 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 }
 ?>
 <style>
-.rot-panel { width:100%; max-width:1100px; margin:28px auto 0; background:rgba(0,0,0,0.5); border:1px solid #333; border-radius:8px; box-shadow:inset 0 0 12px rgba(0,0,0,0.7); padding:20px 24px 24px; color:#ddd; }
-.rot-title { font-size:1.15rem; font-weight:700; color:#e8c96a; text-shadow:0 0 8px rgba(232,201,106,0.3); margin-bottom:18px; letter-spacing:0.04em; border-bottom:1px solid #2a2a2a; padding-bottom:10px; }
+.rot-shell { margin-top:18px; }
+.rot-panel { width:100%; max-width:none; margin:0; background:rgba(0,0,0,0.5); border:1px solid #333; border-radius:8px; box-shadow:inset 0 0 12px rgba(0,0,0,0.7); padding:20px 24px 24px; color:#ddd; }
+.rot-title { font-size:1.05rem; font-weight:700; color:#e8c96a; text-shadow:0 0 8px rgba(232,201,106,0.3); margin-bottom:18px; letter-spacing:0.04em; border-bottom:1px solid #2a2a2a; padding-bottom:10px; }
+.rot-title {
+    position: relative;
+    color: transparent;
+    text-shadow: none;
+}
+.rot-title::before {
+    content: 'Rotation Overview';
+    color: #e8c96a;
+    text-shadow: 0 0 8px rgba(232,201,106,0.3);
+}
 .rot-error { background:rgba(255,60,60,0.08); border:1px solid #5a1a1a; border-radius:6px; padding:10px 14px; color:#f88; font-size:0.82rem; margin-bottom:12px; font-family:monospace; }
 .rot-stats { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
 .rot-stat { flex:1 1 140px; background:rgba(255,255,255,0.03); border:1px solid #2c2c2c; border-radius:6px; padding:12px 14px; text-align:center; }
@@ -67,9 +78,9 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 .rot-subtitle { margin:18px 0 10px; color:#9f9f9f; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; }
 .rot-help { margin:-2px 0 12px; color:#8a8a8a; font-size:0.74rem; line-height:1.45; }
 </style>
-<br>
-<?php builddiv_start(0, 'Bot Rotation Health') ?>
-
+<?php $GLOBALS['builddiv_header_actions'] = '<a href="index.php?n=admin" class="btn secondary">Back to Admin Panel</a>'; ?>
+<?php builddiv_start(1, 'Bot Rotation Health'); ?>
+<div class="rot-shell">
 <div class="rot-panel">
   <div class="rot-title">⚙ Bot Rotation Health</div>
 
@@ -379,5 +390,6 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 
   <?php endif; ?>
 </div>
-
-<?php builddiv_end() ?>
+</div>
+<?php unset($GLOBALS['builddiv_header_actions']); ?>
+<?php builddiv_end(); ?>

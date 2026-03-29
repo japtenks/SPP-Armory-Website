@@ -146,7 +146,7 @@ builddiv_start(1, $lang['spp_forum']);
               <img src="<?php echo $currtmp; ?>/images/<?php
                 echo $forumitem['closed']
                   ? 'forum/icons/lock-icon.gif'
-                  : (($forumitem['isnew'] ?? false)
+                  : (((int)($user['id'] ?? 0) <= 0 || ($forumitem['isnew'] ?? false))
                     ? 'news-community.gif'
                     : 'no-news-community.gif');
               ?>" alt="Status"/>

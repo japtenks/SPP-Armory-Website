@@ -29,17 +29,9 @@
 .btn:hover { opacity: 0.9; }
 
 .pagination {
-  text-align: center;
-  color: #aaa;
-  margin: 10px 0;
-}
-.pagination a {
-  color: #b0d0ff;
-  text-decoration: none;
-  margin: 0 4px;
-}
-.pagination a:hover {
-  color: #ffd97a;
+  display: flex;
+  justify-content: center;
+  margin: 16px 0 0;
 }
 
 /* ---------- Topic Table ---------- */
@@ -139,6 +131,33 @@ img[src*="forum_top.png"] {
   gap: 8px;
   justify-content: flex-end;
 }
+
+.forum-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.forum-page-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c3a46a;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.forum-page-size select {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 206, 102, 0.28);
+  background: rgba(20, 20, 20, 0.85);
+  color: #f1f1f1;
+  padding: 6px 10px;
+}
 </style>
 
 <?php
@@ -149,7 +168,8 @@ if (empty($this_forum) || (int)$this_forum['forum_id'] <= 0) {
 }
 
 $forumPageCount = max(1, (int)($this_forum['pnum'] ?? 1));
-$forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['forum_id'];
+$forumItemsPerPage = (int)($this_forum['items_per_page'] ?? 25);
+$forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['forum_id'] . '&per_page=' . $forumItemsPerPage;
 ?>
 
 <?php builddiv_start(1, $this_forum['forum_name'], 0, true, $this_forum['forum_id'], $this_forum['closed']); ?>
@@ -168,11 +188,21 @@ $forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['f
   </div>
   <?php endif; ?>
 
-  <?php if ($forumPageCount > 1): ?>
-  <div class="pagination">
-    <?php echo compact_paginate((int)$p, $forumPageCount, $forumPageBaseUrl); ?>
+  <div class="forum-toolbar">
+    <div></div>
+    <form method="get" action="index.php" class="forum-page-size">
+      <input type="hidden" name="n" value="forum" />
+      <input type="hidden" name="sub" value="viewforum" />
+      <input type="hidden" name="fid" value="<?php echo (int)$this_forum['forum_id']; ?>" />
+      <label for="forum_per_page">Show</label>
+      <select id="forum_per_page" name="per_page" onchange="this.form.submit()">
+        <?php foreach (($this_forum['allowed_page_sizes'] ?? array(10, 25, 50)) as $pageSize): ?>
+          <option value="<?php echo (int)$pageSize; ?>"<?php if ((int)$pageSize === $forumItemsPerPage) echo ' selected'; ?>><?php echo (int)$pageSize; ?></option>
+        <?php endforeach; ?>
+      </select>
+      <span>topics</span>
+    </form>
   </div>
-  <?php endif; ?>
 
   <div class="forum-list-head">
     <div></div>
@@ -190,7 +220,7 @@ $forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['f
   <?php else: ?>
     <?php foreach ($topics as $t): ?>
       <div class="forum-row">
-        <div><img src="<?php echo $currtmp; ?>/images/<?php echo $t['closed'] ? 'news-community.gif' : 'no-news-community.gif'; ?>" alt="Status"></div>
+        <div><img src="<?php echo $currtmp; ?>/images/<?php echo ((int)($user['id'] ?? 0) <= 0 || !empty($t['isnew'])) ? 'news-community.gif' : 'no-news-community.gif'; ?>" alt="Status"></div>
         <div class="col-subject">
           <a href="<?php echo $t['linktothis']; ?>">
             <?php echo htmlspecialchars($t['topic_name']); ?>
@@ -210,7 +240,7 @@ $forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['f
 
   <?php if ($forumPageCount > 1): ?>
   <div class="pagination">
-    <?php echo compact_paginate((int)$p, $forumPageCount, $forumPageBaseUrl); ?>
+    <?php echo default_paginate($forumPageCount, (int)$p, $forumPageBaseUrl); ?>
   </div>
   <?php endif; ?>
 
@@ -229,4 +259,3 @@ $forumPageBaseUrl = 'index.php?n=forum&sub=viewforum&fid=' . (int)$this_forum['f
     </div>
   </div>
 <?php builddiv_end(); ?>
-

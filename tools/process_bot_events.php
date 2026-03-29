@@ -187,7 +187,7 @@ function get_realm_herald(int $realmId, PDO $masterPdo): ?array {
 }
 
 // ---- Content templates ----
-function build_post_content(array $event): array {
+function build_post_content(array $event, bool $selfPost = false): array {
     $payload = json_decode($event['payload_json'], true) ?? [];
     $type    = $event['event_type'];
 
@@ -196,6 +196,18 @@ function build_post_content(array $event): array {
         $level = (int)($payload['level'] ?? 0);
         $max   = in_array($payload['expansion'] ?? '', ['classic']) ? 60
                : (($payload['expansion'] ?? '') === 'tbc' ? 70 : 80);
+        if ($selfPost) {
+            if ($level >= $max) {
+                return [
+                    'title' => "Finally hit level {$level}!",
+                    'body'  => "I finally did it — level {$level}! Max level at last. Time to start gearing up and getting into the real content. See you out there!",
+                ];
+            }
+            return [
+                'title' => "Just hit level {$level}!",
+                'body'  => "Dinged level {$level} today. Feeling stronger with every fight — can't wait to see what's next!",
+            ];
+        }
         if ($level >= $max) {
             return [
                 'title' => "{$name} has reached the maximum level!",
@@ -223,6 +235,18 @@ function build_post_content(array $event): array {
         $name  = htmlspecialchars($payload['char_name']   ?? 'Someone');
         $skill = htmlspecialchars($payload['skill_name']  ?? 'a profession');
         $value = (int)($payload['skill_value'] ?? 0);
+        if ($selfPost) {
+            if ($value >= 300) {
+                return [
+                    'title' => "Grand Master {$skill} — finally!",
+                    'body'  => "Just hit 300 in {$skill}! Officially a Grand Master now. Took a lot of materials and patience but totally worth it.",
+                ];
+            }
+            return [
+                'title' => "Hit {$value} in {$skill}!",
+                'body'  => "Reached {$value} in {$skill} today. Still a ways to go but the progress feels great!",
+            ];
+        }
         if ($value >= 300) {
             return [
                 'title' => "{$name} has mastered {$skill}!",
@@ -269,6 +293,21 @@ function build_post_content(array $event): array {
         $lines[] = "We are always looking for dedicated adventurers — whisper our leadership in-game to apply!";
 
         return ['title' => null, 'body' => implode("\n", $lines)];
+    }
+
+    if ($type === 'achievement_badge') {
+        $name    = htmlspecialchars($payload['char_name']   ?? 'Someone');
+        $achieve = htmlspecialchars($payload['achievement'] ?? 'an achievement');
+        if ($selfPost) {
+            return [
+                'title' => "Just earned [{$achieve}]!",
+                'body'  => "I just earned the [{$achieve}] achievement! Feels good to get that one done.",
+            ];
+        }
+        return [
+            'title' => "{$name} earned [{$achieve}]",
+            'body'  => "{$name} has earned the [{$achieve}] achievement. Well done!",
+        ];
     }
 
     return ['title' => 'Server Event', 'body' => json_encode($payload)];
@@ -552,14 +591,54 @@ foreach ($events as $event) {
 
     // ---- All other event types: create a new forum topic ----
 
-    // For guild_created: try to use guild leader's character identity as poster.
-    // For all others: use the realm herald (bot character).
-    $identity = null;
+    // Resolve poster identity:
+    // - guild_created: guild leader's character identity
+    // - level_up / profession_milestone:
+    //     unguilded character  → character posts for themselves (self-post, first-person)
+    //     guilded character    → guild leader identity → realm herald
+    // - everything else: realm herald
+    $identity       = null;
+    $isSelfPost     = false;
+    $guildIdForChar = 0;   // non-zero when char is guilded (used for thread routing below)
+    $idStmt         = $masterPdo->prepare("SELECT * FROM `website_identities` WHERE identity_key = ? LIMIT 1");
+
     if ($eventType === 'guild_created' && !empty($event['character_guid'])) {
-        $identKey = "char:{$realmId}:{$event['character_guid']}";
-        $idStmt = $masterPdo->prepare("SELECT * FROM `website_identities` WHERE identity_key = ? LIMIT 1");
-        $idStmt->execute([$identKey]);
+        $idStmt->execute(["char:{$realmId}:{$event['character_guid']}"]);
         $identity = $idStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    } elseif (in_array($eventType, ['level_up', 'profession_milestone', 'achievement_badge']) && !empty($event['character_guid'])) {
+        $charGuidCheck = (int)$event['character_guid'];
+        try {
+            $charPdo2 = spp_get_pdo('chars', $realmId);
+            $gStmt    = $charPdo2->prepare("SELECT guildid FROM `guild_member` WHERE guid = ? LIMIT 1");
+            $gStmt->execute([$charGuidCheck]);
+            $guildIdForChar = (int)($gStmt->fetchColumn() ?: 0);
+        } catch (Throwable $e) {
+            // chars DB unavailable — treat as unguilded
+        }
+
+        if ($guildIdForChar > 0) {
+            // Guilded: post as guild leader so level/skill news lands in the guild context
+            $leaderGuidForChar = 0;
+            try {
+                $lStmt = $charPdo2->prepare("SELECT leaderguid FROM `guild` WHERE guildid = ? LIMIT 1");
+                $lStmt->execute([$guildIdForChar]);
+                $leaderGuidForChar = (int)($lStmt->fetchColumn() ?: 0);
+            } catch (Throwable $e) {
+                // fall through to herald
+            }
+            if ($leaderGuidForChar > 0) {
+                $idStmt->execute(["char:{$realmId}:{$leaderGuidForChar}"]);
+                $identity = $idStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+        } else {
+            // Unguilded: character speaks for themselves
+            $idStmt->execute(["char:{$realmId}:{$charGuidCheck}"]);
+            $charIdentity = $idStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if ($charIdentity) {
+                $identity   = $charIdentity;
+                $isSelfPost = true;
+            }
+        }
     }
     if (!$identity) {
         $identity = get_realm_herald($realmId, $masterPdo);
@@ -574,9 +653,55 @@ foreach ($events as $event) {
         continue;
     }
 
-    $content       = build_post_content($event);
-    $contentSource = ($eventType === 'guild_created') ? 'system_event' : 'bot_generated';
+    $content           = build_post_content($event, $isSelfPost);
+    $contentSource     = ($eventType === 'guild_created') ? 'system_event' : 'bot_generated';
     $scheduledPostTime = (int)($scheduledPostTimes[$eventId] ?? time());
+
+    // Guilded level_up / profession_milestone → reply into recruitment thread, not a new general topic.
+    if ($guildIdForChar > 0 && in_array($eventType, ['level_up', 'profession_milestone', 'achievement_badge'])) {
+        $recruitTopicId = 0;
+        try {
+            $realmPdoGuild = spp_get_pdo('realmd', $realmId);
+            $rtStmt        = $realmPdoGuild->prepare("
+                SELECT topic_id FROM `f_topics`
+                WHERE guild_id = ? AND recruitment_status = 'active'
+                ORDER BY topic_id ASC LIMIT 1
+            ");
+            $rtStmt->execute([$guildIdForChar]);
+            $recruitTopicId = (int)($rtStmt->fetchColumn() ?: 0);
+        } catch (Throwable $e) {
+            log_line("  ERROR looking up guild recruitment thread: " . $e->getMessage());
+        }
+
+        if ($recruitTopicId > 0) {
+            try {
+                $postId = post_forum_reply(
+                    $realmId, $recruitTopicId, $identity,
+                    $content['body'], $contentSource, $scheduledPostTime, $dryRun
+                );
+                if (!$dryRun) {
+                    $masterPdo->prepare("UPDATE `website_bot_events` SET status='posted', processed_at=NOW() WHERE event_id=?")->execute([$eventId]);
+                }
+                log_line("  → Guild thread #{$recruitTopicId} (post #{$postId}) at " . date('Y-m-d H:i:s', $scheduledPostTime) . ": \"{$content['title']}\" (as {$identity['display_name']})");
+                $results['posted']++;
+            } catch (Throwable $e) {
+                log_line("  FAILED: " . $e->getMessage());
+                if (!$dryRun) {
+                    $masterPdo->prepare("UPDATE `website_bot_events` SET status='failed', error_message=?, processed_at=NOW() WHERE event_id=?")->execute([substr($e->getMessage(), 0, 255), $eventId]);
+                }
+                $results['failed']++;
+            }
+            continue;
+        }
+
+        // Guild has no active recruitment thread — skip rather than pollute general forum.
+        log_line("  SKIP: guild {$guildIdForChar} has no active recruitment thread.");
+        if (!$dryRun) {
+            $masterPdo->prepare("UPDATE `website_bot_events` SET status='skipped', error_message='no guild thread', processed_at=NOW() WHERE event_id=?")->execute([$eventId]);
+        }
+        $results['skipped']++;
+        continue;
+    }
 
     // Extra columns for guild_created topics.
     $topicExtras = [];

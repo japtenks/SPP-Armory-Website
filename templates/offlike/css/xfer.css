@@ -168,10 +168,10 @@
   font-weight: 700;
   width: 16px;
   text-align: center;
+  content: "";
 }
 .account-dropdown .account-menu a[href*="manage"]::before { content: ""; }
-.account-dropdown .account-menu a[href*="pms"]::before { content: ">"; }
-.account-dropdown .account-menu a[href*="logout"]::before { content: ">"; }
+.account-dropdown .account-menu li.active-char a::before { content: ">"; }
 
 /* === Right Section === */
 .nav-right {

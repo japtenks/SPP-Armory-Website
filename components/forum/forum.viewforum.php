@@ -15,6 +15,12 @@ $vfPdo = spp_get_pdo('realmd', $vfRealmId);
 // MARKREAD //
 if($user['id']>0){
     $topicsmark = array();
+    $mark = array(
+        'marker_topics_read' => serialize(array()),
+        'marker_last_update' => 0,
+        'marker_unread' => 0,
+        'marker_last_cleared' => 0,
+    );
     if($_GETVARS['markread']==1){
         $stmtMr = $vfPdo->prepare("UPDATE f_markread SET marker_topics_read=?,marker_last_update=?,marker_unread=0,marker_last_cleared=? WHERE marker_member_id=? AND marker_forum_id=?");
         $stmtMr->execute([serialize($topicsmark), (int)$_SERVER['REQUEST_TIME'], (int)$_SERVER['REQUEST_TIME'], (int)$user['id'], (int)$this_forum['forum_id']]);
@@ -27,14 +33,23 @@ if($user['id']>0){
         $stmtInsMr = $vfPdo->prepare("INSERT INTO f_markread SET marker_member_id=?,marker_forum_id=?,marker_topics_read=?");
         $stmtInsMr->execute([(int)$user['id'], (int)$this_forum['forum_id'], serialize(array())]);
     }
-    if($mark['marker_topics_read'])$topicsmark = unserialize($mark['marker_topics_read']);
+    if(!empty($mark['marker_topics_read']))$topicsmark = unserialize($mark['marker_topics_read']);
 }
 //===== Calc pages =====//
-$items_per_pages = (int)$MW->getConfig->generic->topics_per_page;
+$allowedTopicPageSizes = array(10, 25, 50);
+$requestedTopicPageSize = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 0;
+$items_per_pages = in_array($requestedTopicPageSize, $allowedTopicPageSizes, true)
+    ? $requestedTopicPageSize
+    : (int)$MW->getConfig->generic->topics_per_page;
+if (!in_array($items_per_pages, $allowedTopicPageSizes, true)) {
+    $items_per_pages = 25;
+}
 $itemnum = $this_forum['num_topics'];
 $pnum = ceil($itemnum/$items_per_pages);
 $limit_start = ($p-1)*$items_per_pages;
 $this_forum['pnum'] = $pnum;
+$this_forum['items_per_page'] = $items_per_pages;
+$this_forum['allowed_page_sizes'] = $allowedTopicPageSizes;
 
 $topics = array();
 $stmtAt = $vfPdo->prepare("
@@ -49,15 +64,16 @@ $stmtAt->execute([(int)$this_forum['forum_id']]);
 $alltopics = $stmtAt->fetchAll(PDO::FETCH_ASSOC);
 foreach($alltopics as $cur_topic)
 {
-    if($user['id']>0 && $cur_topic['last_post'] > $mark['marker_last_cleared']){
+    $topicLastRead = isset($topicsmark[$cur_topic['topic_id']]) ? (int)$topicsmark[$cur_topic['topic_id']] : 0;
+    if($user['id']>0 && $cur_topic['last_post'] > (int)$mark['marker_last_cleared']){
         $cur_topic['isnew']=true;
-        if($cur_topic['last_post'] > $topicsmark[$cur_topic['topic_id']]){
+        if($cur_topic['last_post'] > $topicLastRead){
             $cur_topic['isnew']=true;
         }else{
             $cur_topic['isnew']=false;
         }
     }else{
-        $cur_topic['isnew']=false;
+        $cur_topic['isnew']=true;
     }
 
     $pnum = ceil($cur_topic['num_replies']/(int)$MW->getConfig->generic->posts_per_page);
@@ -84,5 +100,3 @@ foreach($alltopics as $cur_topic)
 }
 unset($alltopics);
 ?>
-
-

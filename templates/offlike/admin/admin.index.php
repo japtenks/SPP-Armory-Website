@@ -70,7 +70,6 @@
     <p class="admin-home__eyebrow">Control Center</p>
     <h2 class="admin-home__title">MangosWeb Enhanced Admin</h2>
     <p class="admin-home__body">
-      Current MangosWeb revision: <strong><?php echo (int)$rev; ?></strong>.
       Use these tools to manage members, forums, realms, and bot-driven site systems.
     </p>
   </div>
@@ -96,7 +95,6 @@
       <h3>Forum & Content</h3>
       <ul class="admin-home__links">
         <li><a href="index.php?n=admin&amp;sub=forum"><?php echo $lang['admin_forum']; ?> Admin</a></li>
-        <li><a href="index.php?n=forum&amp;sub=post&amp;action=newtopic&amp;f=<?php echo (int)$MW->getConfig->generic_values->forum->news_forum_id; ?>"><?php echo $lang['news_add']; ?></a></li>
         <li><a href="index.php?n=admin&amp;sub=botevents">Bot Events Pipeline</a></li>
         <li><a href="index.php?n=admin&amp;sub=botrotation">Bot Rotation Health</a></li>
       </ul>

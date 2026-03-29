@@ -1,128 +1,219 @@
-<br />
-<?php builddiv_start(1, "Character Transfer Manager") ?>
+<?php builddiv_start(0, 'Character Transfer') ?>
 <style>
-div.errorMsg { width: 80%; height: 30px; line-height: 30px; font-size: 10pt; border: 2px solid #e03131; background: #ff9090;}
-</style>
-<center>
-<form action='index.php?n=admin&sub=chartransfer' method='post'>
-<table width="300" border="0" cellpadding="2px">
-<tr>
-    <td>Character Name</td>
-    <td><input type='text' name='name' maxlength='20' size='20'/></td>
-  </tr>
-<tr>
-    <td>Current Realm</td>
-    <td><select name='realm'>
-				<?php foreach ($DBS as $realm){
-					echo "<option value='".$realm['id']."'>".$realm['name']."</option>";
-				}?>
-			</select>
-    </td>
-  </tr>
-  <tr>
-    <td>Target Realm</td>
-    <td><select name='newrealm'>
-				<?php foreach ($DBS as $realm){
-					echo "<option value='".$realm['id']."'>".$realm['name']."</option>";
-				}?>
-			</select>
-    </td>
-  </tr>
-  <td colspan='2' align='center'>
-<?php $disabled = ""; echo "<input type='submit' name='move_char' ".$disabled." value='".$transfer."'/>
-				<input type='submit' name='clean_db' ".$disabled." value='".$cleandb."'/>";
-?></td></table></form>
-</center>
-<?php
-if(check_online($DBS)){
-    echo "<p align='center'><font color='red'>" . $serveron_1 . "</font></p>";
-}
-if(isset($_POST['realm'])){
-	$db1=$DBS[$_POST['realm']];
-	$db2=$DBS[$_POST['newrealm']];
-}
-if(isset($_POST['rename']))
-{
-	if(($_POST['name'])=='' or ($_POST['newname'])=='')
-	{
-		echo "<p align='center'><font color='red'>".$empty_field."</font></p>";
-		exit();
-	}
-	$name=$_POST['name'];
-	$newname=ucfirst(strtolower(trim($_POST['name'])));
-	$status = check_if_online($name,$db1);
-	$newname_exist = check_if_name_exist($newname,$db1);
-	if($status == -1)
-	{
-		echo "<p align='center'><font color='red'>".$character.$name.$doesntexist."</font></p>";
-		exit();
-	}
-	if($newname_exist == 1)
-	{
-		echo "<p align='center'><font color='red'>".$alreadyexist.$newname."!</font></p>";
-		exit();
-	}
-	if($status == 1)
-		echo "<p align='center'><font color='red'>".$character.$name.$isonline."</font></p>";
-	else
-	{
-		change_name($name,$newname,$db1);
-		echo "<p align='center'><font color='blue'>".$character.$name.$renamesuccess.$newname."!</font></p>";
-	}
-}
-else if(isset($_POST['move_char']))
-{
-	if(($_POST['name'])=='')
-	{
-		echo "<p align='center'><font color='red'>".$mustentername."</font></p>";
-		exit();
-	}
-	$name=$_POST['name'];
-	$newname=ucfirst(strtolower(trim($_POST['name'])));
-	if($newname <> "")
-	{
-		$newname_exist = check_if_name_exist($newname,$db2);
-		if($newname_exist == 1)
-		{
-			echo "<p align='center'><font color='red'>".$alreadyexist.$newname."!</font></p>";
-			exit();
-		}
-	}
-	if(($newname <> "") or (check_if_name_exist($name,$db2) == 0))
-	{
-		$char_guid = select_char($name,$db1);
-		if($char_guid>0)
-		{
-			truncate_db($temp_db);
-			move($char_guid,$db1,$temp_db);
-			if(($newname <> "") and ($newname_exist <> 1))
-				change_name($name,$newname,$temp_db);
-			cleanup($temp_db);
-			foreach($tab_guid_change as $value)
-			{
-				$max_guid = select_max_guid($db2,$value[0],$value[1]);
-				change_guid($temp_db,$max_guid,$value[2],$value[0],$value[1]);
-				if($value[0]=='characters')
-					$max_char_guid=$max_guid;
-			}
-			move($max_char_guid+1,$temp_db,$db2);
-			truncate_db($temp_db);
-			del_char($char_guid,$db1);
-			echo "<p align='center'><font color='blue'>".$character.$name.$transfersuccess."</font></p>";
-			if(($newname <> "") and ($newname_exist <> 1))
-				echo "<p align='center'><font color='blue'>".$character.$name.$renamesuccess.$newname."!</font></p>";
-		}
-		else
-			echo "<p align='center'><font color='red'>".$character.$name.$doesntexist."</font></p>";
-	}
-	else
-		echo "<p align='center'><font color='red'>".$character.$name.$alreadytransfered."</font></p>";
-}
-else if(isset($_POST['clean_db']))
-{
-	$db1=$DBS[$_POST['realm']];
-	clean_after_delete($db1);
-	echo "<p align='center'><font color='blue'>".$clearDBsuccess."</font></p>";
+.admin-transfer-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: #ddd;
 }
 
-builddiv_end() ?>
+.admin-transfer-card {
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.92), rgba(9, 9, 9, 0.9));
+  border: 1px solid rgba(223, 168, 70, 0.28);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  padding: 20px 22px;
+}
+
+.admin-transfer-kicker {
+  margin: 0 0 8px;
+  color: #c9a86a;
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-transfer-title {
+  margin: 0 0 10px;
+  color: #ffcc66;
+  font-size: 1.4rem;
+}
+
+.admin-transfer-copy {
+  margin: 0;
+  color: #d2d2d2;
+}
+
+.admin-transfer-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: center;
+}
+
+.admin-transfer-form label {
+  color: #c3a46a;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-transfer-form select,
+.admin-transfer-form input[type=text] {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 206, 102, 0.2);
+  background: rgba(12, 12, 12, 0.72);
+  color: #f1f1f1;
+  padding: 10px 12px;
+}
+
+.admin-transfer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.admin-transfer-actions input[type=submit] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 206, 102, 0.35);
+  background: rgba(255, 193, 72, 0.08);
+  color: #ffd27a;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.admin-transfer-actions input[type=submit]:hover {
+  color: #fff6dc;
+  background: rgba(255, 193, 72, 0.18);
+  box-shadow: 0 0 10px rgba(255, 193, 72, 0.18);
+}
+
+.admin-transfer-actions .danger-submit {
+  border-color: rgba(255, 110, 110, 0.38);
+  background: rgba(170, 35, 35, 0.18);
+  color: #ff9b9b;
+}
+
+.admin-transfer-actions .danger-submit:hover {
+  background: rgba(170, 35, 35, 0.28);
+  color: #ffe2e2;
+}
+
+.admin-transfer-msg {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.admin-transfer-msg.error {
+  background: rgba(170, 35, 35, 0.18);
+  border: 1px solid rgba(255, 110, 110, 0.28);
+  color: #ffb0b0;
+}
+
+.admin-transfer-msg.success {
+  background: rgba(44, 127, 75, 0.18);
+  border: 1px solid rgba(92, 199, 129, 0.28);
+  color: #9ef0b2;
+}
+
+@media (max-width: 820px) {
+  .admin-transfer-form {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+
+<div class="admin-transfer-shell">
+  <div class="admin-transfer-card">
+    <p class="admin-transfer-kicker">Character Tools</p>
+    <h2 class="admin-transfer-title">Transfer Character</h2>
+    <p class="admin-transfer-copy">Move a character between installed realms. The character must be offline, and the target realm cannot already have a character with the same name.</p>
+  </div>
+
+  <div class="admin-transfer-card">
+    <form action="index.php?n=admin&sub=chartransfer" method="post">
+      <div class="admin-transfer-form">
+        <label for="transfer_name">Character Name</label>
+        <input type="text" id="transfer_name" name="name" maxlength="20" />
+
+        <label for="transfer_realm">Current Realm</label>
+        <select id="transfer_realm" name="realm">
+          <?php foreach ($DBS as $realm): ?>
+            <option value="<?php echo (int)$realm['id']; ?>"><?php echo htmlspecialchars($realm['name']); ?></option>
+          <?php endforeach; ?>
+        </select>
+
+        <label for="transfer_newrealm">Target Realm</label>
+        <select id="transfer_newrealm" name="newrealm">
+          <?php foreach ($DBS as $realm): ?>
+            <option value="<?php echo (int)$realm['id']; ?>"><?php echo htmlspecialchars($realm['name']); ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <div class="admin-transfer-actions">
+        <input type="submit" name="move_char" value="<?php echo htmlspecialchars($transfer); ?>" />
+        <input type="submit" name="clean_db" class="danger-submit" value="<?php echo htmlspecialchars($cleandb); ?>" />
+      </div>
+    </form>
+
+    <?php
+    if (check_online($DBS)) {
+        echo '<div class="admin-transfer-msg error">' . htmlspecialchars($serveron_1) . '</div>';
+    }
+
+    if (isset($_POST['realm'])) {
+        $db1 = $DBS[$_POST['realm']];
+        $db2 = $DBS[$_POST['newrealm']];
+    }
+
+    if (isset($_POST['move_char'])) {
+        if (($_POST['name']) == '') {
+            echo '<div class="admin-transfer-msg error">' . htmlspecialchars($mustentername) . '</div>';
+        } else {
+            $name = $_POST['name'];
+            $newname = ucfirst(strtolower(trim($_POST['name'])));
+            if ($newname != '') {
+                $newname_exist = check_if_name_exist($newname, $db2);
+                if ($newname_exist == 1) {
+                    echo '<div class="admin-transfer-msg error">' . htmlspecialchars($alreadyexist . $newname . '!') . '</div>';
+                    goto transfer_done;
+                }
+            }
+            if ($newname != '' || check_if_name_exist($name, $db2) == 0) {
+                $char_guid = select_char($name, $db1);
+                if ($char_guid > 0) {
+                    truncate_db($temp_db);
+                    move($char_guid, $db1, $temp_db);
+                    if ($newname != '' && $newname_exist != 1) {
+                        change_name($name, $newname, $temp_db);
+                    }
+                    cleanup($temp_db);
+                    foreach ($tab_guid_change as $value) {
+                        $max_guid = select_max_guid($db2, $value[0], $value[1]);
+                        change_guid($temp_db, $max_guid, $value[2], $value[0], $value[1]);
+                        if ($value[0] == 'characters') $max_char_guid = $max_guid;
+                    }
+                    move($max_char_guid + 1, $temp_db, $db2);
+                    truncate_db($temp_db);
+                    del_char($char_guid, $db1);
+                    echo '<div class="admin-transfer-msg success">' . htmlspecialchars($character . $name . $transfersuccess) . '</div>';
+                    if ($newname != '' && $newname_exist != 1) {
+                        echo '<div class="admin-transfer-msg success">' . htmlspecialchars($character . $name . $renamesuccess . $newname . '!') . '</div>';
+                    }
+                } else {
+                    echo '<div class="admin-transfer-msg error">' . htmlspecialchars($character . $name . $doesntexist) . '</div>';
+                }
+            } else {
+                echo '<div class="admin-transfer-msg error">' . htmlspecialchars($character . $name . $alreadytransfered) . '</div>';
+            }
+            transfer_done:;
+        }
+    } elseif (isset($_POST['clean_db'])) {
+        $db1 = $DBS[$_POST['realm']];
+        clean_after_delete($db1);
+        echo '<div class="admin-transfer-msg success">' . htmlspecialchars($clearDBsuccess) . '</div>';
+    }
+    ?>
+  </div>
+</div>
+<?php builddiv_end() ?>
