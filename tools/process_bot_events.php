@@ -95,7 +95,9 @@ function build_batch_post_schedule(array $events): array {
         $realmId = (int)($firstEvent['realm_id'] ?? 0);
         $forumId = (int)($firstEvent['target_forum_id'] ?? 0);
         $lastPostTime = get_forum_last_post_time($realmId, $forumId);
-        $startTime = max($lastPostTime + 1, $now - 86400);
+        $startTime = ($lastPostTime > 0)
+            ? ($lastPostTime + 1)
+            : max(1, $now - max(60, $count * 90));
         $endTime = max($now, $startTime);
         $window = max(0, $endTime - $startTime);
         $count = count($groupEvents);
@@ -163,6 +165,7 @@ $stmt->execute($eventTypeParams);
 $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 log_line("Found " . count($events) . " pending events.");
+$scheduledPostTimes = build_batch_post_schedule($events);
 
 // ---- Herald cache: realm_id => identity row ----
 $heraldCache = [];
@@ -243,16 +246,16 @@ function post_forum_topic(
     string $body,
     string $contentSource,
     array  $topicExtras, // guild_id, managed_by_account_id, recruitment_status, last_bumped_at
+    int    $postTime,
     bool   $dryRun
 ): ?int {
     if ($dryRun) {
-        log_line("    [dry-run] Would post to forum {$forumId}: \"{$title}\" as {$identity['display_name']}");
+        log_line("    [dry-run] Would post to forum {$forumId} at " . date('Y-m-d H:i:s', $postTime) . ": \"{$title}\" as {$identity['display_name']}");
         return -1;
     }
 
     try {
         $pdo      = spp_get_pdo('realmd', $realmId);
-        $postTime = time();
         $posterName = $identity['display_name'];
         $posterId    = (int)($identity['owner_account_id'] ?? 0);
         $charGuid    = (int)($identity['character_guid']   ?? 0);
@@ -360,6 +363,7 @@ foreach ($events as $event) {
 
     $content       = build_post_content($event);
     $contentSource = ($eventType === 'guild_created') ? 'system_event' : 'bot_generated';
+    $scheduledPostTime = (int)($scheduledPostTimes[$eventId] ?? time());
 
     // Extra columns for guild_created topics.
     $topicExtras = [];
@@ -368,7 +372,7 @@ foreach ($events as $event) {
             'guild_id'              => (int)$event['guild_id'],
             'managed_by_account_id' => (int)($event['account_id'] ?? 0) ?: null,
             'recruitment_status'    => 'active',
-            'last_bumped_at'        => time(),
+            'last_bumped_at'        => $scheduledPostTime,
         ];
     }
 
@@ -376,7 +380,7 @@ foreach ($events as $event) {
         $topicId = post_forum_topic(
             $realmId, $forumId, $identity,
             $content['title'], $content['body'],
-            $contentSource, $topicExtras, $dryRun
+            $contentSource, $topicExtras, $scheduledPostTime, $dryRun
         );
 
         if (!$dryRun) {
@@ -387,7 +391,7 @@ foreach ($events as $event) {
             ")->execute([$eventId]);
         }
 
-        log_line("  Posted topic #{$topicId}: \"{$content['title']}\" (as {$identity['display_name']})");
+        log_line("  Posted topic #{$topicId} at " . date('Y-m-d H:i:s', $scheduledPostTime) . ": \"{$content['title']}\" (as {$identity['display_name']})");
         $results['posted']++;
     } catch (Throwable $e) {
         log_line("  FAILED: " . $e->getMessage());
