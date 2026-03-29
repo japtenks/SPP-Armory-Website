@@ -3,13 +3,40 @@ if (INCLUDED !== true) exit;
 
 $siteRoot   = $_SERVER['DOCUMENT_ROOT'];
 $masterPdo  = spp_get_pdo('realmd', 1);
-$phpBin     = PHP_BINARY;
+$phpBin     = '';
 $botOutput  = '';
 $botError   = '';
 $botStats   = [];
 $recentEvents = [];
 
 $pathway_info[] = ['title' => 'Bot Events', 'link' => 'index.php?n=admin&sub=botevents'];
+
+function resolve_php_cli_binary(): string {
+    $candidates = array_filter(array_unique([
+        (string)(PHP_BINARY ?? ''),
+        (defined('PHP_BINDIR') ? rtrim((string)PHP_BINDIR, '/\\') . DIRECTORY_SEPARATOR . 'php' : ''),
+        '/usr/bin/php',
+        '/usr/local/bin/php',
+        '/opt/cpanel/ea-php82/root/usr/bin/php',
+        '/opt/cpanel/ea-php81/root/usr/bin/php',
+        '/opt/cpanel/ea-php80/root/usr/bin/php',
+        '/opt/cpanel/ea-php74/root/usr/bin/php',
+        'php',
+    ]));
+
+    foreach ($candidates as $candidate) {
+        if ($candidate === 'php') {
+            return $candidate;
+        }
+        if (@is_file($candidate) && @is_executable($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return 'php';
+}
+
+$phpBin = resolve_php_cli_binary();
 
 // ---- Run a tool script and capture output ----
 function run_bot_script(string $phpBin, string $scriptPath, array $extraArgs = []): array {
