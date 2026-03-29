@@ -59,6 +59,22 @@
     justify-content: flex-end;
     min-width: 220px;
 }
+.forum-admin__rename {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 0;
+    flex-wrap: wrap;
+}
+.forum-admin__rename input {
+    box-sizing: border-box;
+    min-width: 240px;
+    padding: 8px 10px;
+    border: 1px solid rgba(230, 193, 90, 0.2);
+    border-radius: 10px;
+    background: rgba(7, 10, 16, 0.85);
+    color: #f4efe2;
+}
 .forum-admin__pill,
 .forum-admin__pill:visited {
     display: inline-block;
@@ -116,6 +132,10 @@
     background: rgba(255, 198, 87, 0.12);
     color: #f6f0e5;
     font-weight: 700;
+}
+.forum-admin__button--compact {
+    padding: 8px 12px;
+    font-size: 12px;
 }
 .forum-admin__table {
     width: 100%;
@@ -193,13 +213,18 @@
     </div>
   <?php } elseif (isset($_GET['cat_id'])) { ?>
     <div class="forum-admin__card">
-      <h3>Forums In Category</h3>
+      <h3>Forums In Section</h3>
       <p class="forum-admin__subtext">Tune ordering, visibility, and topic access from one cleaner view.</p>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=updforumsorder" class="forum-admin__stack">
         <?php foreach ($items as $item_c => $item) { ?>
           <div class="forum-admin__row">
             <div class="forum-admin__main">
               <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>"><?php echo htmlspecialchars($item['forum_name']); ?></a></p>
+              <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=renameforum" class="forum-admin__rename">
+                <input type="hidden" name="forum_id" value="<?php echo (int)$item['forum_id']; ?>">
+                <input type="text" name="forum_name" value="<?php echo htmlspecialchars($item['forum_name']); ?>">
+                <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Rename">
+              </form>
               <p class="forum-admin__desc"><?php echo htmlspecialchars($item['forum_desc']); ?></p>
               <div class="forum-admin__order">
                 <span><?php echo $lang['order']; ?></span>
@@ -235,15 +260,20 @@
     </div>
   <?php } else { ?>
     <div class="forum-admin__intro">
-      Categories are your top-level buckets. For realms, the cleanest approach right now is to represent them through scoped forums inside categories rather than inventing a second realm-specific forum structure in admin.
+      Forum sections are your top-level buckets. Realm-specific spaces can live as scoped forums inside each section.
     </div>
     <div class="forum-admin__card">
-      <h3>Forum Categories</h3>
+      <h3>Forum Sections</h3>
       <div class="forum-admin__stack">
         <?php foreach ($items as $item_c => $item) { ?>
           <div class="forum-admin__row">
             <div class="forum-admin__main">
               <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>"><?php echo htmlspecialchars($item['cat_name']); ?></a></p>
+              <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=renamecat" class="forum-admin__rename">
+                <input type="hidden" name="cat_id" value="<?php echo (int)$item['cat_id']; ?>">
+                <input type="text" name="cat_name" value="<?php echo htmlspecialchars($item['cat_name']); ?>">
+                <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Rename">
+              </form>
               <div class="forum-admin__order">
                 <span><?php echo $lang['order']; ?></span>
                 <input type="text" value="<?php echo (int)$item['cat_disp_position']; ?>" readonly>
@@ -252,7 +282,7 @@
               </div>
             </div>
             <div class="forum-admin__actions">
-              <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Manage Forums</a>
+              <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Open Forums</a>
               <a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;action=deletecat&amp;cat_id=<?php echo (int)$item['cat_id']; ?>" onclick="return confirm('Are you sure?');">Delete</a>
             </div>
           </div>
@@ -260,11 +290,11 @@
       </div>
     </div>
     <div class="forum-admin__card">
-      <h3>Create New Category</h3>
+      <h3>Create New Forum Section</h3>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=newcat" class="forum-admin__grid-form">
         <div class="forum-admin__field"><label><?php echo $lang['l_name']; ?></label><input type="text" name="cat_name"></div>
         <div class="forum-admin__field"><label><?php echo $lang['order']; ?></label><input type="text" name="cat_disp_position" value="<?php echo count($items) + 1; ?>"></div>
-        <div class="forum-admin__actions" style="grid-column:1 / -1;"><input class="forum-admin__button" type="submit" value="<?php echo $lang['donewcat']; ?>"></div>
+        <div class="forum-admin__actions" style="grid-column:1 / -1;"><input class="forum-admin__button" type="submit" value="Create New Forum Section"></div>
       </form>
     </div>
   <?php } ?>

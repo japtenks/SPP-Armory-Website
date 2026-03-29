@@ -76,11 +76,27 @@ if(!$_GET['action']){
     $stmt = $forumPdo->prepare("INSERT INTO f_categories SET $setClause");
     $stmt->execute(array_values($data));
     redirect($_SERVER['HTTP_REFERER'],1);
+}elseif($_GET['action']=='renamecat'){
+    $catId = (int)($_POST['cat_id'] ?? 0);
+    $catName = trim((string)($_POST['cat_name'] ?? ''));
+    if ($catId > 0 && $catName !== '') {
+        $stmt = $forumPdo->prepare("UPDATE f_categories SET cat_name=? WHERE cat_id=? LIMIT 1");
+        $stmt->execute([$catName, $catId]);
+    }
+    redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='newforum'){
     $data = $_POST;
     $setClause = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($data)));
     $stmt = $forumPdo->prepare("INSERT INTO f_forums SET $setClause");
     $stmt->execute(array_values($data));
+    redirect($_SERVER['HTTP_REFERER'],1);
+}elseif($_GET['action']=='renameforum'){
+    $forumId = (int)($_POST['forum_id'] ?? 0);
+    $forumName = trim((string)($_POST['forum_name'] ?? ''));
+    if ($forumId > 0 && $forumName !== '') {
+        $stmt = $forumPdo->prepare("UPDATE f_forums SET forum_name=? WHERE forum_id=? LIMIT 1");
+        $stmt->execute([$forumName, $forumId]);
+    }
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='recount'){
     recount($_GET['forum_id']);

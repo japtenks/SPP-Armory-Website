@@ -43,6 +43,13 @@ function log_line(string $msg): void {
     echo '[' . date('H:i:s') . '] ' . $msg . "\n";
 }
 
+function clamp_live_post_time(int $postTime, bool $dryRun): int {
+    if ($dryRun) {
+        return $postTime;
+    }
+    return min($postTime, time());
+}
+
 function get_forum_last_post_time(int $realmId, int $forumId): int {
     static $cache = [];
 
@@ -97,6 +104,11 @@ function build_batch_post_schedule(array $events): array {
         $forumId = (int)($firstEvent['target_forum_id'] ?? 0);
         $count = count($groupEvents);
         $lastPostTime = get_forum_last_post_time($realmId, $forumId);
+        // If earlier runs wrote future timestamps, don't let them drag
+        // the whole forum schedule into the future again.
+        if ($lastPostTime >= $now) {
+            $lastPostTime = max(0, $now - 1);
+        }
         $startTime = ($lastPostTime > 0)
             ? ($lastPostTime + 1)
             : max(1, $now - max(60, $count * 90));
@@ -365,6 +377,8 @@ function post_forum_reply(
     int    $postTime,
     bool   $dryRun
 ): int {
+    $postTime = clamp_live_post_time($postTime, $dryRun);
+
     if ($dryRun) {
         log_line("    [dry-run] Would reply to topic #{$topicId} at " . date('Y-m-d H:i:s', $postTime) . " as {$identity['display_name']}");
         return -1;
@@ -438,6 +452,8 @@ function post_forum_topic(
     int    $postTime,
     bool   $dryRun
 ): ?int {
+    $postTime = clamp_live_post_time($postTime, $dryRun);
+
     if ($dryRun) {
         log_line("    [dry-run] Would post to forum {$forumId} at " . date('Y-m-d H:i:s', $postTime) . ": \"{$title}\" as {$identity['display_name']}");
         return -1;

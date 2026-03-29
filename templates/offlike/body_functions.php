@@ -642,16 +642,17 @@ if ($forumnav === true) {
     echo '</div>';
 }
 
-    // === Admin back button ===
-    if (($_GET['n'] ?? '') === 'admin' && ($_GET['sub'] ?? '') !== '') {
-        echo '<a href="index.php?n=admin" class="btn secondary" style="margin-left:8px;">&#8592; Admin Panel</a>';
-    }
+if (($_GET['n'] ?? '') === 'admin' && ($_GET['sub'] ?? '') !== '') {
+    echo '<div class="forum-actions" style="display:flex;gap:8px;">';
+    echo '<a href="index.php?n=admin" class="btn secondary">Back to Admin Panel</a>';
+    echo '</div>';
+}
+$customHeaderActions = $GLOBALS['builddiv_header_actions'] ?? '';
+if (is_string($customHeaderActions) && $customHeaderActions !== '') {
+    echo '<div class="builddiv-actions" style="display:flex;align-items:center;gap:8px;">' . $customHeaderActions . '</div>';
+    unset($GLOBALS['builddiv_header_actions']);
+}
 
-    $customHeaderActions = $GLOBALS['builddiv_header_actions'] ?? '';
-    if (is_string($customHeaderActions) && $customHeaderActions !== '') {
-        echo '<div class="builddiv-actions" style="display:flex;align-items:center;gap:8px;">' . $customHeaderActions . '</div>';
-        unset($GLOBALS['builddiv_header_actions']);
-    }
 
     echo '</div>'; // close modern-header
 

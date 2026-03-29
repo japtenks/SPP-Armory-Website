@@ -6,6 +6,11 @@
 
 require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-helper.php');
 
+$appTimezone = 'America/Chicago';
+if (function_exists('date_default_timezone_set')) {
+    date_default_timezone_set($appTimezone);
+}
+
 $db = [
     'host' => '192.168.1.47',
     'port' => 3306,
@@ -88,3 +93,4 @@ $GLOBALS['activeRealm'] = $activeRealm;
 $GLOBALS['realmd'] = $realmd;
 $GLOBALS['worlddb'] = $worlddb;
 $GLOBALS['DB'] = $DB;
+$GLOBALS['appTimezone'] = $appTimezone;
