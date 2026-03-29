@@ -40,6 +40,7 @@ $bgswitch = '2';
   $itemnum = $this_topic['num_replies'];
   $pnum = ceil($itemnum/$items_per_pages);
   $limit_start = ($p-1)*$items_per_pages;
+  $pages_str = default_paginate($pnum, $p, 'index.php?n=forum&sub=viewtopic&tid='.(int)$this_topic['topic_id']);
 
 $forumPdo = spp_get_pdo('realmd', $realmId);
 $charPdoVt = spp_get_pdo('chars', $realmId);

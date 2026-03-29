@@ -1164,6 +1164,8 @@ foreach ($events as $event) {
                 }
                 log_line("  → Guild thread #{$recruitTopicId} (post #{$postId}) at " . date('Y-m-d H:i:s', $scheduledPostTime) . ": \"{$content['title']}\" (as {$identity['display_name']})");
                 $results['posted']++;
+                // Pass null for nextScheduledPostTime — these are guild thread replies whose
+                // timing is independent of the batch schedule (which was based on a different forum).
                 post_guild_thread_reactions(
                     $realmId,
                     $guildIdForChar,
@@ -1172,7 +1174,7 @@ foreach ($events as $event) {
                     $eventType,
                     $payload,
                     $scheduledPostTime,
-                    $nextScheduledPostMap[$eventId] ?? null,
+                    null,
                     $dryRun,
                     $masterPdo
                 );

@@ -165,7 +165,42 @@
 .topic-pagination {
   text-align: center;
   margin: 20px 0;
-  color: #aaa;
+}
+.topic-pagination .pagination {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+.topic-pagination .page-btn {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 5px;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.topic-pagination .page-btn:hover {
+  background: #2a2a2a;
+  border-color: #ffcc66;
+  color: #ffcc66;
+}
+.topic-pagination .page-btn.active {
+  background: #ffcc66;
+  border-color: #ffcc66;
+  color: #111;
+  font-weight: bold;
+}
+.topic-pagination .page-btn.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.topic-pagination .dots {
+  color: #666;
+  padding: 5px 4px;
+  font-size: 0.85rem;
 }
 
 /* ---------- Header Image ---------- */

@@ -31,7 +31,7 @@
         <banner_display>1</banner_display>
         <max_accounts_per_ip>0</max_accounts_per_ip>
         <max_attachs_size>10485760</max_attachs_size>
-        <posts_per_page>12</posts_per_page>
+        <posts_per_page>25</posts_per_page>
         <posts_per_star1>1</posts_per_star1>
         <posts_per_star2>30</posts_per_star2>
         <posts_per_star3>120</posts_per_star3>
