@@ -125,7 +125,7 @@
 
 .class-breakdown-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 1.15fr) minmax(320px, 1fr);
+  grid-template-columns: 1fr;
   gap: 24px;
 }
 
@@ -335,7 +335,7 @@ $classMeta = [
   2  => ['name' => 'Paladin',      'color' => '#f58cba'],
   3  => ['name' => 'Hunter',       'color' => '#abd473'],
   4  => ['name' => 'Rogue',        'color' => '#fff569'],
-  5  => ['name' => 'Priest',       'color' => '#f4f4f4'],
+  5  => ['name' => 'Priest',       'color' => '#f8f6ef'],
   6  => ['name' => 'Shaman',       'color' => '#0070de'],
   7  => ['name' => 'Mage',         'color' => '#69ccf0'],
   8  => ['name' => 'Warlock',      'color' => '#9482c9'],

@@ -184,6 +184,136 @@ if (!function_exists('spp_website_accounts_has_columns')) {
     }
 }
 
+if (!function_exists('spp_account_profile_table_name')) {
+    function spp_account_profile_table_name() {
+        return 'website_account_profiles';
+    }
+}
+
+if (!function_exists('spp_account_profile_columns')) {
+    function spp_account_profile_columns() {
+        static $columns = null;
+
+        if ($columns !== null) {
+            return $columns;
+        }
+
+        $columns = [];
+
+        try {
+            $pdo = spp_get_pdo('realmd', 1);
+            $tableName = spp_account_profile_table_name();
+            $rows = $pdo->query("SHOW COLUMNS FROM `{$tableName}`")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $row) {
+                if (!empty($row['Field'])) {
+                    $columns[(string)$row['Field']] = true;
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[config] Failed loading account profile columns: ' . $e->getMessage());
+        }
+
+        return $columns;
+    }
+}
+
+if (!function_exists('spp_account_profile_has_columns')) {
+    function spp_account_profile_has_columns(array $requiredColumns) {
+        $availableColumns = spp_account_profile_columns();
+        foreach ($requiredColumns as $column) {
+            if (empty($availableColumns[$column])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+
+if (!function_exists('spp_account_profile_field_list')) {
+    function spp_account_profile_field_list() {
+        return [
+            'character_id',
+            'character_name',
+            'display_name',
+            'avatar',
+            'signature',
+            'hideemail',
+            'hideprofile',
+            'hidelocation',
+            'theme',
+            'background_mode',
+            'background_image',
+            'secretq1',
+            'secretq2',
+            'secreta1',
+            'secreta2',
+        ];
+    }
+}
+
+if (!function_exists('spp_filter_account_profile_fields')) {
+    function spp_filter_account_profile_fields(array $fields) {
+        $allowed = array_fill_keys(spp_account_profile_field_list(), true);
+        $filtered = [];
+        foreach ($fields as $key => $value) {
+            if (isset($allowed[$key])) {
+                $filtered[$key] = $value;
+            }
+        }
+
+        return $filtered;
+    }
+}
+
+if (!function_exists('spp_ensure_account_profile_row')) {
+    function spp_ensure_account_profile_row(PDO $pdo, $accountId) {
+        $accountId = (int)$accountId;
+        if ($accountId <= 0 || !spp_account_profile_has_columns(['account_id'])) {
+            return;
+        }
+
+        $tableName = spp_account_profile_table_name();
+        $stmt = $pdo->prepare("
+            INSERT INTO `{$tableName}` (`account_id`)
+            SELECT ?
+            WHERE NOT EXISTS (
+                SELECT 1 FROM `{$tableName}` WHERE `account_id` = ?
+            )
+        ");
+        $stmt->execute([$accountId, $accountId]);
+    }
+}
+
+if (!function_exists('spp_update_account_profile_fields')) {
+    function spp_update_account_profile_fields(PDO $pdo, $accountId, array $fields) {
+        $accountId = (int)$accountId;
+        if ($accountId <= 0) {
+            return false;
+        }
+
+        $fields = spp_filter_account_profile_fields($fields);
+        if (empty($fields)) {
+            return false;
+        }
+
+        spp_ensure_account_profile_row($pdo, $accountId);
+
+        $setClause = implode(',', array_map(
+            function ($key) {
+                return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $key) . '`=?';
+            },
+            array_keys($fields)
+        ));
+
+        $values = array_values($fields);
+        $values[] = $accountId;
+        $tableName = spp_account_profile_table_name();
+        $stmt = $pdo->prepare("UPDATE `{$tableName}` SET {$setClause} WHERE account_id=? LIMIT 1");
+        return $stmt->execute($values);
+    }
+}
+
 if (!function_exists('spp_background_image_directory')) {
     function spp_background_image_directory() {
         return 'templates/offlike/images/modern/bkgd/';

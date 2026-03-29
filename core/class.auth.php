@@ -291,6 +291,13 @@ function load_characters_for_user() {
             if($acc_id > 0){
                 $stmt = $this->DB->prepare("INSERT INTO website_accounts SET account_id=?, registration_ip=?, activation_code=?");
                 $stmt->execute([$acc_id, $_SERVER['REMOTE_ADDR'], $tmp_act_key]);
+                if (!empty($account_extend) && is_array($account_extend)) {
+                    $setClauseAccountExtend = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($account_extend)));
+                    $stmt = $this->DB->prepare("UPDATE website_accounts SET $setClauseAccountExtend WHERE account_id=? LIMIT 1");
+                    $extendValues = array_values($account_extend);
+                    $extendValues[] = $acc_id;
+                    $stmt->execute($extendValues);
+                }
                 if((int)$MW->getConfig->generic->use_purepass_table) {
                     $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
                     $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
@@ -317,6 +324,13 @@ function load_characters_for_user() {
             if($acc_id > 0){
                 $stmt = $this->DB->prepare("INSERT INTO website_accounts SET account_id=?, registration_ip=?, activation_code=?");
                 $stmt->execute([$acc_id, $_SERVER['REMOTE_ADDR'], $tmp_act_key]);
+                if (!empty($account_extend) && is_array($account_extend)) {
+                    $setClauseAccountExtend2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($account_extend)));
+                    $stmt = $this->DB->prepare("UPDATE website_accounts SET $setClauseAccountExtend2 WHERE account_id=? LIMIT 1");
+                    $extendValues2 = array_values($account_extend);
+                    $extendValues2[] = $acc_id;
+                    $stmt->execute($extendValues2);
+                }
                 if((int)$MW->getConfig->generic->use_purepass_table) {
                     $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
                     $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
