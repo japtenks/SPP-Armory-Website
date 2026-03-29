@@ -299,14 +299,13 @@ function build_account_menu($asList = true) {
                     $isActive = ($selectedCharacterId === (int)$character['guid'] && $selectedRealmId === $characterRealmId);
                     $classSlug = spp_account_menu_class_slug((int)($character['class'] ?? 0));
                     $itemClass = $isActive ? 'char-item active-char class-' . $classSlug : 'char-item class-' . $classSlug;
-                    $mark = $isActive ? '&gt; ' : '';
                     $switchHref = 'index.php?setchar=' . (int)$character['guid']
                         . '&setchar_realm=' . $characterRealmId
                         . '&changerealm_to=' . $characterRealmId
                         . '&returnto=' . rawurlencode($returnUrl);
 
                     echo '<li class="' . $itemClass . '"><a href="' . htmlspecialchars($switchHref) . '">'
-                        . '<span class="char-name">' . $mark . htmlspecialchars($character['name']) . '</span>'
+                        . '<span class="char-name">' . htmlspecialchars($character['name']) . '</span>'
                         . ' <span class="level">(Lvl ' . (int)$character['level'] . ')</span>'
                         . '</a></li>';
                 }
