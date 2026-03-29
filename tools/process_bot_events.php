@@ -94,13 +94,13 @@ function build_batch_post_schedule(array $events): array {
         $firstEvent = $groupEvents[0];
         $realmId = (int)($firstEvent['realm_id'] ?? 0);
         $forumId = (int)($firstEvent['target_forum_id'] ?? 0);
+        $count = count($groupEvents);
         $lastPostTime = get_forum_last_post_time($realmId, $forumId);
         $startTime = ($lastPostTime > 0)
             ? ($lastPostTime + 1)
             : max(1, $now - max(60, $count * 90));
         $endTime = max($now, $startTime);
         $window = max(0, $endTime - $startTime);
-        $count = count($groupEvents);
 
         if ($count === 1 || $window <= 1) {
             $cursor = max($startTime, min($endTime, $now));
@@ -208,13 +208,13 @@ function build_post_content(array $event): array {
     }
 
     if ($type === 'guild_created') {
-        $guild  = htmlspecialchars($payload['guild_name']  ?? 'A new guild');
-        $leader = htmlspecialchars($payload['leader_name'] ?? 'Unknown');
+        $guild  = trim((string)($payload['guild_name']  ?? 'A new guild'));
+        $leader = trim((string)($payload['leader_name'] ?? 'Unknown'));
         return [
             'title' => "<{$guild}> is Recruiting!",
-            'body'  => "<b>&lt;{$guild}&gt;</b> is now open for recruitment!\n\n"
-                     . "Led by <b>{$leader}</b>, we are looking for dedicated adventurers to join our ranks.\n\n"
-                     . "Contact <b>{$leader}</b> in-game to apply.",
+            'body'  => "[b]<{$guild}>[/b] is now open for recruitment!\n\n"
+                     . "Led by [b]{$leader}[/b], we are looking for dedicated adventurers to join our ranks.\n\n"
+                     . "Contact [b]{$leader}[/b] in-game to apply.",
         ];
     }
 
@@ -287,7 +287,7 @@ function post_forum_topic(
             VALUES (?, ?, ?, ?, '', ?, ?, ?, ?)
         ")->execute([
             $posterName, $posterId, $charGuid, $identityId,
-            nl2br(htmlspecialchars($body)),
+            $body,
             $postTime, $topicId,
             $contentSource,
         ]);
