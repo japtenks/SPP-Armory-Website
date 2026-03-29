@@ -1,205 +1,273 @@
 <br>
 <?php builddiv_start(0, $lang['forums']) ?>
 <style type="text/css">
-dt.page_label, dt.topic_started_label, dt.last_activity_label,
-dt.last_reply_label, dt.by_label { padding-left: 4px; }
-dd.topic_content, dd.t_closed { padding-left: 4px; }
-
-dl.topic_view, 
-dl.topic_view dt, 
-dl.topic_view dd { margin: 0; }
-dl.topic_view dt.topic_label,
-dl.topic_view dt.desc_label,
-dl.topic_view dt.reply_label,
-dl.topic_view dt.topics_label,
-dl.topic_view dt.posts_label { display: none }
-
-dl.topic_view { 
-    position: relative;
-    background-color: #FEF5DA;
-    padding: 10px 80px 11px 10px;
-  margin: 0;
-    margin-top: -0.1em; /* fix for 1px rouding error problem */
-    border-top: 1px solid #DDD;
-    border-bottom: 1px solid #DDD;
-    line-height: 1.8em; }
-    
-dl.topic_index {
-    background-color: #E8EEFA;
-  margin: 0;
-   /* padding-right: 155px;*/ }
-
-dl.sticky_topic {
-    background-color: #FCE3E2; }
-
-    dl.topic_view dt { 
-        position: relative;
-        float: left;
-        padding-right: .5em;
-        padding-left: 20px; }
-        
-    dl.topic_view dd {
-        display: block; }
-
-    dl.topic_view dd.topic_content {
-        display: block;
-        padding-left: 20px;
-        font-size: 1.2em;
-        font-weight: bold; }
-
-    dl.topic_view dd.desc_content {
-        display: block;
-        padding-left: 20px;
-        margin-bottom: 1em;
-        line-height: 1.5em; }
-
-    dl.topic_view dd.reply_content, dl.topic_view dd.topics_content,
-    dl.topic_view dd.posts_content {
-        position: relative;
-        top: 5px;
-        width: 50px;
-        margin: 0;
-        padding: 5px;
-        text-align: center;
-        font-weight: bold;
-        color: #8BBD17; }
-        
-    dl.topic_view dd.topics_content { color: #698E11; }
-    
-        dl.topic_view dd.reply_content span, dl.topic_view dd.topics_content span,
-        dl.topic_view dd.posts_content span { display: block; }
-        
-        dl.topic_view dd.reply_content span { font-size: 1.5em; }
-        
-        dl.topic_view dd.topics_content span, 
-        dl.topic_view dd.posts_content span { font-size: 1.3em; }
-
-    dl.topic_view dd.reply_content, dl.topic_view dd.posts_content { right: 25px; line-height: 1.5em; }
-*html    dl.topic_view dd.reply_content, dl.topic_view dd.posts_content { right: 5px; line-height: 1.5em; }
-    
-    dl.topic_view dd.topics_content { right: 75px; line-height: 1.5em; }
+.forum-admin { color: #f4efe2; }
+.forum-admin__intro {
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    border: 1px solid rgba(230, 193, 90, 0.18);
+    border-radius: 14px;
+    background: rgba(10, 12, 18, 0.55);
+    line-height: 1.6;
+}
+.forum-admin__stack { display: grid; gap: 16px; }
+.forum-admin__card {
+    padding: 18px;
+    border: 1px solid rgba(230, 193, 90, 0.18);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(20, 24, 34, 0.82), rgba(10, 12, 18, 0.92));
+}
+.forum-admin__card h3 {
+    margin: 0 0 6px;
+    color: #ffca5a;
+    font-size: 18px;
+}
+.forum-admin__subtext {
+    margin: 0 0 16px;
+    color: #cfc7b8;
+}
+.forum-admin__row {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border: 1px solid rgba(230, 193, 90, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 198, 87, 0.05);
+}
+.forum-admin__row + .forum-admin__row { margin-top: 12px; }
+.forum-admin__main { flex: 1 1 auto; }
+.forum-admin__title {
+    margin: 0 0 6px;
+    color: #f6f0e5;
+    font-weight: 700;
+}
+.forum-admin__title a {
+    color: #6fb2ff;
+    text-decoration: none;
+}
+.forum-admin__meta,
+.forum-admin__desc {
+    color: #cfc7b8;
+    line-height: 1.5;
+}
+.forum-admin__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    min-width: 220px;
+}
+.forum-admin__pill,
+.forum-admin__pill:visited {
+    display: inline-block;
+    padding: 8px 10px;
+    border: 1px solid rgba(230, 193, 90, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 198, 87, 0.1);
+    color: #f4efe2;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+}
+.forum-admin__pill--danger {
+    border-color: rgba(210, 82, 82, 0.35);
+    background: rgba(176, 47, 47, 0.18);
+}
+.forum-admin__order {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+.forum-admin__order input,
+.forum-admin__field input {
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid rgba(230, 193, 90, 0.2);
+    border-radius: 10px;
+    background: rgba(7, 10, 16, 0.85);
+    color: #f4efe2;
+}
+.forum-admin__order input { width: 64px; }
+.forum-admin__grid-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px 16px;
+}
+.forum-admin__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.forum-admin__field label {
+    color: #c9a45a;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.forum-admin__field--wide { grid-column: span 2; }
+.forum-admin__button {
+    display: inline-block;
+    padding: 10px 14px;
+    border: 1px solid rgba(230, 193, 90, 0.24);
+    border-radius: 10px;
+    background: rgba(255, 198, 87, 0.12);
+    color: #f6f0e5;
+    font-weight: 700;
+}
+.forum-admin__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.forum-admin__table th,
+.forum-admin__table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(230, 193, 90, 0.12);
+    text-align: left;
+    vertical-align: top;
+}
+.forum-admin__table th {
+    color: #c9a45a;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.forum-admin__table td:last-child,
+.forum-admin__table th:last-child { text-align: right; }
+@media (max-width: 980px) {
+    .forum-admin__row { flex-direction: column; }
+    .forum-admin__actions { justify-content: flex-start; min-width: 0; }
+    .forum-admin__grid-form { grid-template-columns: 1fr; }
+    .forum-admin__field--wide { grid-column: span 1; }
+}
 </style>
-<div class="sections subsections" style="font-size:0.8em;">
-<?php if(empty($_GET['action'])){ ?>
-<?php if(isset($_GET['forum_id']) && isset($_GET['topic_id'])){ ?>
-<table border="0" cellspacing="1" cellpadding="4" align="center" width="100%" class="bordercolor" style="font-size:0.8em;">
-  <tr class="catbg3">
-    <td><b>Post</b></td>
-    <td><b>Author</b></td>
-    <td><b>Date</b></td>
-    <td width="60" align="center"><b>Delete</b></td>
-  </tr>
-  <tr>
-    <td colspan="4" class="titlebg">
-      <b>Topic: <?php echo htmlspecialchars($this_topic['topic_name']); ?></b>
-      &nbsp;&nbsp;<a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo (int)$_GET['topic_id']; ?>&action=deletetopic" onclick="return confirm('Delete entire topic and all its posts?');" style="color:red;">[Delete Topic]</a>
-      &nbsp;&nbsp;<a href="index.php?n=forum&sub=viewtopic&tid=<?php echo (int)$_GET['topic_id']; ?>" target="_blank">[View Topic]</a>
-    </td>
-  </tr>
-  <?php foreach($items as $item){ ?>
-  <tr>
-    <td class="windowbg"><?php echo nl2br(htmlspecialchars($item['excerpt'])); ?><?php if(strlen($item['excerpt']) >= 120) echo '...'; ?></td>
-    <td class="windowbg2" nowrap><?php echo htmlspecialchars($item['poster']); ?></td>
-    <td class="windowbg2" nowrap><?php echo date('d-m-Y H:i', $item['posted']); ?></td>
-    <td class="windowbg2" align="center">
-      <a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo (int)$_GET['topic_id']; ?>&post_id=<?php echo $item['post_id']; ?>&action=deletepost" onclick="return confirm('Delete this post?');" title="Delete post" style="color:red;text-decoration:none;">&#x1F5D1;</a>
-    </td>
-  </tr>
-  <?php } ?>
-</table>
-<?php }elseif(isset($_GET['forum_id']) && !isset($_GET['cat_id'])){ ?>
-<table border="0" cellspacing="1" cellpadding="4" align="center" width="100%" class="bordercolor" style="font-size:0.8em;">
-  <tr class="catbg3">
-    <td><b>Topic</b></td>
-    <td><b>Posted by</b></td>
-    <td><b>Date</b></td>
-    <td width="50" align="center"><b>Replies</b></td>
-    <td width="80" align="center"><b>Actions</b></td>
-  </tr>
-  <tr>
-    <td colspan="5" class="titlebg"><b>Forum: <?php echo htmlspecialchars($this_forum['forum_name']); ?></b></td>
-  </tr>
-  <?php if(empty($items)){ ?>
-  <tr><td colspan="5" class="windowbg" align="center"><i>No topics.</i></td></tr>
-  <?php } ?>
-  <?php foreach($items as $item){ ?>
-  <tr>
-    <td class="windowbg"><a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo $item['topic_id']; ?>"><?php echo htmlspecialchars($item['topic_name']); ?></a></td>
-    <td class="windowbg2" nowrap><?php echo htmlspecialchars($item['topic_poster']); ?></td>
-    <td class="windowbg2" nowrap><?php echo date('d-m-Y', $item['topic_posted']); ?></td>
-    <td class="windowbg2" align="center"><?php echo $item['num_replies']; ?></td>
-    <td class="windowbg2" align="center">
-      <a href="index.php?n=admin&sub=forum&forum_id=<?php echo (int)$_GET['forum_id']; ?>&topic_id=<?php echo $item['topic_id']; ?>&action=deletetopic" onclick="return confirm('Delete this topic and all its posts?');" title="Delete topic" style="color:red;text-decoration:none;">&#x1F5D1;</a>
-    </td>
-  </tr>
-  <?php } ?>
-</table>
-<?php }elseif(isset($_GET['cat_id'])){ ?>
-<form method="post" action="index.php?n=admin&sub=forum&action=updforumsorder">
-<?php foreach($items as $item_c => $item){ ?>
-    <hr class="hidden" />
-    <dl class="topic_view" style="padding:1px;padding-left:5px;">
-        <dt class="topic_label">aa</dt>
-        <dd class="" style="font-size:11px;">
-            <?php if($item['closed']==0){ ?><a title="<?php echo $lang['close'];?>" href="index.php?n=admin&sub=forum&action=close&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Close">&#x1F513;</a><?php } ?>
-            <?php if($item['closed']==1){ ?><a title="<?php echo $lang['open'];?>" href="index.php?n=admin&sub=forum&action=open&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Open">&#x1F512;</a><?php } ?>
-            <?php if($item['hidden']==0){ ?><a title="<?php echo $lang['hide'];?>" href="index.php?n=admin&sub=forum&action=hide&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Hide">&#x1F441;</a><?php } ?>
-            <?php if($item['hidden']==1){ ?><a title="<?php echo $lang['show'];?>" href="index.php?n=admin&sub=forum&action=show&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Show">&#x1F576;</a><?php } ?>
-            <a title="<?php echo $lang['recount'];?>" href="index.php?n=admin&sub=forum&action=recount&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;" title="Recount">&#x21BA;</a>
-            <b><?php echo $item['forum_name'];?></b> / <?php echo $item['forum_desc'];?>
-            <span style="position:relative; float:right;">
-            <a href="index.php?n=admin&sub=forum&forum_id=<?php echo $item['forum_id'];?>" style="font-size:10px;">[Topics]</a> &nbsp;
-            <a title="<?php echo $lang['dodelete'];?>" href="index.php?n=admin&sub=forum&action=deleteforum&forum_id=<?php echo $item['forum_id'];?>" onclick="return confirm('Are you sure?');" style="color:red;text-decoration:none;">&#x1F5D1;</a> &nbsp;
-            </span>
-      </dd>
-        <dt class="topic_started_label"></dt>
-        <dd class="topic_started_content">
-            &nbsp;&nbsp;<?php echo $lang['order'];?>: <input type="text" size="1" name="forumorder[<?php echo $item['forum_id'];?>]" value="<?php echo $item['disp_position'];?>">
-            <?php if($item_c > 0){ ?><a href="index.php?n=admin&sub=forum&action=moveup&cat_id=<?php echo $item['cat_id'];?>&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;">&#x25B2;</a><?php } ?>
-            <?php if($item_c < count($items)-1){ ?><a href="index.php?n=admin&sub=forum&action=movedown&cat_id=<?php echo $item['cat_id'];?>&forum_id=<?php echo $item['forum_id'];?>" style="text-decoration:none;">&#x25BC;</a><?php } ?>
-        </dd>
-    </dl>
-<?php } ?>
-    <input type="submit" value="<?php echo $lang['doupdate'];?>">
-</form>
-<hr />
-<form method="post" action="index.php?n=admin&sub=forum&action=newforum">
-    <input type="hidden" name="cat_id" value="<?php echo $_GET['cat_id'];?>"> 
-    <?php echo $lang['l_name'];?>:<input type="text" name="forum_name"> 
-    <?php echo $lang['l_desc'];?>:<input type="text" name="forum_desc"> 
-    <?php echo $lang['order'];?>:<input type="text" name="disp_position" size="1" value="<?php echo count($items)+1;?>"> 
-    <input type="submit" value="<?php echo $lang['donewforum'];?>"> 
-</form>
-<?php }else{ ?>
-<form method="post" action="index.php?n=admin&sub=forum&action=updcategories">
-<?php foreach($items as $item_c => $item){ ?>
-    <hr class="hidden" />
-    <dl class="topic_view" style="padding:1px;padding-left:5px;">
-        <dt class="topic_label">item</dt>
-        <dd class="topic_content" style="font-size:11px;">
-            <a href="index.php?n=admin&sub=forum&cat_id=<?php echo $item['cat_id'];?>"><b><?php echo $item['cat_name'];?></b></a> 
-            <span style="position:relative; float:right;">
-            <a title="<?php echo $lang['dodelete'];?>" href="index.php?n=admin&sub=forum&action=deletecat&cat_id=<?php echo $item['cat_id'];?>" onclick="return confirm('Are you sure?');" style="color:red;text-decoration:none;">&#x1F5D1;</a> &nbsp;
-            </span>
-        </dd>
-        <dt class="topic_started_label"></dt>
-        <dd class="topic_started_content">&nbsp;&nbsp;<?php echo $lang['order'];?>: <?php echo $item['cat_disp_position'];?>&nbsp;
-            <?php if($item_c > 0){ ?><a href="index.php?n=admin&sub=forum&action=moveup&cat_id=<?php echo $item['cat_id'];?>" style="text-decoration:none;">&#x25B2;</a><?php } ?>
-            <?php if($item_c < count($items)-1){ ?><a href="index.php?n=admin&sub=forum&action=movedown&cat_id=<?php echo $item['cat_id'];?>" style="text-decoration:none;">&#x25BC;</a><?php } ?>
-            <input type="text" size="1" name="catorder[<?php echo $item['cat_id'];?>]" value="<?php echo $item['cat_disp_position'];?>">
-        </dd>
-    </dl>
-<?php } ?>
-    <input type="submit" value="<?php echo $lang['doupdate'];?>" style="float:right;clear:both;">
-</form>
-<br /><hr style="clear:both;" />
-<form method="post" action="index.php?n=admin&sub=forum&action=newcat">
-    <?php echo $lang['l_name'];?>: <input type="text" name="cat_name"> 
-    <?php echo $lang['order'];?>: <input type="text" name="cat_disp_position" size="1" value="<?php echo count($items)+1;?>">
-    <input type="submit" value="<?php echo $lang['donewcat'];?>">
-</form>
-<?php } ?>
+<div class="forum-admin">
+<?php if (empty($_GET['action'])) { ?>
+  <?php if (isset($_GET['forum_id']) && isset($_GET['topic_id'])) { ?>
+    <div class="forum-admin__card">
+      <h3>Topic Posts</h3>
+      <p class="forum-admin__subtext">Reviewing <strong><?php echo htmlspecialchars($this_topic['topic_name']); ?></strong> inside <strong><?php echo htmlspecialchars($this_forum['forum_name']); ?></strong>.</p>
+      <div class="forum-admin__actions" style="margin-bottom:16px;">
+        <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>">Back to Topics</a>
+        <a class="forum-admin__pill" href="index.php?n=forum&amp;sub=viewtopic&amp;tid=<?php echo (int)$_GET['topic_id']; ?>" target="_blank">View Topic</a>
+        <a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>&amp;topic_id=<?php echo (int)$_GET['topic_id']; ?>&amp;action=deletetopic" onclick="return confirm('Delete entire topic and all its posts?');">Delete Topic</a>
+      </div>
+      <table class="forum-admin__table">
+        <thead><tr><th>Post</th><th>Author</th><th>Date</th><th>Action</th></tr></thead>
+        <tbody>
+        <?php foreach ($items as $item) { ?>
+          <tr>
+            <td><?php echo nl2br(htmlspecialchars($item['excerpt'])); ?><?php if (strlen($item['excerpt']) >= 120) echo '...'; ?></td>
+            <td><?php echo htmlspecialchars($item['poster']); ?></td>
+            <td><?php echo date('M d, Y H:i', $item['posted']); ?></td>
+            <td><a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>&amp;topic_id=<?php echo (int)$_GET['topic_id']; ?>&amp;post_id=<?php echo (int)$item['post_id']; ?>&amp;action=deletepost" onclick="return confirm('Delete this post?');">Delete</a></td>
+          </tr>
+        <?php } ?>
+        </tbody>
+      </table>
+    </div>
+  <?php } elseif (isset($_GET['forum_id']) && !isset($_GET['cat_id'])) { ?>
+    <div class="forum-admin__card">
+      <h3>Forum Topics</h3>
+      <p class="forum-admin__subtext">Managing topics inside <strong><?php echo htmlspecialchars($this_forum['forum_name']); ?></strong>.</p>
+      <div class="forum-admin__actions" style="margin-bottom:16px;">
+        <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum">Back to Categories</a>
+      </div>
+      <table class="forum-admin__table">
+        <thead><tr><th>Topic</th><th>Posted By</th><th>Date</th><th>Replies</th><th>Action</th></tr></thead>
+        <tbody>
+        <?php if (empty($items)) { ?><tr><td colspan="5"><em>No topics yet.</em></td></tr><?php } ?>
+        <?php foreach ($items as $item) { ?>
+          <tr>
+            <td><a class="forum-admin__title" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>&amp;topic_id=<?php echo (int)$item['topic_id']; ?>"><?php echo htmlspecialchars($item['topic_name']); ?></a></td>
+            <td><?php echo htmlspecialchars($item['topic_poster']); ?></td>
+            <td><?php echo date('M d, Y', $item['topic_posted']); ?></td>
+            <td><?php echo (int)$item['num_replies']; ?></td>
+            <td><a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>&amp;topic_id=<?php echo (int)$item['topic_id']; ?>&amp;action=deletetopic" onclick="return confirm('Delete this topic and all its posts?');">Delete</a></td>
+          </tr>
+        <?php } ?>
+        </tbody>
+      </table>
+    </div>
+  <?php } elseif (isset($_GET['cat_id'])) { ?>
+    <div class="forum-admin__card">
+      <h3>Forums In Category</h3>
+      <p class="forum-admin__subtext">Tune ordering, visibility, and topic access from one cleaner view.</p>
+      <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=updforumsorder" class="forum-admin__stack">
+        <?php foreach ($items as $item_c => $item) { ?>
+          <div class="forum-admin__row">
+            <div class="forum-admin__main">
+              <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>"><?php echo htmlspecialchars($item['forum_name']); ?></a></p>
+              <p class="forum-admin__desc"><?php echo htmlspecialchars($item['forum_desc']); ?></p>
+              <div class="forum-admin__order">
+                <span><?php echo $lang['order']; ?></span>
+                <input type="text" name="forumorder[<?php echo (int)$item['forum_id']; ?>]" value="<?php echo (int)$item['disp_position']; ?>">
+                <?php if ($item_c > 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=moveup&amp;cat_id=<?php echo (int)$item['cat_id']; ?>&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Move Up</a><?php } ?>
+                <?php if ($item_c < count($items) - 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=movedown&amp;cat_id=<?php echo (int)$item['cat_id']; ?>&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Move Down</a><?php } ?>
+              </div>
+            </div>
+            <div class="forum-admin__actions">
+              <?php if ($item['closed'] == 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=close&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Close</a><?php } ?>
+              <?php if ($item['closed'] == 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=open&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Open</a><?php } ?>
+              <?php if ($item['hidden'] == 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=hide&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Hide</a><?php } ?>
+              <?php if ($item['hidden'] == 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=show&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Show</a><?php } ?>
+              <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=recount&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Recount</a>
+              <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Topics</a>
+              <a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;action=deleteforum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>" onclick="return confirm('Are you sure?');">Delete</a>
+            </div>
+          </div>
+        <?php } ?>
+        <div class="forum-admin__actions"><input class="forum-admin__button" type="submit" value="<?php echo $lang['doupdate']; ?>"></div>
+      </form>
+    </div>
 
+    <div class="forum-admin__card">
+      <h3>Create New Forum</h3>
+      <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=newforum" class="forum-admin__grid-form">
+        <input type="hidden" name="cat_id" value="<?php echo (int)$_GET['cat_id']; ?>">
+        <div class="forum-admin__field"><label><?php echo $lang['l_name']; ?></label><input type="text" name="forum_name"></div>
+        <div class="forum-admin__field forum-admin__field--wide"><label><?php echo $lang['l_desc']; ?></label><input type="text" name="forum_desc"></div>
+        <div class="forum-admin__field"><label><?php echo $lang['order']; ?></label><input type="text" name="disp_position" value="<?php echo count($items) + 1; ?>"></div>
+        <div class="forum-admin__actions" style="grid-column:1 / -1;"><input class="forum-admin__button" type="submit" value="<?php echo $lang['donewforum']; ?>"></div>
+      </form>
+    </div>
+  <?php } else { ?>
+    <div class="forum-admin__intro">
+      Categories are your top-level buckets. For realms, the cleanest approach right now is to represent them through scoped forums inside categories rather than inventing a second realm-specific forum structure in admin.
+    </div>
+    <div class="forum-admin__card">
+      <h3>Forum Categories</h3>
+      <div class="forum-admin__stack">
+        <?php foreach ($items as $item_c => $item) { ?>
+          <div class="forum-admin__row">
+            <div class="forum-admin__main">
+              <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>"><?php echo htmlspecialchars($item['cat_name']); ?></a></p>
+              <div class="forum-admin__order">
+                <span><?php echo $lang['order']; ?></span>
+                <input type="text" value="<?php echo (int)$item['cat_disp_position']; ?>" readonly>
+                <?php if ($item_c > 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=moveup&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Move Up</a><?php } ?>
+                <?php if ($item_c < count($items) - 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=movedown&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Move Down</a><?php } ?>
+              </div>
+            </div>
+            <div class="forum-admin__actions">
+              <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Manage Forums</a>
+              <a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;action=deletecat&amp;cat_id=<?php echo (int)$item['cat_id']; ?>" onclick="return confirm('Are you sure?');">Delete</a>
+            </div>
+          </div>
+        <?php } ?>
+      </div>
+    </div>
+    <div class="forum-admin__card">
+      <h3>Create New Category</h3>
+      <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=newcat" class="forum-admin__grid-form">
+        <div class="forum-admin__field"><label><?php echo $lang['l_name']; ?></label><input type="text" name="cat_name"></div>
+        <div class="forum-admin__field"><label><?php echo $lang['order']; ?></label><input type="text" name="cat_disp_position" value="<?php echo count($items) + 1; ?>"></div>
+        <div class="forum-admin__actions" style="grid-column:1 / -1;"><input class="forum-admin__button" type="submit" value="<?php echo $lang['donewcat']; ?>"></div>
+      </form>
+    </div>
+  <?php } ?>
 <?php } ?>
-<?php builddiv_end() ?>
 </div>
+<?php builddiv_end() ?>

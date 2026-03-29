@@ -517,7 +517,7 @@ foreach ($events as $event) {
                 if ($guildSummary !== null) {
                     try {
                         $charPdo = spp_get_pdo('chars', $realmId);
-                        $mstmt   = $charPdo->prepare("SELECT memberGuid FROM `guild_member` WHERE guildId = ?");
+                        $mstmt   = $charPdo->prepare("SELECT guid AS memberGuid FROM `guild_member` WHERE guildid = ?");
                         $mstmt->execute([$guildId]);
                         $newGuids = array_values(array_map('intval', array_column($mstmt->fetchAll(PDO::FETCH_ASSOC), 'memberGuid')));
                     } catch (Throwable $e) {

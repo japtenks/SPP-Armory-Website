@@ -25,3 +25,4 @@ armory/configuration/mysql.php
 CLAUDE.md
 .claude/settings.local.json
 LEGACY.md
+/jsons/guilds
