@@ -30,6 +30,10 @@ function spp_admin_members_handle_action(array $context)
 
     $action = (string)($_GET['action'] ?? '');
     $accountId = (int)($_GET['id'] ?? 0);
+    $selectedRealmId = (int)($_POST['character_realm_id'] ?? ($_GET['character_realm_id'] ?? 0));
+    if ($selectedRealmId <= 0 || empty($realmDbMap[$selectedRealmId])) {
+        $selectedRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
+    }
 
     if ($accountId > 0) {
         if ($action === '' || $action === '0') {
@@ -185,15 +189,21 @@ function spp_admin_members_handle_action(array $context)
             $stmtBot->execute([$accountId]);
             $botUsername = (string)$stmtBot->fetchColumn();
             if (stripos($botUsername, 'rndbot') === 0) {
-                $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
                 $postedSignatures = $_POST['character_signature'] ?? array();
-                foreach ($postedSignatures as $guid => $signature) {
-                    $characterGuid = (int)$guid;
+                foreach ($postedSignatures as $signatureKey => $signature) {
+                    $signatureKey = (string)$signatureKey;
+                    $keyParts = explode(':', $signatureKey, 2);
+                    $signatureRealmId = isset($keyParts[1]) ? (int)$keyParts[0] : $selectedRealmId;
+                    $characterGuid = isset($keyParts[1]) ? (int)$keyParts[1] : (int)$signatureKey;
+                    if ($signatureRealmId <= 0 || empty($realmDbMap[$signatureRealmId])) {
+                        continue;
+                    }
                     if ($characterGuid <= 0) {
                         continue;
                     }
 
-                    $stmtChar = $membersCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+                    $signatureCharsPdo = spp_get_pdo('chars', $signatureRealmId);
+                    $stmtChar = $signatureCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
                     $stmtChar->execute([$characterGuid, $accountId]);
                     $charRow = $stmtChar->fetch(PDO::FETCH_ASSOC);
                     if (!$charRow) {
@@ -201,7 +211,7 @@ function spp_admin_members_handle_action(array $context)
                     }
 
                     $cleanSignature = htmlspecialchars((string)$signature);
-                    $identityId = spp_ensure_char_identity($activeRealmId, (int)$charRow['guid'], $accountId, (string)$charRow['name']);
+                    $identityId = spp_ensure_char_identity($signatureRealmId, (int)$charRow['guid'], $accountId, (string)$charRow['name']);
                     if ($identityId > 0) {
                         spp_update_identity_signature($identityId, $cleanSignature);
                     }
@@ -245,7 +255,8 @@ function spp_admin_members_handle_action(array $context)
                 exit;
             }
 
-            $stmtChar = $membersCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+            $selectedCharsPdo = spp_get_pdo('chars', $selectedRealmId);
+            $stmtChar = $selectedCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
             $stmtChar->execute([$characterGuid, $accountId]);
             $charRow = $stmtChar->fetch(PDO::FETCH_ASSOC);
             if (!$charRow) {
@@ -253,23 +264,22 @@ function spp_admin_members_handle_action(array $context)
                 exit;
             }
 
-            $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
             $sourceAccountOnline = spp_admin_account_is_online($membersPdo, $accountId);
             $targetAccountOnline = spp_admin_account_is_online($membersPdo, $targetAccountId);
-            $characterOnline = spp_admin_character_is_online($membersCharsPdo, $characterGuid, $accountId);
+            $characterOnline = spp_admin_character_is_online($selectedCharsPdo, $characterGuid, $accountId);
 
             if ($sourceAccountOnline || $targetAccountOnline || $characterOnline) {
                 if ($sourceAccountOnline || $characterOnline) {
-                    $sourceOnlineCharacters = spp_admin_online_characters_for_account($membersCharsPdo, $accountId);
+                    $sourceOnlineCharacters = spp_admin_online_characters_for_account($selectedCharsPdo, $accountId);
                     $soapError = '';
-                    if (!spp_admin_force_characters_offline($activeRealmId, $sourceOnlineCharacters, $soapError) && $soapError !== '') {
+                    if (!spp_admin_force_characters_offline($selectedRealmId, $sourceOnlineCharacters, $soapError) && $soapError !== '') {
                         error_log('[admin.members] Source character kick attempt failed for ' . $sourceUsername . ': ' . $soapError);
                     }
                 }
                 if ($targetAccountOnline) {
-                    $targetOnlineCharacters = spp_admin_online_characters_for_account($membersCharsPdo, $targetAccountId);
+                    $targetOnlineCharacters = spp_admin_online_characters_for_account($selectedCharsPdo, $targetAccountId);
                     $soapError = '';
-                    if (!spp_admin_force_characters_offline($activeRealmId, $targetOnlineCharacters, $soapError) && $soapError !== '') {
+                    if (!spp_admin_force_characters_offline($selectedRealmId, $targetOnlineCharacters, $soapError) && $soapError !== '') {
                         error_log('[admin.members] Target character kick attempt failed for ' . $targetUsername . ': ' . $soapError);
                     }
                 }
@@ -278,7 +288,7 @@ function spp_admin_members_handle_action(array $context)
                     usleep(500000);
                     $sourceAccountOnline = spp_admin_account_is_online($membersPdo, $accountId);
                     $targetAccountOnline = spp_admin_account_is_online($membersPdo, $targetAccountId);
-                    $characterOnline = spp_admin_character_is_online($membersCharsPdo, $characterGuid, $accountId);
+                    $characterOnline = spp_admin_character_is_online($selectedCharsPdo, $characterGuid, $accountId);
                     if (!$sourceAccountOnline && !$targetAccountOnline && !$characterOnline) {
                         break;
                     }
@@ -299,10 +309,10 @@ function spp_admin_members_handle_action(array $context)
             }
 
             try {
-                $membersCharsPdo->beginTransaction();
+                $selectedCharsPdo->beginTransaction();
                 $membersPdo->beginTransaction();
 
-                $stmtMove = $membersCharsPdo->prepare("UPDATE characters SET account=? WHERE guid=? AND account=? LIMIT 1");
+                $stmtMove = $selectedCharsPdo->prepare("UPDATE characters SET account=? WHERE guid=? AND account=? LIMIT 1");
                 $stmtMove->execute([$targetAccountId, $characterGuid, $accountId]);
                 if ($stmtMove->rowCount() <= 0) {
                     throw new RuntimeException('Character account update failed.');
@@ -310,7 +320,7 @@ function spp_admin_members_handle_action(array $context)
 
                 spp_ensure_website_account_row($membersPdo, $targetAccountId);
 
-                $identity = function_exists('spp_get_char_identity') ? spp_get_char_identity($activeRealmId, $characterGuid) : null;
+                $identity = function_exists('spp_get_char_identity') ? spp_get_char_identity($selectedRealmId, $characterGuid) : null;
                 if (!empty($identity['identity_id'])) {
                     $targetIsBot = stripos($targetUsername, 'rndbot') === 0;
                     $stmtIdentity = $membersPdo->prepare("
@@ -343,19 +353,19 @@ function spp_admin_members_handle_action(array $context)
                     $stmtWebsiteAssign->execute([$characterGuid, (string)$charRow['name'], $targetAccountId]);
                 }
 
-                $membersCharsPdo->commit();
+                $selectedCharsPdo->commit();
                 $membersPdo->commit();
-                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&xfer=success', 1);
+                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&character_realm_id=' . $selectedRealmId . '&xfer=success', 1);
                 exit;
             } catch (Throwable $e) {
-                if ($membersCharsPdo->inTransaction()) {
-                    $membersCharsPdo->rollBack();
+                if (isset($selectedCharsPdo) && $selectedCharsPdo->inTransaction()) {
+                    $selectedCharsPdo->rollBack();
                 }
                 if ($membersPdo->inTransaction()) {
                     $membersPdo->rollBack();
                 }
                 error_log('[admin.members] Bot character transfer failed: ' . $e->getMessage());
-                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&xfer=failed', 1);
+                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&character_realm_id=' . $selectedRealmId . '&xfer=failed', 1);
                 exit;
             }
         }
@@ -368,7 +378,8 @@ function spp_admin_members_handle_action(array $context)
                 exit;
             }
 
-            $stmtChar = $membersCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+            $selectedCharsPdo = spp_get_pdo('chars', $selectedRealmId);
+            $stmtChar = $selectedCharsPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
             $stmtChar->execute([$characterGuid, $accountId]);
             $charRow = $stmtChar->fetch(PDO::FETCH_ASSOC);
             if (!$charRow) {
@@ -376,17 +387,16 @@ function spp_admin_members_handle_action(array $context)
                 exit;
             }
 
-            $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
             try {
-                $membersCharsPdo->beginTransaction();
+                $selectedCharsPdo->beginTransaction();
                 $membersPdo->beginTransaction();
 
                 foreach (spp_admin_character_delete_tables() as $table => $column) {
-                    $stmtDelete = $membersCharsPdo->prepare("DELETE FROM `$table` WHERE `$column` = ?");
+                    $stmtDelete = $selectedCharsPdo->prepare("DELETE FROM `$table` WHERE `$column` = ?");
                     $stmtDelete->execute([$characterGuid]);
                 }
 
-                $identity = function_exists('spp_get_char_identity') ? spp_get_char_identity($activeRealmId, $characterGuid) : null;
+                $identity = function_exists('spp_get_char_identity') ? spp_get_char_identity($selectedRealmId, $characterGuid) : null;
                 if (!empty($identity['identity_id'])) {
                     $stmtIdentity = $membersPdo->prepare("
                         UPDATE website_identities
@@ -405,19 +415,19 @@ function spp_admin_members_handle_action(array $context)
                 ");
                 $stmtWebsiteSource->execute([$characterGuid, $characterGuid, $accountId]);
 
-                $membersCharsPdo->commit();
+                $selectedCharsPdo->commit();
                 $membersPdo->commit();
-                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&chardelete=success', 1);
+                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&character_realm_id=' . $selectedRealmId . '&chardelete=success', 1);
                 exit;
             } catch (Throwable $e) {
-                if ($membersCharsPdo->inTransaction()) {
-                    $membersCharsPdo->rollBack();
+                if (isset($selectedCharsPdo) && $selectedCharsPdo->inTransaction()) {
+                    $selectedCharsPdo->rollBack();
                 }
                 if ($membersPdo->inTransaction()) {
                     $membersPdo->rollBack();
                 }
                 error_log('[admin.members] Character delete failed: ' . $e->getMessage());
-                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&chardelete=failed', 1);
+                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&character_realm_id=' . $selectedRealmId . '&chardelete=failed', 1);
                 exit;
             }
         }
@@ -465,6 +475,26 @@ function spp_admin_members_handle_action(array $context)
             $stmt->execute($accountInts);
         }
         redirect('index.php?n=admin&sub=members', 1);
+        exit;
+    }
+
+    if ($action === 'normalizebotexpansion') {
+        spp_require_csrf('admin_members');
+        $maxInstalledExpansion = spp_admin_members_highest_installed_expansion($realmDbMap);
+        $requestedExpansion = spp_admin_members_expansion_slug_to_id($_POST['switch_wow_type'] ?? 'classic');
+        $targetExpansion = min($requestedExpansion, $maxInstalledExpansion);
+        $stmt = $membersPdo->prepare("
+            UPDATE account
+            SET expansion=?
+            WHERE LOWER(username) LIKE 'rndbot%'
+              AND expansion<>?
+        ");
+        $stmt->execute([$targetExpansion, $targetExpansion]);
+        $updatedCount = (int)$stmt->rowCount();
+        redirect(
+            'index.php?n=admin&sub=members&botexp=normalized&count=' . $updatedCount . '&to=' . $targetExpansion,
+            1
+        );
         exit;
     }
 

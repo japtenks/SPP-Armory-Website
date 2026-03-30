@@ -37,7 +37,10 @@ function spp_account_view_build_profile(array $profile, int $uid, array $current
     );
     $profile['selected_forum_character'] = array();
     $profile['is_human_account'] = (stripos((string)($profile['username'] ?? ''), 'rndbot') !== 0);
-    $profileRealmId = null;
+    $profileRealmId = (int)($profile['character_realm_id'] ?? 0);
+    if (!isset($realmDbMap[$profileRealmId])) {
+        $profileRealmId = 0;
+    }
     $profile['character_summary'] = array();
 
     try {
@@ -49,7 +52,12 @@ function spp_account_view_build_profile(array $profile, int $uid, array $current
     }
 
     if (!empty($profile['character_id'])) {
-        foreach ($realmDbMap as $realmId => $realmInfo) {
+        $characterRealmCandidates = array_keys($realmDbMap);
+        if ($profileRealmId > 0) {
+            $characterRealmCandidates = array_merge([$profileRealmId], array_diff($characterRealmCandidates, [$profileRealmId]));
+        }
+
+        foreach ($characterRealmCandidates as $realmId) {
             try {
                 $charPdo = spp_get_pdo('chars', (int)$realmId);
                 $stmtChar = $charPdo->prepare(
@@ -91,7 +99,7 @@ function spp_account_view_build_profile(array $profile, int $uid, array $current
         }
     }
 
-    if ($profileRealmId === null) {
+    if ($profileRealmId === 0) {
         $profileRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? $_COOKIE['cur_selected_realm'] ?? spp_resolve_realm_id($realmDbMap));
         if (!isset($realmDbMap[$profileRealmId])) {
             $profileRealmId = (int)spp_resolve_realm_id($realmDbMap);

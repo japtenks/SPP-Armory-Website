@@ -7,11 +7,9 @@ if (!is_array($realmMap) || empty($realmMap)) {
     die("Realm DB map not loaded");
 }
 
-$realmId = spp_resolve_realm_id($realmMap);
-
-
 $this_topic = get_topic_byid($_GET['tid']);
 $this_forum = get_forum_byid($this_topic['forum_id']);
+$realmId = spp_forum_target_realm_id($this_forum, $realmMap, spp_resolve_realm_id($realmMap));
 $_vtNewsFid = (int)($MW->getConfig->generic_values->forum->news_forum_id ?? 0);
 $_vtIsNewsForum = $_vtNewsFid > 0 && (int)$this_forum['forum_id'] === $_vtNewsFid;
 $_vtCanPost = !$_vtIsNewsForum || (int)($user['gmlevel'] ?? 0) >= 3;

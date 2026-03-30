@@ -9,7 +9,7 @@ $this_forum['linktomarkread'] = $MW->getConfig->temp->site_href.'index.php?n=for
 $pathway_info[] = array('title'=>$this_forum['forum_name'],'link'=>'');
 // ==================== //
 
-$vfRealmId = spp_resolve_realm_id($realmDbMap);
+$vfRealmId = spp_forum_target_realm_id($this_forum, $realmDbMap, spp_resolve_realm_id($realmDbMap));
 $vfPdo = spp_get_pdo('realmd', $vfRealmId);
 
 list($topicsmark, $mark) = spp_forum_prepare_viewforum_marker($vfPdo, $user, $this_forum);

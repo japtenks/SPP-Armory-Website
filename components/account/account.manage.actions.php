@@ -129,7 +129,7 @@ function spp_account_manage_change_profile(array $ctx): void
     $backgroundPreferencesAvailable = spp_website_accounts_has_columns(['background_mode', 'background_image']);
     $backgroundModeOptions = spp_background_mode_options();
     $availableBackgroundImages = spp_background_image_catalog();
-    $selectedSignatureGuid = (int)($_POST['signature_character_guid'] ?? 0);
+    $selectedSignatureKey = trim((string)($_POST['signature_character_key'] ?? ''));
 
     if (is_uploaded_file($_FILES['avatar']['tmp_name'])) {
         if ($_FILES['avatar']['size'] <= (int)$MW->getConfig->generic->max_avatar_file) {
@@ -182,19 +182,30 @@ function spp_account_manage_change_profile(array $ctx): void
         $profileInput['signature'] = htmlspecialchars((string)$profileInput['signature']);
     }
 
-    if ($selectedSignatureGuid > 0) {
-        $stmtOwnedChar = $manageCharPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
-        $stmtOwnedChar->execute([$selectedSignatureGuid, (int)$user['id']]);
-        $ownedCharacter = $stmtOwnedChar->fetch(PDO::FETCH_ASSOC);
-        if ($ownedCharacter) {
-            $identityId = spp_ensure_char_identity(
-                $currentRealmId,
-                (int)$ownedCharacter['guid'],
-                (int)$user['id'],
-                (string)$ownedCharacter['name']
-            );
-            if ($identityId > 0) {
-                spp_update_identity_signature($identityId, $_POST['profile']['signature']);
+    if ($selectedSignatureKey !== '' && preg_match('/^(\d+):(\d+)$/', $selectedSignatureKey, $matches)) {
+        $selectedSignatureRealmId = (int)$matches[1];
+        $selectedSignatureGuid = (int)$matches[2];
+        if (isset($GLOBALS['realmDbMap'][$selectedSignatureRealmId]) && $selectedSignatureGuid > 0) {
+            $selectedCharPdo = spp_get_pdo('chars', $selectedSignatureRealmId);
+            $stmtOwnedChar = $selectedCharPdo->prepare("SELECT guid, name FROM characters WHERE guid=? AND account=? LIMIT 1");
+            $stmtOwnedChar->execute([$selectedSignatureGuid, (int)$user['id']]);
+            $ownedCharacter = $stmtOwnedChar->fetch(PDO::FETCH_ASSOC);
+            if ($ownedCharacter) {
+                $identityId = spp_ensure_char_identity(
+                    $selectedSignatureRealmId,
+                    (int)$ownedCharacter['guid'],
+                    (int)$user['id'],
+                    (string)$ownedCharacter['name']
+                );
+                if ($identityId > 0) {
+                    spp_update_identity_signature($identityId, $_POST['profile']['signature']);
+                }
+
+                $profileInput['character_id'] = (int)$ownedCharacter['guid'];
+                $profileInput['character_name'] = (string)$ownedCharacter['name'];
+                if (spp_website_accounts_has_columns(['character_realm_id'])) {
+                    $profileInput['character_realm_id'] = $selectedSignatureRealmId;
+                }
             }
         }
         unset($profileInput['signature']);
@@ -303,7 +314,8 @@ function spp_account_manage_rename_character(array $ctx): void
             $stmtRename = $manageCharPdo->prepare("UPDATE characters SET name=? WHERE guid=? AND account=? LIMIT 1");
             $stmtRename->execute([$newName, $characterGuid, (int)$user['id']]);
 
-            if (!empty($user['character_id']) && (int)$user['character_id'] === $characterGuid) {
+            $selectedCharacterRealmId = (int)($user['character_realm_id'] ?? 0);
+            if (!empty($user['character_id']) && (int)$user['character_id'] === $characterGuid && ($selectedCharacterRealmId === 0 || $selectedCharacterRealmId === (int)($ctx['currentRealmId'] ?? 0))) {
                 $stmtSelected = $managePdo->prepare("UPDATE website_accounts SET character_name=? WHERE account_id=? LIMIT 1");
                 $stmtSelected->execute([$newName, (int)$user['id']]);
             }

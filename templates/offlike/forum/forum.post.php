@@ -1,4 +1,91 @@
 ﻿<style>
+.posting-context {
+  max-width: 980px;
+  margin: 0 auto 18px;
+  padding: 16px 18px;
+  border: 1px solid #4a3415;
+  border-radius: 10px;
+  background: linear-gradient(to bottom, rgba(48, 32, 10, 0.92), rgba(17, 13, 7, 0.92));
+  box-shadow: 0 0 12px rgba(0,0,0,0.45), inset 0 0 10px rgba(255,204,102,0.05);
+}
+.posting-context-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.posting-context-head h3 {
+  color: #ffcc66;
+  font-size: 1.08rem;
+  margin: 0;
+}
+.posting-context-head p {
+  margin: 4px 0 0;
+  color: #c9bfaf;
+  font-size: 0.9rem;
+}
+.posting-context-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.posting-context-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 204, 102, 0.3);
+  background: rgba(18, 18, 18, 0.55);
+  color: #f4d28a;
+  font-size: 0.77rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.posting-context-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.posting-context-item {
+  padding: 12px 14px;
+  border: 1px solid #302719;
+  border-radius: 8px;
+  background: rgba(12, 12, 12, 0.8);
+}
+.posting-context-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #aa9878;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.posting-context-value {
+  color: #f0f0f0;
+  font-size: 0.98rem;
+  font-weight: bold;
+}
+.posting-context-subvalue {
+  margin-top: 4px;
+  color: #b9b9b9;
+  font-size: 0.84rem;
+}
+.posting-character-select {
+  width: 100%;
+  background: #111;
+  border: 1px solid #4a3b20;
+  color: #f0f0f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+}
+.posting-character-select:focus {
+  border-color: #ffcc66;
+  box-shadow: 0 0 6px rgba(255,204,102,0.25);
+  outline: none;
+}
 .reply-context {
   max-width: 980px;
   margin: 24px auto 18px;
@@ -198,6 +285,9 @@ textarea.editor {
   opacity: 0.92;
 }
 @media (max-width: 720px) {
+  .posting-context-grid {
+    grid-template-columns: 1fr;
+  }
   .reply-post {
     flex-direction: column;
   }
@@ -225,6 +315,14 @@ $topicUrl = $topicId > 0 ? 'index.php?n=forum&sub=viewtopic&tid=' . $topicId : $
 $formAction = $is_newtopic
     ? 'index.php?n=forum&sub=post&action=donewtopic&f=' . $forumId
     : 'index.php?n=forum&sub=post&action=donewpost&t=' . $topicId . '&f=' . $forumId;
+$postingContext = $posting_context ?? array();
+$postingForumName = trim((string)($postingContext['forum_name'] ?? ($this_forum['forum_name'] ?? 'Unknown Forum')));
+$postingRealmName = trim((string)($postingContext['realm_name'] ?? ''));
+$postingScopeLabel = trim((string)($postingContext['forum_scope_label'] ?? ''));
+$postingCharacterName = trim((string)($postingContext['character_name'] ?? ''));
+$postingCharacterLevel = (int)($postingContext['character_level'] ?? 0);
+$postingGuildName = trim((string)($postingContext['guild_name'] ?? ''));
+$postingCharacterOptions = $posting_character_options ?? array();
 ?>
 
 <?php builddiv_start(1, $pageTitle); ?>
@@ -236,6 +334,67 @@ $formAction = $is_newtopic
   <a href="<?php echo $forumUrl; ?>" class="btn secondary">Back to Forum</a>
   <a href="<?php echo $indexUrl; ?>" class="btn secondary">Forum Index</a>
 </div>
+
+<section class="posting-context">
+  <div class="posting-context-head">
+    <div>
+      <h3><?php echo $is_newtopic ? 'Posting Context' : 'Reply Context'; ?></h3>
+      <p><?php echo $is_newtopic ? 'You are creating a new topic in this forum.' : 'Your reply will use this forum and character context.'; ?></p>
+    </div>
+    <div class="posting-context-badges">
+      <?php if ($postingRealmName !== ''): ?>
+        <span class="posting-context-badge"><?php echo htmlspecialchars($postingRealmName); ?></span>
+      <?php endif; ?>
+      <?php if ($postingScopeLabel !== ''): ?>
+        <span class="posting-context-badge"><?php echo htmlspecialchars($postingScopeLabel); ?></span>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <div class="posting-context-grid">
+    <div class="posting-context-item">
+      <span class="posting-context-label">Forum</span>
+      <div class="posting-context-value"><?php echo htmlspecialchars($postingForumName); ?></div>
+      <div class="posting-context-subvalue">This is the destination forum for your post.</div>
+    </div>
+    <div class="posting-context-item">
+      <span class="posting-context-label">Posting As</span>
+      <?php if (!empty($postingCharacterOptions)): ?>
+        <select name="posting_character_id" class="posting-character-select" form="forum-post-form" <?php echo !$canPost ? 'disabled' : ''; ?>>
+          <?php foreach ($postingCharacterOptions as $postingCharacterOption): ?>
+            <option value="<?php echo (int)$postingCharacterOption['guid']; ?>"<?php if ((int)$postingCharacterOption['guid'] === (int)($forum_post_form['posting_character_id'] ?? 0)) echo ' selected'; ?>>
+              <?php
+                echo htmlspecialchars(
+                  $postingCharacterOption['name']
+                  . ' (Lvl ' . (int)$postingCharacterOption['level'] . ')'
+                  . (!empty($postingCharacterOption['guild']) ? ' - <' . $postingCharacterOption['guild'] . '>' : '')
+                );
+              ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      <?php else: ?>
+        <div class="posting-context-value">No valid character selected</div>
+      <?php endif; ?>
+      <div class="posting-context-subvalue">
+        <?php if ($postingCharacterName !== ''): ?>
+          Currently using <?php echo htmlspecialchars($postingCharacterName); ?>, level <?php echo $postingCharacterLevel; ?><?php if ($postingGuildName !== ''): ?> · &lt;<?php echo htmlspecialchars($postingGuildName); ?>&gt;<?php endif; ?>
+        <?php else: ?>
+          No eligible character is available for this forum realm.
+        <?php endif; ?>
+      </div>
+    </div>
+    <div class="posting-context-item">
+      <span class="posting-context-label">Forum Scope</span>
+      <div class="posting-context-value">
+        <?php echo $postingScopeLabel !== '' ? htmlspecialchars($postingScopeLabel) : 'General'; ?>
+      </div>
+      <div class="posting-context-subvalue">
+        <?php echo $postingRealmName !== '' ? htmlspecialchars($postingRealmName) . ' posting rules apply here.' : 'This forum uses the current forum rules.'; ?>
+      </div>
+    </div>
+  </div>
+</section>
 
 <?php if (!$is_newtopic && !empty($posts)): ?>
 <section class="reply-context">
@@ -274,7 +433,7 @@ $formAction = $is_newtopic
       <?php echo htmlspecialchars($forum_post_errors[0]); ?>
     </div>
   <?php endif; ?>
-  <form method="post" action="<?php echo $formAction; ?>">
+  <form method="post" action="<?php echo $formAction; ?>" id="forum-post-form">
     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('forum_actions')); ?>">
     <?php if ($is_newtopic): ?>
       <label for="subject">Subject:</label>

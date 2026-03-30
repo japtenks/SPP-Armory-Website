@@ -149,3 +149,43 @@ if (!function_exists('spp_admin_members_website_fields')) {
         return spp_allowed_field_map($allowed);
     }
 }
+
+if (!function_exists('spp_admin_members_highest_installed_expansion')) {
+    function spp_admin_members_highest_installed_expansion(array $realmDbMap) {
+        $highestExpansion = 0;
+        foreach (array_keys($realmDbMap) as $realmId) {
+            $realmId = (int)$realmId;
+            if ($realmId >= 3) {
+                $highestExpansion = max($highestExpansion, 2);
+            } elseif ($realmId >= 2) {
+                $highestExpansion = max($highestExpansion, 1);
+            }
+        }
+        return $highestExpansion;
+    }
+}
+
+if (!function_exists('spp_admin_members_expansion_label')) {
+    function spp_admin_members_expansion_label($expansionId) {
+        $expansionMap = array(
+            0 => 'Classic',
+            1 => 'TBC',
+            2 => 'WotLK',
+        );
+        $expansionId = (int)$expansionId;
+        return $expansionMap[$expansionId] ?? 'Classic';
+    }
+}
+
+if (!function_exists('spp_admin_members_expansion_slug_to_id')) {
+    function spp_admin_members_expansion_slug_to_id($slug) {
+        $slug = strtolower(trim((string)$slug));
+        if ($slug === 'wotlk') {
+            return 2;
+        }
+        if ($slug === 'tbc') {
+            return 1;
+        }
+        return 0;
+    }
+}

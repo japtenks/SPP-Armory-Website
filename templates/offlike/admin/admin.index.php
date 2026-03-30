@@ -81,14 +81,15 @@
         <li><a href="index.php?n=admin&amp;sub=members"><?php echo $lang['users_manage']; ?></a></li>
         <li><a href="index.php?n=admin&amp;sub=cleanup">Site Cleanup</a></li>
         <li><a href="index.php?n=admin&amp;sub=realms"><?php echo $lang['realms_manage']; ?></a></li>
+        <li><a href="index.php?n=admin&amp;sub=backup">Backup</a></li>
+        <li><a href="index.php?n=admin&amp;sub=identities">Identity Coverage</a></li>
       </ul>
     </section>
 
     <section class="admin-home__card">
       <h3>Character Tools</h3>
       <ul class="admin-home__links">
-        <li><a href="index.php?n=admin&amp;sub=chartools">Character Rename</a></li>
-        <li><a href="index.php?n=admin&amp;sub=chartransfer">Character Transfer</a></li>
+        <li><a href="index.php?n=admin&amp;sub=chartools">Character Tools</a></li>
       </ul>
     </section>
 

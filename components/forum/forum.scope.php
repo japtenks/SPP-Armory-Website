@@ -25,6 +25,72 @@ function spp_realm_to_expansion(int $realmId): string {
     return $map[$realmId] ?? '';
 }
 
+function spp_expansion_to_realm_id(string $expansion, array $realmMap, int $fallbackRealmId = 1): int
+{
+    $expansion = strtolower(trim($expansion));
+    foreach ($realmMap as $realmId => $realmInfo) {
+        if (spp_realm_to_expansion((int)$realmId) === $expansion) {
+            return (int)$realmId;
+        }
+    }
+
+    return $fallbackRealmId;
+}
+
+function spp_detect_forum_realm_hint(array $forum, array $realmMap, int $fallbackRealmId = 1): int
+{
+    $haystack = strtolower(trim(
+        (string)($forum['forum_name'] ?? '') . ' ' . (string)($forum['forum_desc'] ?? '')
+    ));
+
+    if ($haystack === '') {
+        return $fallbackRealmId;
+    }
+
+    $patterns = array(
+        'wotlk' => array('wrath of the lich king', 'wrath', 'wotlk'),
+        'tbc' => array('the burning crusade', 'burning crusade', 'tbc'),
+        'classic' => array('classic', 'vanilla'),
+    );
+
+    foreach ($patterns as $expansion => $terms) {
+        foreach ($terms as $term) {
+            if (strpos($haystack, $term) !== false) {
+                return spp_expansion_to_realm_id($expansion, $realmMap, $fallbackRealmId);
+            }
+        }
+    }
+
+    return $fallbackRealmId;
+}
+
+function spp_forum_target_realm_id(array $forum, array $realmMap, int $fallbackRealmId = 1): int
+{
+    if (empty($forum)) {
+        return $fallbackRealmId;
+    }
+
+    $scopeType = (string)($forum['scope_type'] ?? '');
+    $scopeValue = (string)($forum['scope_value'] ?? '');
+
+    if ($scopeType === 'realm') {
+        $realmId = (int)$scopeValue;
+        if ($realmId > 0 && isset($realmMap[$realmId])) {
+            return $realmId;
+        }
+    }
+
+    if ($scopeType === 'expansion') {
+        return spp_expansion_to_realm_id($scopeValue, $realmMap, $fallbackRealmId);
+    }
+
+    if ($scopeType === 'all') {
+        return spp_detect_forum_realm_hint($forum, $realmMap, $fallbackRealmId);
+    }
+
+    return $fallbackRealmId;
+}
+
 function check_forum_scope(array $forum, int $realmId): bool {
     $scopeType = $forum['scope_type'] ?? 'all';
     if (!$scopeType || $scopeType === 'all') {
@@ -150,6 +216,19 @@ function resolve_forum_character_for_realm(array $user, int $realmId)
 
     $cookieCharacterId = (int)($_COOKIE['cur_selected_character'] ?? 0);
     $cookieRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? ($_COOKIE['cur_selected_realm'] ?? 0));
+    $savedForumCharacterId = (int)($user['character_id'] ?? 0);
+    $savedForumCharacterRealmId = (int)($user['character_realm_id'] ?? 0);
+
+    if ($savedForumCharacterId > 0 && $savedForumCharacterRealmId === $realmId) {
+        foreach ($characters as $character) {
+            if (
+                (int)($character['realm_id'] ?? 0) === $savedForumCharacterRealmId &&
+                (int)($character['guid'] ?? 0) === $savedForumCharacterId
+            ) {
+                return $character;
+            }
+        }
+    }
 
     if ($cookieCharacterId > 0 && $cookieRealmId > 0) {
         foreach ($characters as $character) {

@@ -26,6 +26,7 @@ spp_admin_members_handle_action(array(
 ));
 
 $accountId = (int)($_GET['id'] ?? 0);
+$selectedToolRealmId = (int)($_POST['character_realm_id'] ?? ($_GET['character_realm_id'] ?? 0));
 if ($accountId > 0) {
     if (isset($_GET['xfer'])) {
         if ($_GET['xfer'] === 'success') {
@@ -69,11 +70,16 @@ if ($accountId > 0) {
         }
     }
 
-    $detailView = spp_admin_members_build_detail_view($membersPdo, $membersCharsPdo, $auth, $lang, $com_links, $realmDbMap, $accountId);
+    $detailView = spp_admin_members_build_detail_view($membersPdo, $membersCharsPdo, $auth, $lang, $com_links, $realmDbMap, $accountId, $selectedToolRealmId);
     extract($detailView, EXTR_OVERWRITE);
     $admin_members_csrf_token = spp_csrf_token('admin_members');
 } else {
     $listView = spp_admin_members_build_list_view($membersPdo, $MW, (int)$p, $lang);
     extract($listView, EXTR_OVERWRITE);
+    if (isset($_GET['botexp']) && $_GET['botexp'] === 'normalized') {
+        $normalizedCount = (int)($_GET['count'] ?? 0);
+        $normalizedTarget = spp_admin_members_expansion_label((int)($_GET['to'] ?? 0));
+        output_message('notice', '<b>Normalized ' . $normalizedCount . ' bot account(s) to ' . htmlspecialchars($normalizedTarget) . '.</b>');
+    }
 }
 ?>

@@ -260,14 +260,36 @@ $selectedRealmIsValid = ( $selectedRealmId > 0 ) ;
 $selectedRealmUnavailable = false ;
 $_realmPdo = spp_get_pdo('realmd', $defaultRealmId);
 
+if ( !function_exists( 'spp_build_legacy_realm_dbinfo' ) )
+{
+	function spp_build_legacy_realm_dbinfo( $realmId )
+	{
+		$realmId = (int)$realmId ;
+		$realmMap = $GLOBALS['realmDbMap'] ?? array() ;
+		$db = $GLOBALS['db'] ?? array() ;
+		if ( $realmId <= 0 || empty( $realmMap[$realmId] ) || !is_array( $db ) )
+		{
+			return null ;
+		}
+
+		$realmInfo = $realmMap[$realmId] ;
+		return array(
+			'dbhost' => (string)($db['host'] ?? ''),
+			'dbport' => (string)($db['port'] ?? ''),
+			'dbuser' => (string)($db['user'] ?? ''),
+			'dbpass' => (string)($db['pass'] ?? ''),
+			'dbname' => (string)($realmInfo['world'] ?? ''),
+			'chardbname' => (string)($realmInfo['chars'] ?? ''),
+		) ;
+	}
+}
+
 if ( $selectedRealmIsValid )
 {
 	$_stmt = $_realmPdo->prepare("SELECT `id` FROM `realmlist` WHERE `id`=? LIMIT 1");
 	$_stmt->execute([(int)$selectedRealmId]);
 	$realmExists = $_stmt->fetchColumn();
-	$_stmt = $_realmPdo->prepare("SELECT * FROM `website_realm_settings` WHERE id_realm=?");
-	$_stmt->execute([(int)$selectedRealmId]);
-	$dbinfo_mangos = $_stmt->fetch(PDO::FETCH_ASSOC);
+	$dbinfo_mangos = spp_build_legacy_realm_dbinfo( $selectedRealmId ) ;
 	$selectedRealmIsValid = !empty( $realmExists ) && !empty( $dbinfo_mangos ) ;
 
 	if ( $selectedRealmIsValid && function_exists( 'spp_get_pdo' ) && isset( $GLOBALS['realmDbMap'][$selectedRealmId] ) )
@@ -294,9 +316,7 @@ if ( !$selectedRealmIsValid )
 	$user['cur_selected_realmd'] = $defaultRealmId ;
 	setcookie( "cur_selected_realmd", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
 	setcookie( "cur_selected_realm", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
-	$_stmt = $_realmPdo->prepare("SELECT * FROM `website_realm_settings` WHERE id_realm=?");
-	$_stmt->execute([(int)$user['cur_selected_realmd']]);
-	$dbinfo_mangos = $_stmt->fetch(PDO::FETCH_ASSOC);
+	$dbinfo_mangos = spp_build_legacy_realm_dbinfo( $user['cur_selected_realmd'] ) ;
 }
 
 if ( $selectedRealmUnavailable )
@@ -354,8 +374,7 @@ if ( $mangos['db_host'] == '127.0.0.1' && $mangos['db_port'] == '3306' && $mango
 if (!empty($characters) && is_array($characters)) {
     foreach ($characters as $character) {
         if ($character['guid'] == ($_COOKIE['cur_selected_character'] ?? 0)) {
-            $_waStmt = $_realmPdo->prepare('UPDATE website_accounts SET character_id=?,character_name=? WHERE account_id=?');
-            $_waStmt->execute([(int)$character['guid'], $character['name'], (int)$user['id']]);
+            break;
         }
     }
 }
@@ -450,10 +469,17 @@ if (isset($_GET['setchar'])) {
             setcookie('cur_selected_character', $char['guid'], time() + 86400, '/');
             setcookie('cur_selected_realm', $selectedRealmId, time() + 86400, '/');
             setcookie('cur_selected_realmd', $selectedRealmId, time() + 86400, '/');
-            $_waStmt2 = spp_get_pdo('realmd', $defaultRealmId)->prepare(
-                "UPDATE website_accounts SET character_id=?, character_name=? WHERE account_id=?"
-            );
-            $_waStmt2->execute([(int)$char['guid'], $char['name'], (int)$user['id']]);
+            if (function_exists('spp_website_accounts_has_columns') && spp_website_accounts_has_columns(['character_realm_id'])) {
+                $_waStmt2 = spp_get_pdo('realmd', $defaultRealmId)->prepare(
+                    "UPDATE website_accounts SET character_id=?, character_name=?, character_realm_id=? WHERE account_id=?"
+                );
+                $_waStmt2->execute([(int)$char['guid'], $char['name'], (int)$selectedRealmId, (int)$user['id']]);
+            } else {
+                $_waStmt2 = spp_get_pdo('realmd', $defaultRealmId)->prepare(
+                    "UPDATE website_accounts SET character_id=?, character_name=? WHERE account_id=?"
+                );
+                $_waStmt2->execute([(int)$char['guid'], $char['name'], (int)$user['id']]);
+            }
         }
     }
 

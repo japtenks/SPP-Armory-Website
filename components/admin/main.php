@@ -48,20 +48,6 @@ $com_content['admin'] = array(
         '',
         1
     ),
-    'keys' => array(
-        'g_is_admin', 
-        'regkeys_manage', 
-        'index.php?n=admin&sub=keys',
-        '',
-        1
-    ),
-    'langs' => array(
-        'g_is_admin', 
-        'langs_manage', 
-        'index.php?n=admin&sub=langs',
-        '',
-        1
-    ),
      'news_add' => array(
         'g_is_admin', 
         'news_add', 
@@ -83,17 +69,17 @@ $com_content['admin'] = array(
         '',
         0
     ),
-    'donate' => array(
-        'g_is_admin',
-        'donate',
-        'index.php?n=admin&sub=donate',
-        '',
-        1
-    ),
     'backup' => array(
         'g_is_admin',
         'backup',
         'index.php?n=admin&sub=backup',
+        '',
+        1
+    ),
+    'identities' => array(
+        'g_is_admin',
+        'Identity Coverage',
+        'index.php?n=admin&sub=identities',
         '',
         1
     ),

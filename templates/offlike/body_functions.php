@@ -217,6 +217,16 @@ function build_account_menu($asList = true) {
             }
         }
 
+        if ($activeCharacter === null && $selectedCharacterId > 0) {
+            foreach ($GLOBALS['characters'] as $character) {
+                if ((int)($character['guid'] ?? 0) === $selectedCharacterId) {
+                    $activeCharacter = $character;
+                    $selectedRealmId = (int)($character['realm_id'] ?? $selectedRealmId);
+                    break;
+                }
+            }
+        }
+
         if ($activeCharacter === null) {
             foreach ($GLOBALS['characters'] as $character) {
                 if ((int)($character['realm_id'] ?? 0) === $selectedRealmId) {

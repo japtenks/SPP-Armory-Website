@@ -164,6 +164,33 @@
   margin: 0;
   padding-left: 18px;
 }
+.admin-realm-groups {
+  display: grid;
+  gap: 14px;
+}
+.admin-realm-group {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 204, 102, 0.05);
+  border: 1px solid rgba(255, 204, 102, 0.12);
+}
+.admin-realm-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.admin-realm-title {
+  color: #ffcc66;
+  font-size: 1rem;
+  font-weight: bold;
+}
+.admin-realm-summary {
+  color: #c7c7c7;
+  font-size: 0.88rem;
+}
 
 .admin-character-list li {
   margin: 0 0 10px;
@@ -250,6 +277,35 @@
   resize: vertical;
 }
 
+.admin-expansion-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-expansion-grid form {
+  margin: 0;
+}
+
+.admin-expansion-btn {
+  width: 100%;
+  border: 1px solid rgba(255, 206, 102, 0.2);
+  background: rgba(12, 12, 12, 0.72);
+  color: #f1f1f1;
+}
+
+.admin-expansion-btn.active {
+  background: linear-gradient(180deg, #ffd27a, #d89e39);
+  color: #17120a;
+  border-color: rgba(255, 206, 102, 0.45);
+}
+
+.admin-expansion-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .admin-form-help {
   color: #a9a9a9;
   font-size: 0.88rem;
@@ -277,6 +333,22 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.admin-signature-realm-groups {
+  display: grid;
+  gap: 14px;
+}
+.admin-signature-realm-group {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 204, 102, 0.05);
+  border: 1px solid rgba(255, 204, 102, 0.12);
+}
+.admin-signature-realm-title {
+  color: #ffcc66;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 12px;
 }
 
 .admin-signature-row {
@@ -463,6 +535,10 @@
     grid-template-columns: 1fr;
   }
 
+  .admin-expansion-grid {
+    grid-template-columns: 1fr;
+  }
+
   .admin-list-row {
     grid-template-columns: 1fr;
   }
@@ -480,6 +556,12 @@
 
 <div class="admin-members">
 <?php if (isset($_GET['id']) && $_GET['id'] > 0 && $profile) { ?>
+  <?php
+    $characterRealmGroups = $characters_by_realm ?? array();
+    $allUserCharacters = $all_userchars ?? ($userchars ?? array());
+    $selectedToolRealmId = (int)($selected_tool_realm_id ?? 0);
+    $toolRealmChars = $tool_realm_chars ?? array();
+  ?>
   <div class="admin-panel">
     <p class="admin-subheading">Member Profile</p>
     <h2 class="admin-heading"><?php echo htmlspecialchars($profile['username']); ?></h2>
@@ -526,32 +608,47 @@
     <div class="admin-character-list">
       <p class="admin-subheading">Realm Characters</p>
       <h3 class="admin-heading" style="font-size:1.1rem;">Characters</h3>
-      <p class="admin-note status-summary">
-        <?php echo (int)($onlineCharacterCount ?? 0); ?> / <?php echo count($userchars); ?> online
-      </p>
-      <?php if (!empty($userchars)) { ?>
-        <ul>
+      <p class="admin-note status-summary"><?php echo (int)($onlineCharacterCount ?? 0); ?> / <?php echo count($allUserCharacters); ?> online</p>
+      <?php if (!empty($characterRealmGroups)) { ?>
+        <div class="admin-realm-groups">
           <?php
           $MANG = new Mangos;
-          foreach ($userchars as $char) {
-              $profileRealm = (int)($GLOBALS['activeRealmId'] ?? 1);
-              $charUrl = 'index.php?n=server&sub=character&realm=' . $profileRealm . '&character=' . urlencode($char['name']);
-              $statusClass = !empty($char['online']) ? 'online' : 'offline';
-              $statusTitle = !empty($char['online']) ? 'Online' : 'Offline';
-              echo '<li>';
-              echo '<span class="admin-character-status-dot ' . $statusClass . '" title="' . $statusTitle . '"></span>';
-              echo '<span class="admin-character-entry">';
-              echo '<a href="' . $charUrl . '">' . htmlspecialchars($char['name']) . '</a> &middot; Level ' . (int)$char['level'] . ' &middot; ' .
-                  htmlspecialchars($MANG->characterInfoByID['character_race'][$char['race']] ?? '') . ' ' .
-                  htmlspecialchars($MANG->characterInfoByID['character_class'][$char['class']] ?? '');
-              echo '</span>';
-              echo '</li>';
-          }
+          foreach ($characterRealmGroups as $realmGroupId => $realmChars) {
+              $realmGroupOnline = 0;
+              foreach ($realmChars as $realmCharCount) {
+                  if (!empty($realmCharCount['online'])) {
+                      $realmGroupOnline++;
+                  }
+              }
+              $realmGroupName = $realmChars[0]['realm_name'] ?? ('Realm ' . (int)$realmGroupId);
+          ?>
+            <div class="admin-realm-group">
+              <div class="admin-realm-heading">
+                <div class="admin-realm-title"><?php echo htmlspecialchars($realmGroupName); ?></div>
+                <div class="admin-realm-summary"><?php echo $realmGroupOnline; ?> / <?php echo count($realmChars); ?> online</div>
+              </div>
+              <ul>
+                <?php foreach ($realmChars as $char) {
+                    $charUrl = 'index.php?n=server&sub=character&realm=' . (int)($char['realm_id'] ?? $realmGroupId) . '&character=' . urlencode((string)$char['name']);
+                    $statusClass = !empty($char['online']) ? 'online' : 'offline';
+                    $statusTitle = !empty($char['online']) ? 'Online' : 'Offline';
+                    echo '<li>';
+                    echo '<span class="admin-character-status-dot ' . $statusClass . '" title="' . $statusTitle . '"></span>';
+                    echo '<span class="admin-character-entry">';
+                    echo '<a href="' . $charUrl . '">' . htmlspecialchars((string)$char['name']) . '</a> &middot; Level ' . (int)$char['level'] . ' &middot; ' .
+                        htmlspecialchars($MANG->characterInfoByID['character_race'][$char['race']] ?? '') . ' ' .
+                        htmlspecialchars($MANG->characterInfoByID['character_class'][$char['class']] ?? '');
+                    echo '</span>';
+                    echo '</li>';
+                } ?>
+              </ul>
+            </div>
+          <?php }
           unset($MANG);
           ?>
-        </ul>
+        </div>
       <?php } else { ?>
-        <p class="admin-note">This account does not have any characters on the active realm.</p>
+        <p class="admin-note">This account does not have any characters on any configured realm.</p>
       <?php } ?>
     </div>
 
@@ -561,23 +658,31 @@
         <h3 class="admin-heading" style="font-size:1.1rem;">Character Signatures</h3>
         <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=setbotsignatures" class="admin-form-stack">
           <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($admin_members_csrf_token ?? spp_csrf_token('admin_members'))); ?>">
-          <div class="admin-signature-stack">
-            <?php if (!empty($userchars)) { ?>
-              <?php foreach ($userchars as $char) { ?>
-                <?php $charGuid = (int)($char['guid'] ?? 0); ?>
-                <div class="admin-signature-row">
-                  <label for="character_signature_<?php echo $charGuid; ?>"><?php echo htmlspecialchars($char['name']); ?></label>
-                  <input
-                    type="text"
-                    id="character_signature_<?php echo $charGuid; ?>"
-                    name="character_signature[<?php echo $charGuid; ?>]"
-                    maxlength="255"
-                    value="<?php echo htmlspecialchars((string)($profile['character_signatures'][$charGuid] ?? '')); ?>"
-                  />
+          <div class="admin-signature-realm-groups">
+            <?php if (!empty($characterRealmGroups)) { ?>
+              <?php foreach ($characterRealmGroups as $realmGroupId => $realmChars) { ?>
+                <?php $realmGroupName = $realmChars[0]['realm_name'] ?? ('Realm ' . (int)$realmGroupId); ?>
+                <div class="admin-signature-realm-group">
+                  <div class="admin-signature-realm-title"><?php echo htmlspecialchars((string)$realmGroupName); ?></div>
+                  <div class="admin-signature-stack">
+                    <?php foreach ($realmChars as $char) { ?>
+                      <?php $charGuid = (int)($char['guid'] ?? 0); $charRealmId = (int)($char['realm_id'] ?? 0); $charSignatureKey = $charRealmId . ':' . $charGuid; ?>
+                      <div class="admin-signature-row">
+                        <label for="character_signature_<?php echo $charRealmId; ?>_<?php echo $charGuid; ?>"><?php echo htmlspecialchars((string)$char['name']); ?></label>
+                        <input
+                          type="text"
+                          id="character_signature_<?php echo $charRealmId; ?>_<?php echo $charGuid; ?>"
+                          name="character_signature[<?php echo $charSignatureKey; ?>]"
+                          maxlength="255"
+                          value="<?php echo htmlspecialchars((string)($profile['character_signatures'][$charSignatureKey] ?? '')); ?>"
+                        />
+                      </div>
+                    <?php } ?>
+                  </div>
                 </div>
               <?php } ?>
             <?php } else { ?>
-              <div class="admin-form-help">This bot account has no characters on the active realm.</div>
+              <div class="admin-form-help">This bot account has no characters on any configured realm.</div>
             <?php } ?>
           </div>
           <div class="admin-form-help">Set one forum signature line per bot character. These signatures follow the character that posts.</div>
@@ -610,15 +715,33 @@
   <div class="admin-form-panel">
     <p class="admin-subheading">Character Tools</p>
     <h3 class="admin-heading" style="font-size:1.1rem;">Character Transfer And Cleanup</h3>
+    <form method="get" action="index.php" class="admin-form-stack" style="margin-bottom:18px;">
+      <input type="hidden" name="n" value="admin" />
+      <input type="hidden" name="sub" value="members" />
+      <input type="hidden" name="id" value="<?php echo (int)$_GET['id']; ?>" />
+      <div class="admin-form-grid">
+        <label for="character_realm_id">Realm</label>
+        <select id="character_realm_id" name="character_realm_id" onchange="this.form.submit()">
+          <?php foreach (($characterRealmGroups ?? array()) as $realmGroupId => $realmChars): ?>
+            <?php $realmGroupName = $realmChars[0]['realm_name'] ?? ('Realm ' . (int)$realmGroupId); ?>
+            <option value="<?php echo (int)$realmGroupId; ?>"<?php if ((int)$realmGroupId === $selectedToolRealmId) echo ' selected'; ?>>
+              <?php echo htmlspecialchars($realmGroupName . ' (' . count($realmChars) . ')'); ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="admin-form-help">Choose which realm's characters you want the admin tools below to operate on.</div>
+    </form>
     <div class="admin-tool-stack">
       <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=transferchar" class="admin-form-stack">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($admin_members_csrf_token ?? spp_csrf_token('admin_members'))); ?>">
+        <input type="hidden" name="character_realm_id" value="<?php echo $selectedToolRealmId; ?>">
         <div class="admin-form-grid">
           <label for="transfer_character_guid">Character</label>
           <select id="transfer_character_guid" name="transfer_character_guid">
             <?php
-            if (!empty($userchars)) {
-                foreach ($userchars as $char) {
+            if (!empty($toolRealmChars)) {
+                foreach ($toolRealmChars as $char) {
                     echo '<option value="' . (int)($char['guid'] ?? 0) . '">';
                     echo htmlspecialchars((string)($char['name'] ?? 'Unknown'));
                     if (!empty($char['level'])) {
@@ -647,18 +770,19 @@
         </div>
         <div class="admin-form-help">Move a character to another account on the active realm. Useful for splitting characters between accounts. Forum ownership follows the destination account. The transfer only goes through when the source account, destination account, and selected character are all offline.</div>
         <div class="admin-form-actions">
-          <input type="submit" value="Transfer Character" <?php if (empty($userchars) || empty($eligibleTransferAccounts)) echo 'disabled="disabled"'; ?> onclick="return confirm('Transfer this character to the target account?');" />
+          <input type="submit" value="Transfer Character" <?php if (empty($toolRealmChars) || empty($eligibleTransferAccounts)) echo 'disabled="disabled"'; ?> onclick="return confirm('Transfer this character to the target account?');" />
         </div>
       </form>
       <div class="admin-tool-divider"></div>
       <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=deletechar" class="admin-form-stack">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($admin_members_csrf_token ?? spp_csrf_token('admin_members'))); ?>">
+        <input type="hidden" name="character_realm_id" value="<?php echo $selectedToolRealmId; ?>">
         <div class="admin-form-grid">
           <label for="delete_character_guid">Delete Character</label>
           <select id="delete_character_guid" name="delete_character_guid">
             <?php
-            if (!empty($userchars)) {
-                foreach ($userchars as $char) {
+            if (!empty($toolRealmChars)) {
+                foreach ($toolRealmChars as $char) {
                     echo '<option value="' . (int)($char['guid'] ?? 0) . '">';
                     echo htmlspecialchars((string)($char['name'] ?? 'Unknown'));
                     if (!empty($char['level'])) {
@@ -674,7 +798,7 @@
         </div>
         <div class="admin-form-help">Deletes the selected character from the active realm and clears that character from the account’s selected-character slot if needed.</div>
         <div class="admin-form-actions">
-          <input type="submit" value="Delete Character" class="danger" <?php if (empty($userchars)) echo 'disabled="disabled"'; ?> onclick="return confirm('Delete this character from the active realm? This cannot be undone.');" />
+          <input type="submit" value="Delete Character" class="danger" <?php if (empty($toolRealmChars)) echo 'disabled="disabled"'; ?> onclick="return confirm('Delete this character from the selected realm? This cannot be undone.');" />
         </div>
       </form>
     </div>
@@ -837,6 +961,31 @@
           <?php foreach (range('a', 'z') as $letter) { ?>
             <a href="<?php echo $baseMembers; ?>&char=<?php echo $letter; ?>"<?php if ($currentChar === $letter) echo ' class="active"'; ?>><?php echo strtoupper($letter); ?></a>
           <?php } ?>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar-row">
+      <?php $maxBotExpansion = spp_admin_members_highest_installed_expansion($GLOBALS['realmDbMap'] ?? array()); ?>
+      <div class="toolbar-group" style="min-width:100%;">
+        <label class="admin-field-label">Bot Expansion</label>
+        <div class="admin-form-help">Apply one account expansion choice to all `rndbot` accounts. TBC and WotLK stay unavailable until those realms are installed.</div>
+        <div class="admin-expansion-grid">
+          <form action="index.php?n=admin&sub=members&action=normalizebotexpansion" method="post">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_members')); ?>">
+            <input type="hidden" name="switch_wow_type" value="classic">
+            <button type="submit" class="admin-btn admin-expansion-btn" onclick="return confirm('Set all bot accounts to Classic access?');">Classic</button>
+          </form>
+          <form action="index.php?n=admin&sub=members&action=normalizebotexpansion" method="post">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_members')); ?>">
+            <input type="hidden" name="switch_wow_type" value="tbc">
+            <button type="submit" class="admin-btn admin-expansion-btn"<?php if ($maxBotExpansion < 1) echo ' disabled="disabled"'; ?> onclick="return confirm('Set all bot accounts to TBC access?');">TBC</button>
+          </form>
+          <form action="index.php?n=admin&sub=members&action=normalizebotexpansion" method="post">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_members')); ?>">
+            <input type="hidden" name="switch_wow_type" value="wotlk">
+            <button type="submit" class="admin-btn admin-expansion-btn"<?php if ($maxBotExpansion < 2) echo ' disabled="disabled"'; ?> onclick="return confirm('Set all bot accounts to WotLK access?');">WotLK</button>
+          </form>
         </div>
       </div>
     </div>

@@ -1,205 +1,91 @@
 <br>
-<?php builddiv_start(1, "Backup") ?>
-<?php
-if (is_writable("core/cache/sql_backups/") == FALSE)die(' core/cache/sql_backups/ Must be writeable to use this function! Chmod the folder to so webserver can write to this folder! ( All permissions! ).');
-
-if ($_GET['backup'] == TRUE){
-
-  switch($_GET['backup']) {
-      case copy_chars:
-          $File = "core/cache/sql_backups/copy_chars_".date('S_F_Y_h_i_s_A').".php";
-          $DATA = '';
-          $START_GUID = $_POST['starting_char_id'];
-
-          // Characters looping
-          $backupPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
-          $hordeAcc = (int)$MW->getConfig->character_copy_config->accounts->horde;
-          $allyAcc  = (int)$MW->getConfig->character_copy_config->accounts->alliance;
-          $bkStmt = $backupPdo->prepare("SELECT * FROM `characters` WHERE account=? OR account=?");
-          $bkStmt->execute([$hordeAcc, $allyAcc]);
-          $sql_character = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-          if (count($sql_character) == 0)die('<p>No characters backup because in config file we dont find the IDs of the characters accounts.</p>');
-          
-          // Create file!.
-          $Handle = fopen($File, 'w');
-
-          // Headers:
-          $DATA = "<?php\n";
-          $DATA .= "<<<EOF\n\n";
-
-          foreach($sql_character as $COPY_character){
-            $query_character_id = $COPY_character['guid'];
-            // Filter data , make new ID's.
-            $COPY_character['guid'] = $START_GUID;
-            $COPY_character['data'] = explode(' ', $COPY_character['data']);
-            $COPY_character['data']['0'] = $START_GUID;
-            $COPY_character['data'] = implode(' ', $COPY_character['data']);
-            // Characters
-            $DATA .= "INSERT INTO `characters` (
-            `guid`,
-            `account`,
-            `data`,
-            `name`,
-            `race`,
-            `class`,
-            `position_x`,
-            `position_y`,
-            `position_z`,
-            `map`,
-            `orientation`,
-            `taximask`,
-            `online`,
-            `cinematic`,
-            `totaltime`,
-            `leveltime`,
-            `logout_time`,
-            `is_logout_resting`,
-            `rest_bonus`,
-            `resettalents_cost`,
-            `resettalents_time`,
-            `trans_x`,
-            `trans_y`,
-            `trans_z`,
-            `trans_o`,
-            `transguid`,
-            `gmstate`,
-            `stable_slots`,
-            `rename`)
-             VALUES \n
-            ('".$COPY_character['guid']."', '".$COPY_character['account']."', '".$COPY_character['data']."', '".$COPY_character['name']."', '".$COPY_character['race']."', '".$COPY_character['class']."', '".$COPY_character['position_x']."',
-            '".$COPY_character['position_y']."', '".$COPY_character['position_z']."', '".$COPY_character['map']."', '".$COPY_character['orientation']."', '".$COPY_character['taximask']."', '".$COPY_character['online']."',
-            '".$COPY_character['cinematic']."', '".$COPY_character['totaltime']."', '".$COPY_character['leveltime']."', '".$COPY_character['logout_time']."', '".$COPY_character['is_logout_resting']."',
-            '".$COPY_character['rest_bonus']."', '".$COPY_character['resettalents_cost']."', '".$COPY_character['resettalents_time']."', '".$COPY_character['trans_x']."', '".$COPY_character['trans_y']."',
-            '".$COPY_character['trans_z']."', '".$COPY_character['trans_o']."', '".$COPY_character['transguid']."', '".$COPY_character['gmstate']."', '".$COPY_character['stable_slots']."', '".$COPY_character['rename']."');\n";
-            
-            $guid = $COPY_character['guid'];
-        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_action` WHERE guid=?");
-        $bkStmt->execute([(int)$query_character_id]);
-        $COPY_character_action = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-        /* Character_action */
-        foreach($COPY_character_action as $COPY_SUB_character_action){
-            $DATA .="INSERT INTO `character_action` (
-            `guid`,
-            `button`,
-            `action`,
-            `type`,
-            `misc`)
-             VALUES\n
-            ('".$guid."' , '".$COPY_SUB_character_action['button']."', '".$COPY_SUB_character_action['action']."', '".$COPY_SUB_character_action['type']."', '".$COPY_SUB_character_action['misc']."');\n";
-        }
-        /* Character_homebind */
-        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_homebind` WHERE guid=?");
-        $bkStmt->execute([(int)$query_character_id]);
-        $COPY_character_homebind = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach($COPY_character_homebind as $COPY_SUB_character_homebind){
-            $DATA .= "INSERT INTO `character_homebind` (
-            `guid`,
-            `map`,
-            `zone`,
-            `position_x`,
-            `position_y`,
-            `position_z`)
-             VALUES\n
-            ('".$guid."' , '".$COPY_SUB_character_homebind['map']."', '".$COPY_SUB_character_homebind['zone']."',
-            '".$COPY_SUB_character_homebind['position_x']."', '".$COPY_SUB_character_homebind['position_y']."', '".$COPY_SUB_character_homebind['position_z']."');\n";
-        }
-
-        /* Character_reputation */
-        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_reputation` WHERE guid=?");
-        $bkStmt->execute([(int)$query_character_id]);
-        $COPY_character_reputation = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach($COPY_character_reputation as $COPY_SUB_character_reputation){
-            $DATA .= "INSERT INTO `character_reputation` (
-            `guid`,
-            `faction`,
-            `standing`,
-            `flags`)
-             VALUES\n
-            ('".$guid."', '".$COPY_SUB_character_reputation['faction']."', '".$COPY_SUB_character_reputation['standing'].", '".$COPY_SUB_character_reputation['flags']."');\n";
-        }
-        /*  Character_spell  */
-        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_spell` WHERE guid=?");
-        $bkStmt->execute([(int)$query_character_id]);
-        $COPY_character_spell = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach($COPY_character_spell as $COPY_SUB_character_spell){
-            $DATA .= "INSERT INTO `character_spell` (
-            `guid`,
-            `spell`,
-            `slot`,
-            `active`)
-             VALUES\n
-            ('".$guid."', '".$COPY_SUB_character_spell['spell']."', '".$COPY_SUB_character_spell['slot']."', '".$COPY_SUB_character_spell['active']."');\n";
-        }
-        /* Character_tutorail  */
-        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_tutorial` WHERE guid=?");
-        $bkStmt->execute([(int)$query_character_id]);
-        $COPY_character_tutorial = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach($COPY_character_tutorial as $COPY_SUB_character_tutorial){
-            $DATA .= "INSERT INTO `character_tutorial` (
-            `guid`,
-            `tut0`,
-            `tut1`,
-            `tut2`,
-            `tut3`,
-            `tut4`,
-            `tut5`,
-            `tut6`,
-            `tut7`)
-             VALUES\n
-            ('".$guid."', '".$COPY_SUB_character_tutorial['tut0']."', '".$COPY_SUB_character_tutorial['tut1']."', '".$COPY_SUB_character_tutorial['tut2']."',
-            '".$COPY_SUB_character_tutorial['tut3']."', '".$COPY_SUB_character_tutorial['tut4']."', '".$COPY_SUB_character_tutorial['tut5']."',
-            '".$COPY_SUB_character_tutorial['tut6']."', '".$COPY_SUB_character_tutorial['tut7']."');\n";
-        }
-
-        /* item_instance  */
-
-        $bkStmt = $backupPdo->prepare("SELECT * FROM `item_instance` WHERE owner_guid=?");
-        $bkStmt->execute([(int)$query_character_id]);
-        $COPY_item_instance = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-            foreach($COPY_item_instance as $COPY_SUB_item_instance){
-                //Filter guids
-                $COPY_SUB_item_instance['data'] = explode(' ', $COPY_SUB_item_instance['data']);
-                $COPY_SUB_item_instance['data']['6'] = $guid;
-                $COPY_SUB_item_instance['data']['8'] = $guid;
-                $COPY_SUB_item_instance['data'] = implode(' ', $COPY_SUB_item_instance['data']);
-            $DATA .= "INSERT INTO `item_instance` (
-            `guid`,
-            `owner_guid`,
-            `data`)
-             VALUES\n
-            ('".$COPY_SUB_item_instance['guid']."', '".$guid."', '".$COPY_SUB_item_instance['data']."');\n";
-            }
-        /* character_inventory  */
-        $bkStmt = $backupPdo->prepare("SELECT * FROM `character_inventory` WHERE guid=?");
-        $bkStmt->execute([(int)$query_character_id]);
-        $COPY_character_inventory = $bkStmt->fetchAll(PDO::FETCH_ASSOC);
-            foreach($COPY_character_inventory as $COPY_SUB_character_inventory){
-            $DATA .= "INSERT INTO `character_inventory` (
-            `guid`,
-            `bag`,
-            `slot`,
-            `item`,
-            `item_template`)
-            VALUES\n
-            ('".$guid."', '".$COPY_SUB_character_inventory['bag']."', '".$COPY_SUB_character_inventory['slot']."', '".$COPY_SUB_character_inventory['item']."', '".$COPY_SUB_character_inventory['item_template']."');\n";
-            }
-
-          $START_GUID++;
-          }
-          // Footers
-          $DATA .= "\n\nEOF;\n";
-          $DATA .= "?>";
-          fwrite($Handle, $DATA);
-          echo "Character_backup copy was wrote to <br /><b>".$File."</b>.<br />To import these in mysql table: You must open the file in an editor and copy the code between the \"EOF's\" at the bottom and upper of the file to export it to World database-";
-      break;
-  }
-
-}else{
-?>
-<ul>
-<li><form action='index.php?n=admin&sub=backup&backup=copy_chars' method='POST'>Copy chars backup - <b>Starting ID of characters: </b><input type='text' style='width:40px;' name='starting_char_id' value='10'><input type='submit' value='Create backup'></form></li>
-</ul>
-<?php
+<?php builddiv_start(1, 'Backup') ?>
+<style>
+.backup-admin { color:#f4efe2; display:flex; flex-direction:column; gap:18px; }
+.backup-admin__panel {
+  padding:18px 20px;
+  border:1px solid rgba(230,193,90,0.22);
+  border-radius:14px;
+  background:linear-gradient(180deg, rgba(20,24,34,0.82), rgba(10,12,18,0.9));
+  box-shadow:0 10px 30px rgba(0,0,0,0.22);
 }
-?>
+.backup-admin__eyebrow { margin:0 0 8px; color:#c9a45a; font-size:12px; letter-spacing:.18em; text-transform:uppercase; }
+.backup-admin__title { margin:0 0 8px; color:#ffca5a; font-size:1.35rem; }
+.backup-admin__copy, .backup-admin__note { margin:0; color:#d6d0c4; line-height:1.6; }
+.backup-admin__grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:14px; }
+.backup-admin__mini {
+  padding:12px 14px; border-radius:10px; background:rgba(255,198,87,0.05);
+  border:1px solid rgba(230,193,90,0.12);
+}
+.backup-admin__mini strong { display:block; color:#ffcc66; font-size:1.1rem; }
+.backup-admin__form { display:grid; grid-template-columns:minmax(180px,220px) minmax(0,1fr); gap:12px 16px; align-items:center; }
+.backup-admin__form label { color:#c3a46a; font-size:.82rem; text-transform:uppercase; letter-spacing:.08em; }
+.backup-admin__form input[type=text] {
+  width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,206,102,.2);
+  background:rgba(12,12,12,.72); color:#f1f1f1; padding:10px 12px;
+}
+.backup-admin__actions { display:flex; justify-content:flex-end; margin-top:18px; }
+.backup-admin__actions input[type=submit] {
+  display:inline-flex; align-items:center; justify-content:center; padding:10px 18px; border-radius:10px;
+  border:1px solid rgba(255,206,102,.35); background:rgba(255,193,72,.08); color:#ffd27a; font-weight:bold; cursor:pointer;
+}
+.backup-admin__msg { padding:12px 14px; border-radius:10px; font-size:.95rem; }
+.backup-admin__msg.error { background:rgba(170,35,35,.18); border:1px solid rgba(255,110,110,.28); color:#ffb0b0; }
+.backup-admin__msg.success { background:rgba(44,127,75,.18); border:1px solid rgba(92,199,129,.28); color:#9ef0b2; }
+@media (max-width:820px) { .backup-admin__form { grid-template-columns:1fr; } }
+</style>
+
+<div class="backup-admin">
+  <section class="backup-admin__panel">
+    <p class="backup-admin__eyebrow">Character Copy Backup</p>
+    <h2 class="backup-admin__title">Export Copy-Account Characters To SQL</h2>
+    <p class="backup-admin__copy">This tool exports the configured Horde/Alliance copy-account characters into a reusable SQL file with remapped character and item GUIDs. It is meant for controlled LAN/server copy workflows, not blind production migrations.</p>
+    <div class="backup-admin__grid">
+      <div class="backup-admin__mini">
+        <strong><?php echo (int)($backupPreview['horde_account'] ?? 0); ?></strong>
+        <span>Configured Horde copy account</span>
+      </div>
+      <div class="backup-admin__mini">
+        <strong><?php echo (int)($backupPreview['alliance_account'] ?? 0); ?></strong>
+        <span>Configured Alliance copy account</span>
+      </div>
+      <div class="backup-admin__mini">
+        <strong><?php echo (int)($backupPreview['character_count'] ?? 0); ?></strong>
+        <span>Characters currently in backup scope</span>
+      </div>
+      <div class="backup-admin__mini">
+        <strong><?php echo !empty($backupPreview['output_dir_writable']) ? 'Writable' : 'Locked'; ?></strong>
+        <span><?php echo htmlspecialchars((string)($backupPreview['output_dir'] ?? '')); ?></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="backup-admin__panel">
+    <p class="backup-admin__eyebrow">Export Settings</p>
+    <h2 class="backup-admin__title">Create Backup File</h2>
+    <p class="backup-admin__note">Pick non-conflicting GUID ranges for the target environment. Character GUIDs and item GUIDs are remapped independently during export.</p>
+
+    <?php if (!empty($backupActionState['notice'])): ?>
+      <div class="backup-admin__msg success"><?php echo htmlspecialchars((string)$backupActionState['notice']); ?></div>
+    <?php endif; ?>
+    <?php if (!empty($backupActionState['error'])): ?>
+      <div class="backup-admin__msg error"><?php echo htmlspecialchars((string)$backupActionState['error']); ?></div>
+    <?php endif; ?>
+
+    <form method="post" action="index.php?n=admin&amp;sub=backup">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$admin_backup_csrf_token); ?>">
+      <input type="hidden" name="backup_action" value="create_copy_chars_backup">
+      <div class="backup-admin__form">
+        <label for="starting_char_id">Starting Character GUID</label>
+        <input type="text" id="starting_char_id" name="starting_char_id" value="<?php echo htmlspecialchars((string)($_POST['starting_char_id'] ?? '10')); ?>">
+
+        <label for="starting_item_id">Starting Item GUID</label>
+        <input type="text" id="starting_item_id" name="starting_item_id" value="<?php echo htmlspecialchars((string)($_POST['starting_item_id'] ?? '100000')); ?>">
+      </div>
+      <div class="backup-admin__actions">
+        <input type="submit" value="Create SQL Backup" <?php if (empty($backupPreview['configured']) || empty($backupPreview['output_dir_writable'])) echo 'disabled="disabled"'; ?>>
+      </div>
+    </form>
+  </section>
+</div>
 <?php builddiv_end() ?>

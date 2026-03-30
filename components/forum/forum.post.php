@@ -16,8 +16,19 @@ $forum_post_errors = [];
 $forum_post_form = [
     'subject' => trim((string)($_POST['subject'] ?? '')),
     'text' => trim((string)($_POST['text'] ?? '')),
+    'posting_character_id' => (int)($_POST['posting_character_id'] ?? 0),
 ];
 $forum_post_mode = ($action === 'newtopic' || $action === 'donewtopic') ? 'newtopic' : 'reply';
+$posting_context = [
+    'forum_name' => '',
+    'forum_scope_label' => '',
+    'realm_id' => 0,
+    'realm_name' => '',
+    'character_name' => '',
+    'character_level' => 0,
+    'guild_name' => '',
+];
+$posting_character_options = [];
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 if (!is_array($realmMap) || empty($realmMap)) {
@@ -27,25 +38,6 @@ $cookieRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? ($_COOKIE['cur_selecte
 $realmId = ($cookieRealmId > 0 && isset($realmMap[$cookieRealmId]))
     ? $cookieRealmId
     : spp_resolve_realm_id($realmMap);
-$charDbName = $realmMap[$realmId]['chars'];
-$activeForumCharacter = resolve_forum_character_for_realm($user, $realmId);
-
-if ($activeForumCharacter) {
-    $user['character_id'] = (int)$activeForumCharacter['guid'];
-    $user['character_name'] = $activeForumCharacter['name'];
-
-    if (!empty($user['id'])) {
-        setcookie('cur_selected_character', $user['character_id'], time() + 86400, '/');
-        setcookie('cur_selected_realm', $realmId, time() + 86400, '/');
-        setcookie('cur_selected_realmd', $realmId, time() + 86400, '/');
-        $forumUpdatePdo = spp_get_pdo('realmd', $realmId);
-        $stmtWa = $forumUpdatePdo->prepare("UPDATE website_accounts SET character_id=?, character_name=? WHERE account_id=?");
-        $stmtWa->execute([$user['character_id'], $user['character_name'], $user['id']]);
-        if (function_exists('spp_ensure_char_identity')) {
-            spp_ensure_char_identity($realmId, $user['character_id'], $user['id'], $user['character_name']);
-        }
-    }
-}
 
 if (!empty($_GET['fid']) && empty($_GET['f'])) {
     $_GET['f'] = $_GET['fid'];
@@ -65,6 +57,59 @@ if (!empty($_GET['t'])) {
 }
 if (!empty($_GET['f'])) {
     $this_forum = get_forum_byid($_GET['f']);
+}
+
+$realmId = spp_forum_target_realm_id($this_forum, $realmMap, $realmId);
+$charDbName = $realmMap[$realmId]['chars'];
+$selectedPostingCharacterId = (int)($forum_post_form['posting_character_id'] ?? 0);
+
+foreach (($GLOBALS['characters'] ?? array()) as $character) {
+    if ((int)($character['realm_id'] ?? 0) !== $realmId) {
+        continue;
+    }
+
+    $posting_character_options[] = array(
+        'guid' => (int)($character['guid'] ?? 0),
+        'name' => (string)($character['name'] ?? ''),
+        'level' => (int)($character['level'] ?? 0),
+        'guild' => (string)($character['guild_name'] ?? ''),
+        'class' => (int)($character['class'] ?? 0),
+    );
+}
+
+$activeForumCharacter = null;
+if ($selectedPostingCharacterId > 0) {
+    foreach ($posting_character_options as $postingCharacterOption) {
+        if ((int)$postingCharacterOption['guid'] === $selectedPostingCharacterId) {
+            $activeForumCharacter = $postingCharacterOption;
+            break;
+        }
+    }
+}
+
+if ($activeForumCharacter === null) {
+    $activeForumCharacter = resolve_forum_character_for_realm($user, $realmId);
+}
+
+if ($activeForumCharacter) {
+    $user['character_id'] = (int)$activeForumCharacter['guid'];
+    $user['character_name'] = $activeForumCharacter['name'];
+    $user['character_realm_id'] = $realmId;
+    $forum_post_form['posting_character_id'] = (int)$activeForumCharacter['guid'];
+}
+
+$posting_context['forum_name'] = (string)($this_forum['forum_name'] ?? '');
+$posting_context['realm_id'] = $realmId;
+$posting_context['realm_name'] = (string)(spp_get_armory_realm_name($realmId) ?? ('Realm ' . $realmId));
+$posting_context['character_name'] = (string)($user['character_name'] ?? '');
+$posting_context['character_level'] = (int)($activeForumCharacter['level'] ?? 0);
+
+if (($this_forum['scope_type'] ?? '') === 'guild_recruitment') {
+    $posting_context['forum_scope_label'] = 'Guild Recruitment';
+} elseif (($this_forum['scope_type'] ?? '') === 'expansion') {
+    $posting_context['forum_scope_label'] = strtoupper((string)($this_forum['scope_value'] ?? ''));
+} elseif (($this_forum['scope_type'] ?? '') === 'realm') {
+    $posting_context['forum_scope_label'] = 'Realm ' . (string)($this_forum['scope_value'] ?? $realmId);
 }
 
 if ($forum_post_mode === 'newtopic' && empty($this_forum['forum_id'])) {
@@ -105,6 +150,9 @@ $_isRecruitmentForum = !empty($this_forum) &&
 $_recruitmentGuild = null;
 if ($_isRecruitmentForum && !empty($user['character_id'])) {
     $_recruitmentGuild = get_char_recruitment_guild($realmId, (int)$user['character_id'], (int)$user['id']);
+}
+if (!empty($_recruitmentGuild['name'])) {
+    $posting_context['guild_name'] = (string)$_recruitmentGuild['name'];
 }
 
 if (spp_forum_handle_topic_moderation($action, $user, $realmId, $this_topic, $this_forum)) {

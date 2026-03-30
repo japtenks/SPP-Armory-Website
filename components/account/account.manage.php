@@ -53,40 +53,87 @@ if($user['id']<=0){
             : $defaultBackgroundImage;
         $stmtChars = $manageCharPdo->prepare("SELECT guid, name, level, online FROM characters WHERE account=? ORDER BY name ASC");
         $stmtChars->execute([(int)$user['id']]);
-        $accountCharacters = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
+        $renameCharacters = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
+        $accountCharacters = [];
+        if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
+            foreach ($GLOBALS['characters'] as $character) {
+                if ((int)($character['account'] ?? $user['id']) !== (int)$user['id']) {
+                    continue;
+                }
+                $accountCharacters[] = array(
+                    'guid' => (int)($character['guid'] ?? 0),
+                    'name' => (string)($character['name'] ?? ''),
+                    'level' => (int)($character['level'] ?? 0),
+                    'online' => 0,
+                    'realm_id' => (int)($character['realm_id'] ?? 0),
+                    'realm_name' => (string)($character['realm_name'] ?? ('Realm ' . (int)($character['realm_id'] ?? 0))),
+                );
+            }
+        }
+        if (empty($accountCharacters)) {
+            foreach ($renameCharacters as $character) {
+                $accountCharacters[] = array(
+                    'guid' => (int)($character['guid'] ?? 0),
+                    'name' => (string)($character['name'] ?? ''),
+                    'level' => (int)($character['level'] ?? 0),
+                    'online' => (int)($character['online'] ?? 0),
+                    'realm_id' => $currentRealmId,
+                    'realm_name' => $manageRealmName,
+                );
+            }
+        }
         $profile['character_signatures'] = array();
-        $profile['signature_character_guid'] = 0;
+        $profile['signature_character_key'] = '';
         $profile['signature_character_name'] = '';
+        $profile['selected_character_avatar_url'] = '';
 
-        $availableCharacterGuids = array();
+        $availableCharacterKeys = array();
         foreach ($accountCharacters as $character) {
-            $availableCharacterGuids[(int)$character['guid']] = (string)$character['name'];
+            $characterRealmId = (int)($character['realm_id'] ?? $currentRealmId);
+            $characterKey = $characterRealmId . ':' . (int)$character['guid'];
+            $availableCharacterKeys[$characterKey] = array(
+                'guid' => (int)$character['guid'],
+                'name' => (string)$character['name'],
+                'realm_id' => $characterRealmId,
+                'realm_name' => (string)($character['realm_name'] ?? ('Realm ' . $characterRealmId)),
+            );
         }
 
-        $requestedSignatureGuid = (int)($_GET['sigchar'] ?? 0);
-        if ($requestedSignatureGuid <= 0) {
-            $requestedSignatureGuid = (int)($profile['character_id'] ?? 0);
+        $requestedSignatureKey = trim((string)($_GET['sigchar'] ?? ''));
+        if ($requestedSignatureKey === '' && !empty($profile['character_id'])) {
+            $requestedSignatureRealmId = (int)($profile['character_realm_id'] ?? $currentRealmId);
+            $requestedSignatureKey = $requestedSignatureRealmId . ':' . (int)$profile['character_id'];
         }
-        if ($requestedSignatureGuid <= 0 && !empty($accountCharacters[0]['guid'])) {
-            $requestedSignatureGuid = (int)$accountCharacters[0]['guid'];
+        if ($requestedSignatureKey === '' && !empty($accountCharacters[0]['guid'])) {
+            $requestedSignatureKey = (int)($accountCharacters[0]['realm_id'] ?? $currentRealmId) . ':' . (int)$accountCharacters[0]['guid'];
         }
-        if (!isset($availableCharacterGuids[$requestedSignatureGuid])) {
-            $requestedSignatureGuid = 0;
+        if (!isset($availableCharacterKeys[$requestedSignatureKey])) {
+            $requestedSignatureKey = '';
         }
 
         foreach ($accountCharacters as $character) {
             $characterGuid = (int)$character['guid'];
-            $identityId = spp_ensure_char_identity($currentRealmId, $characterGuid, $user['id'], (string)$character['name']);
-            $profile['character_signatures'][$characterGuid] = array(
+            $characterRealmId = (int)($character['realm_id'] ?? $currentRealmId);
+            $characterKey = $characterRealmId . ':' . $characterGuid;
+            $identityId = spp_ensure_char_identity($characterRealmId, $characterGuid, $user['id'], (string)$character['name']);
+            $profile['character_signatures'][$characterKey] = array(
                 'name' => (string)$character['name'],
+                'realm_name' => (string)($character['realm_name'] ?? ('Realm ' . $characterRealmId)),
+                'avatar_url' => spp_character_portrait_url($characterRealmId, $characterGuid, (int)$user['id']),
                 'signature' => $identityId > 0 ? str_replace('<br />', '', spp_get_identity_signature($identityId)) : '',
             );
         }
 
-        if ($requestedSignatureGuid > 0) {
-            $profile['signature_character_guid'] = $requestedSignatureGuid;
-            $profile['signature_character_name'] = $availableCharacterGuids[$requestedSignatureGuid] ?? '';
-            $profile['signature'] = (string)($profile['character_signatures'][$requestedSignatureGuid]['signature'] ?? $profile['signature']);
+        if ($requestedSignatureKey !== '') {
+            $profile['signature_character_key'] = $requestedSignatureKey;
+            $profile['signature_character_name'] = (string)($availableCharacterKeys[$requestedSignatureKey]['name'] ?? '');
+            $profile['selected_character_avatar_url'] = (string)($profile['character_signatures'][$requestedSignatureKey]['avatar_url'] ?? '');
+            $profile['signature'] = (string)($profile['character_signatures'][$requestedSignatureKey]['signature'] ?? $profile['signature']);
+        } elseif (!empty($profile['character_signatures'])) {
+            $firstSignatureKey = (string)spp_array_first_key($profile['character_signatures']);
+            $profile['signature_character_key'] = $firstSignatureKey;
+            $profile['selected_character_avatar_url'] = (string)($profile['character_signatures'][$firstSignatureKey]['avatar_url'] ?? '');
+            $profile['signature'] = (string)($profile['character_signatures'][$firstSignatureKey]['signature'] ?? $profile['signature']);
         }
         $profile['avatar_fallback_url'] = '';
         if (empty($profile['avatar'])) {

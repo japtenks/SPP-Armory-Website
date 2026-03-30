@@ -241,6 +241,7 @@ if (!function_exists('spp_account_profile_field_list')) {
         return [
             'character_id',
             'character_name',
+            'character_realm_id',
             'display_name',
             'avatar',
             'signature',

@@ -3,7 +3,7 @@ if (INCLUDED !== true) {
     exit;
 }
 
-function spp_admin_members_build_detail_view(PDO $membersPdo, PDO $membersCharsPdo, $auth, array $lang, $comLinks, array $realmDbMap, int $accountId)
+function spp_admin_members_build_detail_view(PDO $membersPdo, PDO $membersCharsPdo, $auth, array $lang, $comLinks, array $realmDbMap, int $accountId, int $selectedToolRealmId = 0)
 {
     $profile = $auth->getprofile($accountId);
     if (!is_array($profile) || empty($profile)) {
@@ -40,10 +40,38 @@ function spp_admin_members_build_detail_view(PDO $membersPdo, PDO $membersCharsP
     $stmt->execute([$accountId]);
     $userchars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
+    $allUserChars = array();
+    $charactersByRealm = array();
     $onlineCharacterCount = 0;
-    foreach ($userchars as $userchar) {
-        if (!empty($userchar['online'])) {
-            $onlineCharacterCount++;
+
+    foreach ($realmDbMap as $candidateRealmId => $realmInfo) {
+        try {
+            $realmCharsPdo = spp_get_pdo('chars', (int)$candidateRealmId);
+            $stmtRealmChars = $realmCharsPdo->prepare("SELECT `guid`, `name`, `race`, `class`, `level`, `online` FROM `characters` WHERE `account` = ? ORDER BY guid");
+            $stmtRealmChars->execute([$accountId]);
+            $realmChars = $stmtRealmChars->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            error_log('[admin.members.read] Failed loading characters for realm ' . (int)$candidateRealmId . ': ' . $e->getMessage());
+            $realmChars = array();
+        }
+
+        if (empty($realmChars)) {
+            continue;
+        }
+
+        $realmName = function_exists('spp_get_armory_realm_name')
+            ? (spp_get_armory_realm_name((int)$candidateRealmId) ?? ('Realm ' . (int)$candidateRealmId))
+            : ('Realm ' . (int)$candidateRealmId);
+
+        foreach ($realmChars as $realmChar) {
+            $realmChar['realm_id'] = (int)$candidateRealmId;
+            $realmChar['realm_name'] = $realmName;
+            $allUserChars[] = $realmChar;
+            $charactersByRealm[(int)$candidateRealmId][] = $realmChar;
+            if (!empty($realmChar['online'])) {
+                $onlineCharacterCount++;
+            }
         }
     }
 
@@ -57,18 +85,28 @@ function spp_admin_members_build_detail_view(PDO $membersPdo, PDO $membersCharsP
     $stmtEligible->execute([$accountId]);
     $eligibleTransferAccounts = $stmtEligible->fetchAll(PDO::FETCH_ASSOC);
 
+    if ($selectedToolRealmId <= 0 || !isset($realmDbMap[$selectedToolRealmId])) {
+        $selectedToolRealmId = $activeRealmId;
+    }
+    if (empty($charactersByRealm[$selectedToolRealmId])) {
+        $availableRealmIds = array_keys($charactersByRealm);
+        if (!empty($availableRealmIds)) {
+            $selectedToolRealmId = (int)$availableRealmIds[0];
+        }
+    }
+
     $profile['is_bot_account'] = stripos((string)($profile['username'] ?? ''), 'rndbot') === 0;
     $profile['character_signatures'] = array();
-    if (!empty($userchars)) {
-        $activeRealmId = (int)($GLOBALS['activeRealmId'] ?? spp_resolve_realm_id($realmDbMap));
-        foreach ($userchars as $char) {
+    if (!empty($allUserChars)) {
+        foreach ($allUserChars as $char) {
             $charGuid = (int)($char['guid'] ?? 0);
             $charName = (string)($char['name'] ?? '');
+            $charRealmId = (int)($char['realm_id'] ?? $activeRealmId);
             if ($charGuid <= 0 || $charName === '') {
                 continue;
             }
-            $identityId = spp_ensure_char_identity($activeRealmId, $charGuid, $accountId, $charName);
-            $profile['character_signatures'][$charGuid] = $identityId > 0 ? str_replace('<br />', '', spp_get_identity_signature($identityId)) : '';
+            $identityId = spp_ensure_char_identity($charRealmId, $charGuid, $accountId, $charName);
+            $profile['character_signatures'][$charRealmId . ':' . $charGuid] = $identityId > 0 ? str_replace('<br />', '', spp_get_identity_signature($identityId)) : '';
         }
     }
 
@@ -96,7 +134,12 @@ function spp_admin_members_build_detail_view(PDO $membersPdo, PDO $membersCharsP
         'active' => $active,
         'act' => $active,
         'userchars' => $userchars,
+        'all_userchars' => $allUserChars,
+        'characters_by_realm' => $charactersByRealm,
+        'selected_tool_realm_id' => $selectedToolRealmId,
+        'tool_realm_chars' => $charactersByRealm[$selectedToolRealmId] ?? array(),
         'onlineCharacterCount' => $onlineCharacterCount,
+        'activeRealmId' => $activeRealmId,
         'eligibleTransferAccounts' => $eligibleTransferAccounts,
         'txt' => $txt,
         'pathway_info' => array(

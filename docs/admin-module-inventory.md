@@ -20,14 +20,6 @@ Main active routes:
   - controller: [admin.forum.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.forum.php)
   - template: [admin.forum.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/templates/offlike/admin/admin.forum.php)
 
-- `sub=keys`
-  - controller: [admin.keys.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.keys.php)
-  - template: [admin.keys.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/templates/offlike/admin/admin.keys.php)
-
-- `sub=langs`
-  - controller: [admin.langs.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.langs.php)
-  - template: [admin.langs.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/templates/offlike/admin/admin.langs.php)
-
 - `sub=realms`
   - controller: [admin.realms.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.realms.php)
   - template: [admin.realms.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/templates/offlike/admin/admin.realms.php)
@@ -35,6 +27,14 @@ Main active routes:
 - `sub=chartools`
   - controller: [admin.chartools.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.chartools.php)
   - template: [admin.chartools.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/templates/offlike/admin/admin.chartools.php)
+
+- `sub=backup`
+  - controller: [admin.backup.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.backup.php)
+  - template: [admin.backup.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/templates/offlike/admin/admin.backup.php)
+
+- `sub=identities`
+  - controller: [admin.identities.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.identities.php)
+  - template: [admin.identities.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/templates/offlike/admin/admin.identities.php)
 
 ## Current Heavy Controllers
 
@@ -89,10 +89,59 @@ Current shared admin helpers:
 - [admin.realms.read.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.realms.read.php)
   - list and edit view assembly
 
+- [admin.cleanup.helpers.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.cleanup.helpers.php)
+  - cleanup preview table helpers
+  - realm-name and empty-preview helpers
+
+- [admin.cleanup.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.cleanup.actions.php)
+  - reserved action entry point for future destructive maintenance flows
+
+- [admin.cleanup.read.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.cleanup.read.php)
+  - preview metric assembly for orphaned rows, forum reset scope, bots, and realm reset size
+
+- [admin.botevents.helpers.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.botevents.helpers.php)
+  - CLI/bot-event command helpers
+  - action URL helper for protected admin bot-event routes
+
+- [admin.botevents.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.botevents.actions.php)
+  - scan/process/skip action handling with CSRF checks
+
+- [admin.botevents.read.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.botevents.read.php)
+  - bot-event stats, filters, and recent-event list assembly
+
+- [admin.chartools.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.chartools.actions.php)
+  - rename and race/faction action handling
+
+- [admin.chartools.read.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.chartools.read.php)
+  - realm/account/character selection state assembly
+
+- [admin.backup.helpers.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.backup.helpers.php)
+  - backup output helpers and SQL export helpers
+
+- [admin.backup.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.backup.actions.php)
+  - character copy backup export handling
+
+- [admin.backup.read.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.backup.read.php)
+  - backup scope preview for configured copy accounts
+
+- [admin.identities.read.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.identities.read.php)
+  - per-realm identity coverage counts for accounts, characters, forum posts, topics, and PMs
+
 - [functionsrace.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/chartools/functionsrace.php)
   - admin-only race/faction change helpers for chartools
 
 ## Next Likely Splits
 
-- Extract shared admin chartools selection helpers from the template/controller pair
-- Continue modernizing `admin.cleanup` and `admin.botevents` to the same controller-helper pattern
+- Continue modernizing `admin.chartools` and any remaining admin utility screens to the same controller-helper pattern
+
+## Removed Utilities
+
+- `admin.keys`
+  - removed for the LAN-only setup
+
+- `admin.langs`
+  - removed in favor of a mostly-English site and browser translation
+
+- `admin.donate`
+  - removed as a standalone admin page
+  - the useful in-game item-pack delivery flow now lives under [admin.chartools.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/admin/admin.chartools.php)

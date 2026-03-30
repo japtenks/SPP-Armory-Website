@@ -114,11 +114,12 @@
   </div>
 
   <div class="bot-actions">
-    <a class="btn-scan"    href="index.php?n=admin&sub=botevents&action=scan">Scan Now</a>
-    <a class="btn-dry"     href="index.php?n=admin&sub=botevents&action=scan_dry">Scan (dry-run)</a>
+    <a class="btn-scan" href="<?php echo htmlspecialchars(spp_admin_botevents_action_url(array('n' => 'admin', 'sub' => 'botevents', 'action' => 'scan'))); ?>">Scan Now</a>
+    <a class="btn-dry" href="<?php echo htmlspecialchars(spp_admin_botevents_action_url(array('n' => 'admin', 'sub' => 'botevents', 'action' => 'scan_dry'))); ?>">Scan (dry-run)</a>
     <form method="get" action="index.php" class="bot-process-form">
       <input type="hidden" name="n" value="admin">
       <input type="hidden" name="sub" value="botevents">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($admin_botevents_csrf_token ?? spp_csrf_token('admin_botevents')); ?>">
       <div class="bot-process-controls">
         <input type="hidden" name="action" value="process">
         <input type="text" name="process_limit" value="<?php echo htmlspecialchars($processLimitValue); ?>" placeholder="10">
@@ -136,7 +137,7 @@
       </div>
       <?php endif; ?>
     </form>
-    <a class="btn-skip"    href="index.php?n=admin&sub=botevents&action=skip_all"
+    <a class="btn-skip" href="<?php echo htmlspecialchars(spp_admin_botevents_action_url(array('n' => 'admin', 'sub' => 'botevents', 'action' => 'skip_all'))); ?>"
        onclick="return confirm('Mark ALL pending events as skipped?');">Skip All Pending</a>
   </div>
 

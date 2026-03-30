@@ -115,7 +115,9 @@ if ($currentExpansionId === 0) {
 
         <div class="avatar-block">
           <div class="avatar-preview">
-            <?php if(!empty($profile['avatar'])) { ?>
+            <?php if(!empty($profile['selected_character_avatar_url'])) { ?>
+              <img id="selected-character-avatar" src="<?php echo htmlspecialchars($profile['selected_character_avatar_url']); ?>" alt="Character Portrait">
+            <?php } elseif(!empty($profile['avatar'])) { ?>
               <img src="images/avatars/<?php echo htmlspecialchars($profile['avatar']); ?>" alt="Avatar">
             <?php } elseif(!empty($profile['avatar_fallback_url'])) { ?>
               <img src="<?php echo htmlspecialchars($profile['avatar_fallback_url']); ?>" alt="Forum Avatar">
@@ -144,18 +146,20 @@ if ($currentExpansionId === 0) {
         <?php if(!empty($accountCharacters)): ?>
         <div class="field">
           <label>Signature Character</label>
-          <select id="signature-character-guid" name="signature_character_guid">
+          <select id="signature-character-key" name="signature_character_key">
             <?php foreach($accountCharacters as $character): ?>
               <?php
-                $sigGuid = (int)$character['guid'];
-                $sigValue = (string)($profile['character_signatures'][$sigGuid]['signature'] ?? '');
+                $sigKey = (int)($character['realm_id'] ?? 0) . ':' . (int)$character['guid'];
+                $sigValue = (string)($profile['character_signatures'][$sigKey]['signature'] ?? '');
+                $sigRealmName = (string)($character['realm_name'] ?? ('Realm ' . (int)($character['realm_id'] ?? 0)));
               ?>
               <option
-                value="<?php echo $sigGuid; ?>"
+                value="<?php echo htmlspecialchars($sigKey); ?>"
                 data-signature="<?php echo htmlspecialchars($sigValue); ?>"
-                <?php if((int)($profile['signature_character_guid'] ?? 0) === $sigGuid) echo 'selected'; ?>
+                data-avatar-url="<?php echo htmlspecialchars((string)($profile['character_signatures'][$sigKey]['avatar_url'] ?? '')); ?>"
+                <?php if((string)($profile['signature_character_key'] ?? '') === $sigKey) echo 'selected'; ?>
               >
-                <?php echo htmlspecialchars($character['name']); ?><?php if(!empty($character['level'])) echo ' (Lvl ' . (int)$character['level'] . ')'; ?>
+                <?php echo htmlspecialchars($character['name']); ?><?php if(!empty($character['level'])) echo ' (Lvl ' . (int)$character['level'] . ')'; ?> - <?php echo htmlspecialchars($sigRealmName); ?>
               </option>
             <?php endforeach; ?>
           </select>
@@ -257,8 +261,8 @@ if ($currentExpansionId === 0) {
         <div class="field">
           <label>Character</label>
           <select name="character_guid">
-            <?php if(!empty($accountCharacters)): ?>
-              <?php foreach($accountCharacters as $character): ?>
+            <?php if(!empty($renameCharacters)): ?>
+              <?php foreach($renameCharacters as $character): ?>
               <option value="<?php echo (int)$character['guid']; ?>">
                 <?php echo htmlspecialchars($character['name']); ?><?php if(!empty($character['level'])) echo ' (Lvl ' . (int)$character['level'] . ')'; ?>
               </option>
@@ -274,7 +278,7 @@ if ($currentExpansionId === 0) {
         </div>
         <div class="help-text">The character must be offline and the new name must be unused.</div>
         <div class="actions">
-          <button type="submit" class="btn primary"<?php if(empty($accountCharacters)) echo ' disabled="disabled"'; ?>>Rename Character</button>
+          <button type="submit" class="btn primary"<?php if(empty($renameCharacters)) echo ' disabled="disabled"'; ?>>Rename Character</button>
         </div>
       </form>
 
@@ -607,16 +611,26 @@ if ($currentExpansionId === 0) {
 <?php if(!empty($accountCharacters)): ?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var signatureSelect = document.getElementById('signature-character-guid');
+  var signatureSelect = document.getElementById('signature-character-key');
   var signatureField = document.getElementById('profile-signature');
+  var avatarImage = document.getElementById('selected-character-avatar');
   if (!signatureSelect || !signatureField) {
     return;
   }
 
-  signatureSelect.addEventListener('change', function () {
+  var syncSelectedCharacter = function () {
     var selectedOption = signatureSelect.options[signatureSelect.selectedIndex];
     signatureField.value = selectedOption ? (selectedOption.getAttribute('data-signature') || '') : '';
-  });
+    if (avatarImage && selectedOption) {
+      var avatarUrl = selectedOption.getAttribute('data-avatar-url') || '';
+      if (avatarUrl !== '') {
+        avatarImage.setAttribute('src', avatarUrl);
+      }
+    }
+  };
+
+  signatureSelect.addEventListener('change', syncSelectedCharacter);
+  syncSelectedCharacter();
 });
 </script>
 <?php endif; ?>

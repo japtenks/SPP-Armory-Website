@@ -21,16 +21,80 @@ if (!function_exists('spp_ensure_website_account_row')) {
 if (!function_exists('spp_account_avatar_fallback_url')) {
     function spp_account_avatar_fallback_url(PDO $charsPdo, array $profile, array $accountCharacters = []) {
         $selectedGuid = (int)($profile['character_id'] ?? 0);
+        $selectedRealmId = (int)($profile['character_realm_id'] ?? 0);
         if ($selectedGuid <= 0 && !empty($accountCharacters[0]['guid'])) {
             $selectedGuid = (int)$accountCharacters[0]['guid'];
+            $selectedRealmId = (int)($accountCharacters[0]['realm_id'] ?? 0);
         }
         if ($selectedGuid <= 0) {
             return '';
         }
 
+        $realmCandidates = [];
+        if ($selectedRealmId > 0) {
+            $realmCandidates[] = $selectedRealmId;
+        }
+
+        $realmDbMap = $GLOBALS['realmDbMap'] ?? [];
+        foreach ($realmDbMap as $realmId => $realmInfo) {
+            $realmId = (int)$realmId;
+            if ($realmId > 0 && !in_array($realmId, $realmCandidates, true)) {
+                $realmCandidates[] = $realmId;
+            }
+        }
+
+        foreach ($realmCandidates as $realmId) {
+            try {
+                $lookupPdo = $realmId === $selectedRealmId && $selectedRealmId > 0 ? $charsPdo : spp_get_pdo('chars', $realmId);
+                $stmt = $lookupPdo->prepare("SELECT guid, race, class, gender FROM characters WHERE guid=? AND account=? LIMIT 1");
+                $stmt->execute([$selectedGuid, (int)($profile['id'] ?? 0)]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    continue;
+                }
+
+                if (!function_exists('get_character_portrait_path')) {
+                    require_once(dirname(__DIR__) . '/forum/forum.func.php');
+                }
+
+                if (function_exists('get_character_portrait_path')) {
+                    return (string)get_character_portrait_path(
+                        (int)$row['guid'],
+                        (int)$row['gender'],
+                        (int)$row['race'],
+                        (int)$row['class']
+                    );
+                }
+            } catch (Throwable $e) {
+                error_log('[account.helpers] Avatar fallback lookup failed: ' . $e->getMessage());
+            }
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('spp_character_portrait_url')) {
+    function spp_character_portrait_url($realmId, $characterGuid, $accountId = 0) {
+        $realmId = (int)$realmId;
+        $characterGuid = (int)$characterGuid;
+        $accountId = (int)$accountId;
+
+        if ($realmId <= 0 || $characterGuid <= 0) {
+            return '';
+        }
+
         try {
-            $stmt = $charsPdo->prepare("SELECT guid, race, class, gender FROM characters WHERE guid=? AND account=? LIMIT 1");
-            $stmt->execute([$selectedGuid, (int)($profile['id'] ?? 0)]);
+            $charPdo = spp_get_pdo('chars', $realmId);
+            $sql = "SELECT guid, race, class, gender FROM characters WHERE guid=? LIMIT 1";
+            $params = [$characterGuid];
+            if ($accountId > 0) {
+                $sql = "SELECT guid, race, class, gender FROM characters WHERE guid=? AND account=? LIMIT 1";
+                $params[] = $accountId;
+            }
+
+            $stmt = $charPdo->prepare($sql);
+            $stmt->execute($params);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row) {
                 return '';
@@ -49,7 +113,7 @@ if (!function_exists('spp_account_avatar_fallback_url')) {
                 );
             }
         } catch (Throwable $e) {
-            error_log('[account.helpers] Avatar fallback lookup failed: ' . $e->getMessage());
+            error_log('[account.helpers] Character portrait lookup failed: ' . $e->getMessage());
         }
 
         return '';

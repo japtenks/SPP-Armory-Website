@@ -116,59 +116,6 @@
 </style>
 
 <div class="admin-tool-shell">
-  <?php
-  $realmIds = array_keys($DBS);
-  $selectedRealmId = isset($_POST['realm']) ? (int)$_POST['realm'] : (isset($realmIds[0]) ? (int)$realmIds[0] : 0);
-  if ($selectedRealmId <= 0 || !isset($DBS[$selectedRealmId])) {
-      $selectedRealmId = isset($realmIds[0]) ? (int)$realmIds[0] : 0;
-  }
-
-  $selectedAccountId = isset($_POST['account_id']) ? (int)$_POST['account_id'] : 0;
-  $selectedCharacterGuid = isset($_POST['character_guid']) ? (int)$_POST['character_guid'] : 0;
-  $accountOptions = array();
-  $characterOptions = array();
-  $selectedCharacterName = '';
-  $selectedCharacterProfile = null;
-  $renameMessageHtml = '';
-  $raceMessageHtml = '';
-
-  try {
-      $stmtAccounts = $charcfgPdo->query("SELECT id, username FROM account ORDER BY username ASC, id ASC");
-      $accountOptions = $stmtAccounts ? $stmtAccounts->fetchAll(PDO::FETCH_ASSOC) : array();
-  } catch (Throwable $e) {
-      $accountOptions = array();
-  }
-
-  if ($selectedAccountId <= 0 && !empty($accountOptions[0]['id'])) {
-      $selectedAccountId = (int)$accountOptions[0]['id'];
-  }
-
-  if ($selectedRealmId > 0 && $selectedAccountId > 0 && isset($DBS[$selectedRealmId])) {
-      $renamePdo = get_chartools_pdo($DBS[$selectedRealmId]);
-      $stmtCharacters = $renamePdo->prepare("SELECT guid, name, level FROM characters WHERE account = ? ORDER BY name ASC, guid ASC");
-      $stmtCharacters->execute([$selectedAccountId]);
-      $characterOptions = $stmtCharacters->fetchAll(PDO::FETCH_ASSOC);
-  }
-
-  if ($selectedCharacterGuid <= 0 && !empty($characterOptions[0]['guid'])) {
-      $selectedCharacterGuid = (int)$characterOptions[0]['guid'];
-  }
-
-  foreach ($characterOptions as $characterOption) {
-      if ((int)$characterOption['guid'] === $selectedCharacterGuid) {
-          $selectedCharacterName = (string)$characterOption['name'];
-          break;
-      }
-  }
-
-  if ($selectedRealmId > 0 && isset($DBS[$selectedRealmId]) && $selectedAccountId > 0 && $selectedCharacterGuid > 0) {
-      $selectedCharacterProfile = chartools_fetch_character_profile($selectedCharacterGuid, $selectedAccountId, $DBS[$selectedRealmId]);
-  }
-
-  $submittedToken = (string)($_POST['csrf_token'] ?? '');
-  $sessionToken = (string)($_SESSION['spp_csrf_tokens']['admin_chartools'] ?? '');
-  $hasValidCsrf = $submittedToken !== '' && $sessionToken !== '' && hash_equals($sessionToken, $submittedToken);
-  ?>
   <div class="admin-tool-card">
     <p class="admin-tool-kicker">Character Tools</p>
     <h2 class="admin-tool-title">Rename Character</h2>
@@ -225,79 +172,7 @@
         <input type="submit" name="rename" value="Rename Character" <?php if (empty($characterOptions)) echo 'disabled="disabled"'; ?> />
       </div>
     </form>
-
-    <?php
-    if ($selectedRealmId > 0 && isset($DBS[$selectedRealmId])) {
-        $db1 = $DBS[$selectedRealmId];
-        if (isset($_POST['rename'])) {
-            if (!$hasValidCsrf) {
-                $renameMessageHtml = '<div class="admin-tool-msg error">Security check failed. Please refresh and try again.</div>';
-            } elseif ($selectedAccountId <= 0 || $selectedCharacterGuid <= 0 || trim((string)($_POST['newname'] ?? '')) === '') {
-                $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($empty_field) . '</div>';
-            } else {
-                $newname = ucfirst(strtolower(trim($_POST['newname'])));
-                $name = $selectedCharacterName;
-                $status = check_if_online_by_guid($selectedCharacterGuid, $selectedAccountId, $db1);
-                $newname_exist = check_if_name_exist($newname, $db1);
-                if ($status == -1) {
-                    $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($character_1 . ($name ?: 'Unknown') . $doesntexist) . '</div>';
-                } elseif ($newname_exist == 1) {
-                    $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($alreadyexist . $newname . '!') . '</div>';
-                } elseif ($status == 1) {
-                    $kickError = '';
-                    force_character_offline((int)$selectedRealmId, $name, $kickError);
-                    for ($i = 0; $i < 5; $i++) {
-                        usleep(500000);
-                        $status = check_if_online_by_guid($selectedCharacterGuid, $selectedAccountId, $db1);
-                        if ($status !== 1) {
-                            break;
-                        }
-                    }
-
-                    if ($status == 1) {
-                        $message = $character_1 . $name . $isonline;
-                        if ($kickError !== '') {
-                            $message .= ' SOAP: ' . $kickError;
-                        }
-                        $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($message) . '</div>';
-                    } else {
-                        change_name_by_guid($selectedCharacterGuid, $selectedAccountId, $newname, $db1);
-                        $renameMessageHtml = '<div class="admin-tool-msg success">' . htmlspecialchars($character_1 . $name . $renamesuccess . $newname . '!') . '</div>';
-                    }
-                } else {
-                    change_name_by_guid($selectedCharacterGuid, $selectedAccountId, $newname, $db1);
-                    $renameMessageHtml = '<div class="admin-tool-msg success">' . htmlspecialchars($character_1 . $name . $renamesuccess . $newname . '!') . '</div>';
-                }
-            }
-        }
-
-        if (isset($_POST['race_change'])) {
-            if (!$hasValidCsrf) {
-                $raceMessageHtml = '<div class="admin-tool-msg error">Security check failed. Please refresh and try again.</div>';
-            } elseif ($selectedAccountId <= 0 || $selectedCharacterGuid <= 0) {
-                $raceMessageHtml = '<div class="admin-tool-msg error">Select a realm, account, and character first.</div>';
-            } else {
-                $raceChangeMessage = '';
-                $changeOk = chartools_change_race_by_guid(
-                    $selectedCharacterGuid,
-                    $selectedAccountId,
-                    (int)($_POST['newrace'] ?? 0),
-                    $db1,
-                    $raceChangeMessage
-                );
-
-                if ($changeOk) {
-                    $raceMessageHtml = '<div class="admin-tool-msg success">' . htmlspecialchars($raceChangeMessage) . '</div>';
-                    $selectedCharacterProfile = chartools_fetch_character_profile($selectedCharacterGuid, $selectedAccountId, $db1);
-                } else {
-                    $raceMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($raceChangeMessage) . '</div>';
-                }
-            }
-        }
-    }
-
-    echo $renameMessageHtml;
-    ?>
+    <?php echo $renameMessageHtml; ?>
   </div>
 
   <div class="admin-tool-card">
@@ -380,6 +255,82 @@
     </form>
 
     <?php echo $raceMessageHtml; ?>
+  </div>
+
+  <div class="admin-tool-card">
+    <p class="admin-tool-kicker">Character Tools</p>
+    <h2 class="admin-tool-title">Send Item Pack</h2>
+    <p class="admin-tool-copy">Mail an existing item pack directly to the selected character. This keeps the useful in-game delivery flow without the old donation admin page.</p>
+  </div>
+
+  <div class="admin-tool-card">
+    <form action="index.php?n=admin&sub=chartools" method="post">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$adminChartoolsCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
+      <div class="admin-tool-form">
+        <label for="delivery_realm">Realm</label>
+        <select id="delivery_realm" name="realm" onchange="this.form.submit()">
+          <?php foreach ($DBS as $realm): ?>
+            <option value="<?php echo (int)$realm['id']; ?>"<?php if ((int)$realm['id'] === $selectedRealmId) echo ' selected'; ?>><?php echo htmlspecialchars($realm['name']); ?></option>
+          <?php endforeach; ?>
+        </select>
+
+        <label for="delivery_account_id">Account</label>
+        <select id="delivery_account_id" name="account_id" onchange="this.form.submit()">
+          <?php if (!empty($accountOptions)) { ?>
+            <?php foreach ($accountOptions as $accountOption) { ?>
+              <option value="<?php echo (int)$accountOption['id']; ?>"<?php if ((int)$accountOption['id'] === $selectedAccountId) echo ' selected'; ?>>
+                <?php echo '#' . (int)$accountOption['id'] . ' - ' . htmlspecialchars((string)$accountOption['username']); ?>
+              </option>
+            <?php } ?>
+          <?php } else { ?>
+            <option value="0">No accounts available</option>
+          <?php } ?>
+        </select>
+
+        <label for="delivery_character_guid">Character</label>
+        <select id="delivery_character_guid" name="character_guid" onchange="this.form.submit()">
+          <?php if (!empty($characterOptions)) { ?>
+            <?php foreach ($characterOptions as $characterOption) { ?>
+              <option value="<?php echo (int)$characterOption['guid']; ?>"<?php if ((int)$characterOption['guid'] === $selectedCharacterGuid) echo ' selected'; ?>>
+                <?php
+                echo htmlspecialchars((string)$characterOption['name']);
+                if (!empty($characterOption['level'])) {
+                    echo ' (Lvl ' . (int)$characterOption['level'] . ')';
+                }
+                ?>
+              </option>
+            <?php } ?>
+          <?php } else { ?>
+            <option value="0">No characters on this account</option>
+          <?php } ?>
+        </select>
+
+        <label for="donation_pack_id">Item Pack</label>
+        <select id="donation_pack_id" name="donation_pack_id">
+          <?php if (!empty($donationPackOptions)) { ?>
+            <?php foreach ($donationPackOptions as $donationPackOption) { ?>
+              <option value="<?php echo (int)$donationPackOption['id']; ?>">
+                <?php
+                $packLabel = '#' . (int)$donationPackOption['id'] . ' - ' . trim((string)($donationPackOption['description'] ?? 'Untitled pack'));
+                if (!empty($donationPackOption['donation'])) {
+                    $packLabel .= ' (' . $donationPackOption['donation'] . ' ' . (string)($donationPackOption['currency'] ?? '') . ')';
+                }
+                echo htmlspecialchars($packLabel);
+                ?>
+              </option>
+            <?php } ?>
+          <?php } else { ?>
+            <option value="0">No item packs configured</option>
+          <?php } ?>
+        </select>
+      </div>
+
+      <div class="admin-tool-actions">
+        <input type="submit" name="send_pack" value="Send Item Pack" <?php if (empty($characterOptions) || empty($donationPackOptions)) echo 'disabled="disabled"'; ?> />
+      </div>
+    </form>
+
+    <?php echo $deliveryMessageHtml; ?>
   </div>
 </div>
 <?php builddiv_end() ?>

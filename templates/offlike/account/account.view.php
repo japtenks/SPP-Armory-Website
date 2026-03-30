@@ -113,12 +113,6 @@ builddiv_start(1, $lang['si_acc']);
     </section>
     <?php endif; ?>
 
-    <?php if(!empty(trim((string)($profile['signature'] ?? '')))): ?>
-    <section class="member-panel signature-panel">
-        <div class="panel-label"><?php echo $lang['signature']; ?></div>
-        <div class="signature-copy"><?php echo my_preview($profile['signature']);?></div>
-    </section>
-    <?php endif; ?>
 </div>
 <?php } ?>
 <?php builddiv_end() ?>
@@ -286,8 +280,7 @@ builddiv_start(1, $lang['si_acc']);
 }
 
 .stat-value,
-.character-name,
-.signature-copy {
+.character-name {
   color: #f0f0f0;
 }
 
@@ -356,15 +349,6 @@ builddiv_start(1, $lang['si_acc']);
   color: #bdbdbd;
   margin-top: 4px;
   font-size: 0.92rem;
-}
-
-.signature-panel {
-  grid-column: 1 / -1;
-}
-
-.signature-copy {
-  margin-top: 12px;
-  line-height: 1.6;
 }
 
 @media (max-width: 760px) {
