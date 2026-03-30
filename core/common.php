@@ -449,8 +449,15 @@ function redirect($linkto,$type=0,$wait_sec=0){
         if($type==0){
             $GLOBALS['redirect'] = '<meta http-equiv=refresh content="'.$wait_sec.';url='.$linkto.'">';
         }else{
-            // Header not works for some(?) computers. Add hax to it.
-            header("Location: ".$linkto);
+            // Use an HTTP redirect when possible, but fall back to JS/meta
+            // if output has already started.
+            if (!headers_sent()) {
+                header("Location: ".$linkto);
+            } else {
+                $safeLink = htmlspecialchars($linkto, ENT_QUOTES, 'UTF-8');
+                echo '<script>window.location.href=' . json_encode($linkto) . ';</script>';
+                echo '<noscript><meta http-equiv="refresh" content="0;url=' . $safeLink . '"></noscript>';
+            }
         }
     }
 }
