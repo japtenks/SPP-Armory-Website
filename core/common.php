@@ -640,7 +640,6 @@ function my_preview($text,$userlevel=0){
     }
     // Blizz quote <small><hr color="#9e9e9e" noshade="noshade" size="1"><small class="white">Q u o t e:</small><br>Text<hr color="#9e9e9e" noshade="noshade" size="1"></small>
     $text = preg_replace("/\\[img\\](.*?)\\[\\/img\\]/s","<img src=\"$1\" align=\"absmiddle\">",$text);
-    //$text = preg_replace("/\\[attach=(\\d+)\\]/se","check_attach('\\1')",$text);
     $text = preg_replace("/\\[url=(.*?)\\](.*?)\\[\\/url\\]/s","<a href=\"$1\" target=\"_blank\">$2</a>",$text);
     $text = preg_replace("/\\[size=(.*?)\\](.*?)\\[\\/size\\]/s","<font class='$1'>$2</font>",$text);
     $text = preg_replace("/\\[align=(.*?)\\](.*?)\\[\\/align\\]/s","<p align='$1'>$2</p>",$text);
@@ -682,27 +681,8 @@ function my_previewreverse($text){
 
 function check_url_reverse($url){
     $url = stripslashes($url);
-    if(preg_match('attach',$url) && preg_match('attid',$url)){
-        $result = preg_replace("/<a href=\"[^\\'\"]*attid=(\\d+)[^\\'\"]*\" target=\"_blank\">.*?<\\/a>/s","[attach=$1]",$url);
-    }else{
-        $result = preg_replace("/<a href=\"([^'\"<>]+)\" target=\"_blank\">(.*?)<\\/a>/s","[url=$1]$2[/url]",$url);
-    }
+    $result = preg_replace("/<a href=\"([^'\"<>]+)\" target=\"_blank\">(.*?)<\\/a>/s","[url=$1]$2[/url]",$url);
     return $result;
-}
-
-function check_attach($attid){
-    global $MW, $realmDbMap;
-    $pdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
-    $stmt = $pdo->prepare("SELECT * FROM f_attachs WHERE attach_id = ?");
-    $stmt->execute([(int)$attid]);
-    $thisattach = $stmt->fetch(PDO::FETCH_ASSOC);
-    $ext = strtolower(substr(strrchr($thisattach['attach_file'],'.'), 1));
-    if($thisattach['attach_id']){
-        $res  = '<a href="'.$MW->getConfig->temp->site_href.'index.php?n=forum&sub=attach&nobody=1&action=download&attid='.$thisattach['attach_id'].'">';
-        $res .= '<img src="'.$MW->getConfig->temp->site_href.'templates/offlike/images/mime/'.$ext.'.png" alt="" align="absmiddle">';
-        $res .= ' Download: [ '.$thisattach['attach_file'].' ] '.return_good_size($thisattach['attach_filesize']).' </a>';
-    }
-    return $res;
 }
 
 function check_image($img_file){
@@ -1907,4 +1887,3 @@ function header_image_gif($img) {
 <?php
 }
 ?>
-

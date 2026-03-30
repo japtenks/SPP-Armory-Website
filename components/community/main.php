@@ -29,12 +29,5 @@ $com_content['community'] = array(
         '7-menuCommunity',
         0
     ),
-	'login' => array(
-        '',
-        'login',
-        'index.php?n=community&sub=login',
-        '7-menuCommunity',
-        0
-    ),
 );
 ?>

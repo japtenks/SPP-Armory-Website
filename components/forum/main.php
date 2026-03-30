@@ -27,13 +27,6 @@ $com_content['forum'] = array(
         'index.php?n=forum&sub=viewtopic',
         '',
         1
-    ),
-    'attach' => array(
-        '', 
-        'attachs', 
-        'index.php?n=forum&sub=attach',
-        '',
-        0
     )
 );
 
