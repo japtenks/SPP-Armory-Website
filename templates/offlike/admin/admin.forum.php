@@ -216,13 +216,13 @@
       <h3>Forums In Section</h3>
       <p class="forum-admin__subtext">Tune ordering, visibility, and topic access from one cleaner view.</p>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=updforumsorder" class="forum-admin__stack">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_forum')); ?>">
         <?php foreach ($items as $item_c => $item) { ?>
           <div class="forum-admin__row">
             <div class="forum-admin__main">
               <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>"><?php echo htmlspecialchars($item['forum_name']); ?></a></p>
               <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=renameforum" class="forum-admin__rename">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_forum')); ?>">
                 <input type="hidden" name="forum_id" value="<?php echo (int)$item['forum_id']; ?>">
                 <input type="text" name="forum_name" value="<?php echo htmlspecialchars($item['forum_name']); ?>">
                 <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Rename">
@@ -253,7 +253,7 @@
     <div class="forum-admin__card">
       <h3>Create New Forum</h3>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=newforum" class="forum-admin__grid-form">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_forum')); ?>">
         <input type="hidden" name="cat_id" value="<?php echo (int)$_GET['cat_id']; ?>">
         <div class="forum-admin__field"><label><?php echo $lang['l_name']; ?></label><input type="text" name="forum_name"></div>
         <div class="forum-admin__field forum-admin__field--wide"><label><?php echo $lang['l_desc']; ?></label><input type="text" name="forum_desc"></div>
@@ -273,7 +273,7 @@
             <div class="forum-admin__main">
               <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>"><?php echo htmlspecialchars($item['cat_name']); ?></a></p>
               <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=renamecat" class="forum-admin__rename">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_forum')); ?>">
                 <input type="hidden" name="cat_id" value="<?php echo (int)$item['cat_id']; ?>">
                 <input type="text" name="cat_name" value="<?php echo htmlspecialchars($item['cat_name']); ?>">
                 <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Rename">
@@ -296,7 +296,7 @@
     <div class="forum-admin__card">
       <h3>Create New Forum Section</h3>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=newcat" class="forum-admin__grid-form">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_forum')); ?>">
         <div class="forum-admin__field"><label><?php echo $lang['l_name']; ?></label><input type="text" name="cat_name"></div>
         <div class="forum-admin__field"><label><?php echo $lang['order']; ?></label><input type="text" name="cat_disp_position" value="<?php echo count($items) + 1; ?>"></div>
         <div class="forum-admin__actions" style="grid-column:1 / -1;"><input class="forum-admin__button" type="submit" value="Create New Forum Section"></div>

@@ -39,38 +39,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($username) < 3 || strlen($password) < 3) {
         $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username and password must be at least 3 characters long.</div>";
     } else {
-        $realmdPdo2 = spp_get_pdo('realmd', $registerRealmId);
-        $stmtEx = $realmdPdo2->prepare("SELECT id FROM account WHERE LOWER(username)=LOWER(?)");
-        $stmtEx->execute([$username]);
-        $exists = $stmtEx->fetchColumn();
+        try {
+            $realmdPdo2 = spp_get_pdo('realmd', $registerRealmId);
+            $stmtEx = $realmdPdo2->prepare("SELECT id FROM account WHERE LOWER(username)=LOWER(?)");
+            $stmtEx->execute([$username]);
+            $exists = $stmtEx->fetchColumn();
 
-        if ($exists) {
-            $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username already exists. Please choose another.</div>";
-        } else {
-            $result = $auth->register(
-                array(
-                    'username'  => $username,
-                    'password'  => $password,
-                    'expansion' => $registerExpansion
-                ),
-                false
-            );
-
-            if ($result === true) {
-                if ((int)$MW->getConfig->generic->req_reg_act == 0) {
-                    $auth->login(array('username' => $username, 'password' => $password));
-                }
-
-                $message = '<strong>Account <b>' . htmlspecialchars($username) . '</b> created successfully.</strong>'
-                    . '<br>Next step: open your game client and log in to create your first character.'
-                    . '<br>Set your realmlist to: <code>set realmlist ' . htmlspecialchars($registerRealmlistHost) . '</code>';
+            if ($exists) {
+                $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username already exists. Please choose another.</div>";
             } else {
-                $errorDetail = is_array($result)
-                    ? implode('<br>', array_map('htmlspecialchars', $result))
-                    : 'Unknown error';
+                $result = $auth->register(
+                    array(
+                        'username'  => $username,
+                        'password'  => $password,
+                        'expansion' => $registerExpansion
+                    ),
+                    false
+                );
 
-                $message = '<strong>Account creation failed.</strong><br><small>' . $errorDetail . '</small>';
+                if ($result === true) {
+                    $autoLoginNotice = '';
+                    if ((int)$MW->getConfig->generic->req_reg_act == 0 && !$auth->login(array('username' => $username, 'password' => $password))) {
+                        $autoLoginNotice = '<br><small>Your account was created, but automatic login did not complete. Please sign in with your new account.</small>';
+                    }
+
+                    $message = '<strong>Account <b>' . htmlspecialchars($username) . '</b> created successfully.</strong>'
+                        . '<br>Next step: open your game client and log in to create your first character.'
+                        . '<br>Set your realmlist to: <code>set realmlist ' . htmlspecialchars($registerRealmlistHost) . '</code>'
+                        . $autoLoginNotice;
+                } else {
+                    $message = '<strong>Account creation failed.</strong><br><small>Please check your details and try again. If it keeps happening, contact an administrator.</small>';
+                }
             }
+        } catch (Throwable $e) {
+            error_log('[account.register] Registration request failed: ' . $e->getMessage());
+            $message = '<strong>Account creation failed.</strong><br><small>The server could not complete your request. Please try again in a moment.</small>';
         }
     }
 }

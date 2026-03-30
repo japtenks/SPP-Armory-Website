@@ -59,32 +59,6 @@ if (!function_exists('spp_account_avatar_fallback_url')) {
     }
 }
 
-if (!function_exists('spp_manage_csrf_token')) {
-    function spp_manage_csrf_token($formName = 'account_manage') {
-        if (!isset($_SESSION['spp_csrf_tokens']) || !is_array($_SESSION['spp_csrf_tokens'])) {
-            $_SESSION['spp_csrf_tokens'] = array();
-        }
-
-        if (empty($_SESSION['spp_csrf_tokens'][$formName])) {
-            $_SESSION['spp_csrf_tokens'][$formName] = bin2hex(random_bytes(32));
-        }
-
-        return (string)$_SESSION['spp_csrf_tokens'][$formName];
-    }
-}
-
-if (!function_exists('spp_manage_require_csrf')) {
-    function spp_manage_require_csrf($formName = 'account_manage') {
-        $submittedToken = (string)($_POST['csrf_token'] ?? '');
-        $sessionToken = (string)($_SESSION['spp_csrf_tokens'][$formName] ?? '');
-
-        if ($submittedToken === '' || $sessionToken === '' || !hash_equals($sessionToken, $submittedToken)) {
-            output_message('alert','<b>Security check failed. Please refresh the page and try again.</b><meta http-equiv=refresh content="2;url=index.php?n=account&sub=manage">');
-            exit;
-        }
-    }
-}
-
 if (!function_exists('spp_manage_allowed_profile_fields')) {
     function spp_manage_allowed_profile_fields($backgroundPreferencesAvailable, $canHideProfile) {
         $allowedFields = array(
@@ -115,7 +89,7 @@ if (!function_exists('spp_manage_allowed_profile_fields')) {
             $allowedFields[] = 'background_image';
         }
 
-        return array_fill_keys($allowedFields, true);
+        return spp_allowed_field_map($allowedFields);
     }
 }
 // ==================== //
@@ -206,9 +180,9 @@ if($user['id']<=0){
         if (empty($profile['avatar'])) {
             $profile['avatar_fallback_url'] = spp_account_avatar_fallback_url($manageCharPdo, $profile, $accountCharacters);
         }
-        $manage_csrf_token = spp_manage_csrf_token();
+        $manage_csrf_token = spp_csrf_token('account_manage');
     }elseif($_GET['action']=='changeemail'){
-        spp_manage_require_csrf();
+        spp_require_csrf('account_manage', 'Security check failed. Please refresh the page and try again.', 'index.php?n=account&sub=manage');
         $newemail = trim($_POST['new_email']);
         if($auth->isvalidemail($newemail)){
             if($auth->isavailableemail($newemail)){
@@ -233,7 +207,7 @@ if($user['id']<=0){
             output_message('alert','<b>'.$lang['bad_mail'].'</b><meta http-equiv=refresh content="2;url=index.php?n=account&sub=manage">');
         }
     }elseif($_GET['action']=='changepass'){
-        spp_manage_require_csrf();
+        spp_require_csrf('account_manage', 'Security check failed. Please refresh the page and try again.', 'index.php?n=account&sub=manage');
         $newpass = trim($_POST['new_pass']);
         $confirmPass = trim($_POST['confirm_new_pass'] ?? '');
         if(strlen($newpass)>3){
@@ -279,7 +253,7 @@ if($user['id']<=0){
             exit;
         }
     }elseif($_GET['action']=='change'){
-        spp_manage_require_csrf();
+        spp_require_csrf('account_manage', 'Security check failed. Please refresh the page and try again.', 'index.php?n=account&sub=manage');
         $backgroundPreferencesAvailable = spp_website_accounts_has_columns(['background_mode', 'background_image']);
         $backgroundModeOptions = spp_background_mode_options();
         $availableBackgroundImages = spp_background_image_catalog();
@@ -313,11 +287,7 @@ if($user['id']<=0){
             (int)($user['gmlevel'] ?? 0) >= 3
         );
 
-        foreach (array_keys($profileInput) as $profileKey) {
-            if (!isset($allowedProfileFields[$profileKey])) {
-                unset($profileInput[$profileKey]);
-            }
-        }
+        $profileInput = spp_filter_allowed_fields($profileInput, $allowedProfileFields);
 
         if ($backgroundPreferencesAvailable) {
             $requestedBackgroundMode = strtolower(trim((string)($profileInput['background_mode'] ?? 'as_is')));
@@ -371,7 +341,7 @@ if($user['id']<=0){
         
         redirect('index.php?n=account&sub=manage',1);
     }elseif($_GET['action']=='changesecretq'){
-        spp_manage_require_csrf();
+        spp_require_csrf('account_manage', 'Security check failed. Please refresh the page and try again.', 'index.php?n=account&sub=manage');
         if(check_for_symbols($_POST['secreta1']) == FALSE && check_for_symbols($_POST['secreta2']) == FALSE && $_POST[secretq1] != '0' && $_POST[secretq2]!= '0' && isset($_POST[secreta1]) &&
         isset($_POST[secreta2]) && strlen($_POST[secreta1])>4 && strlen($_POST[secreta2])>4 && $_POST['secreta1'] != $_POST['secreta2'] && $_POST['secretq1'] != $_POST['secretq2']){
             $stmt = $managePdo->prepare("UPDATE website_accounts SET secretq1=?,secretq2=?,secreta1=?,secreta2=? WHERE account_id=? LIMIT 1");
@@ -382,14 +352,14 @@ if($user['id']<=0){
             output_message('alert','<b>'.$lang['fail_change_secretq'].'</b><meta http-equiv=refresh content="3;url=index.php?n=account&sub=manage">');
         }
     }elseif($_GET['action']=='resetsecretq'){
-        spp_manage_require_csrf();
+        spp_require_csrf('account_manage', 'Security check failed. Please refresh the page and try again.', 'index.php?n=account&sub=manage');
         if ($_POST['reset_secretq']){
           $stmt = $managePdo->prepare("UPDATE website_accounts SET secretq1='0',secretq2='0',secreta1='0',secreta2='0' WHERE account_id=? LIMIT 1");
           $stmt->execute([(int)$user['id']]);
           output_message('notice','<b>'.$lang['reset_succ_secretq'].'</b><meta http-equiv=refresh content="4;url=index.php?n=account&sub=manage">');
         }
     }elseif($_GET['action'] == 'change_gameplay'){
-       spp_manage_require_csrf();
+       spp_require_csrf('account_manage', 'Security check failed. Please refresh the page and try again.', 'index.php?n=account&sub=manage');
        if($_POST['switch_wow_type']=='wotlk'){
                $stmt = $managePdo->prepare("UPDATE `account` SET expansion='2' WHERE `id`=?");
                $stmt->execute([(int)$user['id']]);
@@ -406,7 +376,7 @@ if($user['id']<=0){
                redirect('index.php?n=account&sub=manage',1);
          }
    }elseif($_GET['action'] == 'renamechar'){
-       spp_manage_require_csrf();
+       spp_require_csrf('account_manage', 'Security check failed. Please refresh the page and try again.', 'index.php?n=account&sub=manage');
        $characterGuid = (int)($_POST['character_guid'] ?? 0);
        $newName = ucfirst(strtolower(trim((string)($_POST['new_character_name'] ?? ''))));
 

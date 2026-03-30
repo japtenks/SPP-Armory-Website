@@ -197,14 +197,6 @@ textarea.editor {
 .reply-actions .btn:hover {
   opacity: 0.92;
 }
-.subscribe-row {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #aaa;
-  font-size: 0.9rem;
-}
 @media (max-width: 720px) {
   .reply-post {
     flex-direction: column;
@@ -222,7 +214,8 @@ textarea.editor {
 <?php
 if (!defined('INCLUDED') || INCLUDED !== true) exit;
 $action = $_GET['action'] ?? '';
-$is_newtopic = ($action === 'newtopic');
+$forumPostMode = $forum_post_mode ?? (($action === 'newtopic' || $action === 'donewtopic') ? 'newtopic' : 'reply');
+$is_newtopic = ($forumPostMode === 'newtopic');
 $pageTitle = $is_newtopic ? 'Create New Topic' : 'Reply to Thread';
 $forumId = $this_forum['forum_id'] ?? 0;
 $topicId = $this_topic['topic_id'] ?? 0;
@@ -276,11 +269,16 @@ $formAction = $is_newtopic
       <?php echo htmlspecialchars($posting_block_reason); ?>
     </div>
   <?php endif; ?>
-  <form method="post" action="<?php echo $formAction; ?>" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_forum_csrf_token()); ?>">
+  <?php if (!empty($forum_post_errors)): ?>
+    <div style="margin-bottom: 14px; padding: 12px 14px; border: 1px solid #7a2f2f; border-radius: 8px; background: rgba(122, 47, 47, 0.2); color: #ffb3b3;">
+      <?php echo htmlspecialchars($forum_post_errors[0]); ?>
+    </div>
+  <?php endif; ?>
+  <form method="post" action="<?php echo $formAction; ?>">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('forum_actions')); ?>">
     <?php if ($is_newtopic): ?>
       <label for="subject">Subject:</label>
-      <input type="text" id="subject" name="subject" maxlength="80" placeholder="Enter your topic title..." class="subject-input" <?php echo !$canPost ? 'disabled' : ''; ?> />
+      <input type="text" id="subject" name="subject" maxlength="80" value="<?php echo htmlspecialchars((string)($forum_post_form['subject'] ?? '')); ?>" placeholder="Enter your topic title..." class="subject-input" <?php echo !$canPost ? 'disabled' : ''; ?> />
     <?php endif; ?>
 
     <label for="message">Message:</label>
@@ -291,16 +289,10 @@ $formAction = $is_newtopic
       <button type="button" onclick="insertTag('u')">U</button>
       <button type="button" onclick="insertTag('url')">Link</button>
       <button type="button" onclick="insertTag('img')">Img</button>
-      <button type="button" onclick="insertTag('quote')">Quote</button>
       <button type="button" onclick="insertTag('color=red')">Color</button>
     </div>
 
-    <textarea id="message" name="text" class="editor" placeholder="Write your message..." <?php echo !$canPost ? 'disabled' : ''; ?>></textarea>
-
-    <div class="subscribe-row">
-      <input type="checkbox" id="subscribe" name="subscribe" <?php echo !$canPost ? 'disabled' : ''; ?> />
-      <label for="subscribe">Subscribe to this topic</label>
-    </div>
+    <textarea id="message" name="text" class="editor" placeholder="Write your message..." <?php echo !$canPost ? 'disabled' : ''; ?>><?php echo htmlspecialchars((string)($forum_post_form['text'] ?? '')); ?></textarea>
 
     <div class="reply-actions">
       <button type="submit" class="btn primary" <?php echo !$canPost ? 'disabled' : ''; ?>><?php echo $is_newtopic ? 'Post Topic' : 'Add Reply'; ?></button>

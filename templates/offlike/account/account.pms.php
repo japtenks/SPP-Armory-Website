@@ -581,7 +581,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <?php if($_GET['action']=='add'): ?>
   <div class="pm-compose">
     <form method="post" action="index.php?n=account&sub=pms&action=add" onsubmit="return this.owner.value.trim() && this.message.value.trim();">
-      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($pms_csrf_token ?? spp_pms_csrf_token())); ?>">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($pms_csrf_token ?? spp_csrf_token('account_pms'))); ?>">
       <div class="pm-recipient-row">
         <div>
           <label for="pm-owner">Who:</label>
@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 
     <form method="post" action="index.php?n=account&sub=pms&action=viewpm&iid=<?php echo (int)($_GET['iid'] ?? 0); ?>" class="pm-thread-reply">
-      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($pms_csrf_token ?? spp_pms_csrf_token())); ?>">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($pms_csrf_token ?? spp_csrf_token('account_pms'))); ?>">
       <div class="compose-help">Replying to <?php echo htmlspecialchars($threadPeer); ?>.</div>
       <textarea name="reply_message" placeholder="Write your reply..." required></textarea>
       <div class="pm-thread-reply-actions">

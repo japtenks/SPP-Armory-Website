@@ -26,6 +26,17 @@
   margin: 0 auto;
 }
 
+.login-message {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 90, 90, 0.35);
+  background: rgba(6, 10, 18, 0.88);
+  color: #ff9d9d;
+  line-height: 1.45;
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 90, 0.1);
+}
+
 .login-form {
   width: 100%;
   display: flex;
@@ -190,6 +201,11 @@ if ($loginReturnTo === '' || stripos($loginReturnTo, 'index.php?n=account&sub=lo
 <?php builddiv_start(1, 'Login'); ?>
 
 <div class="login-panel">
+<?php if (!empty($login_message)): ?>
+  <div class="login-message<?php echo $login_message_class; ?>">
+    <?php echo htmlspecialchars($login_message); ?>
+  </div>
+<?php endif; ?>
 <?php header_image_account(); ?>
 <?php if ($user['id'] <= 0): ?>
 <div class="form-flex">
@@ -200,7 +216,7 @@ if ($loginReturnTo === '' || stripos($loginReturnTo, 'index.php?n=account&sub=lo
 
     <div class="login-field">
       <label for="login"><b><?php echo $lang['username']; ?></b></label>
-      <input type="text" id="login" name="login" placeholder="<?php echo $lang['username']; ?>" required>
+      <input type="text" id="login" name="login" value="<?php echo htmlspecialchars($login_form_username); ?>" placeholder="<?php echo $lang['username']; ?>" required>
     </div>
 
     <div class="login-field">

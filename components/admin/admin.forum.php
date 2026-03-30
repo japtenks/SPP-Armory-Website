@@ -1,47 +1,23 @@
 <?php
 if(INCLUDED!==true)exit;
 
-if (!function_exists('spp_admin_forum_csrf_token')) {
-    function spp_admin_forum_csrf_token($formName = 'admin_forum') {
-        if (!isset($_SESSION['spp_csrf_tokens']) || !is_array($_SESSION['spp_csrf_tokens'])) {
-            $_SESSION['spp_csrf_tokens'] = array();
-        }
-        if (empty($_SESSION['spp_csrf_tokens'][$formName])) {
-            $_SESSION['spp_csrf_tokens'][$formName] = bin2hex(random_bytes(32));
-        }
-        return (string)$_SESSION['spp_csrf_tokens'][$formName];
-    }
-}
-
-if (!function_exists('spp_admin_forum_require_csrf')) {
-    function spp_admin_forum_require_csrf($formName = 'admin_forum') {
-        $submittedToken = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
-        $sessionToken = (string)($_SESSION['spp_csrf_tokens'][$formName] ?? '');
-        if ($submittedToken === '' || $sessionToken === '' || !hash_equals($sessionToken, $submittedToken)) {
-            output_message('alert', 'Security check failed. Please refresh the page and try again.');
-            exit;
-        }
-    }
-}
-
 if (!function_exists('spp_admin_forum_action_url')) {
     function spp_admin_forum_action_url(array $params) {
-        $params['csrf_token'] = spp_admin_forum_csrf_token();
-        return 'index.php?' . http_build_query($params);
+        return spp_action_url('index.php', $params, 'admin_forum');
     }
 }
 
 if (!function_exists('spp_admin_forum_filter_category_fields')) {
     function spp_admin_forum_filter_category_fields(array $data) {
         $allowed = array('cat_name', 'cat_disp_position');
-        return array_intersect_key($data, array_fill_keys($allowed, true));
+        return spp_filter_allowed_fields($data, $allowed);
     }
 }
 
 if (!function_exists('spp_admin_forum_filter_forum_fields')) {
     function spp_admin_forum_filter_forum_fields(array $data) {
         $allowed = array('cat_id', 'forum_name', 'forum_desc', 'disp_position');
-        return array_intersect_key($data, array_fill_keys($allowed, true));
+        return spp_filter_allowed_fields($data, $allowed);
     }
 }
 
@@ -86,43 +62,43 @@ if(!$_GET['action']){
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }elseif($_GET['action']=='moveup'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     moveup($_GET['cat_id'],$_GET['forum_id']);
     redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum",1); exit;
 }elseif($_GET['action']=='movedown'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     movedown($_GET['cat_id'],$_GET['forum_id']);
     redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum",1); exit;
    // redirect($MW->getConfig->temp->site_href."index.php?n=admin&sub=forum&cat_id=".$_GET['cat_id']."&forum_id=".$_GET['forum_id'],1);
 }elseif($_GET['action']=='open'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $stmt = $forumPdo->prepare("UPDATE f_forums SET closed=0 WHERE forum_id=? LIMIT 1");
     $stmt->execute([(int)$_GET['forum_id']]);
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='close'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $stmt = $forumPdo->prepare("UPDATE f_forums SET closed=1 WHERE forum_id=? LIMIT 1");
     $stmt->execute([(int)$_GET['forum_id']]);
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='show'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $stmt = $forumPdo->prepare("UPDATE f_forums SET hidden=0 WHERE forum_id=? LIMIT 1");
     $stmt->execute([(int)$_GET['forum_id']]);
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='hide'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $stmt = $forumPdo->prepare("UPDATE f_forums SET hidden=1 WHERE forum_id=? LIMIT 1");
     $stmt->execute([(int)$_GET['forum_id']]);
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='updforumsorder'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $stmt = $forumPdo->prepare("UPDATE f_forums SET disp_position=? WHERE forum_id=? LIMIT 1");
     foreach($_POST['forumorder'] as $fid=>$order){
         $stmt->execute([(int)$order, (int)$fid]);
     }
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='newcat'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $data = spp_admin_forum_filter_category_fields($_POST);
     $setClause = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($data)));
     if (!empty($data)) {
@@ -131,7 +107,7 @@ if(!$_GET['action']){
     }
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='renamecat'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $catId = (int)($_POST['cat_id'] ?? 0);
     $catName = trim((string)($_POST['cat_name'] ?? ''));
     if ($catId > 0 && $catName !== '') {
@@ -140,7 +116,7 @@ if(!$_GET['action']){
     }
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='newforum'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $data = spp_admin_forum_filter_forum_fields($_POST);
     $setClause = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($data)));
     if (!empty($data)) {
@@ -149,7 +125,7 @@ if(!$_GET['action']){
     }
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='renameforum'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $forumId = (int)($_POST['forum_id'] ?? 0);
     $forumName = trim((string)($_POST['forum_name'] ?? ''));
     if ($forumId > 0 && $forumName !== '') {
@@ -158,19 +134,19 @@ if(!$_GET['action']){
     }
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='recount'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     recount($_GET['forum_id']);
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='deleteforum'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     delete_forum($_GET['forum_id']);
     redirect($_SERVER['HTTP_REFERER'],1);
 }elseif($_GET['action']=='deletecat'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     delete_cat($_GET['cat_id']);
     redirect($_SERVER['HTTP_REFERER'],1); exit;
 }elseif($_GET['action']=='deletetopic'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $tid = (int)$_GET['topic_id'];
     $fid = (int)$_GET['forum_id'];
     $stmt = $forumPdo->prepare("SELECT num_replies FROM f_topics WHERE topic_id=? LIMIT 1");
@@ -184,7 +160,7 @@ if(!$_GET['action']){
     $stmt->execute([$num_replies, $fid]);
     redirect('index.php?n=admin&sub=forum&forum_id=' . $fid, 1); exit;
 }elseif($_GET['action']=='deletepost'){
-    spp_admin_forum_require_csrf();
+    spp_require_csrf('admin_forum');
     $pid = (int)$_GET['post_id'];
     $tid = (int)$_GET['topic_id'];
     $fid = (int)$_GET['forum_id'];

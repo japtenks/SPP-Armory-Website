@@ -11,6 +11,12 @@ $this_forum = [];
 $posts = [];
 $canPost = true;
 $posting_block_reason = '';
+$forum_post_errors = [];
+$forum_post_form = [
+    'subject' => trim((string)($_POST['subject'] ?? '')),
+    'text' => trim((string)($_POST['text'] ?? '')),
+];
+$forum_post_mode = ($action === 'newtopic' || $action === 'donewtopic') ? 'newtopic' : 'reply';
 
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 if (!is_array($realmMap) || empty($realmMap)) {
@@ -60,6 +66,16 @@ if (!empty($_GET['f'])) {
     $this_forum = get_forum_byid($_GET['f']);
 }
 
+if ($forum_post_mode === 'newtopic' && empty($this_forum['forum_id'])) {
+    $canPost = false;
+    $posting_block_reason = 'The forum you are trying to post in was not found.';
+    output_message('alert', $posting_block_reason);
+} elseif ($forum_post_mode === 'reply' && empty($this_topic['topic_id'])) {
+    $canPost = false;
+    $posting_block_reason = 'The topic you are trying to reply to was not found.';
+    output_message('alert', $posting_block_reason);
+}
+
 $_newsFid = (int)($MW->getConfig->generic_values->forum->news_forum_id ?? 0);
 $_isNewsForum = $_newsFid > 0 && (int)($this_forum['forum_id'] ?? $_GET['f'] ?? 0) === $_newsFid;
 
@@ -91,7 +107,7 @@ if ($_isRecruitmentForum && !empty($user['character_id'])) {
 }
 
 if (in_array($action, array('sticktopic', 'unsticktopic', 'closetopic', 'opentopic', 'dodeletetopic'), true) && !empty($this_topic['topic_id'])) {
-    spp_forum_require_csrf();
+    spp_require_csrf('forum_actions');
     if ((int)($user['g_forum_moderate'] ?? 0) !== 1) {
         output_message('alert', 'You are not authorized to moderate this topic.');
         return;
@@ -155,34 +171,45 @@ if (in_array($action, array('sticktopic', 'unsticktopic', 'closetopic', 'opentop
 }
 
 if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
-    spp_forum_require_csrf();
+    spp_require_csrf('forum_actions');
     if (($user['g_post_new_topics'] == 1 && !$this_forum['closed']) || $user['g_forum_moderate'] == 1) {
-        if (!empty($_POST['subject']) && !empty($_POST['text'])) {
-            $message = trim((string)$_POST['text']);
-            $subject = trim((string)$_POST['subject']);
+        $message = $forum_post_form['text'];
+        $subject = $forum_post_form['subject'];
+        $forum_post_errors = spp_forum_validate_submission($subject, $message, true);
 
-            // Guild recruitment: enforce one active thread per guild.
-            if ($_isRecruitmentForum) {
-                if (!$_recruitmentGuild) {
+        // Guild recruitment: enforce one active thread per guild.
+        if ($_isRecruitmentForum) {
+            if (!$_recruitmentGuild) {
+                $canPost = false;
+                $forum_post_errors[] = 'You must be a guild leader or officer with invite rights to post in this forum.';
+            } else {
+                $existingThreadId = find_active_recruitment_thread(
+                    $realmId,
+                    (int)$this_forum['forum_id'],
+                    (int)$_recruitmentGuild['guildid']
+                );
+                if ($existingThreadId !== null) {
                     $canPost = false;
-                    output_message('alert', 'You must be a guild leader or officer with invite rights to post in this forum.');
-                } else {
-                    $existingThreadId = find_active_recruitment_thread(
-                        $realmId,
-                        (int)$this_forum['forum_id'],
-                        (int)$_recruitmentGuild['guildid']
-                    );
-                    if ($existingThreadId !== null) {
-                        $canPost = false;
-                        output_message('alert', 'Your guild already has an active recruitment thread. '
-                            . '<a href="index.php?n=forum&sub=viewtopic&tid=' . $existingThreadId . '">View it here</a>.');
-                    }
+                    $forum_post_errors[] = 'Your guild already has an active recruitment thread. View it at index.php?n=forum&sub=viewtopic&tid=' . $existingThreadId . '.';
                 }
             }
+        }
 
-            if (!$canPost) {
-                // Block without falling through to the INSERT.
-            } else {
+        if ((int)($user['g_forum_moderate'] ?? 0) !== 1) {
+            $guardPdo = spp_get_pdo('realmd', $realmId);
+            $forum_post_errors = array_merge(
+                $forum_post_errors,
+                spp_forum_guard_against_repeat_posts($guardPdo, (int)$user['id'], (int)$this_forum['forum_id'], 0, $subject, $message, true)
+            );
+        }
+
+        if (!$canPost || !empty($forum_post_errors)) {
+            $action = 'newtopic';
+            $forum_post_mode = 'newtopic';
+            foreach ($forum_post_errors as $forum_post_error) {
+                output_message('alert', $forum_post_error);
+            }
+        } else {
 
             // Resolve (or lazily create) the poster's character identity.
             $posterIdentityId = null;
@@ -282,18 +309,37 @@ if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
                 output_message('alert', 'Topic creation failed.');
                 return;
             }
-            } // end else (!$canPost)
         }
     }
 } elseif ($canPost && $action === 'donewpost' && !empty($this_forum['forum_id']) && !empty($this_topic['topic_id'])) {
-    spp_forum_require_csrf();
+    spp_require_csrf('forum_actions');
     if (!$user['g_reply_other_topics']) {
         output_message('alert', 'You are not authorized to reply to this topic.');
         return;
     }
 
-    if (!empty($_POST['text'])) {
-        $message = trim((string)$_POST['text']);
+    if (!empty($this_topic['closed']) && (int)($user['g_forum_moderate'] ?? 0) !== 1) {
+        $forum_post_errors[] = 'This topic is closed and cannot accept new replies.';
+    }
+
+    $message = $forum_post_form['text'];
+    $forum_post_errors = array_merge($forum_post_errors, spp_forum_validate_submission('', $message, false));
+
+    if ((int)($user['g_forum_moderate'] ?? 0) !== 1) {
+        $guardPdo = spp_get_pdo('realmd', $realmId);
+        $forum_post_errors = array_merge(
+            $forum_post_errors,
+            spp_forum_guard_against_repeat_posts($guardPdo, (int)$user['id'], (int)$this_forum['forum_id'], (int)$this_topic['topic_id'], '', $message, false)
+        );
+    }
+
+    if (!empty($forum_post_errors)) {
+        $action = 'newpost';
+        $forum_post_mode = 'reply';
+        foreach ($forum_post_errors as $forum_post_error) {
+            output_message('alert', $forum_post_error);
+        }
+    } else {
 
         // Resolve (or lazily create) the poster's character identity.
         $replyIdentityId = null;

@@ -88,6 +88,8 @@ $realmDbMap = $GLOBALS['realmDbMap'] ?? [] ;
 
 // Site functions & classes ...
 include 	( 'core/common.php' ) ;
+include 	( 'core/security.php' ) ;
+include 	( 'core/request.php' ) ;
 include 	( 'core/mangos.class.php' ) ;
 include 	( 'core/class.auth.php' ) ;
 // core/dbsimple/Generic.php still loaded by armory subsystem (armory/index.php loads it independently)

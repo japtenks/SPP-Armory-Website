@@ -3,7 +3,7 @@
 <p>
 <a href="<?php echo htmlspecialchars(spp_admin_keys_action_url(array('n' => 'admin', 'sub' => 'keys', 'action' => 'deleteall'))); ?>" onclick="return confirm('Are you sure?');"><b>[ <font color="red">Delete all keys</font> ]</b></a><br/>
 <form method="post" action="index.php?n=admin&sub=keys&action=create">
-    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_keys_csrf_token()); ?>">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_keys')); ?>">
     <?php echo $lang['l_newkeys'];?>:<input type="text" name="num" size="4"> 
     <input type="submit" value="<?php echo $lang['docreate'];?>"> 
 </form>

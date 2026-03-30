@@ -27,6 +27,10 @@ if (!function_exists('spp_account_login_redirect_target')) {
   }
 }
 
+$login_message = '';
+$login_message_class = '';
+$login_form_username = trim((string)($_REQUEST['login'] ?? ''));
+
 if($_REQUEST['action']=='login'){
   $login = $_REQUEST['login'];
   $pass = $_REQUEST['pass'];
@@ -37,6 +41,13 @@ if($_REQUEST['action']=='login'){
   if($auth->login(array('username'=>$login,'password'=>$pass)))
   {
     redirect($returnTo,1);
+  } else {
+    if ($login === '' || $pass === '') {
+      $login_message = 'Please enter both your username and password.';
+    } else {
+      $login_message = 'Login failed. Check your username and password and try again.';
+    }
+    $login_message_class = ' is-error';
   }
 }elseif($_REQUEST['action']=='logout'){
   $auth->logout();

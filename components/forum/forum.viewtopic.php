@@ -154,7 +154,6 @@ foreach($result as $cur_post)
     $cur_post['linktoprofile'] = $MW->getConfig->temp->site_href.'index.php?n=account&sub=view&action=find&name='.$cur_post['username'].'';
     $cur_post['linktopms'] = $MW->getConfig->temp->site_href.'index.php?n=account&sub=pms&action=add&to='.$cur_post['username'];
     $cur_post['linktothis'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$this_topic['topic_id'].'&to='.$cur_post['post_id'];
-    $cur_post['linktoquote'] = $_vtCanPost ? $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newpost&t='.$this_topic['topic_id'].'&quote='.$cur_post['post_id'] : '';
     $cur_post['linktoedit'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=editpost&post='.$cur_post['post_id'];
     $cur_post['linktodelete'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletepost&post='.$cur_post['post_id'];
     if (!empty($cur_post['poster_character_id'])) {

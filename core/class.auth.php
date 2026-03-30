@@ -161,7 +161,10 @@ function load_characters_for_user() {
     {
         global $MW;
         $success = 1;
-        if (empty($params)) return false;
+        if (empty($params)) {
+            output_message('alert', 'Please enter your username and password.');
+            return false;
+        }
         if (empty($params['username'])){
             output_message('alert','You did not provide your username');
             $success = 0;
@@ -175,6 +178,7 @@ function load_characters_for_user() {
         $res = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$res) {
+            output_message('alert', 'Invalid username or password.');
             return false;
         }
 
@@ -317,29 +321,36 @@ function load_characters_for_user() {
                 return false;
             }
         }else{
-            $setClause2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($params)));
-            $stmt = $this->DB->prepare("INSERT INTO account SET $setClause2");
-            $stmt->execute(array_values($params));
-            $acc_id = (int)$this->DB->lastInsertId();
-            if($acc_id > 0){
-                $stmt = $this->DB->prepare("INSERT INTO website_accounts SET account_id=?, registration_ip=?, activation_code=?");
-                $stmt->execute([$acc_id, $_SERVER['REMOTE_ADDR'], $tmp_act_key]);
-                if (!empty($account_extend) && is_array($account_extend)) {
-                    $setClauseAccountExtend2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($account_extend)));
-                    $stmt = $this->DB->prepare("UPDATE website_accounts SET $setClauseAccountExtend2 WHERE account_id=? LIMIT 1");
-                    $extendValues2 = array_values($account_extend);
-                    $extendValues2[] = $acc_id;
-                    $stmt->execute($extendValues2);
+            try {
+                $setClause2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($params)));
+                $stmt = $this->DB->prepare("INSERT INTO account SET $setClause2");
+                $stmt->execute(array_values($params));
+                $acc_id = (int)$this->DB->lastInsertId();
+                if($acc_id > 0){
+                    $stmt = $this->DB->prepare("INSERT INTO website_accounts SET account_id=?, registration_ip=?, activation_code=?");
+                    $stmt->execute([$acc_id, $_SERVER['REMOTE_ADDR'], $tmp_act_key]);
+                    if (!empty($account_extend) && is_array($account_extend)) {
+                        $setClauseAccountExtend2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($account_extend)));
+                        $stmt = $this->DB->prepare("UPDATE website_accounts SET $setClauseAccountExtend2 WHERE account_id=? LIMIT 1");
+                        $extendValues2 = array_values($account_extend);
+                        $extendValues2[] = $acc_id;
+                        $stmt->execute($extendValues2);
+                    }
+                    if((int)$MW->getConfig->generic->use_purepass_table) {
+                        $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
+                        $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
+                    }
+                    if (function_exists('spp_ensure_account_identity')) {
+                        spp_ensure_account_identity(1, $acc_id, $params['username']);
+                    }
+                    return true;
+                } else {
+                    output_message('alert', 'Account creation failed. Please try again.');
+                    return false;
                 }
-                if((int)$MW->getConfig->generic->use_purepass_table) {
-                    $stmt = $this->DB->prepare("INSERT INTO account_pass SET id=?, username=?, password=?, email=?");
-                    $stmt->execute([$acc_id, $params['username'], $password, $params['email']]);
-                }
-                if (function_exists('spp_ensure_account_identity')) {
-                    spp_ensure_account_identity(1, $acc_id, $params['username']);
-                }
-                return true;
-            } else {
+            } catch (Throwable $e) {
+                error_log('[AUTH] Account registration failed: ' . $e->getMessage());
+                output_message('alert', 'Account creation failed. Please try again or contact an administrator if the problem continues.');
                 return false;
             }
         }
