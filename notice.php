@@ -35,7 +35,7 @@ $site_name = "";
 				if (checkboxFunc()) 
 				{
 					Set_Cookie('agreement_accepted', 'true', '365');
-					window.location.reload();
+					window.location.href = 'index.php?n=gameguide&sub=connect';
 				}
 			}
 			function checkboxFunc()

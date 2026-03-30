@@ -264,48 +264,21 @@ function spp_admin_members_handle_action(array $context)
                 exit;
             }
 
-            $sourceAccountOnline = spp_admin_account_is_online($membersPdo, $accountId);
-            $targetAccountOnline = spp_admin_account_is_online($membersPdo, $targetAccountId);
+            $sourceAccountOnline = !empty(spp_admin_online_characters_for_account($selectedCharsPdo, $accountId));
+            $targetAccountOnline = !empty(spp_admin_online_characters_for_account($selectedCharsPdo, $targetAccountId));
             $characterOnline = spp_admin_character_is_online($selectedCharsPdo, $characterGuid, $accountId);
 
-            if ($sourceAccountOnline || $targetAccountOnline || $characterOnline) {
-                if ($sourceAccountOnline || $characterOnline) {
-                    $sourceOnlineCharacters = spp_admin_online_characters_for_account($selectedCharsPdo, $accountId);
-                    $soapError = '';
-                    if (!spp_admin_force_characters_offline($selectedRealmId, $sourceOnlineCharacters, $soapError) && $soapError !== '') {
-                        error_log('[admin.members] Source character kick attempt failed for ' . $sourceUsername . ': ' . $soapError);
-                    }
-                }
-                if ($targetAccountOnline) {
-                    $targetOnlineCharacters = spp_admin_online_characters_for_account($selectedCharsPdo, $targetAccountId);
-                    $soapError = '';
-                    if (!spp_admin_force_characters_offline($selectedRealmId, $targetOnlineCharacters, $soapError) && $soapError !== '') {
-                        error_log('[admin.members] Target character kick attempt failed for ' . $targetUsername . ': ' . $soapError);
-                    }
-                }
-
-                for ($i = 0; $i < 5; $i++) {
-                    usleep(500000);
-                    $sourceAccountOnline = spp_admin_account_is_online($membersPdo, $accountId);
-                    $targetAccountOnline = spp_admin_account_is_online($membersPdo, $targetAccountId);
-                    $characterOnline = spp_admin_character_is_online($selectedCharsPdo, $characterGuid, $accountId);
-                    if (!$sourceAccountOnline && !$targetAccountOnline && !$characterOnline) {
-                        break;
-                    }
-                }
-
-                if ($characterOnline) {
-                    redirect('index.php?n=admin&sub=members&id=' . $accountId . '&xfer=char_online', 1);
-                    exit;
-                }
-                if ($sourceAccountOnline) {
-                    redirect('index.php?n=admin&sub=members&id=' . $accountId . '&xfer=source_online', 1);
-                    exit;
-                }
-                if ($targetAccountOnline) {
-                    redirect('index.php?n=admin&sub=members&id=' . $accountId . '&xfer=target_online', 1);
-                    exit;
-                }
+            if ($characterOnline) {
+                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&character_realm_id=' . $selectedRealmId . '&xfer=char_online', 1);
+                exit;
+            }
+            if ($sourceAccountOnline) {
+                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&character_realm_id=' . $selectedRealmId . '&xfer=source_online', 1);
+                exit;
+            }
+            if ($targetAccountOnline) {
+                redirect('index.php?n=admin&sub=members&id=' . $accountId . '&character_realm_id=' . $selectedRealmId . '&xfer=target_online', 1);
+                exit;
             }
 
             try {

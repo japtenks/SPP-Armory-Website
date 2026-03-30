@@ -54,9 +54,14 @@ if (!function_exists('spp_admin_character_delete_tables')) {
 
 if (!function_exists('spp_admin_account_is_online')) {
     function spp_admin_account_is_online(PDO $realmPdo, $accountId) {
-        $stmt = $realmPdo->prepare("SELECT online FROM account WHERE id=? LIMIT 1");
-        $stmt->execute([(int)$accountId]);
-        return (int)$stmt->fetchColumn() === 1;
+        try {
+            $stmt = $realmPdo->prepare("SELECT online FROM account WHERE id=? LIMIT 1");
+            $stmt->execute([(int)$accountId]);
+            return (int)$stmt->fetchColumn() === 1;
+        } catch (Throwable $e) {
+            error_log('[admin.members] account online lookup unavailable: ' . $e->getMessage());
+            return false;
+        }
     }
 }
 

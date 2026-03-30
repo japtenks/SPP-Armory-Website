@@ -318,6 +318,41 @@
   flex-wrap: wrap;
 }
 
+.admin-preflight {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.admin-preflight-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 204, 102, 0.05);
+  border: 1px solid rgba(255, 204, 102, 0.12);
+}
+
+.admin-preflight-label {
+  color: #c3a46a;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.admin-preflight-value {
+  color: #f2f2f2;
+  font-weight: bold;
+}
+
+.admin-preflight-value.online {
+  color: #ff9b9b;
+}
+
+.admin-preflight-value.offline {
+  color: #8ff0a7;
+}
+
 .admin-tool-stack {
   display: flex;
   flex-direction: column;
@@ -536,6 +571,10 @@
   }
 
   .admin-expansion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-preflight {
     grid-template-columns: 1fr;
   }
 
@@ -768,7 +807,36 @@
             <?php } ?>
           </select>
         </div>
-        <div class="admin-form-help">Move a character to another account on the active realm. Useful for splitting characters between accounts. Forum ownership follows the destination account. The transfer only goes through when the source account, destination account, and selected character are all offline.</div>
+        <?php
+          $sourceOnlineForTransfer = false;
+          $selectedCharacterOnline = false;
+          if (!empty($toolRealmChars)) {
+              foreach ($toolRealmChars as $toolRealmChar) {
+                  if (!empty($toolRealmChar['online'])) {
+                      $sourceOnlineForTransfer = true;
+                  }
+              }
+          }
+          $selectedTransferCharacter = $selected_transfer_character ?? null;
+          if (!empty($selectedTransferCharacter['online'])) {
+              $selectedCharacterOnline = true;
+          }
+        ?>
+        <div class="admin-preflight">
+          <div class="admin-preflight-card">
+            <div class="admin-preflight-label">Source Account</div>
+            <div class="admin-preflight-value <?php echo $sourceOnlineForTransfer ? 'online' : 'offline'; ?>"><?php echo $sourceOnlineForTransfer ? 'Online' : 'Offline'; ?></div>
+          </div>
+          <div class="admin-preflight-card">
+            <div class="admin-preflight-label">Selected Character</div>
+            <div class="admin-preflight-value <?php echo $selectedCharacterOnline ? 'online' : 'offline'; ?>"><?php echo $selectedCharacterOnline ? 'Online' : 'Offline'; ?></div>
+          </div>
+          <div class="admin-preflight-card">
+            <div class="admin-preflight-label">Target Account</div>
+            <div class="admin-preflight-value">Checked on submit</div>
+          </div>
+        </div>
+        <div class="admin-form-help">Move a character to another account on the selected realm. Forum ownership follows the destination account. The transfer only goes through when the source account, destination account, and selected character are all offline.</div>
         <div class="admin-form-actions">
           <input type="submit" value="Transfer Character" <?php if (empty($toolRealmChars) || empty($eligibleTransferAccounts)) echo 'disabled="disabled"'; ?> onclick="return confirm('Transfer this character to the target account?');" />
         </div>

@@ -40,8 +40,9 @@ $createAccountUrl = function_exists('mw_url')
     ? mw_url('account', 'register', null, false)
     : 'index.php?n=account&sub=register';
 $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
+$isLoggedIn = !empty($user['id']) && (int)$user['id'] > 0;
 ?>
-<?php builddiv_start(1, $lang['game_guide']); ?>
+<?php builddiv_start(1, $lang['howtoplay']); ?>
 <div class="modern-content">
 <?php header_image_gif('game_guide'); ?>
 <style>
@@ -58,6 +59,7 @@ $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
 .connect-panel{padding:22px 24px}
 .connect-panel h3{margin:0 0 10px;color:#fff1bd;font-size:1.25rem}
 .connect-panel p{margin:0 0 14px;color:#d9d1ba;line-height:1.65}
+.connect-note{margin:0 0 16px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,204,72,.14);background:rgba(255,204,72,.05);color:#f0dfb0}
 .connect-list{margin:0;padding-left:18px;color:#f4ead0}
 .connect-list li{margin:0 0 10px}
 .connect-inline-code{display:inline-block;padding:3px 8px;border-radius:999px;background:rgba(255,204,72,.08);border:1px solid rgba(255,204,72,.12);color:#ffe39a;font-family:Consolas,'Courier New',monospace;font-size:.92rem}
@@ -68,7 +70,7 @@ $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
 .connect-option-badge{display:inline-flex;align-items:center;justify-content:center;padding:5px 10px;border-radius:999px;background:rgba(255,204,72,.08);border:1px solid rgba(255,204,72,.12);color:#c7b07b;font-size:.76rem;letter-spacing:.08em;text-transform:uppercase}
 .connect-link{color:#7fc7ff;text-decoration:none;font-weight:700}
 .connect-link:hover,.connect-button:hover{text-decoration:underline}
-.connect-step-grid{display:grid;gap:12px}
+.connect-step-grid{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
 .connect-step{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.14);background:rgba(255,255,255,.03)}
 .connect-step strong{display:block;margin-bottom:6px;color:#fff1bd}
 @media (max-width:900px){.connect-grid{grid-template-columns:1fr}}
@@ -78,13 +80,14 @@ $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
 <div class="connect-guide">
   <section class="connect-hero">
     <p class="connect-eyebrow"><?php echo htmlspecialchars($connectRealmName); ?> Setup</p>
-    <h2 class="connect-title">Choose a client, create an account, and connect in a few minutes.</h2>
+    <h2 class="connect-title"><?php echo $isLoggedIn ? 'Choose a client and connect in a few minutes.' : 'Choose a client, create an account, and connect in a few minutes.'; ?></h2>
     <p class="connect-copy">
-      You can play with either a <strong>Vanilla (1.12.1) client</strong> or <strong>Classic (1.14.2) with HermesProxy</strong>.
-      An HD visual mod is optional. Create your account, then use this server's <code>realmlist.wtf</code> to connect.
+      The player will need to source their own WoW client. You can connect with a<br><br><strong>Vanilla (1.12.1) client</strong>, optionally pair it with <strong>Project Reforged</strong> for HD visuals<br><strong>Classic (1.14.2) with HermesProxy</strong><br><strong>WoWee</strong>, the open source C++ client.<br><br> <?php echo $isLoggedIn ? 'Then use this server\'s <code>realmlist.wtf</code> to connect.' : 'Create your account, then use this server\'s <code>realmlist.wtf</code> to connect.'; ?>
     </p>
     <div class="connect-actions">
+      <?php if (!$isLoggedIn) { ?>
       <a class="connect-button is-primary" href="<?php echo htmlspecialchars($createAccountUrl); ?>">Create Account</a>
+      <?php } ?>
       <a class="connect-button" href="<?php echo htmlspecialchars($downloadRealmlistUrl); ?>">Download realmlist.wtf</a>
     </div>
   </section>
@@ -93,6 +96,7 @@ $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
     <section class="connect-panel">
       <h3>Install Options</h3>
       <p>Pick whichever setup fits how you want to play.</p>
+      <p class="connect-note">You will need to provide your own game client install. The options below cover the supported ways to connect to this server.</p>
       <div class="connect-option-list">
         <article class="connect-option">
           <div class="connect-option-title">
@@ -105,10 +109,18 @@ $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
         <article class="connect-option">
           <div class="connect-option-title">
             <strong>Project Reforged</strong>
-            <span class="connect-option-badge">Alternative Option</span>
+            <span class="connect-option-badge">HD Visual Mod</span>
           </div>
           <p>Project Reforged is an <strong>optional HD visual mod</strong> layered on top of a <strong>Vanilla 1.12.1</strong> client.</p>
           <a class="connect-link" href="https://projectreforged.github.io/" target="_blank" rel="noopener noreferrer">Open Project Reforged</a>
+        </article>
+        <article class="connect-option">
+          <div class="connect-option-title">
+            <strong>WoWee</strong>
+            <span class="connect-option-badge">Open Source Client</span>
+          </div>
+          <p>WoWee is an <strong>open source C++ client</strong> option if you want an alternative to the original Blizzard clients.</p>
+          <a class="connect-link" href="https://github.com/Kelsidavis/WoWee" target="_blank" rel="noopener noreferrer">Open WoWee on GitHub</a>
         </article>
       </div>
     </section>
@@ -118,13 +130,20 @@ $downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
       <div class="connect-step-grid">
         <div class="connect-step">
           <strong>1. Install your version of choice</strong>
-          Choose either <strong>Vanilla (1.12.1)</strong> or <strong>Classic (1.14.2) with HermesProxy</strong>
+          Source your own client, then choose<br> <strong>-Vanilla (1.12.1)</strong><strong>-Classic (1.14.2) with HermesProxy</strong><strong>-WoWee</strong>
         </div>
+        <?php if (!$isLoggedIn) { ?>
         <div class="connect-step">
           <strong>2. Create your account</strong>
           Use the website registration page here:
           <a class="connect-link" href="<?php echo htmlspecialchars($createAccountUrl); ?>">Create Account</a>
         </div>
+        <?php } else { ?>
+        <div class="connect-step">
+          <strong>2. Account ready</strong>
+          You're already signed in on the website, so you can move straight to the client connection steps below.
+        </div>
+        <?php } ?>
         <div class="connect-step">
           <strong>3. Get this server's realmlist</strong>
           Download the file directly here:

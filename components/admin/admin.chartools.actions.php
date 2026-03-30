@@ -32,6 +32,11 @@ function spp_admin_chartools_handle_actions(array $state, array $dbs, array $mes
         } else {
             $newname = ucfirst(strtolower(trim((string)$_POST['newname'])));
             $name = $selectedCharacterName;
+            if (strlen($newname) < 2 || strlen($newname) > 12) {
+                $renameMessageHtml = '<div class="admin-tool-msg error">Character names must be between 2 and 12 letters.</div>';
+            } elseif (!preg_match('/^[a-zA-Z]+$/', $newname)) {
+                $renameMessageHtml = '<div class="admin-tool-msg error">Character names can only use letters.</div>';
+            } else {
             $status = check_if_online_by_guid($selectedCharacterGuid, $selectedAccountId, $db1);
             $newname_exist = check_if_name_exist($newname, $db1);
             if ($status == -1) {
@@ -62,6 +67,7 @@ function spp_admin_chartools_handle_actions(array $state, array $dbs, array $mes
             } else {
                 change_name_by_guid($selectedCharacterGuid, $selectedAccountId, $newname, $db1);
                 $renameMessageHtml = '<div class="admin-tool-msg success">' . htmlspecialchars($messages['character_1'] . $name . $messages['renamesuccess'] . $newname . '!') . '</div>';
+            }
             }
         }
     }

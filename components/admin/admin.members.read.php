@@ -127,6 +127,11 @@ function spp_admin_members_build_detail_view(PDO $membersPdo, PDO $membersCharsP
 
     $profile['signature'] = str_replace('<br />', '', $profile['signature']);
 
+    $selectedTransferCharacter = null;
+    if (!empty($charactersByRealm[$selectedToolRealmId])) {
+        $selectedTransferCharacter = $charactersByRealm[$selectedToolRealmId][0];
+    }
+
     return array(
         'profile' => $profile,
         'allgroups' => $allgroups,
@@ -138,6 +143,7 @@ function spp_admin_members_build_detail_view(PDO $membersPdo, PDO $membersCharsP
         'characters_by_realm' => $charactersByRealm,
         'selected_tool_realm_id' => $selectedToolRealmId,
         'tool_realm_chars' => $charactersByRealm[$selectedToolRealmId] ?? array(),
+        'selected_transfer_character' => $selectedTransferCharacter,
         'onlineCharacterCount' => $onlineCharacterCount,
         'activeRealmId' => $activeRealmId,
         'eligibleTransferAccounts' => $eligibleTransferAccounts,
