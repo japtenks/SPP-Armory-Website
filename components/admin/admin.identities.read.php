@@ -121,8 +121,13 @@ function spp_admin_identities_build_view(array $realmDbMap): array
 
             $stmtTopics = $realmPdo->query("
                 SELECT COUNT(*)
-                FROM `f_topics`
-                WHERE topic_poster_identity_id IS NULL OR topic_poster_identity_id = 0
+                FROM `f_topics` t
+                JOIN `f_posts` p ON p.post_id = (
+                    SELECT MIN(post_id) FROM `f_posts` WHERE topic_id = t.topic_id
+                )
+                WHERE (t.topic_poster_identity_id IS NULL OR t.topic_poster_identity_id = 0)
+                  AND p.poster_character_id IS NOT NULL
+                  AND p.poster_character_id > 0
             ");
             $row['topics_missing_identity'] = (int)$stmtTopics->fetchColumn();
 
