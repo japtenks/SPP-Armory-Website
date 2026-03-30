@@ -483,8 +483,8 @@
   <div class="admin-panel">
     <p class="admin-subheading">Member Profile</p>
     <h2 class="admin-heading"><?php echo htmlspecialchars($profile['username']); ?></h2>
-    <div class="admin-status <?php echo $act ? 'banned' : 'active'; ?>">
-      <?php echo $act ? 'Banned' : 'Active'; ?>
+    <div class="admin-status <?php echo !empty($active) ? 'banned' : 'active'; ?>">
+      <?php echo !empty($active) ? 'Banned' : 'Active'; ?>
     </div>
     <div class="admin-meta">
       <div class="admin-meta-label">Forum Posts</div>
@@ -513,7 +513,7 @@
 
     <div class="admin-actions">
       <a class="admin-btn danger" href="<?php echo htmlspecialchars(spp_admin_members_action_url(array('n' => 'admin', 'sub' => 'members', 'id' => (int)$_GET['id'], 'action' => 'dodeleteacc'))); ?>" onclick="return confirm('Are you sure?');">Delete Account</a>
-      <?php if ($act == 1) { ?>
+      <?php if (!empty($active)) { ?>
         <a class="admin-btn" href="<?php echo htmlspecialchars(spp_admin_members_action_url(array('n' => 'admin', 'sub' => 'members', 'id' => (int)$_GET['id'], 'action' => 'unban'))); ?>">Unban Account</a>
       <?php } else { ?>
         <a class="admin-btn danger" href="<?php echo htmlspecialchars(spp_admin_members_action_url(array('n' => 'admin', 'sub' => 'members', 'id' => (int)$_GET['id'], 'action' => 'ban'))); ?>">Ban Account</a>

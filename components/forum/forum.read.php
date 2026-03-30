@@ -1,5 +1,15 @@
 <?php
 
+function spp_forum_profile_url($primaryName)
+{
+    $profileName = trim((string)$primaryName);
+    if ($profileName === '') {
+        return '';
+    }
+
+    return $GLOBALS['MW']->getConfig->temp->site_href . 'index.php?n=account&sub=view&action=find&name=' . rawurlencode($profileName);
+}
+
 function spp_forum_fetch_identity_meta(PDO $forumPdo, array $rows, string $context = 'forum.read'): array
 {
     $posterIdentityMeta = array();
@@ -57,8 +67,11 @@ function spp_forum_hydrate_topic_posts(
 
     foreach ($rows as $curPost) {
         if ($includeRichMeta) {
-            $curPost['linktoprofile'] = $GLOBALS['MW']->getConfig->temp->site_href . 'index.php?n=account&sub=view&action=find&name=' . $curPost['username'];
-            $curPost['linktopms'] = $GLOBALS['MW']->getConfig->temp->site_href . 'index.php?n=account&sub=pms&action=add&to=' . $curPost['username'];
+            $pmTarget = trim((string)($curPost['username'] ?? ''));
+            $curPost['linktoprofile'] = spp_forum_profile_url($pmTarget);
+            $curPost['linktopms'] = $pmTarget !== ''
+                ? $GLOBALS['MW']->getConfig->temp->site_href . 'index.php?n=account&sub=pms&action=add&to=' . rawurlencode($pmTarget)
+                : '';
             $curPost['linktoedit'] = $GLOBALS['MW']->getConfig->temp->site_href . 'index.php?n=forum&sub=post&action=editpost&post=' . $curPost['post_id'];
             $curPost['linktodelete'] = $GLOBALS['MW']->getConfig->temp->site_href . 'index.php?n=forum&sub=post&action=dodeletepost&post=' . $curPost['post_id'];
         }
@@ -253,7 +266,7 @@ function spp_forum_build_index_items(PDO $realmPdo, array $user): array
 
         $item['linktothis'] = mw_url("forum", "viewforum", array("fid" => $item['forum_id']));
         $item['linktolastpost'] = mw_url("forum", "viewtopic", array("tid" => $item['last_topic_id'], "to" => "lastpost"));
-        $item['linktoprofile'] = mw_url("account", "view", array("action" => "find", "name" => $item['last_poster']));
+        $item['linktoprofile'] = '';
 
         $items[$item['cat_id']][] = $item;
     }
@@ -371,8 +384,8 @@ function spp_forum_build_viewforum_topics(
 
         $cur_topic['linktothis'] = $MW->getConfig->temp->site_href . 'index.php?n=forum&sub=viewtopic&tid=' . $cur_topic['topic_id'];
         $cur_topic['linktolastpost'] = $MW->getConfig->temp->site_href . 'index.php?n=forum&sub=viewtopic&tid=' . $cur_topic['topic_id'] . '&to=lastpost';
-        $cur_topic['linktoprofile1'] = $MW->getConfig->temp->site_href . 'index.php?n=account&sub=view&action=find&name=' . $cur_topic['username'];
-        $cur_topic['linktoprofile2'] = $MW->getConfig->temp->site_href . 'index.php?n=account&sub=view&action=find&name=' . $cur_topic['last_poster'];
+        $cur_topic['linktoprofile1'] = spp_forum_profile_url($cur_topic['username'] ?? '');
+        $cur_topic['linktoprofile2'] = '';
         $topics[] = $cur_topic;
     }
 

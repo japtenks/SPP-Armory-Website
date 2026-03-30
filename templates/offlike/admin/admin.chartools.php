@@ -102,6 +102,12 @@
   color: #9ef0b2;
 }
 
+.admin-tool-meta {
+  color: #9f9f9f;
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
 @media (max-width: 820px) {
   .admin-tool-form {
     grid-template-columns: 1fr;
@@ -122,6 +128,9 @@
   $accountOptions = array();
   $characterOptions = array();
   $selectedCharacterName = '';
+  $selectedCharacterProfile = null;
+  $renameMessageHtml = '';
+  $raceMessageHtml = '';
 
   try {
       $stmtAccounts = $charcfgPdo->query("SELECT id, username FROM account ORDER BY username ASC, id ASC");
@@ -151,6 +160,14 @@
           break;
       }
   }
+
+  if ($selectedRealmId > 0 && isset($DBS[$selectedRealmId]) && $selectedAccountId > 0 && $selectedCharacterGuid > 0) {
+      $selectedCharacterProfile = chartools_fetch_character_profile($selectedCharacterGuid, $selectedAccountId, $DBS[$selectedRealmId]);
+  }
+
+  $submittedToken = (string)($_POST['csrf_token'] ?? '');
+  $sessionToken = (string)($_SESSION['spp_csrf_tokens']['admin_chartools'] ?? '');
+  $hasValidCsrf = $submittedToken !== '' && $sessionToken !== '' && hash_equals($sessionToken, $submittedToken);
   ?>
   <div class="admin-tool-card">
     <p class="admin-tool-kicker">Character Tools</p>
@@ -160,6 +177,7 @@
 
   <div class="admin-tool-card">
     <form action="index.php?n=admin&sub=chartools" method="post">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$adminChartoolsCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
       <div class="admin-tool-form">
         <label for="rename_realm">Realm</label>
         <select id="rename_realm" name="realm" onchange="this.form.submit()">
@@ -212,17 +230,19 @@
     if ($selectedRealmId > 0 && isset($DBS[$selectedRealmId])) {
         $db1 = $DBS[$selectedRealmId];
         if (isset($_POST['rename'])) {
-            if ($selectedAccountId <= 0 || $selectedCharacterGuid <= 0 || trim((string)($_POST['newname'] ?? '')) === '') {
-                echo '<div class="admin-tool-msg error">' . htmlspecialchars($empty_field) . '</div>';
+            if (!$hasValidCsrf) {
+                $renameMessageHtml = '<div class="admin-tool-msg error">Security check failed. Please refresh and try again.</div>';
+            } elseif ($selectedAccountId <= 0 || $selectedCharacterGuid <= 0 || trim((string)($_POST['newname'] ?? '')) === '') {
+                $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($empty_field) . '</div>';
             } else {
                 $newname = ucfirst(strtolower(trim($_POST['newname'])));
                 $name = $selectedCharacterName;
                 $status = check_if_online_by_guid($selectedCharacterGuid, $selectedAccountId, $db1);
                 $newname_exist = check_if_name_exist($newname, $db1);
                 if ($status == -1) {
-                    echo '<div class="admin-tool-msg error">' . htmlspecialchars($character_1 . ($name ?: 'Unknown') . $doesntexist) . '</div>';
+                    $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($character_1 . ($name ?: 'Unknown') . $doesntexist) . '</div>';
                 } elseif ($newname_exist == 1) {
-                    echo '<div class="admin-tool-msg error">' . htmlspecialchars($alreadyexist . $newname . '!') . '</div>';
+                    $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($alreadyexist . $newname . '!') . '</div>';
                 } elseif ($status == 1) {
                     $kickError = '';
                     force_character_offline((int)$selectedRealmId, $name, $kickError);
@@ -239,19 +259,127 @@
                         if ($kickError !== '') {
                             $message .= ' SOAP: ' . $kickError;
                         }
-                        echo '<div class="admin-tool-msg error">' . htmlspecialchars($message) . '</div>';
+                        $renameMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($message) . '</div>';
                     } else {
                         change_name_by_guid($selectedCharacterGuid, $selectedAccountId, $newname, $db1);
-                        echo '<div class="admin-tool-msg success">' . htmlspecialchars($character_1 . $name . $renamesuccess . $newname . '!') . '</div>';
+                        $renameMessageHtml = '<div class="admin-tool-msg success">' . htmlspecialchars($character_1 . $name . $renamesuccess . $newname . '!') . '</div>';
                     }
                 } else {
                     change_name_by_guid($selectedCharacterGuid, $selectedAccountId, $newname, $db1);
-                    echo '<div class="admin-tool-msg success">' . htmlspecialchars($character_1 . $name . $renamesuccess . $newname . '!') . '</div>';
+                    $renameMessageHtml = '<div class="admin-tool-msg success">' . htmlspecialchars($character_1 . $name . $renamesuccess . $newname . '!') . '</div>';
+                }
+            }
+        }
+
+        if (isset($_POST['race_change'])) {
+            if (!$hasValidCsrf) {
+                $raceMessageHtml = '<div class="admin-tool-msg error">Security check failed. Please refresh and try again.</div>';
+            } elseif ($selectedAccountId <= 0 || $selectedCharacterGuid <= 0) {
+                $raceMessageHtml = '<div class="admin-tool-msg error">Select a realm, account, and character first.</div>';
+            } else {
+                $raceChangeMessage = '';
+                $changeOk = chartools_change_race_by_guid(
+                    $selectedCharacterGuid,
+                    $selectedAccountId,
+                    (int)($_POST['newrace'] ?? 0),
+                    $db1,
+                    $raceChangeMessage
+                );
+
+                if ($changeOk) {
+                    $raceMessageHtml = '<div class="admin-tool-msg success">' . htmlspecialchars($raceChangeMessage) . '</div>';
+                    $selectedCharacterProfile = chartools_fetch_character_profile($selectedCharacterGuid, $selectedAccountId, $db1);
+                } else {
+                    $raceMessageHtml = '<div class="admin-tool-msg error">' . htmlspecialchars($raceChangeMessage) . '</div>';
                 }
             }
         }
     }
+
+    echo $renameMessageHtml;
     ?>
+  </div>
+
+  <div class="admin-tool-card">
+    <p class="admin-tool-kicker">Character Tools</p>
+    <h2 class="admin-tool-title">Race / Faction Change</h2>
+    <p class="admin-tool-copy">Admin-only character race and faction changes. The selected race must be valid for the character class. Faction swaps still require the character to be guild-free and offline.</p>
+    <?php if (!empty($selectedCharacterProfile)) { ?>
+      <p class="admin-tool-meta">
+        Current character:
+        <?php
+        echo htmlspecialchars((string)$selectedCharacterProfile['name']);
+        echo ' | Race ' . (int)$selectedCharacterProfile['race'];
+        echo ' | Class ' . (int)$selectedCharacterProfile['class'];
+        echo ' | Level ' . (int)$selectedCharacterProfile['level'];
+        ?>
+      </p>
+    <?php } ?>
+  </div>
+
+  <div class="admin-tool-card">
+    <form action="index.php?n=admin&sub=chartools" method="post">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$adminChartoolsCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
+      <div class="admin-tool-form">
+        <label for="race_realm">Realm</label>
+        <select id="race_realm" name="realm" onchange="this.form.submit()">
+          <?php foreach ($DBS as $realm): ?>
+            <option value="<?php echo (int)$realm['id']; ?>"<?php if ((int)$realm['id'] === $selectedRealmId) echo ' selected'; ?>><?php echo htmlspecialchars($realm['name']); ?></option>
+          <?php endforeach; ?>
+        </select>
+
+        <label for="race_account_id">Account</label>
+        <select id="race_account_id" name="account_id" onchange="this.form.submit()">
+          <?php if (!empty($accountOptions)) { ?>
+            <?php foreach ($accountOptions as $accountOption) { ?>
+              <option value="<?php echo (int)$accountOption['id']; ?>"<?php if ((int)$accountOption['id'] === $selectedAccountId) echo ' selected'; ?>>
+                <?php echo '#' . (int)$accountOption['id'] . ' - ' . htmlspecialchars((string)$accountOption['username']); ?>
+              </option>
+            <?php } ?>
+          <?php } else { ?>
+            <option value="0">No accounts available</option>
+          <?php } ?>
+        </select>
+
+        <label for="race_character_guid">Character</label>
+        <select id="race_character_guid" name="character_guid" onchange="this.form.submit()">
+          <?php if (!empty($characterOptions)) { ?>
+            <?php foreach ($characterOptions as $characterOption) { ?>
+              <option value="<?php echo (int)$characterOption['guid']; ?>"<?php if ((int)$characterOption['guid'] === $selectedCharacterGuid) echo ' selected'; ?>>
+                <?php
+                echo htmlspecialchars((string)$characterOption['name']);
+                if (!empty($characterOption['level'])) {
+                    echo ' (Lvl ' . (int)$characterOption['level'] . ')';
+                }
+                ?>
+              </option>
+            <?php } ?>
+          <?php } else { ?>
+            <option value="0">No characters on this account</option>
+          <?php } ?>
+        </select>
+
+        <label for="race_newrace">Target Race</label>
+        <select id="race_newrace" name="newrace">
+          <option value="1">Human</option>
+          <option value="2">Orc</option>
+          <option value="3">Dwarf</option>
+          <option value="4">Night Elf</option>
+          <option value="5">Undead</option>
+          <option value="6">Tauren</option>
+          <option value="7">Gnome</option>
+          <option value="8">Troll</option>
+          <option value="10">Blood Elf</option>
+          <option value="11">Draenei</option>
+        </select>
+      </div>
+
+      <div class="admin-tool-actions">
+        <input type="submit" name="race_change" value="Apply Race / Faction Change" <?php if (empty($characterOptions)) echo 'disabled="disabled"'; ?> />
+      </div>
+    </form>
+
+    <?php echo $raceMessageHtml; ?>
   </div>
 </div>
 <?php builddiv_end() ?>

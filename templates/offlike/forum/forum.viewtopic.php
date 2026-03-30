@@ -282,9 +282,14 @@ builddiv_start(1, $forumTitle, 0, false, $this_forum['forum_id'], $this_forum['c
       <?php foreach ($posts as $post): ?>
         <article class="post">
           <div class="post-avatar">
-            <a href="<?php echo htmlspecialchars((string)($post['linktocharacter_social'] ?? $post['linktoprofile']), ENT_QUOTES, 'UTF-8'); ?>">
+            <?php $postProfileLink = (string)($post['linktocharacter_social'] ?? $post['linktoprofile'] ?? ''); ?>
+            <?php if ($postProfileLink !== ''): ?>
+            <a href="<?php echo htmlspecialchars($postProfileLink, ENT_QUOTES, 'UTF-8'); ?>">
               <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
             </a>
+            <?php else: ?>
+              <img src="<?php echo $post['avatar']; ?>" alt="avatar" />
+            <?php endif; ?>
             <div class="post-user">
               <h3><?php echo htmlspecialchars($post['poster']); ?></h3>
               <?php if (!empty($post['guild'])): ?>

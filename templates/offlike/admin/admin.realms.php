@@ -168,6 +168,7 @@
     <h3>Create New Realm</h3>
     <p>Add a realm entry without crowding the list view with every secret field.</p>
     <form action="index.php?n=admin&amp;sub=realms&amp;action=create" method="post" onsubmit="return popup_ask('<?php echo $lang['sure_q']; ?>');">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($admin_realms_csrf_token ?? spp_csrf_token('admin_realms')); ?>">
       <div class="realm-admin__form-grid">
         <div class="realm-admin__field"><label>Name</label><input type="text" name="name"></div>
         <div class="realm-admin__field"><label>Address</label><input type="text" name="address"></div>
@@ -197,6 +198,7 @@
     <h3>Edit Realm</h3>
     <p>Update the public listing and the optional RA/SOAP connection settings together.</p>
     <form action="index.php?n=admin&amp;sub=realms&amp;action=update&amp;id=<?php echo (int)$item['id']; ?>" method="post" onsubmit="return confirm('<?php echo $lang['sure_q']; ?>');">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($admin_realms_csrf_token ?? spp_csrf_token('admin_realms')); ?>">
       <div class="realm-admin__form-grid">
         <div class="realm-admin__field"><label>Name</label><input type="text" name="name" value="<?php echo htmlspecialchars($item['name']); ?>"></div>
         <div class="realm-admin__field"><label>Address</label><input type="text" name="address" value="<?php echo htmlspecialchars($item['address']); ?>"></div>
@@ -221,7 +223,7 @@
       <div class="realm-admin__actions">
         <a class="realm-admin__button" href="index.php?n=admin&amp;sub=realms">Back to Realms</a>
         <input class="realm-admin__button" type="submit" value="Update Realm">
-        <a class="realm-admin__button realm-admin__button--danger" href="index.php?n=admin&amp;sub=realms&amp;action=delete&amp;id=<?php echo (int)$item['id']; ?>" onclick="return popup_ask('<?php echo $lang['sure_q']; ?>');">Delete Realm</a>
+        <a class="realm-admin__button realm-admin__button--danger" href="<?php echo htmlspecialchars(spp_action_url('index.php', array('n' => 'admin', 'sub' => 'realms', 'action' => 'delete', 'id' => (int)$item['id']), 'admin_realms')); ?>" onclick="return popup_ask('<?php echo $lang['sure_q']; ?>');">Delete Realm</a>
       </div>
     </form>
   </div>
