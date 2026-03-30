@@ -206,7 +206,7 @@ if($user['id']<=0){
         if (empty($profile['avatar'])) {
             $profile['avatar_fallback_url'] = spp_account_avatar_fallback_url($manageCharPdo, $profile, $accountCharacters);
         }
-        $this['manage_csrf_token'] = spp_manage_csrf_token();
+        $manage_csrf_token = spp_manage_csrf_token();
     }elseif($_GET['action']=='changeemail'){
         spp_manage_require_csrf();
         $newemail = trim($_POST['new_email']);

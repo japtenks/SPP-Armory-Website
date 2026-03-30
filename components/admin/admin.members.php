@@ -298,7 +298,7 @@ if($_GET['id'] > 0){
             $txt['yearlist'] .= "<option value='$i'" . ($i == $profile['bd_year'] ? ' selected' : '') . "> $i </option>\n";
         }
         $profile['signature'] = str_replace('<br />', '', $profile['signature']);
-        $this['admin_members_csrf_token'] = spp_admin_members_csrf_token();
+        $admin_members_csrf_token = spp_admin_members_csrf_token();
     }elseif($_GET['action'] == 'changepass'){
         spp_admin_members_require_csrf();
         $newpass = trim($_POST['new_pass']);

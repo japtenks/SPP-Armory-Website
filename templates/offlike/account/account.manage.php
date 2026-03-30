@@ -42,7 +42,7 @@ if ($currentExpansionId === 0) {
     <section class="settings-card">
       <div class="card-title">Profile Settings</div>
       <form method="post" action="index.php?n=account&sub=manage&action=change" enctype="multipart/form-data" class="stack-form">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['manage_csrf_token'] ?? '')); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($manage_csrf_token ?? '')); ?>">
         <div class="field">
           <label>Username</label>
           <input type="text" value="<?php echo htmlspecialchars($profile['username']); ?>" disabled="disabled">
@@ -183,17 +183,17 @@ if ($currentExpansionId === 0) {
         <div class="mini-title">Game Expansion</div>
         <div class="expansion-grid">
           <form method="post" action="index.php?n=account&sub=manage&action=change_gameplay">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['manage_csrf_token'] ?? '')); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($manage_csrf_token ?? '')); ?>">
             <input type="hidden" name="switch_wow_type" value="classic">
             <button type="submit" class="expansion-btn<?php if((int)$profile['expansion']===0)echo' active'; ?>">Classic</button>
           </form>
           <form method="post" action="index.php?n=account&sub=manage&action=change_gameplay">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['manage_csrf_token'] ?? '')); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($manage_csrf_token ?? '')); ?>">
             <input type="hidden" name="switch_wow_type" value="tbc">
             <button type="submit" class="expansion-btn<?php if((int)$profile['expansion']===1)echo' active'; ?>">TBC</button>
           </form>
           <form method="post" action="index.php?n=account&sub=manage&action=change_gameplay">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['manage_csrf_token'] ?? '')); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($manage_csrf_token ?? '')); ?>">
             <input type="hidden" name="switch_wow_type" value="wotlk">
             <button type="submit" class="expansion-btn<?php if((int)$profile['expansion']===2)echo' active'; ?>">WotLK</button>
           </form>
@@ -234,7 +234,7 @@ if ($currentExpansionId === 0) {
     <div class="card-title">Account Tools</div>
     <div class="recovery-grid">
       <form id="password-change-form" method="post" action="index.php?n=account&sub=manage&action=changepass" class="stack-form tool-panel">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['manage_csrf_token'] ?? '')); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($manage_csrf_token ?? '')); ?>">
         <div class="mini-title">Password</div>
         <div class="help-text">Update your account password here.</div>
         <div class="field">
@@ -251,7 +251,7 @@ if ($currentExpansionId === 0) {
       </form>
 
       <form method="post" action="index.php?n=account&sub=manage&action=renamechar" class="stack-form tool-panel">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['manage_csrf_token'] ?? '')); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($manage_csrf_token ?? '')); ?>">
         <div class="mini-title">Character Rename</div>
         <div class="help-text">Rename a character on this account for the currently selected realm: <?php echo htmlspecialchars($manageRealmName ?? 'Current Realm'); ?>.</div>
         <div class="field">

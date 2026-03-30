@@ -340,7 +340,7 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
 // ADD / SEND / REPLY
 // ========================================================
 elseif ($_GET['action'] == 'add') {
-    $this['pms_csrf_token'] = spp_pms_csrf_token();
+    $pms_csrf_token = spp_pms_csrf_token();
 
     $content = array('message' => '', 'sender' => '');
     $pmRecipientOptions = array();
