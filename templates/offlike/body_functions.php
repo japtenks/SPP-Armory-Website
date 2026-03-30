@@ -197,140 +197,74 @@ function spp_account_menu_class_slug($classId) {
 function build_account_menu($asList = true) {
     global $user, $auth, $languages;
 
-    // --- Load characters once the user is authenticated ---
     if (isset($auth) && method_exists($auth, 'load_characters_for_user')) {
         if (empty($GLOBALS['characters'])) {
             $auth->load_characters_for_user();
         }
     }
 
-    $selectedRealmId = (int)($_COOKIE['cur_selected_realmd'] ?? $_COOKIE['cur_selected_realm'] ?? 0);
-    $selectedCharacterId = (int)($_COOKIE['cur_selected_character'] ?? 0);
-    $charName = 'Account';
-    $activeCharacter = null;
-
-    if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
-        foreach ($GLOBALS['characters'] as $character) {
-            if ((int)($character['realm_id'] ?? 0) === $selectedRealmId && (int)$character['guid'] === $selectedCharacterId) {
-                $activeCharacter = $character;
-                break;
-            }
-        }
-
-        if ($activeCharacter === null && $selectedCharacterId > 0) {
-            foreach ($GLOBALS['characters'] as $character) {
-                if ((int)($character['guid'] ?? 0) === $selectedCharacterId) {
-                    $activeCharacter = $character;
-                    $selectedRealmId = (int)($character['realm_id'] ?? $selectedRealmId);
-                    break;
-                }
-            }
-        }
-
-        if ($activeCharacter === null) {
-            foreach ($GLOBALS['characters'] as $character) {
-                if ((int)($character['realm_id'] ?? 0) === $selectedRealmId) {
-                    $activeCharacter = $character;
-                    break;
-                }
-            }
-        }
-
-        if ($activeCharacter === null && !empty($GLOBALS['characters'][0])) {
-            $activeCharacter = $GLOBALS['characters'][0];
-        }
-    }
-
-    if ($activeCharacter !== null) {
-        $charName = htmlspecialchars($activeCharacter['name']);
-        $selectedCharacterId = (int)$activeCharacter['guid'];
-        $selectedRealmId = (int)($activeCharacter['realm_id'] ?? $selectedRealmId);
-    }
-
-    // For PMs and forum pages, return to the section root after switching
-    // character — avoids stale thread/message context with the wrong identity.
-    $currentN   = $_GET['n']   ?? '';
-    $currentSub = $_GET['sub'] ?? '';
-    if ($currentN === 'account' && $currentSub === 'pms') {
-        $returnUrl = 'index.php?n=account&sub=pms';
-    } elseif ($currentN === 'forum') {
-        $returnUrl = 'index.php?n=forum';
-    } else {
-        $returnUrl = $_SERVER['REQUEST_URI'] ?? 'index.php';
-        $returnUrl = preg_replace('/([?&])(setchar|setchar_realm|changerealm_to|returnto)=[^&]*/', '$1', $returnUrl);
-        $returnUrl = preg_replace('/\?&/', '?', $returnUrl);
-        $returnUrl = preg_replace('/[?&]+$/', '', $returnUrl);
-        if ($returnUrl === '' || $returnUrl === '/') {
-            $returnUrl = 'index.php';
-        }
-    }
+    $accountLabel = 'Account';
+    $currentCharacterName = (string)($_GET['character'] ?? '');
+    $currentRealmId = (int)($_GET['realm'] ?? 0);
 
     if ($asList) {
         echo '<li class="has-sub account">';
         echo '<a href="#">';
-        echo '<span class="account-name">'.$charName.' ▼</span>';
+        echo '<span class="account-name">' . htmlspecialchars($accountLabel) . ' &#9662;</span>';
         echo '</a>';
         echo '<ul class="account-menu">';
     }
 
-    // --- Guest (not logged in) ---
     if ($user['id'] <= 0) {
         echo '<li><a href="index.php?n=account&sub=login">Login</a></li>';
         echo '<li><a href="index.php?n=account&sub=register">Register</a></li>';
     } else {
-        // --- Messages ---
-        if (!empty($user["g_use_pm"])) {
+        if (!empty($user['g_use_pm'])) {
             $userpm_num = $auth->check_pm();
-            $label = ($userpm_num > 0) ? "Messages ($userpm_num)" : "Messages";
+            $label = ($userpm_num > 0) ? "Messages ($userpm_num)" : 'Messages';
             echo '<li><a href="' . mw_url('account','pms') . '">' . $label . '</a></li>';
             echo '<li><a href="index.php?n=account&sub=userlist">Userlist</a></li>';
         }
 
-        // --- Admin panel ---
         if ((!empty($user['g_is_admin']) && (int)$user['g_is_admin'] === 1)
             || (!empty($user['g_is_supadmin']) && (int)$user['g_is_supadmin'] === 1)) {
             echo '<li><a href="index.php?n=admin">Admin Panel</a></li>';
         }
 
-        // --- Characters grouped by realm ---
         if (!empty($GLOBALS['characters']) && is_array($GLOBALS['characters'])) {
             $grouped = array();
             foreach ($GLOBALS['characters'] as $char) {
-                $grouped[$char['realm_name']][] = $char;
+                $realmGroupName = (string)($char['realm_name'] ?? ('Realm ' . (int)($char['realm_id'] ?? 0)));
+                if (!isset($grouped[$realmGroupName])) {
+                    $grouped[$realmGroupName] = array();
+                }
+                $grouped[$realmGroupName][] = $char;
             }
 
-            $showRealmLabels = count($grouped) > 1;
             foreach ($grouped as $realmName => $chars) {
-                if ($showRealmLabels) {
-                    echo '<li class="menu-realm-label"><strong>' . htmlspecialchars($realmName) . '</strong></li>';
-                }
+                echo '<li class="menu-realm-label"><strong>' . htmlspecialchars($realmName) . ' (' . count($chars) . ')</strong></li>';
                 foreach ($chars as $character) {
                     $characterRealmId = (int)($character['realm_id'] ?? 0);
-                    $isActive = ($selectedCharacterId === (int)$character['guid'] && $selectedRealmId === $characterRealmId);
+                    $isActive = ($currentRealmId === $characterRealmId && strcasecmp($currentCharacterName, (string)($character['name'] ?? '')) === 0);
                     $classSlug = spp_account_menu_class_slug((int)($character['class'] ?? 0));
                     $itemClass = $isActive ? 'char-item active-char class-' . $classSlug : 'char-item class-' . $classSlug;
-                    $switchHref = 'index.php?setchar=' . (int)$character['guid']
-                        . '&setchar_realm=' . $characterRealmId
-                        . '&changerealm_to=' . $characterRealmId
-                        . '&returnto=' . rawurlencode($returnUrl);
+                    $armoryHref = 'index.php?n=server&sub=character&realm=' . $characterRealmId
+                        . '&character=' . rawurlencode((string)$character['name']);
 
-                    echo '<li class="' . $itemClass . '"><a href="' . htmlspecialchars($switchHref) . '">'
-                        . '<span class="char-name">' . htmlspecialchars($character['name']) . '</span>'
-                        . ' <span class="level">(Lvl ' . (int)$character['level'] . ')</span>'
+                    echo '<li class="' . $itemClass . '"><a href="' . htmlspecialchars($armoryHref) . '">'
+                        . '<span class="char-name">' . htmlspecialchars((string)$character['name']) . '</span>'
+                        . ' <span class="level">(Lvl ' . (int)($character['level'] ?? 0) . ')</span>'
                         . '</a></li>';
                 }
             }
             echo '<li class="menu-spacer"></li>';
         }
 
-        // --- Logout ---
         echo '<li><a href="?n=account&sub=login&action=logout">Logout</a></li>';
     }
 
     if ($asList) echo '</ul></li>';
 }
-
-
 function build_language_menu($asList = true) {
     global $languages;
 
