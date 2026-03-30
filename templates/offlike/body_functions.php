@@ -204,6 +204,13 @@ function build_account_menu($asList = true) {
     }
 
     $accountLabel = 'Account';
+    if (!empty($user['id']) && (int)$user['id'] > 0) {
+        if (!empty($user['username'])) {
+            $accountLabel = (string)$user['username'];
+        } elseif (!empty($user['name'])) {
+            $accountLabel = (string)$user['name'];
+        }
+    }
     $currentCharacterName = (string)($_GET['character'] ?? '');
     $currentRealmId = (int)($_GET['realm'] ?? 0);
 
