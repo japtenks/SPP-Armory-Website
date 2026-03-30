@@ -1,5 +1,7 @@
 <?php
 if (INCLUDED !== true) exit;
+require_once __DIR__ . '/account.pms.actions.php';
+require_once __DIR__ . '/account.pms.read.php';
 
 // ========================================================
 // Pathway setup
@@ -32,6 +34,18 @@ $items_per_page = 16;
 $page           = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $limit_start    = ($page - 1) * $items_per_page;
 $pmsPdo         = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$currentAction  = (string)($_GET['action'] ?? 'view');
+$currentDir     = (string)($_GET['dir'] ?? 'all');
+
+if (spp_account_pms_handle_action(array(
+    'action' => $currentAction,
+    'dir' => $currentDir,
+    'pmsPdo' => $pmsPdo,
+    'user' => $user,
+    'realmDbMap' => $realmDbMap,
+))) {
+    return;
+}
 
 // ========================================================
 // VIEW MESSAGE TIMELINE
@@ -58,56 +72,7 @@ if ($_GET['action'] == 'view') {
     $stmt->execute([(int)$user['id'], (int)$user['id'], (int)$user['id']]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Batch-resolve identity display names (for bot/character senders).
-    $allIdentityIds = [];
-    foreach ($rows as $row) {
-        if (!empty($row['sender_identity_id']))    $allIdentityIds[] = (int)$row['sender_identity_id'];
-        if (!empty($row['recipient_identity_id'])) $allIdentityIds[] = (int)$row['recipient_identity_id'];
-    }
-    $identityNames = function_exists('spp_resolve_identity_names')
-        ? spp_resolve_identity_names($allIdentityIds)
-        : [];
-
-    $conversationMap = array();
-    foreach ($rows as $row) {
-        $isIncoming = (($row['pm_box'] ?? '') === 'in');
-        $peerId = $isIncoming ? (int)($row['sender_id'] ?? 0) : (int)($row['owner_id'] ?? 0);
-
-        // Prefer identity display_name, fall back to account username.
-        if ($isIncoming) {
-            $identId  = (int)($row['sender_identity_id'] ?? 0);
-            $peerName = $identId && isset($identityNames[$identId])
-                ? $identityNames[$identId]
-                : (string)($row['sender'] ?? '');
-        } else {
-            $identId  = (int)($row['recipient_identity_id'] ?? 0);
-            $peerName = $identId && isset($identityNames[$identId])
-                ? $identityNames[$identId]
-                : (string)($row['receiver'] ?? '');
-        }
-
-        if ($peerId <= 0 || $peerName === '') {
-            continue;
-        }
-
-        if (!isset($conversationMap[$peerId])) {
-            $conversationMap[$peerId] = array(
-                'peer_id' => $peerId,
-                'peer_name' => $peerName,
-                'latest_id' => (int)$row['id'],
-                'latest_message' => (string)($row['message'] ?? ''),
-                'latest_posted' => (int)($row['posted'] ?? 0),
-                'latest_box' => (string)($row['pm_box'] ?? 'in'),
-                'unread_count' => 0,
-            );
-        }
-
-        if ($isIncoming && empty($row['showed'])) {
-            $conversationMap[$peerId]['unread_count']++;
-        }
-    }
-
-    $items = array_values($conversationMap);
+    $items = spp_account_pms_build_timeline_items($rows);
     $itemnum = count($items);
     $pnum = (int)ceil(max(1, $itemnum) / $items_per_page);
     if ($limit_start > 0 || $items_per_page > 0) {
@@ -202,51 +167,6 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
         }
         $threadPeer = $_viewPeerName;
 
-        if ($threadPeerId > 0 && !empty($_POST['reply_message'])) {
-            spp_require_csrf('account_pms');
-            $replyMessage = trim((string)$_POST['reply_message']);
-            if ($replyMessage !== '') {
-                // Resolve identity IDs for this reply.
-                $replyRealmId = spp_resolve_realm_id($realmDbMap);
-                $replySenderIdentId    = null;
-                $replyRecipientIdentId = null;
-                if (function_exists('spp_ensure_account_identity')) {
-                    $replySenderIdentId = spp_ensure_account_identity($replyRealmId, (int)$user['id'], $user['username']) ?: null;
-                    $stmtRpName = $pmsPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
-                    $stmtRpName->execute([$threadPeerId]);
-                    $rpUsername = (string)($stmtRpName->fetchColumn() ?: '');
-                    if ($rpUsername !== '') {
-                        $replyRecipientIdentId = spp_ensure_account_identity($replyRealmId, $threadPeerId, $rpUsername) ?: null;
-                    }
-                }
-
-                $stmtReply = $pmsPdo->prepare("
-                    INSERT INTO website_pms
-                        (owner_id, subject, message, sender_id, sender_identity_id, recipient_identity_id, posted, sender_ip, showed)
-                    VALUES
-                        (?, ?, ?, ?, ?, ?, ?, ?, 0)
-                ");
-                $stmtReply->execute([
-                    $threadPeerId,
-                    '',
-                    $replyMessage,
-                    (int)$user['id'],
-                    $replySenderIdentId,
-                    $replyRecipientIdentId,
-                    time(),
-                    $_SERVER['REMOTE_ADDR'] ?? ''
-                ]);
-
-                $newPmId = (int)$pmsPdo->lastInsertId();
-                if ($newPmId > 0) {
-                    redirect('index.php?n=account&sub=pms&action=viewpm&iid=' . $newPmId, 1);
-                    exit;
-                }
-                redirect('index.php?n=account&sub=pms&action=viewpm&iid=' . (int)$_GET['iid'], 1);
-                exit;
-            }
-        }
-
         if ($threadPeerId > 0) {
             $stmtThread = $pmsPdo->prepare("
                 SELECT
@@ -273,26 +193,7 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
             ]);
             $threadItems = $stmtThread->fetchAll(PDO::FETCH_ASSOC);
 
-            // Batch-resolve identity display names for this thread.
-            $threadIdentityIds = [];
-            foreach ($threadItems as $tRow) {
-                if (!empty($tRow['sender_identity_id']))    $threadIdentityIds[] = (int)$tRow['sender_identity_id'];
-                if (!empty($tRow['recipient_identity_id'])) $threadIdentityIds[] = (int)$tRow['recipient_identity_id'];
-            }
-            $threadIdentityNames = function_exists('spp_resolve_identity_names')
-                ? spp_resolve_identity_names($threadIdentityIds)
-                : [];
-            foreach ($threadItems as &$tRow) {
-                $sIdentId = (int)($tRow['sender_identity_id'] ?? 0);
-                $tRow['sender_display'] = $sIdentId && isset($threadIdentityNames[$sIdentId])
-                    ? $threadIdentityNames[$sIdentId]
-                    : (string)($tRow['sender'] ?? '');
-                $rIdentId = (int)($tRow['recipient_identity_id'] ?? 0);
-                $tRow['receiver_display'] = $rIdentId && isset($threadIdentityNames[$rIdentId])
-                    ? $threadIdentityNames[$rIdentId]
-                    : (string)($tRow['receiver'] ?? '');
-            }
-            unset($tRow);
+            $threadItems = spp_account_pms_enrich_thread_items($threadItems);
 
             $stmtMarkThreadRead = $pmsPdo->prepare("
                 UPDATE website_pms
@@ -350,51 +251,6 @@ elseif ($_GET['action'] == 'add') {
         }
     } catch (Throwable $e) {
         error_log('[account.pms] Recipient picker lookup failed: ' . $e->getMessage());
-    }
-
-    if (!empty($_POST['owner']) && !empty($_POST['message'])) {
-        spp_require_csrf('account_pms');
-
-        $message   = trim((string)$_POST['message']);
-        $sender_id = $user['id'];
-        $sender_ip = $_SERVER['REMOTE_ADDR'];
-
-        // Lookup recipient from account table
-        $stmt = $pmsPdo->prepare("SELECT id FROM account WHERE username = ? LIMIT 1");
-        $stmt->execute([$_POST['owner']]);
-        $owner_id = (int)$stmt->fetchColumn();
-
-        if ($owner_id > 0) {
-            // Resolve (or ensure) identity IDs for sender and recipient.
-            $sendRealmId = spp_resolve_realm_id($realmDbMap);
-            $pmSenderIdentId    = null;
-            $pmRecipientIdentId = null;
-            if (function_exists('spp_ensure_account_identity')) {
-                $pmSenderIdentId    = spp_ensure_account_identity($sendRealmId, (int)$sender_id, $user['username']) ?: null;
-                // Look up recipient username for the identity display name.
-                $stmtRName = $pmsPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
-                $stmtRName->execute([$owner_id]);
-                $recipientUsername = (string)($stmtRName->fetchColumn() ?: '');
-                if ($recipientUsername !== '') {
-                    $pmRecipientIdentId = spp_ensure_account_identity($sendRealmId, $owner_id, $recipientUsername) ?: null;
-                }
-            }
-
-            $stmt = $pmsPdo->prepare("
-                INSERT INTO website_pms
-                    (owner_id, subject, message, sender_id, sender_identity_id, recipient_identity_id, posted, sender_ip, showed)
-                VALUES
-                    (?, ?, ?, ?, ?, ?, ?, ?, 0)
-            ");
-            $stmt->execute([$owner_id, '', $message, (int)$sender_id, $pmSenderIdentId, $pmRecipientIdentId, time(), $sender_ip]);
-
-            output_message('notice', $lang['post_sent']);
-            redirect('index.php?n=account&sub=pms&action=view', 1);
-            exit;
-
-        } else {
-            output_message('alert', $lang['no_such_addr']);
-        }
     }
 
     // --- Reply logic ---

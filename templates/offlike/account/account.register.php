@@ -1,87 +1,6 @@
 <?php
 if (INCLUDED !== true) exit;
 
-$realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
-$registerRealmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
-$registerExpansion = 2;
-$registerRealmlistHost = preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? ''));
-if ($registerRealmlistHost === '') {
-    $registerRealmlistHost = (string)($_SERVER['SERVER_ADDR'] ?? '127.0.0.1');
-}
-
-if (function_exists('spp_get_pdo')) {
-    try {
-        $realmdPdo = spp_get_pdo('realmd', $registerRealmId);
-        $realmRow = $realmdPdo->prepare('SELECT `address` FROM `realmlist` WHERE `id` = ? LIMIT 1');
-        $realmRow->execute([(int)$registerRealmId]);
-        $realmInfo = $realmRow->fetch(PDO::FETCH_ASSOC);
-        if (!empty($realmInfo['address'])) {
-            $registerRealmlistHost = (string)$realmInfo['address'];
-        }
-    } catch (Throwable $e) {
-        // Fall back to current host if the realm DB cannot be queried here.
-    }
-}
-
-/* -----------------------------
-   ACCOUNT CREATION HANDLER
------------------------------ */
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    global $DB, $auth, $MW;
-
-    $rawUsername = trim($_POST['username']);
-    $username = strtoupper($rawUsername);
-    $password = trim($_POST['password']);
-    $verify   = trim($_POST['verify']);
-
-    if ($password !== $verify) {
-        $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Password fields do not match.</div>";
-    } elseif (strlen($username) < 3 || strlen($password) < 3) {
-        $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username and password must be at least 3 characters long.</div>";
-    } else {
-        try {
-            $realmdPdo2 = spp_get_pdo('realmd', $registerRealmId);
-            $stmtEx = $realmdPdo2->prepare("SELECT id FROM account WHERE LOWER(username)=LOWER(?)");
-            $stmtEx->execute([$username]);
-            $exists = $stmtEx->fetchColumn();
-
-            if ($exists) {
-                $message = "<div style='color:#ff5555;font-weight:bold;margin-bottom:8px;'>Username already exists. Please choose another.</div>";
-            } else {
-                $result = $auth->register(
-                    array(
-                        'username'  => $username,
-                        'password'  => $password,
-                        'expansion' => $registerExpansion
-                    ),
-                    false
-                );
-
-                if ($result === true) {
-                    $autoLoginNotice = '';
-                    if ((int)$MW->getConfig->generic->req_reg_act == 0 && !$auth->login(array('username' => $username, 'password' => $password))) {
-                        $autoLoginNotice = '<br><small>Your account was created, but automatic login did not complete. Please sign in with your new account.</small>';
-                    }
-
-                    $message = '<strong>Account <b>' . htmlspecialchars($username) . '</b> created successfully.</strong>'
-                        . '<br>Next step: open your game client and log in to create your first character.'
-                        . '<br>Set your realmlist to: <code>set realmlist ' . htmlspecialchars($registerRealmlistHost) . '</code>'
-                        . $autoLoginNotice;
-                } else {
-                    $message = '<strong>Account creation failed.</strong><br><small>Please check your details and try again. If it keeps happening, contact an administrator.</small>';
-                }
-            }
-        } catch (Throwable $e) {
-            error_log('[account.register] Registration request failed: ' . $e->getMessage());
-            $message = '<strong>Account creation failed.</strong><br><small>The server could not complete your request. Please try again in a moment.</small>';
-        }
-    }
-}
-
-
-/* -----------------------------
-   HEADER IMAGE
------------------------------ */
 function header_image_account() {
 ?>
 <table class="header-account" cellspacing="0" cellpadding="0" border="0" width="100%">
@@ -103,14 +22,12 @@ function header_image_account() {
 ?>
 
 <style>
-/* === Account Header Styling === */
 .header-account { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
 .header-account td { padding: 0; }
 .header-bg { height: 180px; background: url('templates/offlike/images/headers/account_bg.jpg') repeat-x center; text-align: center; position: relative; }
 .account-header-title { position: relative; top: 45px; max-width: 380px; }
 .header-bottomimg { width: 100%; height: 16px; display: block; }
 
-/* === Register Panel === */
 .register-panel {
   width: min(100%, 1080px);
   margin: 0 auto;
@@ -219,22 +136,18 @@ function header_image_account() {
     text-align: left;
   }
 }
-
 </style>
 
 <?php
-$registerMessageClass = '';
-if (!empty($message)) {
-  $registerMessageClass = (stripos($message, 'created successfully') !== false)
-    ? ' is-success'
-    : ' is-error';
-}
+$registerMessageClass = $registerMessageType === 'success'
+  ? ' is-success'
+  : (($registerMessageType === 'error') ? ' is-error' : '');
 builddiv_start(1, 'Create Account');
 ?>
 <div class="register-panel">
-<?php if (!empty($message)): ?>
+<?php if ($registerMessageHtml !== ''): ?>
   <div class="register-message<?php echo $registerMessageClass; ?>">
-    <?php echo $message; ?>
+    <?php echo $registerMessageHtml; ?>
     <?php if ($registerMessageClass === ' is-success'): ?>
       <div class="register-message-actions">
         <a class="register-message-link" href="download-realmlist.php?realm=<?php echo (int)$registerRealmId; ?>">Download `realmlist.wtf`</a>
@@ -246,12 +159,13 @@ builddiv_start(1, 'Create Account');
 
 <div class="form-flex">
   <img src="templates/offlike/images/orc2.jpg" alt="Orc Warrior">
+  <?php if (!$registerClosed): ?>
   <form method="post" action="index.php?n=account&sub=register" class="register-form">
-
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$registerCsrfToken, ENT_QUOTES, 'UTF-8'); ?>">
 
     <div class="form-group">
       <label for="username">Username:</label>
-      <input type="text" id="username" name="username" maxlength="16" required>
+      <input type="text" id="username" name="username" maxlength="16" required value="<?php echo htmlspecialchars((string)$registerUsername, ENT_QUOTES, 'UTF-8'); ?>">
     </div>
 
     <div class="form-group">
@@ -268,12 +182,19 @@ builddiv_start(1, 'Create Account');
       <button type="submit" class="btn-primary">Create Account</button>
     </div>
   </form>
+  <?php else: ?>
+  <div class="register-form">
+    <div class="account-note">
+      Account creation is unavailable right now. If you believe this is a mistake, contact an administrator.
+    </div>
+  </div>
+  <?php endif; ?>
 </div>
 
 <div class="account-note">
   You will be asked for this Account Name and Password each time you log in to play the game.
   Keep them safe and private. If you ever forget your credentials, contact the administrator directly.<br><br>
-  Your Account Name is <b>not</b> your Character Name—you’ll choose a Character Name in-game after logging in.
+  Your Account Name is <b>not</b> your Character Name; you will choose a Character Name in-game after logging in.
 </div>
 
 </div>
@@ -282,6 +203,10 @@ builddiv_start(1, 'Create Account');
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector(".register-form");
+  if (!form) {
+    return;
+  }
+
   const pass1 = form.querySelector("#password");
   const pass2 = form.querySelector("#verify");
 

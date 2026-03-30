@@ -123,8 +123,10 @@ function load_characters_for_user() {
             $stmt->execute([(int)$id]);
             $realmName = (string)($stmt->fetchColumn() ?: '');
             if ($realmName === '') {
-                $row = $realmdPdo->query("SELECT name FROM realmlist ORDER BY id ASC LIMIT 1")->fetch();
-                $realmName = !empty($row['name']) ? (string)$row['name'] : 'Realm ' . $id;
+                // Realm exists in config but has not been installed in the master
+                // realmd yet, so skip it quietly instead of treating another realm
+                // as the requested one.
+                continue;
             }
 
             $charPdo = new PDO("{$dsnBase};dbname={$charsDbName}", $db['user'], $db['pass'], $pdoOptions);

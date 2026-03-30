@@ -37,14 +37,14 @@ $realmDbMap = [
         'bots'    => 'classicplayerbots',
     ],
     2 => [
-        'realmd'  => 'tbcrealmd',
+        'realmd'  => 'classicrealmd',
         'world'   => 'tbcmangos',
         'chars'   => 'tbccharacters',
         'armory'  => 'tbcarmory',
         'bots'    => 'tbcplayerbots',
     ],
     3 => [
-        'realmd'  => 'wotlkrealmd',
+        'realmd'  => 'classicrealmd',
         'world'   => 'wotlkmangos',
         'chars'   => 'wotlkcharacters',
         'armory'  => 'wotlkarmory',

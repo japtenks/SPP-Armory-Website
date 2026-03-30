@@ -1,31 +1,9 @@
 <?php
 if(INCLUDED!==true)exit;
+require_once __DIR__ . '/account.helpers.php';
 // ==================== //
 $pathway_info[] = array('title'=>$lang['login'],'link'=>'');
 // ==================== //
-if (!function_exists('spp_account_login_redirect_target')) {
-  function spp_account_login_redirect_target($requestedTarget, $fallbackTarget = 'index.php') {
-    $target = trim((string)$requestedTarget);
-    if ($target === '') {
-      $target = $fallbackTarget;
-    }
-
-    $target = str_replace(array("\r", "\n"), '', $target);
-    if (preg_match('#^https?://#i', $target) || strpos($target, '//') === 0) {
-      return $fallbackTarget;
-    }
-
-    if ($target[0] === '/') {
-      $target = ltrim($target, '/');
-    }
-
-    if ($target === '' || stripos($target, 'index.php?n=account&sub=login') !== false) {
-      return $fallbackTarget;
-    }
-
-    return $target;
-  }
-}
 
 $login_message = '';
 $login_message_class = '';

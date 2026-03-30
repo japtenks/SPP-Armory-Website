@@ -208,13 +208,23 @@ unset( $req_arr, $req_vars ) ;
 // ======================================================= //
 
 // Finds out what realm we are viewing.
-if ( ( int )$MW->getConfig->generic_values->realm_info->multirealm && isset( $_REQUEST['changerealm_to'] ) )
+$requestedRealmSwitch = null ;
+if ( isset( $_REQUEST['changerealm_to'] ) && ctype_digit( (string)$_REQUEST['changerealm_to'] ) )
 {
-	setcookie( "cur_selected_realmd", intval( $_REQUEST['changerealm_to'] ), time() +
+	$requestedRealmSwitch = (int)$_REQUEST['changerealm_to'] ;
+}
+elseif ( isset( $_GET['realm'] ) && ctype_digit( (string)$_GET['realm'] ) )
+{
+	$requestedRealmSwitch = (int)$_GET['realm'] ;
+}
+
+if ( ( int )$MW->getConfig->generic_values->realm_info->multirealm && $requestedRealmSwitch !== null )
+{
+	setcookie( "cur_selected_realmd", $requestedRealmSwitch, time() +
 		( 3600 * 24 ), '/' ) ; // expire in 24 hour
-	setcookie( "cur_selected_realm", intval( $_REQUEST['changerealm_to'] ), time() +
+	setcookie( "cur_selected_realm", $requestedRealmSwitch, time() +
 		( 3600 * 24 ), '/' ) ;
-	$user['cur_selected_realmd'] = intval( $_REQUEST['changerealm_to'] ) ;
+	$user['cur_selected_realmd'] = $requestedRealmSwitch ;
 } elseif ( ( int )$MW->getConfig->generic_values->realm_info->multirealm && isset
 ( $_COOKIE['cur_selected_realmd'] ) )
 {
@@ -247,6 +257,7 @@ if ( $defaultRealmId < 1 )
 $selectedRealmId = (int)$user['cur_selected_realmd'] ;
 $dbinfo_mangos = null ;
 $selectedRealmIsValid = ( $selectedRealmId > 0 ) ;
+$selectedRealmUnavailable = false ;
 $_realmPdo = spp_get_pdo('realmd', $defaultRealmId);
 
 if ( $selectedRealmIsValid )
@@ -268,6 +279,7 @@ if ( $selectedRealmIsValid )
 		catch ( Throwable $e )
 		{
 			$selectedRealmIsValid = false ;
+			$selectedRealmUnavailable = true ;
 			error_log( "[realm] Falling back from realm {$selectedRealmId}: " . $e->getMessage() ) ;
 		}
 	}
@@ -275,12 +287,21 @@ if ( $selectedRealmIsValid )
 
 if ( !$selectedRealmIsValid )
 {
+	if ( $selectedRealmId > 0 && $selectedRealmId !== $defaultRealmId )
+	{
+		$selectedRealmUnavailable = true ;
+	}
 	$user['cur_selected_realmd'] = $defaultRealmId ;
 	setcookie( "cur_selected_realmd", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
 	setcookie( "cur_selected_realm", $user['cur_selected_realmd'], time() + ( 3600 * 24 ), '/' ) ;
 	$_stmt = $_realmPdo->prepare("SELECT * FROM `website_realm_settings` WHERE id_realm=?");
 	$_stmt->execute([(int)$user['cur_selected_realmd']]);
 	$dbinfo_mangos = $_stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+if ( $selectedRealmUnavailable )
+{
+	output_message( 'alert', 'Realm <b>#' . (int)$selectedRealmId . '</b> is not installed yet.' ) ;
 }
 
 // Make an array from `dbinfo` column for the selected realm..

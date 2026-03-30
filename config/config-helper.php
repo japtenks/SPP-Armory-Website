@@ -11,12 +11,18 @@ if (!function_exists('spp_default_realm_id')) {
 
 if (!function_exists('spp_resolve_realm_id')) {
     function spp_resolve_realm_id(array $realmDbMap, $fallback = null) {
-        $candidates = [
-            $_GET['realm'] ?? null,
-            $_COOKIE['cur_selected_realm'] ?? null,
-            $GLOBALS['user']['cur_selected_realmd'] ?? null,
-            $fallback,
-        ];
+        $candidates = [];
+
+        // When a caller passes a realm explicitly, keep that intent instead of
+        // letting query-string state redirect the connection to another realm.
+        if ($fallback !== null) {
+            $candidates[] = $fallback;
+        }
+
+        $candidates[] = $_GET['realm'] ?? null;
+        $candidates[] = $_COOKIE['cur_selected_realmd'] ?? null;
+        $candidates[] = $_COOKIE['cur_selected_realm'] ?? null;
+        $candidates[] = $GLOBALS['user']['cur_selected_realmd'] ?? null;
 
         foreach ($candidates as $candidate) {
             $realmId = (int)$candidate;
