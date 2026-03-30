@@ -44,6 +44,38 @@ function get_post_pos($tid,$pid){
     return $stmt->fetchColumn();
 }
 
+if (!function_exists('spp_forum_csrf_token')) {
+    function spp_forum_csrf_token($formName = 'forum_actions') {
+        if (!isset($_SESSION['spp_csrf_tokens']) || !is_array($_SESSION['spp_csrf_tokens'])) {
+            $_SESSION['spp_csrf_tokens'] = array();
+        }
+
+        if (empty($_SESSION['spp_csrf_tokens'][$formName])) {
+            $_SESSION['spp_csrf_tokens'][$formName] = bin2hex(random_bytes(32));
+        }
+
+        return (string)$_SESSION['spp_csrf_tokens'][$formName];
+    }
+}
+
+if (!function_exists('spp_forum_require_csrf')) {
+    function spp_forum_require_csrf($formName = 'forum_actions') {
+        $submittedToken = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
+        $sessionToken = (string)($_SESSION['spp_csrf_tokens'][$formName] ?? '');
+        if ($submittedToken === '' || $sessionToken === '' || !hash_equals($sessionToken, $submittedToken)) {
+            output_message('alert', 'Security check failed. Please refresh the page and try again.');
+            exit;
+        }
+    }
+}
+
+if (!function_exists('spp_forum_action_url')) {
+    function spp_forum_action_url($path, array $params = array(), $formName = 'forum_actions') {
+        $params['csrf_token'] = spp_forum_csrf_token($formName);
+        return $path . (strpos($path, '?') === false ? '?' : '&') . http_build_query($params);
+    }
+}
+
 function spp_increment_forum_unread(PDO $pdo, int $forumId, int $excludeMemberId = 0): void
 {
     $stmt = $pdo->prepare("

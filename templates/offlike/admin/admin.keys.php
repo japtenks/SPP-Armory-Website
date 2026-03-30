@@ -1,8 +1,9 @@
 <br>
 <?php builddiv_start(1, $lang['regkeys_manage']) ?>
 <p>
-<a href="index.php?n=admin&sub=keys&action=deleteall" onclick="return confirm('Are you sure?');"><b>[ <font color="red">Delete all keys</font> ]</b></a><br/>
+<a href="<?php echo htmlspecialchars(spp_admin_keys_action_url(array('n' => 'admin', 'sub' => 'keys', 'action' => 'deleteall'))); ?>" onclick="return confirm('Are you sure?');"><b>[ <font color="red">Delete all keys</font> ]</b></a><br/>
 <form method="post" action="index.php?n=admin&sub=keys&action=create">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_keys_csrf_token()); ?>">
     <?php echo $lang['l_newkeys'];?>:<input type="text" name="num" size="4"> 
     <input type="submit" value="<?php echo $lang['docreate'];?>"> 
 </form>
@@ -16,8 +17,8 @@
 </p>
 <ul style="font-weight:bold;list-style:none;">
     <?php foreach($allkeys as $key){
-        if($key['used']==0)echo'<li><a href="index.php?n=admin&sub=keys&action=delete&keyid='.$key['id'].'" title="Delete"><img src="'.$currtmp.'/images/icons2/delete.png" alt="[delete]" align="absmiddle"></a>&nbsp; <a href="index.php?n=admin&sub=keys&action=setused&keyid='.$key['id'].'" title="Mark as used">'.$key['id'].') '.$key['key'].'</a></li>'."\n";
-        else echo'<li><a href="index.php?n=admin&sub=keys&action=delete&keyid='.$key['id'].'" title="Delete"><img src="'.$currtmp.'/images/icons2/delete.png" alt="[delete]" align="absmiddle"></a>&nbsp; <s>'.$key['id'].') '.$key['key'].'</s></li>'."\n";
+        if($key['used']==0)echo'<li><a href="'.htmlspecialchars(spp_admin_keys_action_url(array('n' => 'admin', 'sub' => 'keys', 'action' => 'delete', 'keyid' => (int)$key['id']))).'" title="Delete"><img src="'.$currtmp.'/images/icons2/delete.png" alt="[delete]" align="absmiddle"></a>&nbsp; <a href="'.htmlspecialchars(spp_admin_keys_action_url(array('n' => 'admin', 'sub' => 'keys', 'action' => 'setused', 'keyid' => (int)$key['id']))).'" title="Mark as used">'.$key['id'].') '.$key['key'].'</a></li>'."\n";
+        else echo'<li><a href="'.htmlspecialchars(spp_admin_keys_action_url(array('n' => 'admin', 'sub' => 'keys', 'action' => 'delete', 'keyid' => (int)$key['id']))).'" title="Delete"><img src="'.$currtmp.'/images/icons2/delete.png" alt="[delete]" align="absmiddle"></a>&nbsp; <s>'.$key['id'].') '.$key['key'].'</s></li>'."\n";
     } ?>
 </ul>
 <?php builddiv_end() ?>

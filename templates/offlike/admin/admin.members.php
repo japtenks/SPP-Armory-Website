@@ -512,11 +512,11 @@
     </div>
 
     <div class="admin-actions">
-      <a class="admin-btn danger" href="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=dodeleteacc" onclick="return confirm('Are you sure?');">Delete Account</a>
+      <a class="admin-btn danger" href="<?php echo htmlspecialchars(spp_admin_members_action_url(array('n' => 'admin', 'sub' => 'members', 'id' => (int)$_GET['id'], 'action' => 'dodeleteacc'))); ?>" onclick="return confirm('Are you sure?');">Delete Account</a>
       <?php if ($act == 1) { ?>
-        <a class="admin-btn" href="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=unban">Unban Account</a>
+        <a class="admin-btn" href="<?php echo htmlspecialchars(spp_admin_members_action_url(array('n' => 'admin', 'sub' => 'members', 'id' => (int)$_GET['id'], 'action' => 'unban'))); ?>">Unban Account</a>
       <?php } else { ?>
-        <a class="admin-btn danger" href="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=ban">Ban Account</a>
+        <a class="admin-btn danger" href="<?php echo htmlspecialchars(spp_admin_members_action_url(array('n' => 'admin', 'sub' => 'members', 'id' => (int)$_GET['id'], 'action' => 'ban'))); ?>">Ban Account</a>
       <?php } ?>
       <a class="admin-btn" href="index.php?n=admin&sub=members">Back to Members</a>
     </div>
@@ -560,6 +560,7 @@
         <p class="admin-subheading">Bot Profiles</p>
         <h3 class="admin-heading" style="font-size:1.1rem;">Character Signatures</h3>
         <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=setbotsignatures" class="admin-form-stack">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['admin_members_csrf_token'] ?? spp_admin_members_csrf_token())); ?>">
           <div class="admin-signature-stack">
             <?php if (!empty($userchars)) { ?>
               <?php foreach ($userchars as $char) { ?>
@@ -590,6 +591,7 @@
         <p class="admin-subheading">Security</p>
         <h3 class="admin-heading" style="font-size:1.1rem;">Change Password</h3>
         <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=changepass" class="admin-form-stack">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['admin_members_csrf_token'] ?? spp_admin_members_csrf_token())); ?>">
           <div class="admin-form-grid">
             <label for="member_new_pass">New Password</label>
             <input type="password" id="member_new_pass" name="new_pass" />
@@ -610,6 +612,7 @@
     <h3 class="admin-heading" style="font-size:1.1rem;">Character Transfer And Cleanup</h3>
     <div class="admin-tool-stack">
       <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=transferchar" class="admin-form-stack">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['admin_members_csrf_token'] ?? spp_admin_members_csrf_token())); ?>">
         <div class="admin-form-grid">
           <label for="transfer_character_guid">Character</label>
           <select id="transfer_character_guid" name="transfer_character_guid">
@@ -649,6 +652,7 @@
       </form>
       <div class="admin-tool-divider"></div>
       <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=deletechar" class="admin-form-stack">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['admin_members_csrf_token'] ?? spp_admin_members_csrf_token())); ?>">
         <div class="admin-form-grid">
           <label for="delete_character_guid">Delete Character</label>
           <select id="delete_character_guid" name="delete_character_guid">
@@ -681,6 +685,7 @@
         <p class="admin-subheading">Account Controls</p>
         <h3 class="admin-heading" style="font-size:1.1rem;">Game Account</h3>
         <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=change" class="admin-form-stack">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['admin_members_csrf_token'] ?? spp_admin_members_csrf_token())); ?>">
           <div class="admin-form-grid">
             <?php if ($user['gmlevel'] == 3) { ?>
               <label for="profile_gmlevel">GM Level</label>
@@ -706,6 +711,7 @@
         <p class="admin-subheading">Security</p>
         <h3 class="admin-heading" style="font-size:1.1rem;">Change Password</h3>
         <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=changepass" class="admin-form-stack">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['admin_members_csrf_token'] ?? spp_admin_members_csrf_token())); ?>">
           <div class="admin-form-grid">
             <label for="member_new_pass_bot">New Password</label>
             <input type="password" id="member_new_pass_bot" name="new_pass" />
@@ -721,6 +727,7 @@
         <p class="admin-subheading">Website Profile</p>
         <h3 class="admin-heading" style="font-size:1.1rem;">Forum Settings</h3>
         <form method="post" action="index.php?n=admin&sub=members&id=<?php echo (int)$_GET['id']; ?>&action=change2" enctype="multipart/form-data" class="admin-form-stack">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['admin_members_csrf_token'] ?? spp_admin_members_csrf_token())); ?>">
           <div class="admin-form-grid">
             <label for="profile_gid">Group</label>
             <select id="profile_gid" name="profile[g_id]">
@@ -780,6 +787,7 @@
   <div class="admin-list-toolbar">
     <div class="toolbar-row">
       <form action="index.php?n=admin&sub=members" method="post" class="toolbar-form">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_members_csrf_token()); ?>">
         <div class="toolbar-group">
           <label class="admin-field-label" for="search_member">Search Username</label>
           <input type="text" id="search_member" name="search_member" placeholder="Account name" />

@@ -277,6 +277,7 @@ $formAction = $is_newtopic
     </div>
   <?php endif; ?>
   <form method="post" action="<?php echo $formAction; ?>" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_forum_csrf_token()); ?>">
     <?php if ($is_newtopic): ?>
       <label for="subject">Subject:</label>
       <input type="text" id="subject" name="subject" maxlength="80" placeholder="Enter your topic title..." class="subject-input" <?php echo !$canPost ? 'disabled' : ''; ?> />

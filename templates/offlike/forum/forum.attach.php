@@ -105,6 +105,7 @@ function selectattach(id) {
       <?php if ($this['allowupload'] === true): ?>
       <form method="post" enctype="multipart/form-data"
             action="index.php?n=forum&sub=attach&action=upload&tid=<?php echo $_GET['tid']; ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)($this['forum_csrf_token'] ?? '')); ?>">
         <div class="attach-upload">
           <img src="<?php echo $currtmp; ?>/images/cancel_f2.png" alt="Close" onclick="window.close();" />
           <div>
@@ -131,7 +132,7 @@ function selectattach(id) {
           <span><?php echo $attach['goodsize']; ?></span>
           <span><?php echo $attach['attach_hits']; ?></span>
           <span><?php echo date('d-m-Y, H:i', $attach['attach_date']); ?></span>
-          <a href="index.php?n=forum&sub=attach&action=delete&attid=<?php echo $attach['attach_id']; ?>&tid=<?php echo $_GET['tid']; ?>">
+          <a href="index.php?n=forum&sub=attach&action=delete&attid=<?php echo $attach['attach_id']; ?>&tid=<?php echo $_GET['tid']; ?>&csrf_token=<?php echo urlencode((string)($this['forum_csrf_token'] ?? '')); ?>">
             <img src="<?php echo $currtmp; ?>/images/trash.png" alt="Delete" title="Delete Attachment">
           </a>
         </div>

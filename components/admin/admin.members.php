@@ -7,6 +7,36 @@ $deleteInactiveCharactersEnabled = false;
 $membersPdo = spp_get_pdo('realmd', 1);
 $membersCharsPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
 
+if (!function_exists('spp_admin_members_csrf_token')) {
+    function spp_admin_members_csrf_token($formName = 'admin_members') {
+        if (!isset($_SESSION['spp_csrf_tokens']) || !is_array($_SESSION['spp_csrf_tokens'])) {
+            $_SESSION['spp_csrf_tokens'] = array();
+        }
+        if (empty($_SESSION['spp_csrf_tokens'][$formName])) {
+            $_SESSION['spp_csrf_tokens'][$formName] = bin2hex(random_bytes(32));
+        }
+        return (string)$_SESSION['spp_csrf_tokens'][$formName];
+    }
+}
+
+if (!function_exists('spp_admin_members_require_csrf')) {
+    function spp_admin_members_require_csrf($formName = 'admin_members') {
+        $submittedToken = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
+        $sessionToken = (string)($_SESSION['spp_csrf_tokens'][$formName] ?? '');
+        if ($submittedToken === '' || $sessionToken === '' || !hash_equals($sessionToken, $submittedToken)) {
+            output_message('alert', 'Security check failed. Please refresh the page and try again.');
+            exit;
+        }
+    }
+}
+
+if (!function_exists('spp_admin_members_action_url')) {
+    function spp_admin_members_action_url(array $params) {
+        $params['csrf_token'] = spp_admin_members_csrf_token();
+        return 'index.php?' . http_build_query($params);
+    }
+}
+
 if (!function_exists('spp_ensure_website_account_row')) {
     function spp_ensure_website_account_row(PDO $pdo, $accountId) {
         $accountId = (int)$accountId;
@@ -130,8 +160,29 @@ if (!function_exists('spp_admin_force_characters_offline')) {
         return true;
     }
 }
+
+if (!function_exists('spp_admin_members_account_fields')) {
+    function spp_admin_members_account_fields($isSuperAdmin) {
+        $allowed = array('expansion');
+        if ($isSuperAdmin) {
+            $allowed[] = 'gmlevel';
+        }
+        return array_fill_keys($allowed, true);
+    }
+}
+
+if (!function_exists('spp_admin_members_website_fields')) {
+    function spp_admin_members_website_fields($allowThemeChange) {
+        $allowed = array('g_id', 'hideprofile', 'signature');
+        if ($allowThemeChange) {
+            $allowed[] = 'theme';
+        }
+        return array_fill_keys($allowed, true);
+    }
+}
 // ==================== //
 if($_POST['search_member'] == TRUE){
+    spp_admin_members_require_csrf();
     $s_string = trim($_POST['search_member']);
     $stmt = $membersPdo->prepare("SELECT id FROM account WHERE username=?");
     $stmt->execute([$s_string]);
@@ -247,7 +298,9 @@ if($_GET['id'] > 0){
             $txt['yearlist'] .= "<option value='$i'" . ($i == $profile['bd_year'] ? ' selected' : '') . "> $i </option>\n";
         }
         $profile['signature'] = str_replace('<br />', '', $profile['signature']);
+        $this['admin_members_csrf_token'] = spp_admin_members_csrf_token();
     }elseif($_GET['action'] == 'changepass'){
+        spp_admin_members_require_csrf();
         $newpass = trim($_POST['new_pass']);
         $confirmPass = trim($_POST['confirm_new_pass'] ?? '');
         if(strlen($newpass) > 3){
@@ -284,6 +337,7 @@ if($_GET['id'] > 0){
             output_message('alert', '<b>' . $lang['change_pass_short'] . '</b><meta http-equiv=refresh content="2;url=index.php?n=admin&sub=members&id=' . $_GET['id'] . '">');
         }
     }elseif($_GET['action'] == 'ban'){
+        spp_admin_members_require_csrf();
         $id = (int)$_GET['id'];
         $stmt = $membersPdo->prepare("INSERT into account_banned (id, bandate, unbandate, bannedby, banreason, active) values (?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()-10, 'WEBSERVER', 'WEBSERVER', 1)");
         $stmt->execute([$id]);
@@ -296,6 +350,7 @@ if($_GET['id'] > 0){
         $stmt->execute([$id]);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1); exit;
     }elseif($_GET['action'] == 'unban'){
+        spp_admin_members_require_csrf();
         $id = (int)$_GET['id'];
         $stmt = $membersPdo->prepare("UPDATE account_banned SET active=0 WHERE id=?");
         $stmt->execute([$id]);
@@ -308,52 +363,76 @@ if($_GET['id'] > 0){
         $stmt->execute([$id]);
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1); exit;
     }elseif($_GET['action'] == 'change'){
-        $profile = $_POST['profile'];
+        spp_admin_members_require_csrf();
+        $profile = isset($_POST['profile']) && is_array($_POST['profile']) ? $_POST['profile'] : array();
+        $allowedFields = spp_admin_members_account_fields((int)($user['gmlevel'] ?? 0) === 3);
+        foreach (array_keys($profile) as $profileKey) {
+            if (!isset($allowedFields[$profileKey])) {
+                unset($profile[$profileKey]);
+            }
+        }
         $setClause = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($profile)));
-        $values = array_values($profile);
-        $values[] = (int)$_GET['id'];
-        $stmt = $membersPdo->prepare("UPDATE account SET $setClause WHERE id=? LIMIT 1");
-        $stmt->execute($values);
+        if (!empty($profile)) {
+            $values = array_values($profile);
+            $values[] = (int)$_GET['id'];
+            $stmt = $membersPdo->prepare("UPDATE account SET $setClause WHERE id=? LIMIT 1");
+            $stmt->execute($values);
+        }
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1); exit;
     }elseif($_GET['action'] == 'change2'){
+        spp_admin_members_require_csrf();
         spp_ensure_website_account_row($membersPdo, $_GET['id']);
         if(is_uploaded_file($_FILES['avatar']['tmp_name'])){
             if($_FILES['avatar']['size'] <= (int)$MW->getConfig->generic->max_avatar_file){
                 $tmp_filenameadd = time();
-                if(@move_uploaded_file($_FILES['avatar']['tmp_name'], (string)$MW->getConfig->generic->avatar_path . $tmp_filenameadd . $_FILES['avatar']['name'])){
-                    list($width, $height, ,) = getimagesize((string)$MW->getConfig->generic->avatar_path . $tmp_filenameadd . $_FILES['avatar']['name']);
-                    $path_parts = pathinfo((string)$MW->getConfig->generic->avatar_path . $tmp_filenameadd . $_FILES['avatar']['name']);
+                $uploadedName = basename((string)$_FILES['avatar']['name']);
+                $tempAvatarPath = (string)$MW->getConfig->generic->avatar_path . $tmp_filenameadd . $uploadedName;
+                if(@move_uploaded_file($_FILES['avatar']['tmp_name'], $tempAvatarPath)){
+                    list($width, $height, ,) = getimagesize($tempAvatarPath);
+                    $path_parts = pathinfo($tempAvatarPath);
                     $max_avatar_size = explode('x', (string)$MW->getConfig->generic->max_avatar_size);
                     if($width <= $max_avatar_size[0] || $height <= $max_avatar_size[1]){
-                        if(@rename((string)$MW->getConfig->generic->avatar_path . $tmp_filenameadd . $_FILES['avatar']['name'], (string)$MW->getConfig->generic->avatar_path . $_GET['id'] . '.' . $path_parts['extension'])){
+                        if(@rename($tempAvatarPath, (string)$MW->getConfig->generic->avatar_path . $_GET['id'] . '.' . $path_parts['extension'])){
                             $upl_avatar_name = $_GET['id'] . '.' . $path_parts['extension'];
                         }else{
-                            $upl_avatar_name = $tmp_filenameadd . $_FILES['avatar']['name'];
+                            $upl_avatar_name = $tmp_filenameadd . $uploadedName;
                         }
                         if($upl_avatar_name) {
                             $stmt = $membersPdo->prepare("UPDATE website_accounts SET avatar=? WHERE account_id=? LIMIT 1");
                             $stmt->execute([$upl_avatar_name, (int)$_GET['id']]);
                         }
                     }else{
-                        @unlink((string)$MW->getConfig->generic->avatar_path . $tmp_filenameadd . $_FILES['avatar']['name']);
+                        @unlink($tempAvatarPath);
                     }
                 }
             }
         }elseif($_POST['deleteavatar'] == 1){
-            if(@unlink((string)$MW->getConfig->generic->avatar_path . $_POST['avatarfile'])){
+            $avatarFile = basename((string)($_POST['avatarfile'] ?? ''));
+            if($avatarFile !== '' && @unlink((string)$MW->getConfig->generic->avatar_path . $avatarFile)){
                 $stmt = $membersPdo->prepare("UPDATE website_accounts SET avatar=NULL WHERE account_id=? LIMIT 1");
                 $stmt->execute([(int)$_GET['id']]);
             }
         }
-        $_POST['profile']['signature'] = htmlspecialchars($_POST['profile']['signature']);
-        $profile2 = $_POST['profile'];
+        $profile2 = isset($_POST['profile']) && is_array($_POST['profile']) ? $_POST['profile'] : array();
+        $allowedWebsiteFields = spp_admin_members_website_fields((int)$MW->getConfig->generic->change_template === 1);
+        foreach (array_keys($profile2) as $profileKey) {
+            if (!isset($allowedWebsiteFields[$profileKey])) {
+                unset($profile2[$profileKey]);
+            }
+        }
+        if (isset($profile2['signature'])) {
+            $profile2['signature'] = htmlspecialchars((string)$profile2['signature']);
+        }
         $setClause2 = implode(',', array_map(function($k) { return '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $k) . '`=?'; }, array_keys($profile2)));
-        $values2 = array_values($profile2);
-        $values2[] = (int)$_GET['id'];
-        $stmt = $membersPdo->prepare("UPDATE website_accounts SET $setClause2 WHERE account_id=? LIMIT 1");
-        $stmt->execute($values2);
+        if (!empty($profile2)) {
+            $values2 = array_values($profile2);
+            $values2[] = (int)$_GET['id'];
+            $stmt = $membersPdo->prepare("UPDATE website_accounts SET $setClause2 WHERE account_id=? LIMIT 1");
+            $stmt->execute($values2);
+        }
         redirect('index.php?n=admin&sub=members&id=' . $_GET['id'], 1); exit;
     }elseif($_GET['action'] == 'setbotsignatures'){
+        spp_admin_members_require_csrf();
         $id = (int)$_GET['id'];
         $stmtBot = $membersPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
         $stmtBot->execute([$id]);
@@ -383,6 +462,7 @@ if($_GET['id'] > 0){
         }
         redirect('index.php?n=admin&sub=members&id=' . $id, 1); exit;
     }elseif($_GET['action'] == 'transferchar' || $_GET['action'] == 'transferbotchar'){
+        spp_admin_members_require_csrf();
         $sourceAccountId = (int)$_GET['id'];
         $stmtBot = $membersPdo->prepare("SELECT username FROM account WHERE id=? LIMIT 1");
         $stmtBot->execute([$sourceAccountId]);
@@ -521,6 +601,7 @@ if($_GET['id'] > 0){
             redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&xfer=failed', 1); exit;
         }
     }elseif($_GET['action'] == 'deletechar'){
+        spp_admin_members_require_csrf();
         $sourceAccountId = (int)$_GET['id'];
         $characterGuid = (int)($_POST['delete_character_guid'] ?? 0);
         if ($characterGuid <= 0) {
@@ -577,6 +658,7 @@ if($_GET['id'] > 0){
             redirect('index.php?n=admin&sub=members&id=' . $sourceAccountId . '&chardelete=failed', 1); exit;
         }
     }elseif($_GET['action'] == 'dodeleteacc'){
+        spp_admin_members_require_csrf();
         $deleteId = (int)$_GET['id'];
         $deleteRealmId = spp_resolve_realm_id($realmDbMap);
         if (function_exists('spp_deactivate_account_identities')) {
@@ -592,6 +674,7 @@ if($_GET['id'] > 0){
     }
 }else{
     if($_GET['action'] == 'deleteinactive'){
+        spp_admin_members_require_csrf();
         if (!$deleteInactiveAccountsEnabled) {
             output_message('alert', 'Inactive account deletion is currently disabled until this maintenance workflow is reviewed.');
         } else {
@@ -614,6 +697,7 @@ if($_GET['id'] > 0){
         redirect('index.php?n=admin&sub=members', 1); exit;
         }
     }elseif($_GET['action'] == 'deleteinactive_characters'){
+        spp_admin_members_require_csrf();
         if (!$deleteInactiveCharactersEnabled) {
             output_message('alert', 'Inactive character deletion is currently disabled until this maintenance workflow is reviewed.');
         } else {

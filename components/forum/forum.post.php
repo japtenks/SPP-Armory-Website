@@ -91,6 +91,7 @@ if ($_isRecruitmentForum && !empty($user['character_id'])) {
 }
 
 if (in_array($action, array('sticktopic', 'unsticktopic', 'closetopic', 'opentopic', 'dodeletetopic'), true) && !empty($this_topic['topic_id'])) {
+    spp_forum_require_csrf();
     if ((int)($user['g_forum_moderate'] ?? 0) !== 1) {
         output_message('alert', 'You are not authorized to moderate this topic.');
         return;
@@ -154,6 +155,7 @@ if (in_array($action, array('sticktopic', 'unsticktopic', 'closetopic', 'opentop
 }
 
 if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
+    spp_forum_require_csrf();
     if (($user['g_post_new_topics'] == 1 && !$this_forum['closed']) || $user['g_forum_moderate'] == 1) {
         if (!empty($_POST['subject']) && !empty($_POST['text'])) {
             $message = trim((string)$_POST['text']);
@@ -284,6 +286,7 @@ if ($canPost && $action === 'donewtopic' && !empty($this_forum['forum_id'])) {
         }
     }
 } elseif ($canPost && $action === 'donewpost' && !empty($this_forum['forum_id']) && !empty($this_topic['topic_id'])) {
+    spp_forum_require_csrf();
     if (!$user['g_reply_other_topics']) {
         output_message('alert', 'You are not authorized to reply to this topic.');
         return;

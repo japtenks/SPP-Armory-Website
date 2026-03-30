@@ -24,11 +24,11 @@ $this_forum['linktonewtopic'] = $MW->getConfig->temp->site_href.'index.php?n=for
 $this_topic['linktothis'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=viewtopic&tid='.$this_topic['topic_id'].'';
 $this_topic['linktoreply'] = $_vtCanPost ? $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=newpost&t='.$this_topic['topic_id'].'&fid='.$this_forum['forum_id'] : '';
 $this_topic['linktopostreply'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=donewpost&t='.$this_topic['topic_id'].'&fid='.$this_forum['forum_id'];
-$this_topic['linktodelete'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletetopic&t='.$this_topic['topic_id'];
-$this_topic['linktoclose'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=closetopic&t='.$this_topic['topic_id'];
-$this_topic['linktoopen'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=opentopic&t='.$this_topic['topic_id'];
-$this_topic['linktostick'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=sticktopic&t='.$this_topic['topic_id'];
-$this_topic['linktounstick'] = $MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=unsticktopic&t='.$this_topic['topic_id'];
+$this_topic['linktodelete'] = spp_forum_action_url($MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=dodeletetopic&t='.$this_topic['topic_id']);
+$this_topic['linktoclose'] = spp_forum_action_url($MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=closetopic&t='.$this_topic['topic_id']);
+$this_topic['linktoopen'] = spp_forum_action_url($MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=opentopic&t='.$this_topic['topic_id']);
+$this_topic['linktostick'] = spp_forum_action_url($MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=sticktopic&t='.$this_topic['topic_id']);
+$this_topic['linktounstick'] = spp_forum_action_url($MW->getConfig->temp->site_href.'index.php?n=forum&sub=post&action=unsticktopic&t='.$this_topic['topic_id']);
 $pathway_info[] = array('title'=>$this_forum['forum_name'],'link'=>$this_forum['linktothis']);
 $pathway_info[] = array('title'=>$this_topic['topic_name'],'link'=>'');
 // ================================================= //

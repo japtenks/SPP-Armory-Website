@@ -1,6 +1,29 @@
 <?php
 if (INCLUDED !== true) exit;
 
+if (!function_exists('spp_pms_csrf_token')) {
+    function spp_pms_csrf_token($formName = 'account_pms') {
+        if (!isset($_SESSION['spp_csrf_tokens']) || !is_array($_SESSION['spp_csrf_tokens'])) {
+            $_SESSION['spp_csrf_tokens'] = array();
+        }
+        if (empty($_SESSION['spp_csrf_tokens'][$formName])) {
+            $_SESSION['spp_csrf_tokens'][$formName] = bin2hex(random_bytes(32));
+        }
+        return (string)$_SESSION['spp_csrf_tokens'][$formName];
+    }
+}
+
+if (!function_exists('spp_pms_require_csrf')) {
+    function spp_pms_require_csrf($formName = 'account_pms') {
+        $submittedToken = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
+        $sessionToken = (string)($_SESSION['spp_csrf_tokens'][$formName] ?? '');
+        if ($submittedToken === '' || $sessionToken === '' || !hash_equals($sessionToken, $submittedToken)) {
+            output_message('alert', 'Security check failed. Please refresh the page and try again.');
+            exit;
+        }
+    }
+}
+
 // ========================================================
 // Pathway setup
 // ========================================================
@@ -124,6 +147,7 @@ elseif (
     && isset($_POST['deletem'])
     && is_array($_POST['checkpm'])
 ) {
+    spp_pms_require_csrf();
     $ids = array_map('intval', (array)$_POST['checkpm']);
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     if ($_GET['dir'] == 'in') {
@@ -144,6 +168,7 @@ elseif (
 // MARK MESSAGE AS READ
 // ========================================================
 elseif ($_GET['action'] == 'markread' && $_GET['dir'] == 'in' && !empty($_GET['iid'])) {
+    spp_pms_require_csrf();
     $stmt = $pmsPdo->prepare("
         UPDATE website_pms
         SET showed = 1
@@ -201,6 +226,7 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
         $threadPeer = $_viewPeerName;
 
         if ($threadPeerId > 0 && !empty($_POST['reply_message'])) {
+            spp_pms_require_csrf();
             $replyMessage = trim((string)$_POST['reply_message']);
             if ($replyMessage !== '') {
                 // Resolve identity IDs for this reply.
@@ -314,6 +340,7 @@ elseif ($_GET['action'] == 'viewpm' && isset($_GET['iid'])) {
 // ADD / SEND / REPLY
 // ========================================================
 elseif ($_GET['action'] == 'add') {
+    $this['pms_csrf_token'] = spp_pms_csrf_token();
 
     $content = array('message' => '', 'sender' => '');
     $pmRecipientOptions = array();
@@ -349,6 +376,7 @@ elseif ($_GET['action'] == 'add') {
     }
 
     if (!empty($_POST['owner']) && !empty($_POST['message'])) {
+        spp_pms_require_csrf();
 
         $message   = trim((string)$_POST['message']);
         $sender_id = $user['id'];

@@ -172,7 +172,7 @@
       <div class="forum-admin__actions" style="margin-bottom:16px;">
         <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>">Back to Topics</a>
         <a class="forum-admin__pill" href="index.php?n=forum&amp;sub=viewtopic&amp;tid=<?php echo (int)$_GET['topic_id']; ?>" target="_blank">View Topic</a>
-        <a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>&amp;topic_id=<?php echo (int)$_GET['topic_id']; ?>&amp;action=deletetopic" onclick="return confirm('Delete entire topic and all its posts?');">Delete Topic</a>
+        <a class="forum-admin__pill forum-admin__pill--danger" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'forum_id' => (int)$_GET['forum_id'], 'topic_id' => (int)$_GET['topic_id'], 'action' => 'deletetopic'))); ?>" onclick="return confirm('Delete entire topic and all its posts?');">Delete Topic</a>
       </div>
       <table class="forum-admin__table">
         <thead><tr><th>Post</th><th>Author</th><th>Date</th><th>Action</th></tr></thead>
@@ -182,7 +182,7 @@
             <td><?php echo nl2br(htmlspecialchars($item['excerpt'])); ?><?php if (strlen($item['excerpt']) >= 120) echo '...'; ?></td>
             <td><?php echo htmlspecialchars($item['poster']); ?></td>
             <td><?php echo date('M d, Y H:i', $item['posted']); ?></td>
-            <td><a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>&amp;topic_id=<?php echo (int)$_GET['topic_id']; ?>&amp;post_id=<?php echo (int)$item['post_id']; ?>&amp;action=deletepost" onclick="return confirm('Delete this post?');">Delete</a></td>
+            <td><a class="forum-admin__pill forum-admin__pill--danger" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'forum_id' => (int)$_GET['forum_id'], 'topic_id' => (int)$_GET['topic_id'], 'post_id' => (int)$item['post_id'], 'action' => 'deletepost'))); ?>" onclick="return confirm('Delete this post?');">Delete</a></td>
           </tr>
         <?php } ?>
         </tbody>
@@ -205,7 +205,7 @@
             <td><?php echo htmlspecialchars($item['topic_poster']); ?></td>
             <td><?php echo date('M d, Y', $item['topic_posted']); ?></td>
             <td><?php echo (int)$item['num_replies']; ?></td>
-            <td><a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$_GET['forum_id']; ?>&amp;topic_id=<?php echo (int)$item['topic_id']; ?>&amp;action=deletetopic" onclick="return confirm('Delete this topic and all its posts?');">Delete</a></td>
+            <td><a class="forum-admin__pill forum-admin__pill--danger" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'forum_id' => (int)$_GET['forum_id'], 'topic_id' => (int)$item['topic_id'], 'action' => 'deletetopic'))); ?>" onclick="return confirm('Delete this topic and all its posts?');">Delete</a></td>
           </tr>
         <?php } ?>
         </tbody>
@@ -216,11 +216,13 @@
       <h3>Forums In Section</h3>
       <p class="forum-admin__subtext">Tune ordering, visibility, and topic access from one cleaner view.</p>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=updforumsorder" class="forum-admin__stack">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
         <?php foreach ($items as $item_c => $item) { ?>
           <div class="forum-admin__row">
             <div class="forum-admin__main">
               <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>"><?php echo htmlspecialchars($item['forum_name']); ?></a></p>
               <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=renameforum" class="forum-admin__rename">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
                 <input type="hidden" name="forum_id" value="<?php echo (int)$item['forum_id']; ?>">
                 <input type="text" name="forum_name" value="<?php echo htmlspecialchars($item['forum_name']); ?>">
                 <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Rename">
@@ -229,18 +231,18 @@
               <div class="forum-admin__order">
                 <span><?php echo $lang['order']; ?></span>
                 <input type="text" name="forumorder[<?php echo (int)$item['forum_id']; ?>]" value="<?php echo (int)$item['disp_position']; ?>">
-                <?php if ($item_c > 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=moveup&amp;cat_id=<?php echo (int)$item['cat_id']; ?>&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Move Up</a><?php } ?>
-                <?php if ($item_c < count($items) - 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=movedown&amp;cat_id=<?php echo (int)$item['cat_id']; ?>&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Move Down</a><?php } ?>
+                <?php if ($item_c > 0) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'moveup', 'cat_id' => (int)$item['cat_id'], 'forum_id' => (int)$item['forum_id']))); ?>">Move Up</a><?php } ?>
+                <?php if ($item_c < count($items) - 1) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'movedown', 'cat_id' => (int)$item['cat_id'], 'forum_id' => (int)$item['forum_id']))); ?>">Move Down</a><?php } ?>
               </div>
             </div>
             <div class="forum-admin__actions">
-              <?php if ($item['closed'] == 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=close&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Close</a><?php } ?>
-              <?php if ($item['closed'] == 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=open&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Open</a><?php } ?>
-              <?php if ($item['hidden'] == 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=hide&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Hide</a><?php } ?>
-              <?php if ($item['hidden'] == 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=show&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Show</a><?php } ?>
-              <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=recount&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Recount</a>
+              <?php if ($item['closed'] == 0) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'close', 'forum_id' => (int)$item['forum_id']))); ?>">Close</a><?php } ?>
+              <?php if ($item['closed'] == 1) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'open', 'forum_id' => (int)$item['forum_id']))); ?>">Open</a><?php } ?>
+              <?php if ($item['hidden'] == 0) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'hide', 'forum_id' => (int)$item['forum_id']))); ?>">Hide</a><?php } ?>
+              <?php if ($item['hidden'] == 1) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'show', 'forum_id' => (int)$item['forum_id']))); ?>">Show</a><?php } ?>
+              <a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'recount', 'forum_id' => (int)$item['forum_id']))); ?>">Recount</a>
               <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>">Topics</a>
-              <a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;action=deleteforum&amp;forum_id=<?php echo (int)$item['forum_id']; ?>" onclick="return confirm('Are you sure?');">Delete</a>
+              <a class="forum-admin__pill forum-admin__pill--danger" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'deleteforum', 'forum_id' => (int)$item['forum_id']))); ?>" onclick="return confirm('Are you sure?');">Delete</a>
             </div>
           </div>
         <?php } ?>
@@ -251,6 +253,7 @@
     <div class="forum-admin__card">
       <h3>Create New Forum</h3>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=newforum" class="forum-admin__grid-form">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
         <input type="hidden" name="cat_id" value="<?php echo (int)$_GET['cat_id']; ?>">
         <div class="forum-admin__field"><label><?php echo $lang['l_name']; ?></label><input type="text" name="forum_name"></div>
         <div class="forum-admin__field forum-admin__field--wide"><label><?php echo $lang['l_desc']; ?></label><input type="text" name="forum_desc"></div>
@@ -270,6 +273,7 @@
             <div class="forum-admin__main">
               <p class="forum-admin__title"><a href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>"><?php echo htmlspecialchars($item['cat_name']); ?></a></p>
               <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=renamecat" class="forum-admin__rename">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
                 <input type="hidden" name="cat_id" value="<?php echo (int)$item['cat_id']; ?>">
                 <input type="text" name="cat_name" value="<?php echo htmlspecialchars($item['cat_name']); ?>">
                 <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Rename">
@@ -277,13 +281,13 @@
               <div class="forum-admin__order">
                 <span><?php echo $lang['order']; ?></span>
                 <input type="text" value="<?php echo (int)$item['cat_disp_position']; ?>" readonly>
-                <?php if ($item_c > 0) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=moveup&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Move Up</a><?php } ?>
-                <?php if ($item_c < count($items) - 1) { ?><a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;action=movedown&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Move Down</a><?php } ?>
+                <?php if ($item_c > 0) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'moveup', 'cat_id' => (int)$item['cat_id']))); ?>">Move Up</a><?php } ?>
+                <?php if ($item_c < count($items) - 1) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'movedown', 'cat_id' => (int)$item['cat_id']))); ?>">Move Down</a><?php } ?>
               </div>
             </div>
             <div class="forum-admin__actions">
               <a class="forum-admin__pill" href="index.php?n=admin&amp;sub=forum&amp;cat_id=<?php echo (int)$item['cat_id']; ?>">Open Forums</a>
-              <a class="forum-admin__pill forum-admin__pill--danger" href="index.php?n=admin&amp;sub=forum&amp;action=deletecat&amp;cat_id=<?php echo (int)$item['cat_id']; ?>" onclick="return confirm('Are you sure?');">Delete</a>
+              <a class="forum-admin__pill forum-admin__pill--danger" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'deletecat', 'cat_id' => (int)$item['cat_id']))); ?>" onclick="return confirm('Are you sure?');">Delete</a>
             </div>
           </div>
         <?php } ?>
@@ -292,6 +296,7 @@
     <div class="forum-admin__card">
       <h3>Create New Forum Section</h3>
       <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=newcat" class="forum-admin__grid-form">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_admin_forum_csrf_token()); ?>">
         <div class="forum-admin__field"><label><?php echo $lang['l_name']; ?></label><input type="text" name="cat_name"></div>
         <div class="forum-admin__field"><label><?php echo $lang['order']; ?></label><input type="text" name="cat_disp_position" value="<?php echo count($items) + 1; ?>"></div>
         <div class="forum-admin__actions" style="grid-column:1 / -1;"><input class="forum-admin__button" type="submit" value="Create New Forum Section"></div>
