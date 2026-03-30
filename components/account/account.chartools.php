@@ -1,5 +1,6 @@
 <?php
 if(INCLUDED!==true)exit;
+require_once(__DIR__ . '/account.chartools.helpers.php');
 // ==================== //
 $pathway_info[] = array('title'=>$lang['char_manage'],'link'=>'');
 // ==================== //
@@ -13,45 +14,20 @@ if($user['id']<=0){
 }
 ?>
 <?php
-// Here we see if the site admin has the rename system enabled
-if ((int)$MW->getConfig->character_tools->rename){
-    $show_rename = true;
-}else{ 
-$show_rename = false;
-}
+$chartoolsState = spp_account_chartools_build_state($user, $MW->getConfig);
 
-// Here we see if the site admin has the re-customization system enabled
-if ((int)$MW->getConfig->character_tools->re_customization){
-    $show_custom = true;
-}else{ 
-$show_custom = false;
-}
-
-// Here we see if the site admin has the race changer system enabled
-if ((int)$MW->getConfig->character_tools->race_changer){
-    $show_changer = true;
-}else{ 
-$show_changer = false;
-}
-
-// Here we see if the site admin allows faction changes 
-if ((int)$MW->getConfig->character_tools->faction_change){
-    $allow_faction_change = true;
-}else{ 
-$allow_faction_change = false;
-}
-
-// The character rename starts here
-$account_id = $user['id'];
-$char_rename_points = (int)$MW->getConfig->character_tools->rename_points;
-$char_custom_points = (int)$MW->getConfig->character_tools->customization_points;
-$char_faction_points = (int)$MW->getConfig->character_tools->faction_points;
-$realmId = (int)($user['cur_selected_realmd'] ?? 1);
-$realmPdoCt = spp_get_pdo('realmd', $realmId);
-$charPdoCt  = spp_get_pdo('chars',  $realmId);
-$stmtPts = $realmPdoCt->prepare("SELECT `points` FROM `voting_points` WHERE id=?");
-$stmtPts->execute([(int)$account_id]);
-$your_points = $stmtPts->fetchColumn();
+$show_rename = $chartoolsState['show_rename'];
+$show_custom = $chartoolsState['show_custom'];
+$show_changer = $chartoolsState['show_changer'];
+$allow_faction_change = $chartoolsState['allow_faction_change'];
+$account_id = (int)$chartoolsState['account_id'];
+$char_rename_points = (int)$chartoolsState['char_rename_points'];
+$char_custom_points = (int)$chartoolsState['char_custom_points'];
+$char_faction_points = (int)$chartoolsState['char_faction_points'];
+$realmPdoCt = $chartoolsState['realm_pdo'];
+$charPdoCt = $chartoolsState['char_pdo'];
+$your_points = (int)$chartoolsState['your_points'];
+$chartoolsCharacters = $chartoolsState['characters'];
 
 // Functions
 function check_if_online($name, $charPdo)
@@ -275,4 +251,26 @@ function addMounts($guid, $race, $charPdo) {
             $charPdo->exec("INSERT INTO character_spell (guid,spell) VALUES ('$guid','$mount2')");
          }
 	}
+
+require_once(__DIR__ . '/account.chartools.actions.php');
+
+$chartoolsCsrfToken = spp_csrf_token('account_chartools');
+$chartoolsActionState = spp_account_chartools_handle_actions(array(
+    'MANG' => $MANG,
+    'account_id' => $account_id,
+    'realm_pdo' => $realmPdoCt,
+    'char_pdo' => $charPdoCt,
+    'allow_faction_change' => $allow_faction_change,
+    'char_rename_points' => $char_rename_points,
+    'char_custom_points' => $char_custom_points,
+    'char_faction_points' => $char_faction_points,
+    'your_points' => $your_points,
+));
+
+$chartoolsUnstuckMessage = (string)$chartoolsActionState['unstuck_message'];
+$chartoolsRenameMessage = (string)$chartoolsActionState['rename_message'];
+$chartoolsCustomizeMessage = (string)$chartoolsActionState['customize_message'];
+$chartoolsRaceMessage = (string)$chartoolsActionState['race_message'];
+$chartoolsRaceStep = (int)$chartoolsActionState['race_step'];
+$chartoolsRaceContext = is_array($chartoolsActionState['race_context']) ? $chartoolsActionState['race_context'] : array();
 ?>

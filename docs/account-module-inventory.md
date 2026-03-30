@@ -91,7 +91,19 @@ Current shared account helpers:
 - [account.register.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.register.actions.php)
   - owns modern registration form state, validation, IP-limit checks, and account creation submission handling
 
+- [account.chartools.helpers.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.chartools.helpers.php)
+  - owns shared chartools page state and character-list loading
+
+- [account.chartools.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.chartools.actions.php)
+  - owns chartools mutations and race-change step state
+
+- [account.charcreate.read.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.charcreate.read.php)
+  - owns character-copy page state, realm eligibility, and source-character listing
+
+- [account.charcreate.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.charcreate.actions.php)
+  - owns character-copy submission handling and CSRF validation
+
 ## Next Likely Splits
 
 - Move chartools utility functions out of [account.chartools.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.chartools.php)
-- Move remaining character-creation flow logic out of [account.charcreate.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.charcreate.php)
+- Continue slimming the heavy copy routine inside [account.charcreate.actions.php](/C:/Users/japte/Downloads/SPP_Classics_V2/SPP_Server/Server/website/components/account/account.charcreate.actions.php)

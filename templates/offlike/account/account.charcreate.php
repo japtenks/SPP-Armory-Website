@@ -2,26 +2,14 @@
 <img src="templates/offlike/images/header-charcopy.jpg" width="660" height="121" /><br />
 <img src="templates/offlike/images/banner-bottom2.jpg" width="660" height="18" /><br /><br />
 <div id = "wrapper"><div id = "heads"><img src = "templates/offlike/images/header-charcopy-top.gif" width="642" /></div></div>
+<?php if (!empty($charcreateSuppressTemplate)) { return; } ?>
 <?php builddiv_start(0, $lang['charcreate']) ?>
 <?php if($user['id'] > 0){ ?>
 <?php
-    // We do only want to show this if user is on the right realm connection.
-    foreach($MW->getConfig->character_copy_config->work_on_realms->realm as $check){
-        $i = 0;
-        if ($user['cur_selected_realmd'] != $check){
-            $exit = TRUE;
-            $usable_realm[$i] = $check;
-            $i++;
-        }
-    }
-    if ($exit == TRUE){
+    if (!$charcreateRealmAllowed){
        echo "<p><b>".$lang['not_copy_realm_choose_other']."</b><ul>";
-       foreach($usable_realm as $rm){
-           $realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
-       $stmtRn = $realmPdo->prepare("SELECT name FROM `realmlist` WHERE id=?");
-       $stmtRn->execute([(int)$rm]);
-       $realmname = $stmtRn->fetchColumn();
-           echo "<li><a href='index.php?n=account&sub=charcreate&changerealm_to=".$rm."'>".$realmname."</a></li>";
+       foreach($charcreateUsableRealms as $realmInfo){
+           echo "<li><a href='index.php?n=account&sub=charcreate&changerealm_to=".(int)$realmInfo['id']."'>".htmlspecialchars((string)$realmInfo['name'])."</a></li>";
        }
        echo "</ul></p>";
        die;
@@ -62,7 +50,7 @@
 </style>
 
 <?php
-if ((int)$MW->getConfig->character_copy_config->enable == 1){
+if ($charcreateEnabled){
 ?>
 <table>
   <tr>
@@ -102,44 +90,25 @@ if ((int)$MW->getConfig->character_copy_config->enable == 1){
                     </td>
                 </tr>
 <?php
-    //Declares
-	  $userid=$user['id'];
-    $MANG = new Mangos;
-
-		// Main Get and assign values to inputs.
-		$realmdPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
-		$stmtPts = $realmdPdo->prepare("SELECT `points` FROM `voting_points` WHERE id=?");
-		$stmtPts->execute([(int)$userid]);
-		$available_points = $stmtPts->fetchColumn();
-		if($char_points > $available_points){
+    $userid=$user['id'];
+		if($char_points > $your_points){
 			$disabled = disabled;
 			echo "<font color=\"red\"><center>You do not have enough points to copy a character!!</center></font>";
 		}else{
 			$disabled = enabled;
 			
 		}
-    $alliance_cop = (int)$MW->getConfig->character_copy_config->accounts->alliance;
-    $horde_cop = (int)$MW->getConfig->character_copy_config->accounts->horde;
-    $charPdo = spp_get_pdo('chars', spp_resolve_realm_id($realmDbMap));
-    $stmtChars = $charPdo->prepare("SELECT * FROM `characters` WHERE account=? OR account=? ORDER BY account");
-    $stmtChars->execute([(int)$alliance_cop, (int)$horde_cop]);
-    $query = $stmtChars->fetchAll(PDO::FETCH_ASSOC);
-
-    if ($query == FALSE){
-      echo $lang[no_char_create];
+    if (empty($charcreateSourceCharacters)){
+      echo $lang['no_char_create'];
     }else{
-    foreach($query as $data)
+    foreach($charcreateSourceCharacters as $data)
 		{
-			$char_data = explode(' ',$data['data']);
-			$pre_level = $char_data[$MANG->charDataField['UNIT_FIELD_LEVEL']];
-			$race = $data['race'];
-			$class = $data['class'];
 			$char_guid = $data['guid'];
-      if ($race == 1 || $race == 3 || $race == 4 || $race == 7 || $race == 11){ $output_race = 'alliance';}else{ $output_race = 'horde';}
-      $output_class = $MANG->characterInfoByID['character_class'][$class];
-	  $level = $pre_level;
-      $classe = $MANG->characterInfoByID['character_class'][$class];
-      $race = $MANG->characterInfoByID['character_race'][$race];
+      $output_race = $data['faction_label'];
+      $output_class = $data['class_label'];
+	  $level = $data['level'];
+      $classe = $data['class_label'];
+      $race = $data['race_label'];
       /*****DECLARE RACE AND CLASS ******/
 echo<<<EOT
 	<form action="index.php?n=account&sub=charcreate&action=createchar" method="POST">
@@ -147,6 +116,7 @@ echo<<<EOT
 	<input type="hidden" name="createchar_faction" value="$output_race">
 	<input type="hidden" name="createchar_class" value="$output_class">
 	<input type="hidden" name="character_copy_char" value="$char_guid">
+	<input type="hidden" name="csrf_token" value="{$charcreateCsrfToken}">
 EOT;
 				if ($i == 1)
 				{
@@ -176,7 +146,6 @@ EOT;
 						$i++;
 					}
 		}
-		unset($MANG);
 }
 echo<<<EOT
                 </tbody>
