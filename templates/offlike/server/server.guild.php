@@ -188,8 +188,10 @@ $guildNoteError = '';
 $guildMotdFeedback = '';
 $guildMotdError = '';
 $guildReturnUrl = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : ('index.php?n=server&sub=guild&realm=' . $realmId . '&guildid=' . $guildId);
+$guildCsrfToken = spp_csrf_token('guild_page');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_roster_action']) && $_POST['guild_roster_action'] === 'manage_member') {
+    spp_require_csrf('guild_page');
     if (!$canManageGuildRoster) {
         $guildNoteError = 'Only the selected guild leader can manage guild members from the website.';
     } else {
@@ -253,6 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_roster_action']
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) && $_POST['guild_form_action'] === 'save_guild_data') {
+    spp_require_csrf('guild_page');
     $submitMode = isset($_POST['guild_submit_mode']) ? (string)$_POST['guild_submit_mode'] : '';
     $shouldSaveMotd = in_array($submitMode, ['motd_only', 'all_notes'], true);
     $shouldSaveNotes = $submitMode === 'all_notes';
@@ -359,6 +362,7 @@ $flavorFeedback = '';
 $flavorError    = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) && $_POST['guild_form_action'] === 'save_guild_flavor') {
+    spp_require_csrf('guild_page');
     if (!$isSelectedGuildLeader && !$isGm) {
         $flavorError = 'Only the guild leader can change the bot strategy flavor.';
     } else {
@@ -1340,9 +1344,6 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
 
       <div class="guild-roster-toolbar">
         <div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo $totalMembers; ?> members</div>
-        <?php if ($canEditGuildNotes): ?>
-          <span class="guild-wip-note">Guild notes and MOTD web saving are WIP.</span>
-        <?php endif; ?>
       </div>
       <?php if ($guildNoteFeedback !== ''): ?><div class="guild-note-banner"><?php echo htmlspecialchars($guildNoteFeedback); ?></div><?php endif; ?>
       <?php if ($guildNoteError !== ''): ?><div class="guild-note-banner is-error"><?php echo htmlspecialchars($guildNoteError); ?></div><?php endif; ?>
@@ -1350,6 +1351,7 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
       <?php if ($canEditGuildNotes): ?>
         <form method="post" id="guild-note-bulk-form">
           <input type="hidden" name="guild_form_action" value="save_guild_data">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($guildCsrfToken, ENT_QUOTES); ?>">
         </form>
       <?php endif; ?>
       <div class="guild-roster-table-wrap">
@@ -1421,6 +1423,7 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
                     <?php else: ?>
                       <form method="post" class="guild-action-form">
                         <input type="hidden" name="guild_roster_action" value="manage_member">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($guildCsrfToken, ENT_QUOTES); ?>">
                         <input type="hidden" name="target_guid" value="<?php echo (int)$member['guid']; ?>">
                         <div class="guild-action-buttons">
                           <button class="guild-action-btn is-symbol" type="submit" name="guild_roster_action_type" value="rank_up" title="Rank Up" aria-label="Rank Up"<?php echo (int)$member['rank'] <= 1 ? ' disabled' : ''; ?>>↑</button>
@@ -1442,6 +1445,12 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
 
       <?php if ($pageCount > 1): ?>
         <div class="pagination-controls"><div class="page-links"><?php echo compact_paginate($p, $pageCount, $baseUrl); ?></div></div>
+      <?php endif; ?>
+
+      <?php if ($canEditGuildNotes): ?>
+        <div style="margin-top:10px;">
+          <button class="guild-note-save" type="submit" name="guild_submit_mode" value="all_notes" form="guild-note-bulk-form">Save All Notes &amp; MOTD</button>
+        </div>
       <?php endif; ?>
     </section>
 
@@ -1472,6 +1481,7 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
           <?php else: ?>
             <form class="guild-motd-form" method="post">
               <input type="hidden" name="guild_form_action" value="save_guild_data">
+              <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($guildCsrfToken, ENT_QUOTES); ?>">
               <textarea class="guild-motd-input" name="guild_motd" maxlength="128"><?php echo htmlspecialchars((string)($guild['motd'] ?? '')); ?></textarea>
               <div class="guild-motd-actions">
                 <button class="guild-note-save" type="submit" name="guild_submit_mode" value="motd_only">Save MOTD</button>
@@ -1517,6 +1527,7 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
 
         <form method="post" style="margin-top:8px;">
           <input type="hidden" name="guild_form_action" value="save_guild_flavor">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($guildCsrfToken, ENT_QUOTES); ?>">
           <select name="guild_flavor" style="width:100%;background:#1a1a1a;border:1px solid #444;color:#ddd;padding:6px 8px;border-radius:4px;font-size:13px;margin-bottom:8px;">
             <?php foreach ($guildFlavorProfiles as $fKey => $fData): ?>
               <option value="<?php echo htmlspecialchars($fKey); ?>"
