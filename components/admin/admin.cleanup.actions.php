@@ -14,10 +14,7 @@ function spp_admin_cleanup_handle_action(PDO $cleanupPdo, PDO $cleanupCharsPdo)
         return;
     }
 
-    if (!spp_csrf_check('admin_cleanup', $_POST['csrf_token'] ?? '')) {
-        output_message('alert', 'Cleanup action rejected. Please refresh the page and try again.');
-        return;
-    }
+    spp_require_csrf('admin_cleanup', 'Cleanup action rejected. Please refresh the page and try again.');
 
     if ($action === 'clear_invalid_selected_character') {
         try {

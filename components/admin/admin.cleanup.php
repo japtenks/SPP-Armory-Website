@@ -22,7 +22,7 @@ if ($cleanupSelectedRealmId <= 0 || !isset($cleanupRealmOptions[$cleanupSelected
     $cleanupSelectedRealmId = $cleanupDefaultRealmId;
 }
 if ($cleanupSelectedRealmId <= 0 && !empty($cleanupRealmOptions)) {
-    $cleanupSelectedRealmId = (int)array_key_first($cleanupRealmOptions);
+    $cleanupSelectedRealmId = (int)spp_array_first_key($cleanupRealmOptions);
 }
 
 $cleanupCharsPdo = spp_get_pdo('chars', $cleanupSelectedRealmId);

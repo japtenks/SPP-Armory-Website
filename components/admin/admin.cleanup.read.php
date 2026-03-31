@@ -120,14 +120,19 @@ function spp_admin_cleanup_build_preview(PDO $cleanupPdo, PDO $cleanupCharsPdo, 
         $stmtBotAccounts = $cleanupPdo->query("SELECT COUNT(*) FROM account WHERE LOWER(username) LIKE 'rndbot%'");
         $cleanupPreview['bots']['accounts'] = (int)$stmtBotAccounts->fetchColumn();
 
-        $stmtBotCharacters = $cleanupCharsPdo->query("
-            SELECT COUNT(*)
-            FROM characters
-            WHERE account IN (
-                SELECT id FROM account WHERE LOWER(username) LIKE 'rndbot%'
-            )
-        ");
-        $cleanupPreview['bots']['characters'] = (int)$stmtBotCharacters->fetchColumn();
+        $stmtBotAccountIds = $cleanupPdo->query("SELECT id FROM account WHERE LOWER(username) LIKE 'rndbot%'");
+        $botAccountIds = $stmtBotAccountIds ? array_map('intval', $stmtBotAccountIds->fetchAll(PDO::FETCH_COLUMN, 0)) : array();
+
+        if (!empty($botAccountIds)) {
+            $botPlaceholders = implode(',', array_fill(0, count($botAccountIds), '?'));
+            $stmtBotCharacters = $cleanupCharsPdo->prepare("
+                SELECT COUNT(*)
+                FROM characters
+                WHERE account IN ($botPlaceholders)
+            ");
+            $stmtBotCharacters->execute($botAccountIds);
+            $cleanupPreview['bots']['characters'] = (int)$stmtBotCharacters->fetchColumn();
+        }
 
         if (spp_admin_cleanup_table_exists($cleanupPdo, 'website_identities')) {
             $stmtBotIdentities = $cleanupPdo->query("
