@@ -314,8 +314,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) 
         if ($guildMotdFeedback !== '') {
             $redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 'guild_motd_saved=1';
         }
-        header('Location: ' . $redirectUrl);
-        exit;
+        if (!headers_sent()) {
+            header('Location: ' . $redirectUrl);
+            exit;
+        }
+        $GLOBALS['spp_guild_redirect'] = $redirectUrl;
     }
 }
 
@@ -1283,6 +1286,9 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
   $guildClassLevelCards[$classId] = $medianLevel;
 }
 ?>
+<?php if (!empty($GLOBALS['spp_guild_redirect'])): ?>
+<meta http-equiv="refresh" content="0;url=<?php echo htmlspecialchars($GLOBALS['spp_guild_redirect'], ENT_QUOTES); ?>">
+<?php endif; ?>
 <div class="guild-page">
 <div class="guild-detail">
   <div class="guild-hero">
@@ -1344,6 +1350,9 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
 
       <div class="guild-roster-toolbar">
         <div class="guild-summary">Showing <?php echo $resultStart; ?>-<?php echo $resultEnd; ?> of <?php echo $totalMembers; ?> members</div>
+        <?php if ($canEditGuildNotes): ?>
+          <button class="guild-wip-note" style="cursor:pointer;background:rgba(255,204,72,0.12);border-color:rgba(255,204,72,0.35);" type="submit" name="guild_submit_mode" value="all_notes" form="guild-note-bulk-form">Save All Notes &amp; MOTD</button>
+        <?php endif; ?>
       </div>
       <?php if ($guildNoteFeedback !== ''): ?><div class="guild-note-banner"><?php echo htmlspecialchars($guildNoteFeedback); ?></div><?php endif; ?>
       <?php if ($guildNoteError !== ''): ?><div class="guild-note-banner is-error"><?php echo htmlspecialchars($guildNoteError); ?></div><?php endif; ?>
@@ -1447,11 +1456,6 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
         <div class="pagination-controls"><div class="page-links"><?php echo compact_paginate($p, $pageCount, $baseUrl); ?></div></div>
       <?php endif; ?>
 
-      <?php if ($canEditGuildNotes): ?>
-        <div style="margin-top:10px;">
-          <button class="guild-note-save" type="submit" name="guild_submit_mode" value="all_notes" form="guild-note-bulk-form">Save All Notes &amp; MOTD</button>
-        </div>
-      <?php endif; ?>
     </section>
 
     <div class="guild-side-stack">
