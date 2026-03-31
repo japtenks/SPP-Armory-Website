@@ -1,4 +1,3 @@
-<br>
 <?php builddiv_start(0, 'Forum Identity Coverage') ?>
 <style>
 .identity-coverage { color:#f4efe2; }

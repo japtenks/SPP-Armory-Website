@@ -1,4 +1,3 @@
-<br>
 <?php builddiv_start(1, $lang['si_acc']) ?>
 <style>
 .admin-members {

@@ -1,4 +1,3 @@
-<br>
 <?php
 $GLOBALS['builddiv_header_actions'] = '<a href="index.php?n=account&sub=userlist" class="btn secondary">User List</a>';
 builddiv_start(1, $lang['si_acc']);

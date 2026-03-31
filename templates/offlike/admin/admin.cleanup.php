@@ -1,4 +1,3 @@
-<br>
 <?php builddiv_start(1, 'Site Cleanup') ?>
 <style>
 .admin-cleanup {

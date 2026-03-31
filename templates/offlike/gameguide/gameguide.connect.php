@@ -52,6 +52,10 @@ $isLoggedIn = !empty($user['id']) && (int)$user['id'] > 0;
 .connect-eyebrow{margin:0 0 8px;color:#c7b07b;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase}
 .connect-title{margin:0;color:#fff1bd;font-size:2.1rem;line-height:1.05}
 .connect-copy{margin:12px 0 0;color:#d9d1ba;font-size:1rem;line-height:1.65;max-width:70ch}
+.connect-copy strong{color:#f4ead0}
+.connect-copy-list{margin:14px 0 0;padding-left:20px;color:#f4ead0}
+.connect-copy-list li{margin:0 0 8px;line-height:1.55}
+.connect-copy-footer{margin-top:14px;color:#d9d1ba}
 .connect-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
 .connect-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;border:1px solid rgba(255,204,72,.24);background:rgba(255,255,255,.04);color:#f6e3ad;text-decoration:none;font-weight:800}
 .connect-button.is-primary{background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.5);color:#201300}
@@ -73,6 +77,8 @@ $isLoggedIn = !empty($user['id']) && (int)$user['id'] > 0;
 .connect-step-grid{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
 .connect-step{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.14);background:rgba(255,255,255,.03)}
 .connect-step strong{display:block;margin-bottom:6px;color:#fff1bd}
+.connect-step-list{margin:0;padding-left:20px;color:#f4ead0}
+.connect-step-list li{margin:0 0 6px;line-height:1.5}
 @media (max-width:900px){.connect-grid{grid-template-columns:1fr}}
 @media (max-width:640px){.connect-hero,.connect-panel{padding:18px}.connect-title{font-size:1.7rem}.connect-actions{flex-direction:column}.connect-button{width:100%}}
 </style>
@@ -82,8 +88,14 @@ $isLoggedIn = !empty($user['id']) && (int)$user['id'] > 0;
     <p class="connect-eyebrow"><?php echo htmlspecialchars($connectRealmName); ?> Setup</p>
     <h2 class="connect-title"><?php echo $isLoggedIn ? 'Choose a client and connect in a few minutes.' : 'Choose a client, create an account, and connect in a few minutes.'; ?></h2>
     <p class="connect-copy">
-      The player will need to source their own WoW client. You can connect with a<br><br><strong>Vanilla (1.12.1) client</strong>, optionally pair it with <strong>Project Reforged</strong> for HD visuals<br><strong>Classic (1.14.2) with HermesProxy</strong><br><strong>WoWee</strong>, the open source C++ client.<br><br> <?php echo $isLoggedIn ? 'Then use this server\'s <code>realmlist.wtf</code> to connect.' : 'Create your account, then use this server\'s <code>realmlist.wtf</code> to connect.'; ?>
+      The player will need to source their own WoW client.
     </p>
+    <ul class="connect-copy-list">
+      <li><strong>Vanilla (1.12.1) client</strong>, optionally pair it with <strong>Project Reforged</strong> for HD visuals</li>
+      <li><strong>Classic (1.14.2) with HermesProxy</strong></li>
+      <li><strong>WoWee</strong>, the open source C++ client</li>
+    </ul>
+    <p class="connect-copy connect-copy-footer"><?php echo $isLoggedIn ? 'Then use this server\'s <code>realmlist.wtf</code> to connect.' : 'Create your account, then use this server\'s <code>realmlist.wtf</code> to connect.'; ?></p>
     <div class="connect-actions">
       <?php if (!$isLoggedIn) { ?>
       <a class="connect-button is-primary" href="<?php echo htmlspecialchars($createAccountUrl); ?>">Create Account</a>
@@ -130,7 +142,12 @@ $isLoggedIn = !empty($user['id']) && (int)$user['id'] > 0;
       <div class="connect-step-grid">
         <div class="connect-step">
           <strong>1. Install your version of choice</strong>
-          Source your own client, then choose<br> <strong>-Vanilla (1.12.1)</strong><strong>-Classic (1.14.2) with HermesProxy</strong><strong>-WoWee</strong>
+          <div>Source your own client, then choose:</div>
+          <ul class="connect-step-list">
+            <li><strong>Vanilla (1.12.1)</strong></li>
+            <li><strong>Classic (1.14.2) with HermesProxy</strong></li>
+            <li><strong>WoWee</strong></li>
+          </ul>
         </div>
         <?php if (!$isLoggedIn) { ?>
         <div class="connect-step">

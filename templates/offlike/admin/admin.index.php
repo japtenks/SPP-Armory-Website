@@ -1,4 +1,3 @@
-<br>
 <?php builddiv_start(1, $lang['admin_panel']) ?>
 <style type="text/css">
 .admin-home { color: #f4efe2; }
