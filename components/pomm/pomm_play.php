@@ -5,10 +5,32 @@ require_once("pomm_conf.php");
 require_once("func.php");
 require_once("map_english.php");
 
-if (isset($_GET['realm'])) {
-    $realm_id = (int)$_GET['realm'];
-} elseif (!isset($realm_id)) {
-    $realm_id = 1; // fallback
+if (!isset($realm_id) || (int)$realm_id <= 0) {
+    $realm_id = spp_resolve_realm_id($realmDbMap);
+}
+
+if (!function_exists('pomm_realm_has_recent_uptime')) {
+    function pomm_realm_has_recent_uptime(DBLayer $realm_db, int $realm_id, int $maxAgeSeconds = 300): bool
+    {
+        $query = $realm_db->query("
+            SELECT `starttime`
+            FROM `uptime`
+            WHERE `realmid` = " . (int)$realm_id . "
+            ORDER BY `starttime` DESC
+            LIMIT 1
+        ");
+
+        if (!$query) {
+            return false;
+        }
+
+        $row = $realm_db->fetch_row($query);
+        if (!$row || empty($row[0])) {
+            return false;
+        }
+
+        return ((time() - (int)$row[0]) <= $maxAgeSeconds);
+    }
 }
 
 
@@ -30,6 +52,25 @@ if (!$realm_db->isValid()) {
     exit();
 }
 $realm_db->query("SET NAMES $database_encoding");
+
+$realm_is_reachable = test_realm();
+$realm_has_recent_uptime = pomm_realm_has_recent_uptime($realm_db, (int)$realm_id);
+$realm_is_active = ($realm_is_reachable && $realm_has_recent_uptime);
+
+if (!$realm_is_active) {
+    $_RESULT = array(
+        'online' => null,
+        'status' => array(
+            'online' => 0,
+            'uptime' => 0,
+            'maxplayers' => 0,
+            'gmonline' => 0
+        )
+    );
+    $realm_db->close();
+    unset($realm_db);
+    exit();
+}
 
 $gm_online = 0;
 $gm_accounts = array();

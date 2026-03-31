@@ -40,9 +40,14 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .admin-home__card h3 {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     color: #ffca5a;
     font-size: 15px;
+}
+.admin-home__card p {
+    margin: 0 0 14px;
+    color: #cfc8ba;
+    line-height: 1.55;
 }
 .admin-home__links {
     margin: 0;
@@ -60,6 +65,13 @@
     text-decoration: none;
     font-weight: 600;
 }
+.admin-home__links small {
+    display: block;
+    margin-top: 4px;
+    color: #c7bead;
+    font-weight: 400;
+    line-height: 1.45;
+}
 .admin-home__links a:hover {
     background: rgba(255, 198, 87, 0.12);
     border-color: rgba(230, 193, 90, 0.28);
@@ -76,29 +88,50 @@
 
   <div class="admin-home__grid">
     <section class="admin-home__card">
-      <h3>Site Management</h3>
+      <h3>Site Maintenance</h3>
+      <p>Core admin work for members, realm configuration, forum upkeep, and identity health.</p>
       <ul class="admin-home__links">
-        <li><a href="index.php?n=admin&amp;sub=members"><?php echo $lang['users_manage']; ?></a></li>
-        <li><a href="index.php?n=admin&amp;sub=cleanup">Site Cleanup</a></li>
-        <li><a href="index.php?n=admin&amp;sub=realms"><?php echo $lang['realms_manage']; ?></a></li>
-        <li><a href="index.php?n=admin&amp;sub=backup">Backup</a></li>
-        <li><a href="index.php?n=admin&amp;sub=identities">Identity Coverage</a></li>
+        <li><a href="index.php?n=admin&amp;sub=members">Members
+          <small>Account management, bot profile edits, transfers, deletes, and security controls.</small>
+        </a></li>
+        <li><a href="index.php?n=admin&amp;sub=forum">Forum Admin
+          <small>Categories, forums, moderation cleanup, and content structure.</small>
+        </a></li>
+        <li><a href="index.php?n=admin&amp;sub=realms"><?php echo $lang['realms_manage']; ?>
+          <small>Realm records, names, types, and world connection settings.</small>
+        </a></li>
+        <li><a href="index.php?n=admin&amp;sub=cleanup">Account Profile Cleanup
+          <small>Repair broken website account pointers and review orphaned profile rows.</small>
+        </a></li>
+        <li><a href="index.php?n=admin&amp;sub=identities">Forum Identity Coverage
+          <small>Check per-realm forum identity backfill coverage and run repair scripts.</small>
+        </a></li>
       </ul>
     </section>
 
     <section class="admin-home__card">
       <h3>Character Tools</h3>
+      <p>Admin-side character operations, migration prep, and service actions that affect live characters.</p>
       <ul class="admin-home__links">
-        <li><a href="index.php?n=admin&amp;sub=chartools">Character Tools</a></li>
+        <li><a href="index.php?n=admin&amp;sub=chartools">Character Tools
+          <small>Rename, race or faction change, and send item packs to characters.</small>
+        </a></li>
+        <li><a href="index.php?n=admin&amp;sub=backup">Character Backup Export
+          <small>Build copy-account SQL exports for migration or restoration workflows.</small>
+        </a></li>
       </ul>
     </section>
 
     <section class="admin-home__card">
-      <h3>Forum & Content</h3>
+      <h3>Bot Controls</h3>
+      <p>Automation-facing tools for bot content generation, event processing, and health monitoring.</p>
       <ul class="admin-home__links">
-        <li><a href="index.php?n=admin&amp;sub=forum"><?php echo $lang['admin_forum']; ?> Admin</a></li>
-        <li><a href="index.php?n=admin&amp;sub=botevents">Bot Events Pipeline</a></li>
-        <li><a href="index.php?n=admin&amp;sub=botrotation">Bot Rotation Health</a></li>
+        <li><a href="index.php?n=admin&amp;sub=botevents">Bot Events Pipeline
+          <small>Scan, queue, and process generated forum-ready bot event activity.</small>
+        </a></li>
+        <li><a href="index.php?n=admin&amp;sub=botrotation">Bot Rotation Health
+          <small>Inspect rotation freshness and catch stalled or missing bot posting cycles.</small>
+        </a></li>
       </ul>
     </section>
   </div>

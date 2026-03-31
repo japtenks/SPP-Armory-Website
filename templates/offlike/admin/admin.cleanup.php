@@ -110,6 +110,40 @@
   box-shadow: 0 0 10px rgba(255, 193, 72, 0.18);
 }
 
+.admin-cleanup__actions form {
+  margin: 0;
+}
+
+.admin-cleanup__btn-input {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 206, 102, 0.35);
+  background: rgba(255, 193, 72, 0.08);
+  color: #ffd27a;
+  text-decoration: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.admin-cleanup__btn-input:hover {
+  color: #fff6dc;
+  background: rgba(255, 193, 72, 0.18);
+  box-shadow: 0 0 10px rgba(255, 193, 72, 0.18);
+}
+
+.admin-cleanup__select {
+  min-width: 220px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 206, 102, 0.2);
+  background: rgba(12, 12, 12, 0.72);
+  color: #f1f1f1;
+  padding: 10px 12px;
+}
+
 .admin-cleanup__btn[aria-disabled="true"] {
   pointer-events: none;
   opacity: 0.55;
@@ -135,8 +169,8 @@
     <section>
       <p class="admin-cleanup__eyebrow">Orphaned Website Accounts</p>
       <p class="admin-cleanup__metric"><?php echo (int)$cleanupPreview['orphans']['website_only_accounts']; ?></p>
-      <p class="admin-cleanup__label">Website-linked accounts with no characters on <?php echo htmlspecialchars($cleanupPreview['realm_name']); ?></p>
-      <p class="admin-cleanup__note">This is the first place to look for profile imbalance. It catches website accounts that still exist, but do not currently own any characters on the active realm.</p>
+      <p class="admin-cleanup__label">Website-linked accounts with no characters on any configured realm</p>
+      <p class="admin-cleanup__note">This is the first place to look for profile imbalance at the site level. It catches website accounts that still exist, but do not currently own any characters anywhere in the configured realm set.</p>
       <div class="admin-cleanup__subgrid">
         <div class="admin-cleanup__mini">
           <strong><?php echo (int)$cleanupPreview['orphans']['invalid_selected_character']; ?></strong>
@@ -148,7 +182,18 @@
         </div>
       </div>
       <div class="admin-cleanup__actions">
-        <a class="admin-cleanup__btn" href="#" aria-disabled="true">Add Cleanup Action</a>
+        <form action="index.php?n=admin&amp;sub=cleanup" method="post">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$cleanupCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
+          <input type="hidden" name="cleanup_realm_id" value="<?php echo (int)$cleanupPreview['realm_id']; ?>" />
+          <input type="hidden" name="action" value="clear_invalid_selected_character" />
+          <input class="admin-cleanup__btn-input" type="submit" value="Clear Invalid Selected Character" />
+        </form>
+        <form action="index.php?n=admin&amp;sub=cleanup" method="post">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$cleanupCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
+          <input type="hidden" name="cleanup_realm_id" value="<?php echo (int)$cleanupPreview['realm_id']; ?>" />
+          <input type="hidden" name="action" value="remove_missing_account_rows" />
+          <input class="admin-cleanup__btn-input" type="submit" value="Remove Orphaned Website Account Rows" />
+        </form>
       </div>
     </section>
 
@@ -156,7 +201,7 @@
       <p class="admin-cleanup__eyebrow">Forum Reset</p>
       <p class="admin-cleanup__metric"><?php echo number_format((int)$cleanupPreview['forum']['posts']); ?></p>
       <p class="admin-cleanup__label">Forum posts currently in the clean-slate reset scope</p>
-      <p class="admin-cleanup__note">This is the “start fresh” bucket. A full forum reset would clear the conversation layer and linked social identity data so the site can relaunch from a blank state.</p>
+      <p class="admin-cleanup__note">This is the clean-slate forum bucket. A full forum reset would clear the conversation layer and linked social identity data, then rebuild the default forum structure from SQL.</p>
       <div class="admin-cleanup__subgrid">
         <div class="admin-cleanup__mini">
           <strong><?php echo number_format((int)$cleanupPreview['forum']['topics']); ?></strong>
@@ -176,7 +221,8 @@
         </div>
       </div>
       <div class="admin-cleanup__actions">
-        <a class="admin-cleanup__btn" href="#" aria-disabled="true"><?php echo $cleanupPreview['forum']['reset_sql_available'] ? 'Reset SQL Ready' : 'Need Reset Script'; ?></a>
+        <a class="admin-cleanup__btn" href="#" aria-disabled="true"><?php echo $cleanupPreview['forum']['reset_sql_available'] ? 'Blank-State Reset SQL Ready' : 'Need Blank-State Reset SQL'; ?></a>
+        <a class="admin-cleanup__btn" href="#" aria-disabled="true"><?php echo !empty($cleanupPreview['forum']['seed_sql_available']) ? 'Seed SQL Ready' : 'Need Seed SQL'; ?></a>
       </div>
     </section>
 
@@ -206,8 +252,19 @@
 
     <section>
       <p class="admin-cleanup__eyebrow">Realm Reset Tools</p>
+      <form action="index.php?n=admin&amp;sub=cleanup" method="get" class="admin-cleanup__actions" style="margin-top:0;margin-bottom:16px;">
+        <input type="hidden" name="n" value="admin" />
+        <input type="hidden" name="sub" value="cleanup" />
+        <select class="admin-cleanup__select" name="cleanup_realm_id" onchange="this.form.submit()">
+          <?php foreach ($cleanupRealmOptions as $cleanupRealmId => $cleanupRealmName) { ?>
+            <option value="<?php echo (int)$cleanupRealmId; ?>"<?php if ((int)$cleanupRealmId === (int)$cleanupPreview['realm_id']) echo ' selected'; ?>>
+              <?php echo htmlspecialchars($cleanupRealmName); ?>
+            </option>
+          <?php } ?>
+        </select>
+      </form>
       <p class="admin-cleanup__metric"><?php echo htmlspecialchars($cleanupPreview['realm_name']); ?></p>
-      <p class="admin-cleanup__label">Active realm reset footprint preview</p>
+      <p class="admin-cleanup__label">Selected realm reset footprint preview</p>
       <p class="admin-cleanup__note">For heavier resets like world DB, char DB, or full bot removal, the safer pattern is targeted PHP tools that run explicit SQL under guardrails. We can also wire known SQL scripts when the reset shape is fixed and repeatable.</p>
       <div class="admin-cleanup__subgrid">
         <div class="admin-cleanup__mini">
@@ -240,8 +297,9 @@
   <section class="admin-cleanup__panel">
     <p class="admin-cleanup__eyebrow">Execution Model</p>
     <p class="admin-cleanup__body">
-      For this kind of maintenance, direct PHP admin tools are usually the better fit because they can preview counts, require confirmations, and target the right realm DB safely. SQL files still make sense for known one-shot resets, like the blank forum reset script already in <code>DB Updates/reset_web_forums_blank_state.sql</code>, and we can wire that into a guarded admin action once we decide the exact reset behavior.
+      For this kind of maintenance, direct PHP admin tools are usually the better fit because they can preview counts, require confirmations, and target the right realm DB safely. SQL files still make sense for known one-shot resets, like <code>DB Updates/reset_web_forums_blank_state.sql</code> for the destructive wipe-and-rebuild path and <code>DB Updates/seed_web_forums_default_state.sql</code> for non-destructive forum seeding.
     </p>
   </section>
 </div>
 <?php builddiv_end() ?>
+

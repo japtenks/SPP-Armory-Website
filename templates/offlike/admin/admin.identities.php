@@ -1,5 +1,5 @@
 <br>
-<?php builddiv_start(0, 'Identity Coverage') ?>
+<?php builddiv_start(0, 'Forum Identity Coverage') ?>
 <style>
 .identity-coverage { color:#f4efe2; }
 .identity-summary { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
@@ -198,17 +198,17 @@ $identityErrors = $identityCoverage['errors'] ?? [];
 
 <div class="identity-coverage">
   <div class="identity-intro">
-    This page reports identity coverage by realm so we can spot where a new realm or imported bot set is missing `website_identities` links. The counts are read-only and are meant to tell you which backfill script to run next.
+    This page reports forum identity coverage by realm so we can spot where a new realm or imported bot set is missing `website_identities` links for posting, topics, or PM ownership. The counts are read-only and are meant to tell you which backfill script to run next.
   </div>
 
   <div class="identity-summary">
     <div class="identity-stat">
       <strong><?php echo number_format((int)($identityTotals['missing_account_identities'] ?? 0)); ?></strong>
-      <span>Missing account identities</span>
+      <span>Missing forum account identities</span>
     </div>
     <div class="identity-stat">
       <strong><?php echo number_format((int)($identityTotals['missing_character_identities'] ?? 0)); ?></strong>
-      <span>Missing character identities</span>
+      <span>Missing forum character identities</span>
     </div>
     <div class="identity-stat">
       <strong><?php echo number_format((int)($identityTotals['posts_missing_identity'] ?? 0)); ?></strong>

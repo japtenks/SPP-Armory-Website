@@ -3,11 +3,36 @@
 //cat /var/www/html/components/pomm/config/playermap_config.php
 require_once(__DIR__ . '/../../../config/config-protected.php');
 
+$playermapRealmId = spp_resolve_realm_id($realmDbMap);
+
 $DB_HOST = $db['host'];
 $DB_PORT = $db['port'];
 $DB_USER = $db['user'];
 $DB_PASS = $db['pass'];
 $GAME_HOST = !empty($clientConnectionHost) ? $clientConnectionHost : '127.0.0.1';
+$REALM_HOSTS = array();
+$REALM_PORTS = array();
+
+try {
+    $realmdPdo = new PDO(
+        'mysql:host=' . $DB_HOST . ';port=' . $DB_PORT . ';dbname=' . $realmDbMap[$playermapRealmId]['realmd'] . ';charset=utf8mb4',
+        $DB_USER,
+        $DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    $realmlistStmt = $realmdPdo->query('SELECT id, address, port FROM realmlist');
+    while ($row = $realmlistStmt->fetch(PDO::FETCH_ASSOC)) {
+        $realmId = (int)($row['id'] ?? 0);
+        if ($realmId <= 0) {
+            continue;
+        }
+        $REALM_HOSTS[$realmId] = trim((string)($row['address'] ?? ''));
+        $REALM_PORTS[$realmId] = (int)($row['port'] ?? 8085);
+    }
+} catch (Throwable $e) {
+    $REALM_HOSTS = array();
+    $REALM_PORTS = array();
+}
 
 $WORLD_NAMES = array_map(function ($r) { return $r['world']; }, $realmDbMap);
 $CHAR_NAMES  = array_map(function ($r) { return $r['chars']; }, $realmDbMap);
@@ -37,13 +62,16 @@ $realm_db = [
     'addr' => $DB_HOST . ":" . $DB_PORT,
     'user' => $DB_USER,
     'pass' => $DB_PASS,
-    'name' => $activeRealm['realmd'],
+    'name' => $realmDbMap[$playermapRealmId]['realmd'],
     'encoding' => 'utf8'
 ];
 
 $server = [];
 foreach (array_keys($realmDbMap) as $id) {
-    $server[$id] = ['addr' => $GAME_HOST, 'game_port' => 8085];
+    $server[$id] = [
+        'addr' => (!empty($REALM_HOSTS[$id]) ? $REALM_HOSTS[$id] : $GAME_HOST),
+        'game_port' => (!empty($REALM_PORTS[$id]) ? (int)$REALM_PORTS[$id] : 8085)
+    ];
 }
 
 $gm_online = true;

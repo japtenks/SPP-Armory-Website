@@ -214,6 +214,7 @@ html, body {
 <SCRIPT TYPE="text/javascript">
 
 var current_map = 0;
+var realm_id = <?php echo (int)$realm_id; ?>;
 var time = <?php echo $time ?>;
 var show_time=<?php echo $show_time ?>;
 var show_status=<?php echo $show_status ?>;
@@ -870,7 +871,7 @@ function load_data()
       show(req.responseJS.online);
     }
   }
-  req.open('GET', 'pomm_play.php', true);
+  req.open('GET', 'pomm_play.php?realm=' + realm_id, true);
   req.send({ });
 }
 

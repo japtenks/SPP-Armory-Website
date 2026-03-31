@@ -120,10 +120,7 @@
     <p class="admin-tool-kicker">Character Tools</p>
     <h2 class="admin-tool-title">Rename Character</h2>
     <p class="admin-tool-copy">Rename a character directly from the admin panel. The character must exist on the selected realm and must be offline before the rename can be applied.</p>
-  </div>
-
-  <div class="admin-tool-card">
-    <form action="index.php?n=admin&sub=chartools" method="post">
+    <form action="index.php?n=admin&sub=chartools" method="post" style="margin-top:18px;">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$adminChartoolsCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
       <div class="admin-tool-form">
         <label for="rename_realm">Realm</label>
@@ -190,21 +187,18 @@
         ?>
       </p>
     <?php } ?>
-  </div>
-
-  <div class="admin-tool-card">
     <form action="index.php?n=admin&sub=chartools" method="post">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$adminChartoolsCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
       <div class="admin-tool-form">
-        <label for="race_realm">Realm</label>
-        <select id="race_realm" name="realm" onchange="this.form.submit()">
+        <label for="rename_realm">Realm</label>
+        <select id="rename_realm" name="realm" onchange="this.form.submit()">
           <?php foreach ($DBS as $realm): ?>
             <option value="<?php echo (int)$realm['id']; ?>"<?php if ((int)$realm['id'] === $selectedRealmId) echo ' selected'; ?>><?php echo htmlspecialchars($realm['name']); ?></option>
           <?php endforeach; ?>
         </select>
 
-        <label for="race_account_id">Account</label>
-        <select id="race_account_id" name="account_id" onchange="this.form.submit()">
+        <label for="rename_account_id">Account</label>
+        <select id="rename_account_id" name="account_id" onchange="this.form.submit()">
           <?php if (!empty($accountOptions)) { ?>
             <?php foreach ($accountOptions as $accountOption) { ?>
               <option value="<?php echo (int)$accountOption['id']; ?>"<?php if ((int)$accountOption['id'] === $selectedAccountId) echo ' selected'; ?>>
@@ -216,8 +210,8 @@
           <?php } ?>
         </select>
 
-        <label for="race_character_guid">Character</label>
-        <select id="race_character_guid" name="character_guid" onchange="this.form.submit()">
+        <label for="rename_character_guid">Character</label>
+        <select id="rename_character_guid" name="character_guid">
           <?php if (!empty($characterOptions)) { ?>
             <?php foreach ($characterOptions as $characterOption) { ?>
               <option value="<?php echo (int)$characterOption['guid']; ?>"<?php if ((int)$characterOption['guid'] === $selectedCharacterGuid) echo ' selected'; ?>>
@@ -234,26 +228,14 @@
           <?php } ?>
         </select>
 
-        <label for="race_newrace">Target Race</label>
-        <select id="race_newrace" name="newrace">
-          <option value="1">Human</option>
-          <option value="2">Orc</option>
-          <option value="3">Dwarf</option>
-          <option value="4">Night Elf</option>
-          <option value="5">Undead</option>
-          <option value="6">Tauren</option>
-          <option value="7">Gnome</option>
-          <option value="8">Troll</option>
-          <option value="10">Blood Elf</option>
-          <option value="11">Draenei</option>
-        </select>
+        <label for="rename_new_name">New Character Name</label>
+        <input type="text" id="rename_new_name" name="newname" maxlength="20" value="<?php echo htmlspecialchars((string)($_POST['newname'] ?? '')); ?>" />
       </div>
 
       <div class="admin-tool-actions">
         <input type="submit" name="race_change" value="Apply Race / Faction Change" <?php if (empty($characterOptions)) echo 'disabled="disabled"'; ?> />
       </div>
     </form>
-
     <?php echo $raceMessageHtml; ?>
   </div>
 
@@ -261,10 +243,7 @@
     <p class="admin-tool-kicker">Character Tools</p>
     <h2 class="admin-tool-title">Send Item Pack</h2>
     <p class="admin-tool-copy">Mail an existing item pack directly to the selected character. This keeps the useful in-game delivery flow without the old donation admin page.</p>
-  </div>
-
-  <div class="admin-tool-card">
-    <form action="index.php?n=admin&sub=chartools" method="post">
+    <form action="index.php?n=admin&sub=chartools" method="post" style="margin-top:18px;">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string)$adminChartoolsCsrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
       <div class="admin-tool-form">
         <label for="delivery_realm">Realm</label>

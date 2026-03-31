@@ -175,13 +175,14 @@ if ($selectedWebsiteCharacterId > 0) {
     $selectedGuildMember = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 $isSelectedGuildLeader = $selectedWebsiteCharacterId > 0 && $selectedWebsiteCharacterId === (int)$guild['leaderguid'];
+$isGm = (int)($user['gmlevel'] ?? 0) >= 1;
 $selectedGuildRankRights = isset($selectedGuildMember['rank_rights']) ? (int)$selectedGuildMember['rank_rights'] : 0;
 $guildSetMotdRight = 4096;
 $guildViewOfficerNoteRight = 16384;
-$canEditGuildNotes = $isSelectedGuildLeader;
-$canViewOfficerNotes = $isSelectedGuildLeader || (($selectedGuildRankRights & $guildViewOfficerNoteRight) === $guildViewOfficerNoteRight);
-$canEditGuildMotd = $isSelectedGuildLeader || (($selectedGuildRankRights & $guildSetMotdRight) === $guildSetMotdRight);
-$canManageGuildRoster = $isSelectedGuildLeader;
+$canEditGuildNotes = $isSelectedGuildLeader || $isGm;
+$canViewOfficerNotes = $isSelectedGuildLeader || $isGm || (($selectedGuildRankRights & $guildViewOfficerNoteRight) === $guildViewOfficerNoteRight);
+$canEditGuildMotd = $isSelectedGuildLeader || $isGm || (($selectedGuildRankRights & $guildSetMotdRight) === $guildSetMotdRight);
+$canManageGuildRoster = $isSelectedGuildLeader || $isGm;
 $guildNoteFeedback = '';
 $guildNoteError = '';
 $guildMotdFeedback = '';
@@ -313,6 +314,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) 
         header('Location: ' . $redirectUrl);
         exit;
     }
+}
+
+// ── Guild flavor profiles (must match sync_guild_strategies.sh + ExtraCommandsModule.cpp) ──
+$guildFlavorProfiles = [
+    'leveling' => [
+        'label' => 'Leveling',
+        'desc'  => 'Quests, grinds, repairs, trains. Behaves like a real leveling player.',
+        'co'    => '+dps,+dps assist,-threat,+custom::say',
+        'nc'    => '+rpg,+quest,+grind,+loot,+wander,+custom::say',
+        'react' => '',
+    ],
+    'quest' => [
+        'label' => 'Quest',
+        'desc'  => 'NPC-focused. Moves purposefully between quest hubs, fishes while traveling.',
+        'co'    => '+dps,+dps assist,-threat,+custom::say',
+        'nc'    => '+rpg,+rpg quest,+loot,+tfish,+wander,+custom::say',
+        'react' => '',
+    ],
+    'pvp' => [
+        'label' => 'PvP',
+        'desc'  => 'Aggressive. Queues battlegrounds, roams for enemy players, duels.',
+        'co'    => '+dps,+dps assist,+threat,+boost,+pvp,+duel,+custom::say',
+        'nc'    => '+rpg,+wander,+bg,+custom::say',
+        'react' => '+pvp',
+    ],
+    'farming' => [
+        'label' => 'Farming',
+        'desc'  => 'Silent resource gatherers. Mining, herbing, fishing. No questing.',
+        'co'    => '+dps,-threat',
+        'nc'    => '+gather,+grind,+loot,+tfish,+wander,+rpg maintenance',
+        'react' => '',
+    ],
+    'default' => [
+        'label' => 'Default',
+        'desc'  => 'Clears all overrides. Bots fall back to server-wide config.',
+        'co'    => '',
+        'nc'    => '',
+        'react' => '',
+    ],
+];
+
+$flavorFeedback = '';
+$flavorError    = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guild_form_action']) && $_POST['guild_form_action'] === 'save_guild_flavor') {
+    if (!$isSelectedGuildLeader && !$isGm) {
+        $flavorError = 'Only the guild leader can change the bot strategy flavor.';
+    } else {
+        $newFlavor = isset($_POST['guild_flavor']) ? trim((string)$_POST['guild_flavor']) : '';
+        if (!array_key_exists($newFlavor, $guildFlavorProfiles)) {
+            $flavorError = 'Invalid flavor selected.';
+        } else {
+            // Get all guild member GUIDs
+            $stmt = $charsPdo->prepare("SELECT guid FROM {$realmDB}.guild_member WHERE guildid=?");
+            $stmt->execute([(int)$guildId]);
+            $memberGuids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($memberGuids as $memberGuid) {
+                $memberGuid = (int)$memberGuid;
+
+                // Clear existing overrides
+                $charsPdo->prepare("DELETE FROM {$realmDB}.ai_playerbot_db_store WHERE guid=? AND preset='default'")
+                         ->execute([$memberGuid]);
+
+                if ($newFlavor !== 'default') {
+                    $fp = $guildFlavorProfiles[$newFlavor];
+                    $charsPdo->prepare("INSERT INTO {$realmDB}.ai_playerbot_db_store (guid, preset, `key`, value) VALUES (?,  'default', 'co', ?)")
+                             ->execute([$memberGuid, $fp['co']]);
+                    $charsPdo->prepare("INSERT INTO {$realmDB}.ai_playerbot_db_store (guid, preset, `key`, value) VALUES (?, 'default', 'nc', ?)")
+                             ->execute([$memberGuid, $fp['nc']]);
+                    if ($fp['react'] !== '') {
+                        $charsPdo->prepare("INSERT INTO {$realmDB}.ai_playerbot_db_store (guid, preset, `key`, value) VALUES (?, 'default', 'react', ?)")
+                                 ->execute([$memberGuid, $fp['react']]);
+                    }
+                }
+            }
+
+            $flavorFeedback = 'Guild flavor set to <strong>' . htmlspecialchars($guildFlavorProfiles[$newFlavor]['label']) . '</strong> for ' . count($memberGuids) . ' members. Bots will apply the new strategies on next relog.';
+        }
+    }
+}
+
+// Detect current flavor by checking a sample member's DB store
+$currentFlavor = 'default';
+$stmt = $charsPdo->prepare(
+    "SELECT `key`, value FROM {$realmDB}.ai_playerbot_db_store
+     WHERE preset='default'
+     AND guid = (SELECT guid FROM {$realmDB}.guild_member WHERE guildid=? LIMIT 1)");
+$stmt->execute([(int)$guildId]);
+$sampleOverrides = [];
+foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $sampleOverrides[$row['key']] = $row['value'];
+}
+if (!empty($sampleOverrides)) {
+    foreach ($guildFlavorProfiles as $flavorKey => $fp) {
+        if ($flavorKey === 'default') continue;
+        if (($sampleOverrides['co'] ?? '') === $fp['co'] && ($sampleOverrides['nc'] ?? '') === $fp['nc']) {
+            $currentFlavor = $flavorKey;
+            break;
+        }
+    }
+    if ($currentFlavor === 'default') $currentFlavor = 'custom';
 }
 
 if (isset($_GET['guild_note_saved']) && (int)$_GET['guild_note_saved'] === 1) {
@@ -1391,6 +1494,43 @@ foreach ($orderedClassBreakdown as $classId => $classCount) {
           </div>
         <?php endif; ?>
       </section>
+
+      <?php if ($isSelectedGuildLeader || $isGm): ?>
+      <section class="guild-section">
+        <h3 class="guild-side-title">Bot Strategy Flavor</h3>
+        <p class="guild-side-copy">
+          Sets the AI strategy profile for all bots in this guild.
+          Changes take effect on each bot's next relog.
+          Currently: <strong><?php echo htmlspecialchars(ucfirst($currentFlavor)); ?></strong>
+        </p>
+
+        <?php if ($flavorFeedback !== ''): ?>
+          <div style="background:#1a3a1a;border:1px solid #3a6a3a;border-radius:4px;padding:8px 10px;margin-bottom:10px;font-size:13px;color:#7ec87e;">
+            <?php echo $flavorFeedback; ?>
+          </div>
+        <?php endif; ?>
+        <?php if ($flavorError !== ''): ?>
+          <div style="background:#3a1a1a;border:1px solid #6a3a3a;border-radius:4px;padding:8px 10px;margin-bottom:10px;font-size:13px;color:#e07e7e;">
+            <?php echo htmlspecialchars($flavorError); ?>
+          </div>
+        <?php endif; ?>
+
+        <form method="post" style="margin-top:8px;">
+          <input type="hidden" name="guild_form_action" value="save_guild_flavor">
+          <select name="guild_flavor" style="width:100%;background:#1a1a1a;border:1px solid #444;color:#ddd;padding:6px 8px;border-radius:4px;font-size:13px;margin-bottom:8px;">
+            <?php foreach ($guildFlavorProfiles as $fKey => $fData): ?>
+              <option value="<?php echo htmlspecialchars($fKey); ?>"
+                <?php echo ($currentFlavor === $fKey ? 'selected' : ''); ?>>
+                <?php echo htmlspecialchars($fData['label']); ?> — <?php echo htmlspecialchars($fData['desc']); ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+          <button type="submit" style="background:#2a3a4a;color:#7ec8e3;border:none;border-radius:4px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">
+            Apply Flavor
+          </button>
+        </form>
+      </section>
+      <?php endif; ?>
 
       <section class="guild-section guild-insights-panel">
         <h3 class="guild-side-title">Roster Overview</h3>

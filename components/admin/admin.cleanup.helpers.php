@@ -27,6 +27,23 @@ function spp_admin_cleanup_realm_name(PDO $pdo, $realmId)
     return $realmName ? (string)$realmName : ('Realm ' . (int)$realmId);
 }
 
+function spp_admin_cleanup_realm_char_pdos(array $realmDbMap)
+{
+    $pdos = array();
+    foreach (array_keys($realmDbMap) as $realmId) {
+        $realmId = (int)$realmId;
+        if ($realmId <= 0) {
+            continue;
+        }
+        try {
+            $pdos[$realmId] = spp_get_pdo('chars', $realmId);
+        } catch (Throwable $e) {
+            error_log('[admin.cleanup] Could not load chars PDO for realm ' . $realmId . ': ' . $e->getMessage());
+        }
+    }
+    return $pdos;
+}
+
 function spp_admin_cleanup_empty_preview(int $realmId, string $realmName)
 {
     return array(
@@ -45,6 +62,7 @@ function spp_admin_cleanup_empty_preview(int $realmId, string $realmName)
             'identities' => 0,
             'identity_profiles' => 0,
             'reset_sql_available' => false,
+            'seed_sql_available' => false,
         ),
         'bots' => array(
             'accounts' => 0,

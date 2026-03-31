@@ -9,6 +9,8 @@ function spp_admin_cleanup_build_preview(PDO $cleanupPdo, PDO $cleanupCharsPdo, 
         $cleanupActiveRealmId,
         spp_admin_cleanup_realm_name($cleanupPdo, $cleanupActiveRealmId)
     );
+    $realmDbMap = $GLOBALS['realmDbMap'] ?? array();
+    $realmCharsPdos = spp_admin_cleanup_realm_char_pdos(is_array($realmDbMap) ? $realmDbMap : array());
 
     try {
         $stmtWebsiteAccounts = $cleanupPdo->query("
@@ -19,14 +21,21 @@ function spp_admin_cleanup_build_preview(PDO $cleanupPdo, PDO $cleanupCharsPdo, 
         ");
         $websiteAccountIds = $stmtWebsiteAccounts ? array_map('intval', $stmtWebsiteAccounts->fetchAll(PDO::FETCH_COLUMN, 0)) : array();
         if (!empty($websiteAccountIds)) {
+            $accountsWithChars = array();
             $acctPlaceholders = implode(',', array_fill(0, count($websiteAccountIds), '?'));
-            $stmtAccountsWithChars = $cleanupCharsPdo->prepare("
-                SELECT DISTINCT account
-                FROM characters
-                WHERE account IN ($acctPlaceholders)
-            ");
-            $stmtAccountsWithChars->execute($websiteAccountIds);
-            $accountsWithChars = array_map('intval', $stmtAccountsWithChars->fetchAll(PDO::FETCH_COLUMN, 0));
+            foreach ($realmCharsPdos as $realmCharsPdo) {
+                $stmtAccountsWithChars = $realmCharsPdo->prepare("
+                    SELECT DISTINCT account
+                    FROM characters
+                    WHERE account IN ($acctPlaceholders)
+                ");
+                $stmtAccountsWithChars->execute($websiteAccountIds);
+                $accountsWithChars = array_merge(
+                    $accountsWithChars,
+                    array_map('intval', $stmtAccountsWithChars->fetchAll(PDO::FETCH_COLUMN, 0))
+                );
+            }
+            $accountsWithChars = array_values(array_unique($accountsWithChars));
             $cleanupPreview['orphans']['website_only_accounts'] = count(array_diff($websiteAccountIds, $accountsWithChars));
         }
     } catch (Throwable $e) {
@@ -34,17 +43,50 @@ function spp_admin_cleanup_build_preview(PDO $cleanupPdo, PDO $cleanupCharsPdo, 
     }
 
     try {
-        $stmtInvalidSelected = $cleanupCharsPdo->query("
-            SELECT COUNT(*)
+        $stmtInvalidSelected = $cleanupPdo->query("
+            SELECT wa.account_id, wa.character_id, wa.character_realm_id
             FROM website_accounts wa
-            LEFT JOIN characters c
-                ON c.guid = wa.character_id
-               AND c.account = wa.account_id
             WHERE wa.character_id IS NOT NULL
               AND wa.character_id > 0
-              AND c.guid IS NULL
         ");
-        $cleanupPreview['orphans']['invalid_selected_character'] = (int)$stmtInvalidSelected->fetchColumn();
+        $selectedRows = $stmtInvalidSelected ? $stmtInvalidSelected->fetchAll(PDO::FETCH_ASSOC) : array();
+        $invalidSelected = 0;
+        foreach ($selectedRows as $selectedRow) {
+            $accountId = (int)($selectedRow['account_id'] ?? 0);
+            $characterId = (int)($selectedRow['character_id'] ?? 0);
+            $characterRealmId = (int)($selectedRow['character_realm_id'] ?? 0);
+            $resolved = false;
+
+            if ($characterRealmId > 0 && isset($realmCharsPdos[$characterRealmId])) {
+                $stmtCharacter = $realmCharsPdos[$characterRealmId]->prepare("
+                    SELECT COUNT(*)
+                    FROM characters
+                    WHERE guid = ?
+                      AND account = ?
+                ");
+                $stmtCharacter->execute(array($characterId, $accountId));
+                $resolved = ((int)$stmtCharacter->fetchColumn() > 0);
+            } else {
+                foreach ($realmCharsPdos as $realmCharsPdo) {
+                    $stmtCharacter = $realmCharsPdo->prepare("
+                        SELECT COUNT(*)
+                        FROM characters
+                        WHERE guid = ?
+                          AND account = ?
+                    ");
+                    $stmtCharacter->execute(array($characterId, $accountId));
+                    if ((int)$stmtCharacter->fetchColumn() > 0) {
+                        $resolved = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$resolved) {
+                $invalidSelected++;
+            }
+        }
+        $cleanupPreview['orphans']['invalid_selected_character'] = $invalidSelected;
     } catch (Throwable $e) {
         error_log('[admin.cleanup] Invalid selected-character preview failed: ' . $e->getMessage());
     }
@@ -69,6 +111,7 @@ function spp_admin_cleanup_build_preview(PDO $cleanupPdo, PDO $cleanupCharsPdo, 
         $cleanupPreview['forum']['identities'] = spp_admin_cleanup_table_count($cleanupPdo, 'website_identities');
         $cleanupPreview['forum']['identity_profiles'] = spp_admin_cleanup_table_count($cleanupPdo, 'website_identity_profiles');
         $cleanupPreview['forum']['reset_sql_available'] = is_file(dirname(__DIR__, 2) . '/DB Updates/reset_web_forums_blank_state.sql');
+        $cleanupPreview['forum']['seed_sql_available'] = is_file(dirname(__DIR__, 2) . '/DB Updates/seed_web_forums_default_state.sql');
     } catch (Throwable $e) {
         error_log('[admin.cleanup] Forum preview failed: ' . $e->getMessage());
     }
