@@ -47,6 +47,43 @@ function chartools_race_rep($race)
 	return 0;
 }
 
+function chartools_race_label($race)
+{
+	switch ((int)$race) {
+		case 1: return 'Human';
+		case 2: return 'Orc';
+		case 3: return 'Dwarf';
+		case 4: return 'Night Elf';
+		case 5: return 'Undead';
+		case 6: return 'Tauren';
+		case 7: return 'Gnome';
+		case 8: return 'Troll';
+		case 10: return 'Blood Elf';
+		case 11: return 'Draenei';
+		default: return 'Unknown';
+	}
+}
+
+function chartools_available_race_options($class, $currentRace = 0)
+{
+	$options = array();
+	foreach (array(1, 2, 3, 4, 5, 6, 7, 8, 10, 11) as $race) {
+		if ($race === (int)$currentRace) {
+			continue;
+		}
+		if (!chartools_race_class_allowed($race, $class)) {
+			continue;
+		}
+		$options[] = array(
+			'id' => $race,
+			'label' => chartools_race_label($race),
+			'faction' => chartools_is_alliance($race) ? 'Alliance' : 'Horde',
+		);
+	}
+
+	return $options;
+}
+
 function chartools_delete_mounts($guid, $race, $db)
 {
 	$pdo = get_chartools_pdo($db);

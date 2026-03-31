@@ -266,16 +266,15 @@ public function construct_zoneByID(){
         $realmId = isset($realmDbMap) ? spp_resolve_realm_id($realmDbMap) : 1;
         $realmPdo = spp_get_pdo('realmd', $realmId);
         $worldPdo = spp_get_pdo('world',  $realmId);
-        $charPdo  = spp_get_pdo('chars',  $realmId);
 
         #Constants
-        $error_output = 0; // Inizializer for error outputing
         $donateid = (int)$donate_item_id; // The donation ID in table donation_template
-        $guid = (int)$character_item_id; // The character that is getting the item(s)
-        $offset_mail_guid = 30000; // Offset guid to start at. This is recommanded to be as high! Also to high may cause problems , around 10000 to 40000 is nice. It really depends on your server if it has like 1000 users on all the time its recommanded to have it to 500000. Notice, to high will cause mangos server to crash.
         $stmtDt = $realmPdo->prepare("SELECT * FROM `donations_template` WHERE id=?");
         $stmtDt->execute([$donateid]);
         $donation_template = $stmtDt->fetch(PDO::FETCH_ASSOC);
+        if (!$donation_template) {
+            return FALSE;
+        }
         $ROUNDS = 0; // Rounds is to check how many times loop goes. NOT CHANGE THIS!
         $items = explode(",", $donation_template['items']);
 
@@ -297,103 +296,150 @@ public function construct_zoneByID(){
             }
         }
 
-        foreach ($items as $item_id){
+        return $this->mail_item_list(array_values($items), $character_item_id, (string)($donation_template['description'] ?? 'Item Pack'));
+    }
+
+    public function mail_item_list($itemIds, $character_item_id, $subject = 'Item Pack'){
+        global $realmDbMap;
+        $realmId = isset($realmDbMap) ? spp_resolve_realm_id($realmDbMap) : 1;
+        $worldPdo = spp_get_pdo('world',  $realmId);
+        $charPdo  = spp_get_pdo('chars',  $realmId);
+
+        $error_output = 0;
+        $guid = (int)$character_item_id;
+        $items = array();
+        foreach ((array)$itemIds as $entry) {
+            if (is_array($entry)) {
+                $itemId = (int)($entry['id'] ?? 0);
+                $count = (int)($entry['count'] ?? 0);
+            } else {
+                $itemId = (int)$entry;
+                $count = 1;
+            }
+
+            if ($itemId <= 0 || $count <= 0) {
+                continue;
+            }
+
+            $items[] = array('id' => $itemId, 'count' => $count);
+        }
+
+        if ($guid <= 0 || empty($items)) {
+            return FALSE;
+        }
+
+        foreach ($items as $itemEntry){
+            $item_id = (int)$itemEntry['id'];
+            $itemCount = (int)$itemEntry['count'];
 
             $stmtIt = $worldPdo->prepare("SELECT * FROM `item_template` WHERE entry=?");
             $stmtIt->execute([(int)$item_id]);
             $data = $stmtIt->fetch(PDO::FETCH_ASSOC);
+            if (!$data) {
+                $error_output++;
+                continue;
+            }
 
-            // We need to get a unquie guid for char_inv. Problem is that mangos is caching and not updated on sql.
-            // Therefor we need to create a offset guid.
+            $stackLimit = max(1, (int)($data['stackable'] ?? 1));
+            $remainingCount = max(1, $itemCount);
 
-            $ROUNDS++;
-            // If this is the first loop we must check if we MUST increment with offset or if we can just apply id +1
-            $new_guid = $this->mangos_newguid('item_instance', $realmId);
-            $item = $new_guid['new_guid'];
-            $WE_DID_OFFSET_ID = $new_guid['incr'];
+            while ($remainingCount > 0) {
+                $stackCount = min($stackLimit, $remainingCount);
+                $remainingCount -= $stackCount;
 
+                // We need to get a unquie guid for char_inv. Problem is that mangos is caching and not updated on sql.
+                // Therefor we need to create a offset guid.
 
-
-            ## array FOR ITEM_INSTANCE, THERE ARE $this->charDataField['ITEM_END'] Fields if not a bag.
-            ## IF BAG its $this->charDataField['CONTAINER_END'] fields.
-            $item_instance_value = array();
-            for($i=0;$i<$this->charDataField['ITEM_END'];$i++)$item_instance_value[$i]=0;
-
-
-
-            ## Defines
-            $item_instance_value[$this->charDataField['OBJECT_FIELD_GUID']] = $item;    //Guid
-            $item_instance_value[$this->charDataField['OBJECT_FIELD_TYPE']] = 1073741936;  //defaultvalue
-            $item_instance_value[$this->charDataField['OBJECT_FIELD_ENTRY']] = $data['entry'];//entry
-            $item_instance_value[$this->charDataField['OBJECT_FIELD_SCALE_X']] = 1065353216; //defaultvalue
-            $item_instance_value[$this->charDataField['ITEM_FIELD_OWNER']] = 1;  //owner_guid
-            $item_instance_value[$this->charDataField['ITEM_FIELD_STACK_COUNT']] = 1; // Stacks. Amount
-            $item_instance_value[$this->charDataField['ITEM_FIELD_FLAGS']] = $data['Flags']; //Flags
-            $item_instance_value[$this->charDataField['ITEM_FIELD_DURABILITY']] = $data['MaxDurability']; // Min Durability
-            $item_instance_value[$this->charDataField['ITEM_FIELD_MAXDURABILITY']] = $data['MaxDurability'] ; // Max Durability
-
-            if ($data['InventoryType'] == 18){  // If this is A Bag.
-               // X fields to Bag slot.
-                for($i=$this->charDataField['ITEM_END'];$i<$this->charDataField['CONTAINER_END'];$i++)$item_instance_value[$i]=0;
-                $item_instance_value[$this->charDataField['OBJECT_FIELD_TYPE']]= "7";
-                $item_instance_value[$this->charDataField['CONTAINER_FIELD_NUM_SLOTS']]= $data['ContainerSlots'];   // Slots on bag
-                $item_instance_value[$this->charDataField['CONTAINER_ALIGN_PAD']]= "0";  // CONTAINER_ALIGN_PAD
-
-            }else{ $item_instance_value[$this->charDataField['OBJECT_FIELD_TYPE']] = 3;}
-            if ($data['spellid_1'] != 0){ $item_instance_value['16'] = 4294967295; }else{ $item_instance_value['16'] = 0; }
-
-
-            ## // ## Main operation ## \\ ##
-
-            $additem_code = implode($item_instance_value, ' ');
-            $data_field = $additem_code;
-
-			// Here we count how many of the current item the user has
-            $stmtCi1 = $charPdo->prepare("SELECT data FROM `item_instance` WHERE guid=? AND owner_guid=?");
-            $stmtCi1->execute([$item, $guid]);
-            $count_insert1 = $stmtCi1->fetchAll(PDO::FETCH_ASSOC);
-            $count1 = count($count_insert1);
-            $stmtCi2 = $charPdo->prepare("INSERT INTO `item_instance` (guid, owner_guid, data) VALUES(?,?,?)");
-            $stmtCi2->execute([$item, $guid, $data_field]);
-
-			// Lets check to see if our query was successful
-            $stmtCiChk = $charPdo->prepare("SELECT data FROM `item_instance` WHERE guid=? AND owner_guid=?");
-            $stmtCiChk->execute([$item, $guid]);
-            $check_insert1 = $stmtCiChk->fetchAll(PDO::FETCH_ASSOC);
-            $check_finalcount = count($check_insert1);
-
-			// If the user has more of the item he selected, then when we started, then success!
-            if ($check_finalcount > $count1){
-
-                $new_guid = $this->mangos_newguid('mail', $realmId);
-                $mail_id = $new_guid['new_guid'];
+                $ROUNDS++;
+                // If this is the first loop we must check if we MUST increment with offset or if we can just apply id +1
+                $new_guid = $this->mangos_newguid('item_instance', $realmId);
+                $item = $new_guid['new_guid'];
                 $WE_DID_OFFSET_ID = $new_guid['incr'];
 
-				// case active. We need to add slash if its Some other in db who has ' "
-				## Constants
-				$insertitem = $data['name'];
-				$timestampplus_start = date('YmdHis', time());
-				$startitemnow_unix = strtotime($timestampplus_start);
 
-				// Here we create the mail message for the item, and check to see if the query was successfull. If the mail message exists, then we move on
-                $stmtMail = $charPdo->prepare("INSERT INTO mail (id, messageType, stationery, sender, receiver, subject, body, has_items, expire_time, deliver_time, money, cod, checked) VALUES(?,0,41,1,?,?,'Thank you for your donation!',1,32495688732,?,0,0,0)");
-                $stmtMail->execute([$mail_id, $guid, $insertitem, $startitemnow_unix]);
-                $stmtMailChk = $charPdo->prepare("SELECT id FROM mail WHERE id=? AND receiver=?");
-                $stmtMailChk->execute([$mail_id, $guid]);
-                $check_insert2 = $stmtMailChk->fetchAll(PDO::FETCH_ASSOC);
-                if (count($check_insert2) > 0){
 
-					// Lets check to see if the placing of the item, in the mail message was successfull
-                    $stmtMi = $charPdo->prepare("INSERT INTO mail_items (mail_id, item_guid, item_template, receiver) VALUES (?,?,?,?)");
-                    $stmtMi->execute([$mail_id, $item, $data['entry'], $guid]);
-                    $stmtMiChk = $charPdo->prepare("SELECT mail_id FROM mail_items WHERE mail_id=? AND receiver=?");
-                    $stmtMiChk->execute([$mail_id, $guid]);
-                    $check_insert3 = $stmtMiChk->fetchAll(PDO::FETCH_ASSOC);
-                    if (count($check_insert3) > 0){
-					echo "<font color='blue'><br />Success!&nbsp</font>";
-					}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem inserting item into mail.</font><br />"; }
-				}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem creating mail message.</font><br />"; }
-			}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem inserting data into \"Item Instance\" table.</font><br />"; }
+                ## array FOR ITEM_INSTANCE, THERE ARE $this->charDataField['ITEM_END'] Fields if not a bag.
+                ## IF BAG its $this->charDataField['CONTAINER_END'] fields.
+                $item_instance_value = array();
+                for($i=0;$i<$this->charDataField['ITEM_END'];$i++)$item_instance_value[$i]=0;
+
+
+
+                ## Defines
+                $item_instance_value[$this->charDataField['OBJECT_FIELD_GUID']] = $item;    //Guid
+                $item_instance_value[$this->charDataField['OBJECT_FIELD_TYPE']] = 1073741936;  //defaultvalue
+                $item_instance_value[$this->charDataField['OBJECT_FIELD_ENTRY']] = $data['entry'];//entry
+                $item_instance_value[$this->charDataField['OBJECT_FIELD_SCALE_X']] = 1065353216; //defaultvalue
+                $item_instance_value[$this->charDataField['ITEM_FIELD_OWNER']] = 1;  //owner_guid
+                $item_instance_value[$this->charDataField['ITEM_FIELD_STACK_COUNT']] = $stackCount; // Stacks. Amount
+                $item_instance_value[$this->charDataField['ITEM_FIELD_FLAGS']] = $data['Flags']; //Flags
+                $item_instance_value[$this->charDataField['ITEM_FIELD_DURABILITY']] = $data['MaxDurability']; // Min Durability
+                $item_instance_value[$this->charDataField['ITEM_FIELD_MAXDURABILITY']] = $data['MaxDurability'] ; // Max Durability
+
+                if ($data['InventoryType'] == 18){  // If this is A Bag.
+                   // X fields to Bag slot.
+                    for($i=$this->charDataField['ITEM_END'];$i<$this->charDataField['CONTAINER_END'];$i++)$item_instance_value[$i]=0;
+                    $item_instance_value[$this->charDataField['OBJECT_FIELD_TYPE']]= "7";
+                    $item_instance_value[$this->charDataField['CONTAINER_FIELD_NUM_SLOTS']]= $data['ContainerSlots'];   // Slots on bag
+                    $item_instance_value[$this->charDataField['CONTAINER_ALIGN_PAD']]= "0";  // CONTAINER_ALIGN_PAD
+
+                }else{ $item_instance_value[$this->charDataField['OBJECT_FIELD_TYPE']] = 3;}
+                if ($data['spellid_1'] != 0){ $item_instance_value['16'] = 4294967295; }else{ $item_instance_value['16'] = 0; }
+
+
+                ## // ## Main operation ## \\ ##
+
+                $additem_code = implode($item_instance_value, ' ');
+                $data_field = $additem_code;
+
+    			// Here we count how many of the current item the user has
+                $stmtCi1 = $charPdo->prepare("SELECT data FROM `item_instance` WHERE guid=? AND owner_guid=?");
+                $stmtCi1->execute([$item, $guid]);
+                $count_insert1 = $stmtCi1->fetchAll(PDO::FETCH_ASSOC);
+                $count1 = count($count_insert1);
+                $stmtCi2 = $charPdo->prepare("INSERT INTO `item_instance` (guid, owner_guid, data) VALUES(?,?,?)");
+                $stmtCi2->execute([$item, $guid, $data_field]);
+
+    			// Lets check to see if our query was successful
+                $stmtCiChk = $charPdo->prepare("SELECT data FROM `item_instance` WHERE guid=? AND owner_guid=?");
+                $stmtCiChk->execute([$item, $guid]);
+                $check_insert1 = $stmtCiChk->fetchAll(PDO::FETCH_ASSOC);
+                $check_finalcount = count($check_insert1);
+
+    			// If the user has more of the item he selected, then when we started, then success!
+                if ($check_finalcount > $count1){
+
+                    $new_guid = $this->mangos_newguid('mail', $realmId);
+                    $mail_id = $new_guid['new_guid'];
+                    $WE_DID_OFFSET_ID = $new_guid['incr'];
+
+    				// case active. We need to add slash if its Some other in db who has ' "
+    				## Constants
+    				$insertitem = $data['name'];
+    				$timestampplus_start = date('YmdHis', time());
+    				$startitemnow_unix = strtotime($timestampplus_start);
+
+    				// Here we create the mail message for the item, and check to see if the query was successfull. If the mail message exists, then we move on
+                    $mailSubject = $subject !== '' ? $subject : $insertitem;
+                    $stmtMail = $charPdo->prepare("INSERT INTO mail (id, messageType, stationery, sender, receiver, subject, body, has_items, expire_time, deliver_time, money, cod, checked) VALUES(?,0,41,1,?,?,'Enjoy your item pack!',1,32495688732,?,0,0,0)");
+                    $stmtMail->execute([$mail_id, $guid, $mailSubject, $startitemnow_unix]);
+                    $stmtMailChk = $charPdo->prepare("SELECT id FROM mail WHERE id=? AND receiver=?");
+                    $stmtMailChk->execute([$mail_id, $guid]);
+                    $check_insert2 = $stmtMailChk->fetchAll(PDO::FETCH_ASSOC);
+                    if (count($check_insert2) > 0){
+
+    					// Lets check to see if the placing of the item, in the mail message was successfull
+                        $stmtMi = $charPdo->prepare("INSERT INTO mail_items (mail_id, item_guid, item_template, receiver) VALUES (?,?,?,?)");
+                        $stmtMi->execute([$mail_id, $item, $data['entry'], $guid]);
+                        $stmtMiChk = $charPdo->prepare("SELECT mail_id FROM mail_items WHERE mail_id=? AND receiver=?");
+                        $stmtMiChk->execute([$mail_id, $guid]);
+                        $check_insert3 = $stmtMiChk->fetchAll(PDO::FETCH_ASSOC);
+                        if (count($check_insert3) > 0){
+    					echo "<font color='blue'><br />Success!&nbsp</font>";
+    					}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem inserting item into mail.</font><br />"; }
+    				}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem creating mail message.</font><br />"; }
+    			}else{ $error_output++; echo "<br /><font color='red'>MySQL Error: Problem inserting data into \"Item Instance\" table.</font><br />"; }
+            }
 
         }
 		// Return true if all query's where successful. Else return false
