@@ -3,13 +3,18 @@ if (INCLUDED !== true) {
     exit;
 }
 
-function spp_admin_botevents_build_view(PDO $masterPdo, array $selectedEventTypes): array
+function spp_admin_botevents_build_view(PDO $masterPdo, array $selectedEventTypes, array $realmDbMap, ?array $configOverride = null): array
 {
     $botStats = array();
     $recentEvents = array();
     $availableEventTypes = array();
     $pendingTypeBreakdown = array();
     $statsError = '';
+    $configLoad = spp_admin_botevents_load_config();
+    $botConfig = $configOverride ?? ($configLoad['config'] ?? spp_admin_botevents_default_config());
+    $realmOptions = spp_admin_botevents_realm_options($realmDbMap, $botConfig);
+    $botConfig = spp_admin_botevents_normalize_config_for_form($botConfig, $realmOptions);
+    $achievementCatalog = spp_admin_botevents_build_achievement_catalog($realmDbMap, $botConfig);
 
     try {
         $stmt = $masterPdo->query("
@@ -72,5 +77,11 @@ function spp_admin_botevents_build_view(PDO $masterPdo, array $selectedEventType
         'selectedEventTypes' => array_values(array_intersect($selectedEventTypes, $availableEventTypes)),
         'pendingTypeBreakdown' => $pendingTypeBreakdown,
         'statsError' => $statsError,
+        'botConfig' => $botConfig,
+        'realmOptions' => $realmOptions,
+        'configPath' => spp_admin_botevents_config_path(),
+        'configLoadError' => (string)($configLoad['error'] ?? ''),
+        'configWritable' => is_writable(spp_admin_botevents_config_path()),
+        'achievementCatalog' => $achievementCatalog,
     );
 }

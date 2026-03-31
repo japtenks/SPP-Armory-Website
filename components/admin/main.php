@@ -97,6 +97,13 @@ $com_content['admin'] = array(
         '',
         1
     ),
+    'playerbots' => array(
+        'g_is_admin',
+        'Playerbots Control',
+        'index.php?n=admin&sub=playerbots',
+        '',
+        1
+    ),
     'viewlogs' => array(
         'g_is_admin',
         'viewlogs',

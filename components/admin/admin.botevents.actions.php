@@ -3,21 +3,58 @@ if (INCLUDED !== true) {
     exit;
 }
 
-function spp_admin_botevents_handle_action(string $siteRoot, string $phpBin, bool $isWindowsHost, array $selectedEventTypes, string $processLimitValue): array
+function spp_admin_botevents_handle_action(string $siteRoot, string $phpBin, bool $isWindowsHost, array $selectedEventTypes, string $processLimitValue, array $realmDbMap): array
 {
     $state = array(
         'botOutput' => '',
         'botError' => '',
         'botNotice' => '',
         'botCommand' => '',
+        'activeTab' => (string)($_REQUEST['tab'] ?? 'pipeline'),
+        'configError' => '',
+        'configDraft' => null,
     );
 
-    $action = (string)($_GET['action'] ?? '');
+    $action = (string)($_REQUEST['action'] ?? '');
     if ($action === '' || $action === '0') {
         return $state;
     }
 
     spp_require_csrf('admin_botevents');
+
+    if ($action === 'save_config') {
+        $loadResult = spp_admin_botevents_load_config();
+        $currentConfig = $loadResult['config'] ?? spp_admin_botevents_default_config();
+        $realmOptions = spp_admin_botevents_realm_options($realmDbMap, $currentConfig);
+        $config = spp_admin_botevents_extract_config_from_request($_POST, $currentConfig, $realmOptions);
+        $state['activeTab'] = 'configure';
+        $state['configDraft'] = $config;
+
+        $writeResult = spp_admin_botevents_write_config($config);
+        if (!empty($writeResult['ok'])) {
+            redirect('index.php?n=admin&sub=botevents&tab=configure&saved=1');
+        }
+
+        $state['configError'] = (string)($writeResult['message'] ?? 'Unable to save bot event config.');
+        return $state;
+    }
+
+    if ($action === 'save_achievement_config') {
+        $loadResult = spp_admin_botevents_load_config();
+        $currentConfig = $loadResult['config'] ?? spp_admin_botevents_default_config();
+        $realmOptions = spp_admin_botevents_realm_options($realmDbMap, $currentConfig);
+        $config = spp_admin_botevents_extract_achievement_config_from_request($_POST, $currentConfig, $realmOptions);
+        $state['activeTab'] = 'achievements';
+        $state['configDraft'] = $config;
+
+        $writeResult = spp_admin_botevents_write_config($config);
+        if (!empty($writeResult['ok'])) {
+            redirect('index.php?n=admin&sub=botevents&tab=achievements&saved=1');
+        }
+
+        $state['configError'] = (string)($writeResult['message'] ?? 'Unable to save achievement config.');
+        return $state;
+    }
 
     if ($action === 'scan' || $action === 'scan_dry') {
         $args = $action === 'scan_dry' ? array('--dry-run') : array();

@@ -125,6 +125,9 @@
       <h3>Bot Controls</h3>
       <p>Automation-facing tools for bot content generation, event processing, and health monitoring.</p>
       <ul class="admin-home__links">
+        <li><a href="index.php?n=admin&amp;sub=playerbots">Playerbots Control
+          <small>Manage playerbot tools and jump into the dedicated playerbots admin surface.</small>
+        </a></li>
         <li><a href="index.php?n=admin&amp;sub=botevents">Bot Events Pipeline
           <small>Scan, queue, and process generated forum-ready bot event activity.</small>
         </a></li>
