@@ -12,17 +12,11 @@ function spp_admin_bots_handle_action(PDO $masterPdo): array
         'manual_command' => '',
     );
 
-    $isWindowsHost = DIRECTORY_SEPARATOR === '\\';
     $helperConfig = spp_admin_bots_helper_config();
 
     if (!empty($_GET['refresh_helper'])) {
-        if ($isWindowsHost && empty($helperConfig['configured'])) {
-            $result['manual_notice'] = 'Run this helper status command from PowerShell or Command Prompt. Manual CLI mode is the default when no HTTP helper endpoint is set:';
-            $result['manual_command'] = spp_admin_bots_build_manual_command('status', array());
-            return $result;
-        }
-
-        $result['refresh_status'] = true;
+        $result['manual_notice'] = 'Run this status script from PowerShell, Command Prompt, or the host shell. This page follows the same one-script-per-action pattern as the identity backfills:';
+        $result['manual_command'] = spp_admin_bots_build_manual_command('status', array());
         return $result;
     }
 
@@ -61,6 +55,7 @@ function spp_admin_bots_handle_action(PDO $masterPdo): array
         'realm_id' => $selectedRealmId,
         'realm_name' => $selectedRealmName,
         'execute' => in_array($action, array('reset_forum_realm', 'fresh_reset', 'rebuild_site_layers'), true),
+        'dry_run' => false,
         'preserve' => array(
             'player_accounts' => true,
             'player_characters' => true,
@@ -82,51 +77,11 @@ function spp_admin_bots_handle_action(PDO $masterPdo): array
         ),
     );
 
-    if ($isWindowsHost && empty($helperConfig['configured'])) {
-        $result['manual_notice'] = 'Run this command from PowerShell or Command Prompt. Manual CLI mode is active because no HTTP helper endpoint is set:';
-        $result['manual_command'] = spp_admin_bots_build_manual_command($action, $payload);
-        $result['flash'] = array(
-            'type' => 'error',
-            'message' => 'This environment is using manual CLI mode, so the page is showing the exact command instead. Execution still depends on the local helper safety flag file.',
-        );
-        return $result;
-    }
-
-    $call = spp_admin_bots_call_helper($action, $payload);
-    $state = spp_admin_bots_load_state();
-    $state['last_run'] = array(
-        'action' => $action,
-        'label' => $supportedActions[$action],
-        'ran_at' => date('c'),
-        'ok' => !empty($call['ok']),
-        'summary' => (string)($call['summary'] ?? ''),
-        'error' => (string)($call['error'] ?? ''),
-        'response' => $call['response'] ?? array(),
-    );
-    spp_admin_bots_save_state($state);
-
-    $result['refresh_status'] = true;
-    if (!empty($call['ok'])) {
-        $message = trim((string)($call['summary'] ?? ''));
-        if ($message === '') {
-            $message = $supportedActions[$action] . ' was handed to the local maintenance helper.';
-        }
-
-        $result['flash'] = array(
-            'type' => 'success',
-            'message' => $message,
-        );
-        return $result;
-    }
-
-    $message = trim((string)($call['error'] ?? ''));
-    if ($message === '') {
-        $message = $supportedActions[$action] . ' could not reach the local maintenance helper.';
-    }
-
+    $result['manual_notice'] = 'Run this script from PowerShell, Command Prompt, or the host shell. Like the identity backfills, the page records the result after the script writes its status file:';
+    $result['manual_command'] = spp_admin_bots_build_manual_command($action, $payload);
     $result['flash'] = array(
-        'type' => 'error',
-        'message' => $message,
+        'type' => 'success',
+        'message' => 'This action uses the manual script workflow. Run the command directly, or add --dry-run if you only want a preview, then refresh the page to pick up the updated state file.',
     );
 
     return $result;

@@ -1,53 +1,33 @@
-# Bot Maintenance Helper
+# Bot Maintenance Scripts
 
-This repo now includes a local helper scaffold at:
+This repo now includes dedicated one-purpose maintenance scripts for the admin bots page:
 
-- `tools/bot_maintenance_helper.php`
+- `tools/bot_maintenance_status.php`
+- `tools/reset_forum_realm.php`
+- `tools/fresh_bot_reset.php`
+- `tools/rebuild_bot_site_layers.php`
 
-It is designed to be the execution bridge for the admin bots page:
+They back:
 
 - `index.php?n=admin&sub=bots`
 
 ## Current Contract
 
-The helper accepts JSON shaped like:
+Supported scripts:
 
-```json
-{
-  "action": "fresh_reset",
-  "site": "SPP-Armory-Website",
-  "requested_at": "2026-03-31T12:00:00-05:00",
-  "payload": {
-    "realm_id": 1,
-    "realm_name": "SPP-Classic",
-    "execute": false
-  }
-}
-```
-
-Supported actions:
-
-- `status`
-- `reset_forum_realm`
-- `fresh_reset`
-- `rebuild_site_layers`
-
-## Auth
-
-If the `SPP_BOT_HELPER_TOKEN` environment variable is set, the helper expects:
-
-- `Authorization: Bearer <token>`
-
-If the token is blank, auth is effectively disabled for local scaffolding and manual CLI use.
+- `bot_maintenance_status.php`
+- `reset_forum_realm.php --realm=<id> --execute [--dry-run]`
+- `fresh_bot_reset.php --realm=<id> --execute [--dry-run]`
+- `rebuild_bot_site_layers.php --realm=<id>`
 
 ## Execute Safety
 
-Real execution is guarded by:
+Real execution uses:
 
-- local flag file `core/cache/bot_maintenance_execute_enabled.flag`
-- payload or CLI `execute = true`
+- CLI `--execute`
+- optional CLI `--dry-run` for preview-only mode
 
-Without both, the helper returns dry-run plans only.
+Without `--execute`, the script reports that execution was not requested.
 
 ## Realm Forum Mapping
 
@@ -78,15 +58,15 @@ These rows are treated as official site/forum seed content, not disposable bot c
 
 Implemented now:
 
-- `status`
-- `reset_forum_realm` dry-run preview
-- `reset_forum_realm` execute path for shared realm forum cleanup with preserved official seed posts/topics
-- `fresh_reset` dry-run phase plan
-- `rebuild_site_layers` dry-run recommended command list
+- `bot_maintenance_status.php`
+- `reset_forum_realm.php --execute --dry-run` dry-run preview
+- `reset_forum_realm.php --execute` for shared realm forum cleanup with preserved official seed posts/topics
+- `fresh_bot_reset.php --execute --dry-run` dry-run phase plan
+- `rebuild_bot_site_layers.php` recommended command list
 
 ## What Still Needs Host Wiring
 
-Still not executed by the helper:
+Still not executed by the scripts:
 
 - world service restart
 - bot repopulation trigger
@@ -96,7 +76,7 @@ Still not executed by the helper:
 
 ## Intended Fresh Reset Phases
 
-`fresh_reset` is scaffolded around these phases:
+`fresh_bot_reset.php` is scaffolded around these phases:
 
 1. `reset_forum_realm`
 2. clear bot website state
@@ -104,4 +84,4 @@ Still not executed by the helper:
 4. host repopulate / restart
 5. rebuild site layers
 
-The helper currently reports those phases and the relevant counts, but does not yet perform the full end-to-end reset automatically.
+The scripts currently report those phases and the relevant counts, but do not yet perform the full end-to-end reset automatically.

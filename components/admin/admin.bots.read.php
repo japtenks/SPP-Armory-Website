@@ -9,10 +9,6 @@ function spp_admin_bots_build_view(PDO $masterPdo, array $realmDbMap, array $act
     $state = spp_admin_bots_load_state();
     $helperConfig = spp_admin_bots_helper_config();
     $helperStatus = $state['helper_status'] ?? array();
-    $refreshStatus = !empty($_GET['refresh_helper']) || !empty($actionState['refresh_status']);
-    if ($refreshStatus && !empty($helperConfig['configured'])) {
-        $helperStatus = spp_admin_bots_ping_helper_status();
-    }
 
     $accountCounts = spp_admin_bots_account_counts($masterPdo);
     $cacheCounts = spp_admin_bots_preview_cache_counts();

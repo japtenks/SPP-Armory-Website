@@ -118,6 +118,9 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
   <section class="admin-bots__panel">
     <p class="admin-bots__eyebrow">Forum Reset Preview</p>
     <p class="admin-bots__body">Forum reset is its own realm-scoped action. `Fresh Bot World Reset` still includes it, but you can also run just the selected realm forum reset when you want to rebuild forum-facing bot content without wiping the rest of the bot world. Official seeded posts from <code>SPP Team</code> / <code>web Team</code> are treated as preserved content.</p>
+    <?php if (!empty($botSelectedPreview['realm_forum_ids']) && is_array($botSelectedPreview['realm_forum_ids'])): ?>
+      <p class="admin-bots__note" style="margin-top:10px;">Included forum IDs for this realm: <span class="admin-bots__mono"><?php echo htmlspecialchars(implode(', ', array_map('intval', $botSelectedPreview['realm_forum_ids'])), ENT_QUOTES, 'UTF-8'); ?></span></p>
+    <?php endif; ?>
     <div class="admin-bots__grid" style="margin-top:14px;">
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['forum_topics'] ?? 0)); ?></strong><span>Selected realm forum topics</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['forum_posts'] ?? 0)); ?></strong><span>Selected realm forum posts</span></div>
@@ -140,7 +143,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
 
   <section class="admin-bots__panel">
     <p class="admin-bots__eyebrow">Maintenance Actions</p>
-    <p class="admin-bots__body">These actions are helper-driven. In manual CLI mode, the page gives you the exact command to run; with an optional HTTP helper bridge, the page can call the helper directly. `Fresh Bot World Reset` includes the selected realm forum reset as one of its phases.</p>
+    <p class="admin-bots__body">These actions follow the same workflow as the identity backfills and bot-event scripts: the page gives you one dedicated script to run for each action. `Fresh Bot World Reset` includes the selected realm forum reset as one of its phases.</p>
     <div class="admin-bots__actions">
       <form method="post" action="<?php echo htmlspecialchars($botPageUrl, ENT_QUOTES, 'UTF-8'); ?>" onsubmit="return confirm('This requests a fresh bot-world reset. Player accounts and GM accounts stay untouched, but bot characters, bot guild state, bot events, caches, and the selected realm forum footprint will be treated as disposable. Continue?');">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($botCsrfToken, ENT_QUOTES, 'UTF-8'); ?>">
@@ -159,17 +162,17 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
 
   <section class="admin-bots__panel">
     <p class="admin-bots__eyebrow">Higher-Risk / Infrastructure</p>
-    <p class="admin-bots__body">The host-level drain, config edit, and restart path runs through the bot maintenance helper. Manual CLI mode is the default. If you later provide an optional HTTP bridge, this page can call it directly and track what it most recently reported.</p>
+    <p class="admin-bots__body">The host-level drain, config edit, and restart path still needs to happen from the server side, but the website now keeps to one consistent script-driven workflow. Each script writes back into the shared maintenance state file so the page can show what last ran.</p>
     <div class="admin-bots__actions" style="margin-top:12px;">
       <span class="admin-bots__status<?php echo !empty($botHelperStatus['ok']) ? '' : ' admin-bots__status--warn'; ?>">
-        <?php echo !empty($botHelperStatus['ok']) ? 'Helper reachable' : 'Helper not verified'; ?>
+        <?php echo !empty($botHelperStatus['ok']) ? 'Status script ran' : 'No recent status run'; ?>
       </span>
-      <a class="admin-bots__btn" href="<?php echo htmlspecialchars(spp_admin_bots_route_url(array('refresh_helper' => 1)), ENT_QUOTES, 'UTF-8'); ?>">Refresh Helper Status</a>
+      <a class="admin-bots__btn" href="<?php echo htmlspecialchars(spp_admin_bots_route_url(array('refresh_helper' => 1)), ENT_QUOTES, 'UTF-8'); ?>">Show Status Script</a>
     </div>
     <div class="admin-bots__grid" style="margin-top:14px;">
       <div class="admin-bots__mini">
-        <strong><?php echo !empty($botHelperConfig['configured']) ? 'HTTP Bridge Active' : 'Manual CLI Mode'; ?></strong>
-        <span><?php echo htmlspecialchars((string)($botHelperConfig['display_name'] ?? 'Local Bot Maintenance Helper'), ENT_QUOTES, 'UTF-8'); ?></span>
+        <strong>Script Workflow</strong>
+        <span><?php echo htmlspecialchars((string)($botHelperConfig['display_name'] ?? 'Manual CLI / PowerShell Scripts'), ENT_QUOTES, 'UTF-8'); ?></span>
       </div>
       <div class="admin-bots__mini">
         <strong><?php echo htmlspecialchars((string)($botHelperStatus['checked_at'] ?? 'Never'), ENT_QUOTES, 'UTF-8'); ?></strong>
@@ -184,10 +187,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
         <span>Last action timestamp</span>
       </div>
     </div>
-    <p class="admin-bots__note" style="margin-top:14px;">Expected helper contract: CLI or authenticated JSON actions named <code>reset_forum_realm</code>, <code>fresh_reset</code>, <code>restart_world</code>, <code>rebuild_site_layers</code>, and <code>status</code>. The action payload includes the selected realm and forum preservation rules so realm resets keep seeded official posts like <code>SPP Team</code> / <code>web Team</code>.</p>
-    <?php if (!empty($botHelperConfig['url'])): ?>
-      <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;">Endpoint: <?php echo htmlspecialchars((string)$botHelperConfig['url'], ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php endif; ?>
+    <p class="admin-bots__note" style="margin-top:14px;">Script contract: dedicated CLI tools named <code>bot_maintenance_status.php</code>, <code>reset_forum_realm.php</code>, <code>fresh_bot_reset.php</code>, and <code>rebuild_bot_site_layers.php</code>. Realm forum resets still preserve seeded official posts like <code>SPP Team</code> / <code>web Team</code>.</p>
     <?php if (!empty($botHelperStatus['summary'])): ?>
       <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;">Helper says: <?php echo htmlspecialchars((string)$botHelperStatus['summary'], ENT_QUOTES, 'UTF-8'); ?></div>
     <?php endif; ?>
@@ -231,6 +231,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
             </td>
             <td>
               <?php echo number_format((int)$botRow['forum_topics']); ?> topics / <?php echo number_format((int)$botRow['forum_posts']); ?> posts / <?php echo number_format((int)$botRow['forum_pms']); ?> PMs<br>
+              <?php if (!empty($botRow['realm_forum_ids']) && is_array($botRow['realm_forum_ids'])): ?>forums: <?php echo htmlspecialchars(implode(', ', array_map('intval', $botRow['realm_forum_ids'])), ENT_QUOTES, 'UTF-8'); ?><br><?php endif; ?>
               <?php echo number_format((int)$botRow['bot_identities']); ?> bot identities / <?php echo number_format((int)$botRow['bot_identity_profiles']); ?> profile rows<br>
               <?php echo number_format((int)$botRow['bot_forum_topics']); ?> bot-authored topics / <?php echo number_format((int)$botRow['bot_forum_posts']); ?> bot-authored posts<br>
               <?php echo number_format((int)$botRow['preserved_forum_topics']); ?> preserved official topics / <?php echo number_format((int)$botRow['preserved_forum_posts']); ?> preserved official posts

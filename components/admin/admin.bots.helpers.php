@@ -4,6 +4,7 @@ if (INCLUDED !== true) {
 }
 
 require_once(__DIR__ . '/admin.identities.helpers.php');
+require_once(dirname(__DIR__) . '/forum/forum.scope.php');
 
 function spp_admin_bots_route_url(array $params = array()): string
 {
@@ -50,35 +51,40 @@ function spp_admin_bots_resolve_php_cli_binary(): string
     return 'php';
 }
 
-function spp_admin_bots_helper_script_path(): string
+function spp_admin_bots_tool_script_name(string $action): string
 {
-    return spp_admin_bots_root_path() . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'bot_maintenance_helper.php';
+    $map = array(
+        'status' => 'bot_maintenance_status.php',
+        'reset_forum_realm' => 'reset_forum_realm.php',
+        'fresh_reset' => 'fresh_bot_reset.php',
+        'rebuild_site_layers' => 'rebuild_bot_site_layers.php',
+    );
+
+    return (string)($map[$action] ?? 'bot_maintenance_status.php');
 }
 
-function spp_admin_bots_helper_request_payload(string $action, array $payload = array()): array
+function spp_admin_bots_tool_script_path(string $action): string
 {
-    return array(
-        'action' => $action,
-        'site' => 'SPP-Armory-Website',
-        'requested_at' => date('c'),
-        'payload' => $payload,
-    );
+    return spp_admin_bots_root_path() . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . spp_admin_bots_tool_script_name($action);
 }
 
 function spp_admin_bots_build_manual_command(string $action, array $payload = array()): string
 {
     $phpBin = spp_admin_bots_resolve_php_cli_binary();
-    $scriptPath = spp_admin_bots_helper_script_path();
+    $scriptPath = spp_admin_bots_tool_script_path($action);
     $escapedPhp = strtolower((string)$phpBin) === 'php'
         ? 'php'
         : ('"' . str_replace('"', '""', $phpBin) . '"');
     $escapedScript = '"' . str_replace('"', '""', $scriptPath) . '"';
-    $parts = array($escapedPhp, $escapedScript, $action);
+    $parts = array($escapedPhp, $escapedScript);
     if (!empty($payload['realm_id'])) {
         $parts[] = '--realm=' . (int)$payload['realm_id'];
     }
     if (!empty($payload['execute'])) {
         $parts[] = '--execute';
+    }
+    if (!empty($payload['dry_run'])) {
+        $parts[] = '--dry-run';
     }
 
     return implode(' ', $parts);
@@ -113,134 +119,14 @@ function spp_admin_bots_save_state(array $state): bool
 
 function spp_admin_bots_helper_config(): array
 {
-    $url = trim((string)getenv('SPP_BOT_HELPER_URL'));
-    $token = trim((string)getenv('SPP_BOT_HELPER_TOKEN'));
-    $timeoutSec = max(1, (int)getenv('SPP_BOT_HELPER_TIMEOUT_SEC'));
-    if ($timeoutSec <= 1) {
-        $timeoutSec = 10;
-    }
-
-    $displayName = trim((string)getenv('SPP_BOT_HELPER_NAME'));
-    if ($displayName === '') {
-        $displayName = $url !== '' ? 'Optional HTTP Bot Helper' : 'Manual CLI / PowerShell Helper';
-    }
-
     return array(
-        'configured' => $url !== '',
-        'transport' => 'http',
-        'url' => $url,
-        'token' => $token,
-        'timeout_sec' => $timeoutSec,
-        'display_name' => $displayName,
+        'configured' => false,
+        'transport' => 'cli',
+        'url' => '',
+        'token' => '',
+        'timeout_sec' => 0,
+        'display_name' => 'Manual CLI / PowerShell Scripts',
     );
-}
-
-function spp_admin_bots_http_json_request(string $url, array $payload, int $timeoutSec, string $token = ''): array
-{
-    $headers = array(
-        'Content-Type: application/json',
-        'Accept: application/json',
-    );
-    if ($token !== '') {
-        $headers[] = 'Authorization: Bearer ' . $token;
-    }
-
-    $context = stream_context_create(array(
-        'http' => array(
-            'method' => 'POST',
-            'header' => implode("\r\n", $headers),
-            'content' => json_encode($payload),
-            'timeout' => $timeoutSec,
-            'ignore_errors' => true,
-        ),
-    ));
-
-    $rawBody = @file_get_contents($url, false, $context);
-    $responseHeaders = isset($http_response_header) && is_array($http_response_header) ? $http_response_header : array();
-    $statusCode = 0;
-    if (!empty($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', (string)$responseHeaders[0], $matches)) {
-        $statusCode = (int)$matches[1];
-    }
-
-    $decoded = null;
-    if (is_string($rawBody) && trim($rawBody) !== '') {
-        $decoded = json_decode($rawBody, true);
-    }
-
-    return array(
-        'ok' => $statusCode >= 200 && $statusCode < 300,
-        'status_code' => $statusCode,
-        'body' => is_string($rawBody) ? $rawBody : '',
-        'json' => is_array($decoded) ? $decoded : array(),
-        'headers' => $responseHeaders,
-        'error' => $rawBody === false ? 'HTTP request failed.' : '',
-    );
-}
-
-function spp_admin_bots_call_helper(string $action, array $payload = array()): array
-{
-    $config = spp_admin_bots_helper_config();
-    if (empty($config['configured'])) {
-        return array(
-            'ok' => false,
-            'error' => 'The local bot maintenance helper is not configured yet.',
-            'response' => array(),
-            'summary' => '',
-        );
-    }
-
-    $requestPayload = array(
-        'action' => $action,
-        'site' => 'SPP-Armory-Website',
-        'requested_at' => date('c'),
-        'payload' => $payload,
-    );
-
-    $result = spp_admin_bots_http_json_request(
-        (string)$config['url'],
-        $requestPayload,
-        (int)$config['timeout_sec'],
-        (string)$config['token']
-    );
-
-    $response = is_array($result['json']) && !empty($result['json']) ? $result['json'] : array();
-    $summary = trim((string)($response['summary'] ?? ''));
-    if ($summary === '' && trim((string)$result['body']) !== '') {
-        $summary = trim((string)$result['body']);
-    }
-
-    $error = trim((string)($result['error'] ?? ''));
-    if ($error === '' && !$result['ok']) {
-        $error = trim((string)($response['error'] ?? ''));
-    }
-    if ($error === '' && !$result['ok']) {
-        $error = 'Helper call failed with HTTP status ' . (int)($result['status_code'] ?? 0) . '.';
-    }
-
-    return array(
-        'ok' => !empty($result['ok']),
-        'error' => $error,
-        'response' => $response,
-        'summary' => $summary,
-        'status_code' => (int)($result['status_code'] ?? 0),
-    );
-}
-
-function spp_admin_bots_ping_helper_status(): array
-{
-    $status = spp_admin_bots_call_helper('status', array());
-    $state = spp_admin_bots_load_state();
-    $state['helper_status'] = array(
-        'checked_at' => date('c'),
-        'ok' => !empty($status['ok']),
-        'summary' => (string)($status['summary'] ?? ''),
-        'error' => (string)($status['error'] ?? ''),
-        'response' => $status['response'] ?? array(),
-        'status_code' => (int)($status['status_code'] ?? 0),
-    );
-    spp_admin_bots_save_state($state);
-
-    return $state['helper_status'];
 }
 
 function spp_admin_bots_count_files(string $path, string $pattern = '*'): int
@@ -309,6 +195,65 @@ function spp_admin_bots_realm_forum_scope(int $realmId): array
     return $map[$realmId] ?? array('forum_id' => 0, 'forum_name' => '');
 }
 
+function spp_admin_bots_forum_ids_for_realm(int $realmId, PDO $pdo): array
+{
+    $realmDbMap = $GLOBALS['realmDbMap'] ?? array();
+    $mainScope = spp_admin_bots_realm_forum_scope($realmId);
+    $mainForumId = (int)($mainScope['forum_id'] ?? 0);
+    $expansion = function_exists('spp_realm_to_expansion') ? spp_realm_to_expansion($realmId) : '';
+
+    $stmt = $pdo->query("SELECT `forum_id`, `forum_name`, `forum_desc`, `scope_type`, `scope_value` FROM `f_forums` ORDER BY `forum_id`");
+    $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : array();
+
+    $forumIds = array();
+    foreach ($rows as $forum) {
+        $forumId = (int)($forum['forum_id'] ?? 0);
+        $scopeType = (string)($forum['scope_type'] ?? 'all');
+        $scopeValue = strtolower(trim((string)($forum['scope_value'] ?? '')));
+
+        if ($forumId === $mainForumId) {
+            $forumIds[] = $forumId;
+            continue;
+        }
+
+        if ($scopeType === 'realm' && (int)$scopeValue === $realmId) {
+            $forumIds[] = $forumId;
+            continue;
+        }
+
+        if ($scopeType === 'expansion' && $scopeValue !== '' && $scopeValue === $expansion) {
+            $forumIds[] = $forumId;
+            continue;
+        }
+
+        if ($scopeType === 'guild_recruitment') {
+            $hintRealmId = function_exists('spp_detect_forum_realm_hint')
+                ? spp_detect_forum_realm_hint($forum, is_array($realmDbMap) ? $realmDbMap : array(), 0)
+                : 0;
+            if ($hintRealmId === $realmId) {
+                $forumIds[] = $forumId;
+                continue;
+            }
+            if ($scopeValue !== '' && ($scopeValue === (string)$realmId || $scopeValue === $expansion)) {
+                $forumIds[] = $forumId;
+                continue;
+            }
+        }
+
+        $hintRealmId = function_exists('spp_detect_forum_realm_hint')
+            ? spp_detect_forum_realm_hint($forum, is_array($realmDbMap) ? $realmDbMap : array(), 0)
+            : 0;
+        if ($hintRealmId === $realmId) {
+            $forumIds[] = $forumId;
+            continue;
+        }
+    }
+
+    $forumIds = array_values(array_unique(array_filter(array_map('intval', $forumIds))));
+    sort($forumIds);
+    return $forumIds;
+}
+
 function spp_admin_bots_account_counts(PDO $masterPdo): array
 {
     $counts = array(
@@ -356,12 +301,14 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
 {
     $forumScope = spp_admin_bots_realm_forum_scope($realmId);
     $realmForumId = (int)($forumScope['forum_id'] ?? 0);
+    $realmForumIds = $realmdPdo instanceof PDO ? spp_admin_bots_forum_ids_for_realm($realmId, $realmdPdo) : array();
 
     $row = array(
         'realm_id' => $realmId,
         'realm_name' => (string)(spp_get_armory_realm_name($realmId) ?? ('Realm ' . $realmId)),
         'available' => $charsPdo instanceof PDO && $realmdPdo instanceof PDO,
         'realm_forum_id' => $realmForumId,
+        'realm_forum_ids' => $realmForumIds,
         'realm_forum_name' => (string)($forumScope['forum_name'] ?? ''),
         'bot_characters' => 0,
         'player_characters' => 0,
@@ -424,17 +371,18 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
         );
     }
 
-    if ($realmdPdo instanceof PDO && $realmForumId > 0) {
+    if ($realmdPdo instanceof PDO && !empty($realmForumIds)) {
+        $placeholders = implode(',', array_fill(0, count($realmForumIds), '?'));
         if (spp_admin_identity_health_table_exists($realmdPdo, 'f_topics')) {
-            $row['forum_topics'] = spp_admin_bots_scalar_safe($realmdPdo, "SELECT COUNT(*) FROM `f_topics` WHERE `forum_id` = ?", array($realmForumId));
+            $row['forum_topics'] = spp_admin_bots_scalar_safe($realmdPdo, "SELECT COUNT(*) FROM `f_topics` WHERE `forum_id` IN ({$placeholders})", $realmForumIds);
             $row['preserved_forum_topics'] = spp_admin_bots_scalar_safe(
                 $realmdPdo,
                 "SELECT COUNT(*)
                  FROM `f_topics`
                  WHERE `topic_poster_id` = 0
                    AND LOWER(TRIM(`topic_poster`)) IN ('web team', 'spp team')
-                   AND `forum_id` = ?",
-                array($realmForumId)
+                   AND `forum_id` IN ({$placeholders})",
+                $realmForumIds
             );
             if (spp_admin_identity_health_column_exists($realmdPdo, 'f_topics', 'topic_poster_identity_id')
                 && spp_admin_identity_health_table_exists($masterPdo, 'website_identities')) {
@@ -443,9 +391,9 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
                     "SELECT COUNT(*)
                      FROM `f_topics` t
                      INNER JOIN `website_identities` i ON i.`identity_id` = t.`topic_poster_identity_id`
-                     WHERE t.`forum_id` = ?
+                     WHERE t.`forum_id` IN ({$placeholders})
                        AND i.`realm_id` = ? AND (i.`identity_type` = 'bot_character' OR i.`is_bot` = 1)",
-                    array($realmForumId, $realmId)
+                    array_merge($realmForumIds, array($realmId))
                 );
             }
         }
@@ -457,8 +405,8 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
                 "SELECT COUNT(*)
                  FROM `f_posts` p
                  INNER JOIN `f_topics` t ON t.`topic_id` = p.`topic_id`
-                 WHERE t.`forum_id` = ?",
-                array($realmForumId)
+                 WHERE t.`forum_id` IN ({$placeholders})",
+                $realmForumIds
             );
             $row['preserved_forum_posts'] = spp_admin_bots_scalar_safe(
                 $realmdPdo,
@@ -467,8 +415,8 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
                  WHERE `poster_id` = 0
                    AND (`poster_character_id` IS NULL OR `poster_character_id` = 0)
                    AND LOWER(TRIM(`poster`)) IN ('web team', 'spp team')
-                   AND `topic_id` IN (SELECT `topic_id` FROM `f_topics` WHERE `forum_id` = ?)",
-                array($realmForumId)
+                   AND `topic_id` IN (SELECT `topic_id` FROM `f_topics` WHERE `forum_id` IN ({$placeholders}))",
+                $realmForumIds
             );
             if (spp_admin_identity_health_column_exists($realmdPdo, 'f_posts', 'poster_identity_id')
                 && spp_admin_identity_health_table_exists($masterPdo, 'website_identities')) {
@@ -478,9 +426,9 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
                      FROM `f_posts` p
                      INNER JOIN `f_topics` t ON t.`topic_id` = p.`topic_id`
                      INNER JOIN `website_identities` i ON i.`identity_id` = p.`poster_identity_id`
-                     WHERE t.`forum_id` = ?
+                     WHERE t.`forum_id` IN ({$placeholders})
                        AND i.`realm_id` = ? AND (i.`identity_type` = 'bot_character' OR i.`is_bot` = 1)",
-                    array($realmForumId, $realmId)
+                    array_merge($realmForumIds, array($realmId))
                 );
             }
         }
