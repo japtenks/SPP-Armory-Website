@@ -144,10 +144,14 @@ function spp_admin_playerbots_handle_action(PDO $charsPdo, int $realmId): void
             return;
         }
 
-        $strategyValues = array();
+        $effectiveStrategyValues = array();
         foreach (spp_admin_playerbots_strategy_keys() as $strategyKey) {
-            $strategyValues[$strategyKey] = spp_admin_playerbots_normalize_strategy_value((string)($_POST['strategy_' . $strategyKey] ?? ''));
+            $effectiveStrategyValues[$strategyKey] = spp_admin_playerbots_normalize_strategy_value((string)($_POST['strategy_' . $strategyKey] ?? ''));
         }
+
+        $baseRows = spp_admin_playerbots_fetch_strategy_rows_for_guids($charsPdo, array($characterGuid), 'default');
+        $baseValues = $baseRows[$characterGuid] ?? array_fill_keys(spp_admin_playerbots_strategy_keys(), '');
+        $strategyValues = spp_admin_playerbots_build_strategy_override_set($baseValues, $effectiveStrategyValues);
 
         try {
             $charsPdo->beginTransaction();
@@ -214,26 +218,8 @@ function spp_admin_playerbots_handle_action(PDO $charsPdo, int $realmId): void
         foreach (spp_admin_playerbots_strategy_keys() as $strategyKey) {
             $strategyValues[$strategyKey] = spp_admin_playerbots_normalize_strategy_value((string)($_POST['strategy_' . $strategyKey] ?? ''));
         }
-        $currentRows = spp_admin_playerbots_fetch_strategy_rows_for_guids($charsPdo, $memberGuids, '');
         $seededMembers = 0;
         $seedFailedMembers = 0;
-        foreach ($memberRows as $memberRow) {
-            $memberGuid = (int)($memberRow['guid'] ?? 0);
-            $memberName = trim((string)($memberRow['name'] ?? ''));
-            if ($memberGuid <= 0 || !isset($currentRows[$memberGuid]) || !spp_admin_playerbots_strategy_values_are_empty($currentRows[$memberGuid])) {
-                continue;
-            }
-
-            $seedError = '';
-            $liveSnapshot = spp_admin_playerbots_fetch_live_strategy_snapshot($realmId, $memberName, $seedError);
-            if ($liveSnapshot === null) {
-                $seedFailedMembers++;
-                continue;
-            }
-
-            $currentRows[$memberGuid] = $liveSnapshot;
-            $seededMembers++;
-        }
 
         try {
             $charsPdo->beginTransaction();
@@ -244,23 +230,21 @@ function spp_admin_playerbots_handle_action(PDO $charsPdo, int $realmId): void
             $deleteStmt = $charsPdo->prepare("
                 DELETE FROM ai_playerbot_db_store
                 WHERE guid IN ($memberPlaceholders)
-                  AND preset = ''
+                  AND preset = 'default'
                   AND `key` IN ($keyPlaceholders)
             ");
             $deleteStmt->execute(array_merge($memberGuids, $strategyKeys));
 
             $insertStmt = $charsPdo->prepare("
                 INSERT INTO ai_playerbot_db_store (`guid`, `preset`, `key`, `value`)
-                VALUES (?, '', ?, ?)
+                VALUES (?, 'default', ?, ?)
             ");
             foreach ($memberGuids as $memberGuid) {
                 foreach ($strategyValues as $strategyKey => $strategyValue) {
-                    $currentValue = (string)($currentRows[$memberGuid][$strategyKey] ?? '');
-                    $mergedValue = spp_admin_playerbots_merge_strategy_delta($currentValue, $strategyValue);
-                    if ($mergedValue === '') {
+                    if ($strategyValue === '') {
                         continue;
                     }
-                    $insertStmt->execute(array($memberGuid, $strategyKey, $mergedValue));
+                    $insertStmt->execute(array($memberGuid, $strategyKey, $strategyValue));
                 }
             }
 

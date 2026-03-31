@@ -14,6 +14,7 @@ $guildStrategyProfileKey = (string)($guildStrategyState['profile_key'] ?? 'custo
 $guildStrategyConsistent = !empty($guildStrategyState['consistent']);
 $guildStrategyMemberCount = (int)($guildStrategyState['member_count'] ?? 0);
 $guildStrategyMixedCount = (int)($guildStrategyState['mixed_count'] ?? 0);
+$randomBotBaselineProfile = is_array($randomBotBaselineProfile ?? null) ? $randomBotBaselineProfile : array();
 $characterStrategyValues = is_array($characterStrategyState['values'] ?? null) ? $characterStrategyState['values'] : array();
 $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?? 'custom');
 ?>
@@ -53,10 +54,8 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
   <?php if ($shareSaved): ?><div class="playerbots-success">Guild share block saved.</div><?php endif; ?>
   <?php if ($notesSaved): ?><div class="playerbots-success">Officer order notes saved.</div><?php endif; ?>
   <?php if ($personalitySaved): ?><div class="playerbots-success">Bot personality saved.</div><?php endif; ?>
-  <?php if ($botStrategySaved): ?><div class="playerbots-success">Bot strategy snapshot saved.</div><?php endif; ?>
+  <?php if ($botStrategySaved): ?><div class="playerbots-success">Bot strategy override saved.</div><?php endif; ?>
   <?php if ($strategySaved): ?><div class="playerbots-success">Guild flavor applied to member bots.</div><?php endif; ?>
-  <?php if ($seededMembers > 0): ?><div class="playerbots-success">Seeded live base strategy snapshots for <?php echo (int)$seededMembers; ?> member<?php echo $seededMembers === 1 ? '' : 's'; ?> before applying the guild flavor.</div><?php endif; ?>
-  <?php if ($seedFailedMembers > 0): ?><div class="playerbots-success" style="background:#3a2612;border-color:#8d6130;color:#f5d8a8;">Could not seed live base strategies for <?php echo (int)$seedFailedMembers; ?> member<?php echo $seedFailedMembers === 1 ? '' : 's'; ?>. Those bots likely had no online snapshot available, so their first guild flavor save used only the posted guild delta.</div><?php endif; ?>
   <?php if (!empty($invalidRealmRequested)): ?><div class="playerbots-success" style="background:#3a2612;border-color:#8d6130;color:#f5d8a8;">Realm <?php echo (int)$requestedRealmId; ?> is not configured here. Showing the nearest valid configured realm instead.</div><?php endif; ?>
 
   <div class="playerbots-card">
@@ -220,10 +219,32 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
 
   <div class="playerbots-card">
     <h3 class="playerbots-section-title">Guild Strategy Flavor</h3>
-    <p class="playerbots-note">Applying a guild flavor merges the selected delta strings onto each member bot's current effective <code>co/nc/dead/react</code> values. If a bot has no stored strategy snapshot yet, the site first tries to seed that bot from the live core with <code>.ec botstrat</code>, so default role/spec behavior is preserved whenever the bot is online.</p>
+    <p class="playerbots-note">Use this area as a comparison between two things: the unguilded random-bot baseline that makes bots feel like sloppy, social noobs, and the guild flavor layer that turns a guild into a culture. The baseline below is read-only reference. Saving here writes the shared guild layer into <code>preset='default'</code> for the selected guild.</p>
     <div class="playerbots-actions" style="margin-top:0;margin-bottom:12px;">
       <span class="playerbots-status"><?php echo $guildStrategyConsistent ? 'Sampled bots match' : ('Mixed sampled state across ' . $guildStrategyMixedCount . ' members'); ?></span>
       <span class="playerbots-status">Sample profile: <?php echo htmlspecialchars((string)(($guildStrategyProfiles[$guildStrategyProfileKey]['label'] ?? 'Custom'))); ?></span>
+    </div>
+    <div class="playerbots-preview" style="margin-bottom:12px;">
+      <strong>Unguilded Baseline Reference</strong>
+      <div class="playerbots-note" style="margin:8px 0 12px;"><?php echo htmlspecialchars((string)($randomBotBaselineProfile['description'] ?? '')); ?></div>
+      <div class="playerbots-strategy-grid">
+        <div class="playerbots-field">
+          <label>Combat (<code>co</code>)</label>
+          <textarea readonly><?php echo htmlspecialchars((string)($randomBotBaselineProfile['co'] ?? '')); ?></textarea>
+        </div>
+        <div class="playerbots-field">
+          <label>Non-Combat (<code>nc</code>)</label>
+          <textarea readonly><?php echo htmlspecialchars((string)($randomBotBaselineProfile['nc'] ?? '')); ?></textarea>
+        </div>
+        <div class="playerbots-field">
+          <label>Dead (<code>dead</code>)</label>
+          <textarea readonly><?php echo htmlspecialchars((string)($randomBotBaselineProfile['dead'] ?? '')); ?></textarea>
+        </div>
+        <div class="playerbots-field">
+          <label>Reaction (<code>react</code>)</label>
+          <textarea readonly><?php echo htmlspecialchars((string)($randomBotBaselineProfile['react'] ?? '')); ?></textarea>
+        </div>
+      </div>
     </div>
     <?php if (!empty($selectedGuild)): ?>
     <form method="post" action="index.php?n=admin&sub=playerbots&realm=<?php echo (int)$realmId; ?>&guildid=<?php echo (int)$selectedGuildId; ?>&character_guid=<?php echo (int)$selectedCharacterGuid; ?>">
@@ -232,7 +253,7 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
       <input type="hidden" name="guildid" value="<?php echo (int)$selectedGuildId; ?>">
       <input type="hidden" name="character_guid" value="<?php echo (int)$selectedCharacterGuid; ?>">
       <div class="playerbots-field">
-        <label>Guild Preset Builder</label>
+        <label>Guild Flavor Preset</label>
         <select id="playerbots-guild-strategy-profile" onchange="sppPlayerbotsApplyStrategyProfile('guild', this.value)">
           <?php foreach (($guildStrategyProfiles ?? array()) as $profileKey => $profile): ?>
             <option value="<?php echo htmlspecialchars((string)$profileKey); ?>"<?php echo $profileKey === $guildStrategyProfileKey ? ' selected' : ''; ?>><?php echo htmlspecialchars((string)$profile['label']); ?> - <?php echo htmlspecialchars((string)$profile['description']); ?></option>
@@ -250,25 +271,25 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
       </div>
       <div class="playerbots-strategy-grid">
         <div class="playerbots-field">
-          <label>Combat Delta (<code>co</code>)</label>
+          <label>Guild Combat Layer (<code>co</code>)</label>
           <textarea id="playerbots-guild-strategy-co" name="strategy_co" placeholder="+dps,+dps assist,-threat"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['co'] ?? ($guildStrategyValues['co'] ?? ''))); ?></textarea>
         </div>
         <div class="playerbots-field">
-          <label>Non-Combat Delta (<code>nc</code>)</label>
+          <label>Guild Non-Combat Layer (<code>nc</code>)</label>
           <textarea id="playerbots-guild-strategy-nc" name="strategy_nc" placeholder="+rpg,+quest,+grind"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['nc'] ?? ($guildStrategyValues['nc'] ?? ''))); ?></textarea>
         </div>
         <div class="playerbots-field">
-          <label>Dead Delta (<code>dead</code>)</label>
+          <label>Guild Dead Layer (<code>dead</code>)</label>
           <textarea id="playerbots-guild-strategy-dead" name="strategy_dead" placeholder="+auto release"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['dead'] ?? ($guildStrategyValues['dead'] ?? ''))); ?></textarea>
         </div>
         <div class="playerbots-field">
-          <label>Reaction Delta (<code>react</code>)</label>
+          <label>Guild Reaction Layer (<code>react</code>)</label>
           <textarea id="playerbots-guild-strategy-react" name="strategy_react" placeholder="+pvp,+preheal"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['react'] ?? ($guildStrategyValues['react'] ?? ''))); ?></textarea>
         </div>
       </div>
       <div class="playerbots-actions">
         <button class="playerbots-button" type="submit">Apply Guild Flavor</button>
-        <span class="playerbots-note">This applies the posted delta strings onto each member bot's current effective strategy snapshot. The newest guild save wins, and missing snapshots are seeded live first when possible instead of flattening everyone to one identical role string.</span>
+        <span class="playerbots-note">The baseline above is the noisy random-bot world. These presets are the “guild culture” layer that makes a leveling guild, quest guild, PvP guild, or profession guild feel intentionally different from it.</span>
       </div>
     </form>
     <?php endif; ?>
@@ -323,7 +344,7 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
       <?php if (!empty($selectedCharacter)): ?>
       <div class="playerbots-preview" style="margin-top:12px;">
         <strong>Bot React / Role Builder</strong>
-        <p class="playerbots-note" style="margin:8px 0 12px;">These are the current effective strategy values for <strong><?php echo htmlspecialchars((string)($selectedCharacter['name'] ?? 'this bot')); ?></strong>. Saving here writes a full fresh snapshot for this bot, so the newest bot save wins.</p>
+        <p class="playerbots-note" style="margin:8px 0 12px;">These fields start from the current effective strategy values for <strong><?php echo htmlspecialchars((string)($selectedCharacter['name'] ?? 'this bot')); ?></strong>, including the guild flavor stored in <code>preset='default'</code>. Saving here stores only this bot's override layer, so future guild flavor updates can still flow through.</p>
         <form method="post" action="index.php?n=admin&sub=playerbots&realm=<?php echo (int)$realmId; ?>&guildid=<?php echo (int)$selectedGuildId; ?>&character_guid=<?php echo (int)$selectedCharacterGuid; ?>">
           <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($admin_playerbots_csrf_token, ENT_QUOTES); ?>">
           <input type="hidden" name="playerbots_action" value="save_bot_strategy">
@@ -366,7 +387,7 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
           </div>
           <div class="playerbots-actions">
             <button class="playerbots-button" type="submit">Save Bot Role / React</button>
-            <span class="playerbots-note">Use the preset as a starting point, then fine-tune the raw strings for this specific bot.</span>
+            <span class="playerbots-note">The editor starts from this bot's current saved strategy snapshot. Choosing a preset layers that role onto the current values instead of flattening the existing guild flavor.</span>
           </div>
         </form>
       </div>
@@ -377,6 +398,73 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
 <script>
 window.playerbotsGuildStrategyProfiles = <?php echo json_encode($guildStrategyProfiles ?? array(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 window.playerbotsBotStrategyProfiles = <?php echo json_encode($botStrategyProfiles ?? array(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+
+function sppPlayerbotsNormalizeStrategyValue(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .trim()
+    .replace(/\s*\n\s*/g, '');
+}
+
+function sppPlayerbotsParseStrategyTokens(value) {
+  var normalized = sppPlayerbotsNormalizeStrategyValue(value);
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized.split(',').map(function (token) {
+    return token.trim();
+  }).filter(function (token) {
+    return token !== '';
+  });
+}
+
+function sppPlayerbotsStrategyTokenKey(token) {
+  var normalized = String(token || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  var prefix = normalized.charAt(0);
+  if (prefix === '+' || prefix === '-' || prefix === '~') {
+    normalized = normalized.slice(1);
+  }
+
+  return normalized.trim().toLowerCase();
+}
+
+function sppPlayerbotsMergeStrategyValue(currentValue, deltaValue) {
+  var merged = {};
+  var order = [];
+
+  sppPlayerbotsParseStrategyTokens(currentValue).forEach(function (token) {
+    var key = sppPlayerbotsStrategyTokenKey(token);
+    if (!key) {
+      return;
+    }
+    if (!Object.prototype.hasOwnProperty.call(merged, key)) {
+      order.push(key);
+    }
+    merged[key] = token;
+  });
+
+  sppPlayerbotsParseStrategyTokens(deltaValue).forEach(function (token) {
+    var key = sppPlayerbotsStrategyTokenKey(token);
+    if (!key) {
+      return;
+    }
+    if (!Object.prototype.hasOwnProperty.call(merged, key)) {
+      order.push(key);
+    }
+    merged[key] = token;
+  });
+
+  return order.map(function (key) {
+    return merged[key] || '';
+  }).filter(function (token) {
+    return token.trim() !== '';
+  }).join(',');
+}
 
 function sppPlayerbotsApplyStrategyProfile(scope, profileKey) {
   var profiles = scope === 'bot' ? (window.playerbotsBotStrategyProfiles || {}) : (window.playerbotsGuildStrategyProfiles || {});
@@ -399,6 +487,11 @@ function sppPlayerbotsApplyStrategyProfile(scope, profileKey) {
 
   Object.keys(fields).forEach(function (key) {
     if (fields[key]) {
+      if (scope === 'bot') {
+        fields[key].value = sppPlayerbotsMergeStrategyValue(fields[key].value || '', profile[key] || '');
+        return;
+      }
+
       fields[key].value = profile[key] || '';
     }
   });

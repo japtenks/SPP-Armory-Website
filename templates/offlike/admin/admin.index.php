@@ -99,11 +99,8 @@
         <li><a href="index.php?n=admin&amp;sub=realms"><?php echo $lang['realms_manage']; ?>
           <small>Realm records, names, types, and world connection settings.</small>
         </a></li>
-        <li><a href="index.php?n=admin&amp;sub=cleanup">Account Profile Cleanup
-          <small>Repair broken website account pointers and review orphaned profile rows.</small>
-        </a></li>
-        <li><a href="index.php?n=admin&amp;sub=identities">Forum Identity Coverage
-          <small>Check per-realm forum identity backfill coverage and run repair scripts.</small>
+        <li><a href="index.php?n=admin&amp;sub=identities">Identity &amp; Data Health
+          <small>Inspect ownership vs speaking identities, run backfills, repair stale website pointers, and review reset scope in one merged health page.</small>
         </a></li>
       </ul>
     </section>
@@ -123,10 +120,13 @@
 
     <section class="admin-home__card">
       <h3>Bot Controls</h3>
-      <p>Automation-facing tools for bot content generation, event processing, and health monitoring.</p>
+      <p>Automation-facing tools for bot content generation, event processing, maintenance, and health monitoring.</p>
       <ul class="admin-home__links">
         <li><a href="index.php?n=admin&amp;sub=playerbots">Playerbots Control
           <small>Manage playerbot tools and jump into the dedicated playerbots admin surface.</small>
+        </a></li>
+        <li><a href="index.php?n=admin&amp;sub=bots">Bot Maintenance
+          <small>Preview a fresh bot-world reset, preserve player and GM accounts, and hand drain/reset/rebuild actions to the local maintenance helper.</small>
         </a></li>
         <li><a href="index.php?n=admin&amp;sub=botevents">Bot Events Pipeline
           <small>Scan, queue, and process generated forum-ready bot event activity.</small>

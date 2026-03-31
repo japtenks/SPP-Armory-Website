@@ -20,13 +20,6 @@ $com_content['admin'] = array(
         '',
         1
     ),
-    'cleanup' => array(
-        'g_is_admin',
-        'Site Cleanup',
-        'index.php?n=admin&sub=cleanup',
-        '',
-        1
-    ),
     'config' => array(
         'g_is_admin',
         'site_config',
@@ -78,7 +71,7 @@ $com_content['admin'] = array(
     ),
     'identities' => array(
         'g_is_admin',
-        'Identity Coverage',
+        'Identity & Data Health',
         'index.php?n=admin&sub=identities',
         '',
         1
@@ -101,6 +94,13 @@ $com_content['admin'] = array(
         'g_is_admin',
         'Playerbots Control',
         'index.php?n=admin&sub=playerbots',
+        '',
+        1
+    ),
+    'bots' => array(
+        'g_is_admin',
+        'Bot Maintenance',
+        'index.php?n=admin&sub=bots',
         '',
         1
     ),

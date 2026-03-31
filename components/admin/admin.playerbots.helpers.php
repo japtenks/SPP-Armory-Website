@@ -26,6 +26,18 @@ function spp_admin_playerbots_strategy_keys(): array
     return array('co', 'nc', 'dead', 'react');
 }
 
+function spp_admin_playerbots_random_bot_baseline_profile(): array
+{
+    return array(
+        'label' => 'Unguilded Random Bot Baseline',
+        'description' => 'Noisy noob baseline: overeager DPS, sloppy threat, gathers and loots everything, duels randomly, and drifts into guild life on its own.',
+        'co' => '+dps,+dps aoe,+threat,+boost,+custom::say',
+        'nc' => '+rpg guild,+quest,+grind,+rpg vendor,+rpg maintenance,+loot,+wander,+custom::say,+duel,+gather,+roll',
+        'dead' => '',
+        'react' => '+flee',
+    );
+}
+
 function spp_admin_playerbots_bot_strategy_profiles(): array
 {
     return array(
@@ -67,49 +79,49 @@ function spp_admin_playerbots_bot_strategy_profiles(): array
 function spp_admin_playerbots_guild_strategy_profiles(): array
 {
     return array(
-        'leveling' => array(
-            'label' => 'Leveling',
-            'description' => 'Questing and wandering profile for autonomous bots.',
-            'co' => '+dps,+dps assist,-threat,+custom::say',
-            'nc' => '+rpg,+quest,+grind,+loot,+wander,+custom::say',
-            'dead' => '',
-            'react' => '',
-        ),
-        'quest' => array(
-            'label' => 'Quest',
-            'description' => 'Quest-hub focused RPG profile.',
-            'co' => '+dps,+dps assist,-threat,+custom::say',
-            'nc' => '+rpg,+rpg quest,+loot,+tfish,+wander,+custom::say',
-            'dead' => '',
-            'react' => '',
-        ),
-        'pvp' => array(
-            'label' => 'PvP',
-            'description' => 'Battleground and hostile-player focused profile.',
-            'co' => '+dps,+dps assist,+threat,+boost,+pvp,+duel,+custom::say',
-            'nc' => '+rpg,+wander,+bg,+custom::say',
-            'dead' => '',
-            'react' => '+pvp',
-        ),
-        'farming' => array(
-            'label' => 'Farming',
-            'description' => 'Resource-gathering profile for quiet bots.',
-            'co' => '+dps,-threat',
-            'nc' => '+gather,+grind,+loot,+tfish,+wander,+rpg maintenance',
-            'dead' => '',
-            'react' => '',
-        ),
-        'custom' => array(
-            'label' => 'Custom',
-            'description' => 'Start from the current values and edit freely.',
+        'default' => array(
+            'label' => 'Clear Guild Flavor',
+            'description' => 'Removes the guild layer so members fall back to the unguilded baseline plus any personal overrides.',
             'co' => '',
             'nc' => '',
             'dead' => '',
             'react' => '',
         ),
-        'default' => array(
-            'label' => 'Base Defaults',
-            'description' => 'Keeps each bot on its current base snapshot unless you add custom guild deltas.',
+        'leveling' => array(
+            'label' => 'Leveling Guild',
+            'description' => 'Still levels broadly, but acts more coached than the noob baseline: calmer threat, cleaner group habits, and less loot-goblin chaos.',
+            'co' => '+dps,+dps assist,-threat,+boost',
+            'nc' => '+rpg,-rpg explore,+grind,+wander,+gather,+consumables,+food,+loot,+delayed roll,+custom::say',
+            'dead' => '',
+            'react' => '+flee,+avoid aoe',
+        ),
+        'quest' => array(
+            'label' => 'Questing / Social Guild',
+            'description' => 'More social and quest-hub directed than the baseline, with less raw chaos and better tag discipline while still feeling alive.',
+            'co' => '+dps,+dps assist,-threat,+custom::say,+attack tagged',
+            'nc' => '+rpg,-rpg bg,+wander,+tfish,+gather,+consumables,+food,+loot,+delayed roll,+custom::say',
+            'dead' => '',
+            'react' => '+flee,+avoid aoe',
+        ),
+        'profession' => array(
+            'label' => 'Profession / Farming Guild',
+            'description' => 'Less quest-driven and more gather-craft-maintain focused. This is the organized economy guild where farming loops matter more than social chaos.',
+            'co' => '+dps,+dps aoe,-threat,+boost,+custom::say,-avoid mobs',
+            'nc' => '+grind,+gather,+rpg vendor,+rpg maintenance,+rpg craft,+loot,+wander',
+            'dead' => '',
+            'react' => '+flee',
+        ),
+        'pvp' => array(
+            'label' => 'PvP Guild',
+            'description' => 'Purposefully aggressive and PvP-aware, with battleground life, stronger pressure, and less interest in peaceful wandering.',
+            'co' => '+dps,+dps assist,+threat,+boost,+pvp,+duel',
+            'nc' => '+grind,+rpg vendor,+rpg maintenance,+loot,+consumables,+food,+free,+custom::say,+duel,+rpg bg,+pvp,+start duel',
+            'dead' => '',
+            'react' => '+avoid aoe,+pvp',
+        ),
+        'custom' => array(
+            'label' => 'Custom',
+            'description' => 'Start from the current values and edit freely.',
             'co' => '',
             'nc' => '',
             'dead' => '',
@@ -577,6 +589,62 @@ function spp_admin_playerbots_merge_strategy_delta(string $currentValue, string 
     return implode(',', $result);
 }
 
+function spp_admin_playerbots_strategy_value_to_map(string $value): array
+{
+    $map = array();
+    foreach (spp_admin_playerbots_parse_strategy_tokens($value) as $token) {
+        $key = spp_admin_playerbots_strategy_token_key($token);
+        if ($key === '') {
+            continue;
+        }
+        $map[$key] = $token;
+    }
+
+    return $map;
+}
+
+function spp_admin_playerbots_merge_strategy_value_sets(array $baseValues, array $overrideValues): array
+{
+    $merged = array_fill_keys(spp_admin_playerbots_strategy_keys(), '');
+    foreach (spp_admin_playerbots_strategy_keys() as $strategyKey) {
+        $merged[$strategyKey] = spp_admin_playerbots_merge_strategy_delta(
+            (string)($baseValues[$strategyKey] ?? ''),
+            (string)($overrideValues[$strategyKey] ?? '')
+        );
+    }
+
+    return $merged;
+}
+
+function spp_admin_playerbots_build_strategy_override_value(string $baseValue, string $effectiveValue): string
+{
+    $baseMap = spp_admin_playerbots_strategy_value_to_map($baseValue);
+    $effectiveMap = spp_admin_playerbots_strategy_value_to_map($effectiveValue);
+    $overrideTokens = array();
+
+    foreach ($effectiveMap as $tokenKey => $tokenValue) {
+        if (isset($baseMap[$tokenKey]) && $baseMap[$tokenKey] === $tokenValue) {
+            continue;
+        }
+        $overrideTokens[] = $tokenValue;
+    }
+
+    return implode(',', $overrideTokens);
+}
+
+function spp_admin_playerbots_build_strategy_override_set(array $baseValues, array $effectiveValues): array
+{
+    $overrideValues = array_fill_keys(spp_admin_playerbots_strategy_keys(), '');
+    foreach (spp_admin_playerbots_strategy_keys() as $strategyKey) {
+        $overrideValues[$strategyKey] = spp_admin_playerbots_build_strategy_override_value(
+            (string)($baseValues[$strategyKey] ?? ''),
+            (string)($effectiveValues[$strategyKey] ?? '')
+        );
+    }
+
+    return $overrideValues;
+}
+
 function spp_admin_playerbots_fetch_strategy_rows_for_guids(PDO $charsPdo, array $guids, string $preset): array
 {
     $guids = array_values(array_unique(array_filter(array_map('intval', $guids))));
@@ -720,20 +788,71 @@ function spp_admin_playerbots_fetch_strategy_state_for_guids(PDO $charsPdo, arra
     );
 }
 
+function spp_admin_playerbots_fetch_effective_strategy_state_for_guids(PDO $charsPdo, array $guids, array $profiles): array
+{
+    $emptyValues = array_fill_keys(spp_admin_playerbots_strategy_keys(), '');
+    $guids = array_values(array_unique(array_filter(array_map('intval', $guids))));
+    if (empty($guids)) {
+        return array(
+            'values' => $emptyValues,
+            'base_values' => $emptyValues,
+            'override_values' => $emptyValues,
+            'consistent' => true,
+            'member_count' => 0,
+            'profile_key' => spp_admin_playerbots_detect_strategy_profile_key($emptyValues, $profiles),
+            'mixed_count' => 0,
+        );
+    }
+
+    $basePerGuid = spp_admin_playerbots_fetch_strategy_rows_for_guids($charsPdo, $guids, 'default');
+    $overridePerGuid = spp_admin_playerbots_fetch_strategy_rows_for_guids($charsPdo, $guids, '');
+    $effectivePerGuid = array();
+    foreach ($guids as $guid) {
+        $effectivePerGuid[$guid] = spp_admin_playerbots_merge_strategy_value_sets(
+            $basePerGuid[$guid] ?? $emptyValues,
+            $overridePerGuid[$guid] ?? $emptyValues
+        );
+    }
+
+    $baselineGuid = $guids[0];
+    $baseline = $effectivePerGuid[$baselineGuid] ?? $emptyValues;
+    $baselineBase = $basePerGuid[$baselineGuid] ?? $emptyValues;
+    $baselineOverride = $overridePerGuid[$baselineGuid] ?? $emptyValues;
+
+    $consistent = true;
+    $mixedCount = 0;
+    foreach ($effectivePerGuid as $values) {
+        if ($values !== $baseline) {
+            $consistent = false;
+            $mixedCount++;
+        }
+    }
+
+    return array(
+        'values' => $baseline,
+        'base_values' => $baselineBase,
+        'override_values' => $baselineOverride,
+        'consistent' => $consistent,
+        'member_count' => count($guids),
+        'profile_key' => spp_admin_playerbots_detect_strategy_profile_key($baselineOverride, $profiles),
+        'mixed_count' => $mixedCount,
+    );
+}
+
 function spp_admin_playerbots_fetch_guild_strategy_state(PDO $charsPdo, int $guildId): array
 {
     if ($guildId <= 0) {
-        return spp_admin_playerbots_fetch_strategy_state_for_guids($charsPdo, array(), '', spp_admin_playerbots_guild_strategy_profiles());
+        return spp_admin_playerbots_fetch_strategy_state_for_guids($charsPdo, array(), 'default', spp_admin_playerbots_guild_strategy_profiles());
     }
 
     $stmt = $charsPdo->prepare("SELECT guid FROM guild_member WHERE guildid = ? ORDER BY guid ASC");
     $stmt->execute(array($guildId));
     $memberGuids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN, 0) ?: array());
 
-    return spp_admin_playerbots_fetch_strategy_state_for_guids($charsPdo, $memberGuids, '', spp_admin_playerbots_guild_strategy_profiles());
+    return spp_admin_playerbots_fetch_strategy_state_for_guids($charsPdo, $memberGuids, 'default', spp_admin_playerbots_guild_strategy_profiles());
 }
 
 function spp_admin_playerbots_fetch_character_strategy_state(PDO $charsPdo, int $characterGuid): array
 {
-    return spp_admin_playerbots_fetch_strategy_state_for_guids($charsPdo, $characterGuid > 0 ? array($characterGuid) : array(), '', spp_admin_playerbots_bot_strategy_profiles());
+    return spp_admin_playerbots_fetch_effective_strategy_state_for_guids($charsPdo, $characterGuid > 0 ? array($characterGuid) : array(), spp_admin_playerbots_bot_strategy_profiles());
 }

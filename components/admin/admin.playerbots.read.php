@@ -153,6 +153,7 @@ function spp_admin_playerbots_build_view(array $realmDbMap): array
         'shareBlock' => $shareBlock,
         'sharePreview' => $sharePreview,
         'orderPreview' => $orderPreview,
+        'randomBotBaselineProfile' => spp_admin_playerbots_random_bot_baseline_profile(),
         'guildStrategyProfiles' => spp_admin_playerbots_guild_strategy_profiles(),
         'botStrategyProfiles' => spp_admin_playerbots_bot_strategy_profiles(),
         'guildStrategyState' => $guildStrategyState,

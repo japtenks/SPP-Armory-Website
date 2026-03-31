@@ -215,8 +215,7 @@
     <div class="forum-admin__card">
       <h3>Forums In Section</h3>
       <p class="forum-admin__subtext">Tune ordering, visibility, and topic access from one cleaner view.</p>
-      <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=updforumsorder" class="forum-admin__stack">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_forum')); ?>">
+      <div class="forum-admin__stack">
         <?php foreach ($items as $item_c => $item) { ?>
           <div class="forum-admin__row">
             <div class="forum-admin__main">
@@ -228,12 +227,14 @@
                 <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Rename">
               </form>
               <p class="forum-admin__desc"><?php echo htmlspecialchars($item['forum_desc']); ?></p>
-              <div class="forum-admin__order">
+              <form method="post" action="index.php?n=admin&amp;sub=forum&amp;action=updforumsorder" class="forum-admin__order">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(spp_csrf_token('admin_forum')); ?>">
                 <span><?php echo $lang['order']; ?></span>
                 <input type="text" name="forumorder[<?php echo (int)$item['forum_id']; ?>]" value="<?php echo (int)$item['disp_position']; ?>">
+                <input class="forum-admin__button forum-admin__button--compact" type="submit" value="Save Order">
                 <?php if ($item_c > 0) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'moveup', 'cat_id' => (int)$item['cat_id'], 'forum_id' => (int)$item['forum_id']))); ?>">Move Up</a><?php } ?>
                 <?php if ($item_c < count($items) - 1) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'movedown', 'cat_id' => (int)$item['cat_id'], 'forum_id' => (int)$item['forum_id']))); ?>">Move Down</a><?php } ?>
-              </div>
+              </form>
             </div>
             <div class="forum-admin__actions">
               <?php if ($item['closed'] == 0) { ?><a class="forum-admin__pill" href="<?php echo htmlspecialchars(spp_admin_forum_action_url(array('n' => 'admin', 'sub' => 'forum', 'action' => 'close', 'forum_id' => (int)$item['forum_id']))); ?>">Close</a><?php } ?>
@@ -246,8 +247,8 @@
             </div>
           </div>
         <?php } ?>
-        <div class="forum-admin__actions"><input class="forum-admin__button" type="submit" value="<?php echo $lang['doupdate']; ?>"></div>
-      </form>
+      </div>
+      <p class="forum-admin__subtext" style="margin-top:16px;">Order is controlled by <strong>disp_position</strong>. Lower numbers appear first. If two forums share the same value, the current view falls back to <strong>forum_name</strong> as a tiebreaker.</p>
     </div>
 
     <div class="forum-admin__card">
