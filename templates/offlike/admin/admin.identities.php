@@ -11,6 +11,7 @@ $identitySelectedRealmId = (int)($identityHealthView['selected_realm_id'] ?? 0);
 $identityCanonicalUrl = (string)($identityHealthView['canonical_url'] ?? 'index.php?n=admin&sub=identities');
 $identityCsrfToken = (string)($identityHealthView['csrf_token'] ?? '');
 $identityBackfill = $identityHealthView['backfill'] ?? array();
+$identityIsWindowsHost = !empty($identityHealthView['is_windows_host']);
 
 if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
     function spp_admin_identity_health_template_coverage_text($covered, $total) {
@@ -55,6 +56,8 @@ if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
 .admin-identity-health__output{background:#101723;color:#dbe9ff;border:1px solid rgba(95,126,162,.35)}
 .admin-identity-health__error{background:#301010;color:#ffb0b0;border:1px solid rgba(210,100,100,.35)}
 .admin-identity-health__command{background:#111;color:#dbe9ff;border:1px solid rgba(255,255,255,.12)}
+.admin-identity-health__command.is-collapsed{display:none}
+.admin-identity-health__command-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 @media (max-width:900px){.admin-identity-health__summary,.admin-identity-health__subgrid{grid-template-columns:1fr}.admin-identity-health__table-wrap{overflow-x:auto}}
 </style>
 
@@ -72,7 +75,16 @@ if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
       <a class="admin-identity-health__btn" href="<?php echo htmlspecialchars($identityCanonicalUrl, ENT_QUOTES, 'UTF-8'); ?>">Identity &amp; Data Health</a>
     </div>
     <?php if (!empty($identityBackfill['notice'])) { ?><div class="admin-identity-health__note" style="margin-top:12px;"><?php echo htmlspecialchars((string)$identityBackfill['notice'], ENT_QUOTES, 'UTF-8'); ?></div><?php } ?>
-    <?php if (!empty($identityBackfill['command'])) { ?><div class="admin-identity-health__command"><?php echo htmlspecialchars((string)$identityBackfill['command'], ENT_QUOTES, 'UTF-8'); ?></div><?php } ?>
+    <?php if (!empty($identityBackfill['command'])) { ?>
+      <?php if ($identityIsWindowsHost) { ?>
+        <div class="admin-identity-health__command-actions">
+          <button type="button" class="admin-identity-health__btn-input" onclick="identityHealthRevealAndCopyCommand('identity-backfill-command', this)">Copy Backfill Command<?php echo strpos((string)$identityBackfill['command'], "\n") !== false ? 's' : ''; ?></button>
+        </div>
+        <div class="admin-identity-health__command is-collapsed" id="identity-backfill-command"><?php echo htmlspecialchars((string)$identityBackfill['command'], ENT_QUOTES, 'UTF-8'); ?></div>
+      <?php } else { ?>
+        <div class="admin-identity-health__command"><?php echo htmlspecialchars((string)$identityBackfill['command'], ENT_QUOTES, 'UTF-8'); ?></div>
+      <?php } ?>
+    <?php } ?>
     <?php if (!empty($identityBackfill['output'])) { ?><div class="admin-identity-health__output"><?php echo htmlspecialchars((string)$identityBackfill['output'], ENT_QUOTES, 'UTF-8'); ?></div><?php } ?>
     <?php if (!empty($identityBackfill['error'])) { ?><div class="admin-identity-health__error"><?php echo htmlspecialchars((string)$identityBackfill['error'], ENT_QUOTES, 'UTF-8'); ?></div><?php } ?>
   </section>
@@ -199,4 +211,31 @@ if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
     </table>
   </section>
 </div>
+<script>
+(function(){
+  var isWindowsHost = <?php echo $identityIsWindowsHost ? 'true' : 'false'; ?>;
+  window.identityHealthRevealAndCopyCommand = function(id, button){
+    var box = document.getElementById(id);
+    if (!box) return;
+    if (isWindowsHost && box.classList.contains('is-collapsed')) {
+      box.classList.remove('is-collapsed');
+    }
+    if (button) {
+      button.setAttribute('aria-expanded', 'true');
+    }
+    var text = box.textContent || box.innerText || '';
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+      return;
+    }
+    var temp = document.createElement('textarea');
+    temp.value = text;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+  };
+})();
+</script>
 <?php builddiv_end() ?>

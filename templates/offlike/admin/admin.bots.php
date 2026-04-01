@@ -18,6 +18,7 @@ $botCacheCounts = $botMaintenanceView['cache_counts'] ?? array();
 $botEventCounts = $botMaintenanceView['event_counts'] ?? array();
 $botTotals = $botMaintenanceView['totals'] ?? array();
 $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
+$botIsWindowsHost = !empty($botMaintenanceView['is_windows_host']);
 ?>
 <?php builddiv_start(1, 'Bot Maintenance'); ?>
 <style>
@@ -48,6 +49,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
 .admin-bots__flash--error{background:#301010;border:1px solid rgba(210,100,100,.35);color:#ffb0b0}
 .admin-bots__mono{font-family:Consolas,Monaco,monospace;font-size:.92rem;word-break:break-word}
 .admin-bots__command{margin-top:12px;padding:10px;border-radius:8px;font-family:Consolas,Monaco,monospace;font-size:.82rem;white-space:pre-wrap;word-break:break-word;background:#111;color:#dbe9ff;border:1px solid rgba(255,255,255,.12)}
+.admin-bots__command.is-collapsed{display:none}
 @media (max-width:900px){.admin-bots__table-wrap{overflow-x:auto}}
 </style>
 
@@ -86,9 +88,9 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
         <span>Only do host repopulate while the game server is shut down.</span>
       </div>
     </div>
-    <div class="admin-bots__command" id="bot-status-command"><?php echo htmlspecialchars((string)($botScriptCommands['status'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-status-command"><?php echo htmlspecialchars((string)($botScriptCommands['status'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-status-command')">Copy Status Command</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-status-command', this)">Copy Status Command</button>
     </div>
     <?php if (!empty($botLastRun['summary'])): ?>
       <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;">Last run summary: <?php echo htmlspecialchars((string)$botLastRun['summary'], ENT_QUOTES, 'UTF-8'); ?></div>
@@ -152,11 +154,11 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['preserved_posts'] ?? 0)); ?></strong><span>Preserved official posts</span></div>
       <div class="admin-bots__mini"><strong><?php echo htmlspecialchars((string)($botSelectedPreview['realm_name'] ?? ('Realm ' . $botSelectedRealmId)), ENT_QUOTES, 'UTF-8'); ?></strong><span>Forum reset scope stays on the selected realm only</span></div>
     </div>
-    <div class="admin-bots__command" id="bot-step1-dry"><?php echo htmlspecialchars((string)($botScriptCommands['reset_forum_realm']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-    <div class="admin-bots__command" id="bot-step1-run"><?php echo htmlspecialchars((string)($botScriptCommands['reset_forum_realm']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step1-dry"><?php echo htmlspecialchars((string)($botScriptCommands['reset_forum_realm']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step1-run"><?php echo htmlspecialchars((string)($botScriptCommands['reset_forum_realm']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step1-dry')">Copy Dry Run</button>
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step1-run')">Copy Run Command</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step1-dry', this)">Copy Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step1-run', this)">Copy Run Command</button>
     </div>
   </section>
 
@@ -170,11 +172,11 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['web_state']['bot_identity_profiles'] ?? 0)); ?></strong><span>Bot identity profiles in this realm</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['web_state']['portrait_files'] ?? 0)); ?></strong><span>Portrait cache files to clear</span></div>
     </div>
-    <div class="admin-bots__command" id="bot-step2-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_web_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-    <div class="admin-bots__command" id="bot-step2-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_web_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step2-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_web_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step2-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_web_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step2-dry')">Copy Dry Run</button>
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step2-run')">Copy Run Command</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step2-dry', this)">Copy Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step2-run', this)">Copy Run Command</button>
     </div>
   </section>
 
@@ -192,11 +194,11 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation ilvl history rows</span></div>
     </div>
-    <div class="admin-bots__command" id="bot-step3-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_character_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-    <div class="admin-bots__command" id="bot-step3-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_character_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step3-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_character_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step3-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_character_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-dry')">Copy Dry Run</button>
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-run')">Copy Run Command</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-dry', this)">Copy Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-run', this)">Copy Run Command</button>
     </div>
     <p class="admin-bots__note" style="margin-top:14px;color:#ffbfa8;">Danger zone: this next variant clears every character on the selected realm, including player characters, while leaving auth accounts in place.</p>
     <div class="admin-bots__grid" style="margin-top:14px;">
@@ -210,11 +212,11 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['rotation_state_rows'] ?? 0)); ?></strong><span>Rotation live-state rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['rotation_log_rows'] ?? 0) + (int)($botStepPreviews['realm_character_state']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
     </div>
-    <div class="admin-bots__command" id="bot-step3-all-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_realm_character_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-    <div class="admin-bots__command" id="bot-step3-all-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_realm_character_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step3-all-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_realm_character_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step3-all-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_realm_character_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <button type="button" class="admin-bots__btn-input admin-bots__btn-danger" onclick="copyBotCommand('bot-step3-all-dry')">Copy Full-Realm Dry Run</button>
-      <button type="button" class="admin-bots__btn-input admin-bots__btn-danger" onclick="copyBotCommand('bot-step3-all-run')">Copy Full-Realm Run</button>
+      <button type="button" class="admin-bots__btn-input admin-bots__btn-danger" onclick="copyBotCommand('bot-step3-all-dry', this)">Copy Full-Realm Dry Run</button>
+      <button type="button" class="admin-bots__btn-input admin-bots__btn-danger" onclick="copyBotCommand('bot-step3-all-run', this)">Copy Full-Realm Run</button>
     </div>
     <p class="admin-bots__note" style="margin-top:12px;">Use this only when you want a realm character wipe that keeps login accounts. Characters, guilds, auctions, and character-side bot store data on the selected realm are included.</p>
     <p class="admin-bots__note" style="margin-top:12px;">If you only want to clear the rotation history during a restart window, use the dedicated rotation reset instead of the full character-state reset.</p>
@@ -223,17 +225,17 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['rotation_only']['rotation_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['rotation_only']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation ilvl history rows</span></div>
     </div>
-    <div class="admin-bots__command" id="bot-rotation-dry"><?php echo htmlspecialchars((string)($botScriptCommands['reset_bot_rotation_realm']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-    <div class="admin-bots__command" id="bot-rotation-run"><?php echo htmlspecialchars((string)($botScriptCommands['reset_bot_rotation_realm']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-rotation-dry"><?php echo htmlspecialchars((string)($botScriptCommands['reset_bot_rotation_realm']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-rotation-run"><?php echo htmlspecialchars((string)($botScriptCommands['reset_bot_rotation_realm']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-rotation-dry')">Copy Rotation Dry Run</button>
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-rotation-run')">Copy Rotation Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-rotation-dry', this)">Copy Rotation Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-rotation-run', this)">Copy Rotation Run</button>
     </div>
     <p class="admin-bots__note" style="margin-top:12px;">Host repopulate comes after this step. Only perform the shutdown/restart/repopulate portion while the world server is offline.</p>
     <p class="admin-bots__note" style="margin-top:12px;">The rebuild command set now includes identity backfills plus a guild recruitment seed pass, so unknown guild summary JSONs can become active recruitment threads again after a wipe.</p>
-    <div class="admin-bots__command" id="bot-step4-run"><?php echo htmlspecialchars((string)($botScriptCommands['rebuild_site_layers']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command<?php echo $botIsWindowsHost ? ' is-collapsed' : ''; ?>" id="bot-step4-run"><?php echo htmlspecialchars((string)($botScriptCommands['rebuild_site_layers']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step4-run')">Copy Rebuild Layers Command</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step4-run', this)">Copy Rebuild Layers Command</button>
     </div>
   </section>
 
@@ -289,9 +291,16 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
 </div>
 <script>
 (function(){
-  window.copyBotCommand = function(id){
+  var isWindowsHost = <?php echo $botIsWindowsHost ? 'true' : 'false'; ?>;
+  window.copyBotCommand = function(id, button){
     var box = document.getElementById(id);
     if (!box) return;
+    if (isWindowsHost && box.classList.contains('is-collapsed')) {
+      box.classList.remove('is-collapsed');
+    }
+    if (button) {
+      button.setAttribute('aria-expanded', 'true');
+    }
     var text = box.textContent || box.innerText || '';
     if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {

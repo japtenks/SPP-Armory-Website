@@ -13,3 +13,4 @@ $botMaintenanceMasterPdo = spp_get_pdo('realmd', 1);
 $botMaintenanceActionState = spp_admin_bots_handle_action($botMaintenanceMasterPdo);
 $botMaintenanceView = spp_admin_bots_build_view($botMaintenanceMasterPdo, $realmDbMap ?? array(), $botMaintenanceActionState);
 $botMaintenanceView['csrf_token'] = spp_csrf_token('admin_bots');
+$botMaintenanceView['is_windows_host'] = DIRECTORY_SEPARATOR === '\\';

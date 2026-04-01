@@ -22,3 +22,4 @@ $identityHealthCsrfToken = spp_admin_identity_health_csrf_token('admin_identity_
 spp_admin_identity_health_handle_repair_action($identityHealthPdo, (int)$identityHealthView['selected_realm_id']);
 $identityHealthView = spp_admin_identity_health_build_view($identityHealthPdo, (int)$identityHealthView['selected_realm_id'], $identityHealthSiteRoot, $identityHealthBackfillState);
 $identityHealthView['csrf_token'] = $identityHealthCsrfToken;
+$identityHealthView['is_windows_host'] = $identityHealthIsWindowsHost;
