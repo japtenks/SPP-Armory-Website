@@ -23,6 +23,13 @@ $com_content['server'] = array(
     '3-menuGameGuide',
     0
   ),
+    'wbuffbuilder' => array(
+        '',
+        'World Buff Builder',
+        mw_url('server', 'wbuffbuilder'),
+        '',
+        0
+    ),
 
     'chars' => array(
         '', 

@@ -100,6 +100,7 @@ $com_content = array(
 
     'server' => array(
         'index'         => array('', 'Server Info', 'index.php?n=server', 1, 1),
+        'wbuffbuilder'  => array('', 'World Buff Builder', 'index.php?n=server&sub=wbuffbuilder', 1, 1),
         'playersonline' => array('', 'Players Online', 'index.php?n=server&sub=playersonline', 1, 1),
         'realms'        => array('', 'Realms', 'index.php?n=server&sub=realms', 1, 1),
         'honor'         => array('', 'Honor', 'index.php?n=server&sub=honor', 1, 1),

@@ -939,8 +939,14 @@ $questOverview = [
         </details>
 
         <details class="class-accordion">
-          <h3>Typical Class Gear</h3>
-          <p class="panel-note">Median equipped item level by class, using per-character average equipped gear.</p>
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>Typical Class Gear</h3>
+              <p>Median equipped item level by class, using per-character average equipped gear.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
           <div class="class-bars">
             <?php foreach ($availableClassOrder as $classId): ?>
               <?php $class = $classCards[$classId]; ?>
@@ -956,11 +962,18 @@ $questOverview = [
               </div>
             <?php endforeach; ?>
           </div>
-        </div>
+          </div>
+        </details>
 
-        <div class="class-panel">
-          <h3>Online Share by Class</h3>
-          <p class="panel-note">How much of each class is online right now.</p>
+        <details class="class-accordion">
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>Online Share by Class</h3>
+              <p>How much of each class is online right now.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
           <div class="class-bars">
             <?php foreach ($availableClassOrder as $classId): ?>
               <?php $class = $classCards[$classId]; ?>
@@ -976,11 +989,18 @@ $questOverview = [
               </div>
             <?php endforeach; ?>
           </div>
-        </div>
+          </div>
+        </details>
 
-        <div class="class-panel">
-          <h3>Guilded Share by Class</h3>
-          <p class="panel-note">How much of each class is currently attached to a guild.</p>
+        <details class="class-accordion">
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>Guilded Share by Class</h3>
+              <p>How much of each class is currently attached to a guild.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
           <div class="class-bars">
             <?php foreach ($availableClassOrder as $classId): ?>
               <?php $class = $classCards[$classId]; ?>
@@ -996,11 +1016,18 @@ $questOverview = [
               </div>
             <?php endforeach; ?>
           </div>
-        </div>
+          </div>
+        </details>
 
-        <div class="class-panel">
-          <h3>PvP Tendency</h3>
-          <p class="panel-note">Median honorable kills by class for a quick PvP-flavor read.</p>
+        <details class="class-accordion">
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>PvP Tendency</h3>
+              <p>Median honorable kills by class for a quick PvP-flavor read.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
           <div class="class-bars">
             <?php foreach ($availableClassOrder as $classId): ?>
               <?php $class = $classCards[$classId]; ?>
@@ -1016,11 +1043,18 @@ $questOverview = [
               </div>
             <?php endforeach; ?>
           </div>
-        </div>
+          </div>
+        </details>
 
-        <div class="class-panel">
-          <h3>Realm Play Time Mix</h3>
-          <p class="panel-note">Overall time investment buckets and a rough bot/player split.</p>
+        <details class="class-accordion">
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>Realm Play Time Mix</h3>
+              <p>Overall time investment buckets and a rough bot/player split.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
           <div class="class-mini-grid">
             <div class="class-mini-card">
               <h4>Play Time Buckets</h4>
@@ -1096,111 +1130,14 @@ $questOverview = [
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </details>
       </div>
     </section>
   <?php endif; ?>
 
 <?php endif; ?>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  var grid = document.querySelector('.class-breakdown-grid');
-  if (!grid) {
-    return;
-  }
-
-  var desiredOrder = [
-    'Typical Class Level',
-    'Class Population',
-    'Typical Class Play Time',
-    'Typical Class Gear',
-    'Online Share by Class',
-    'Guilded Share by Class',
-    'PvP Tendency',
-    'Realm Play Time Mix'
-  ];
-
-  var sectionLookup = {};
-  Array.prototype.forEach.call(grid.querySelectorAll('h3'), function (titleEl) {
-    var title = titleEl.textContent.trim();
-    if (!title || sectionLookup[title]) {
-      return;
-    }
-
-    var node = titleEl.closest('.class-panel, details');
-    if (!node) {
-      return;
-    }
-
-    var noteEl = node.querySelector('summary p, .panel-note');
-    var note = noteEl ? noteEl.textContent.trim() : '';
-    var bodyHtml = '';
-
-    if (node.tagName === 'DETAILS') {
-      var body = node.querySelector('.class-accordion-body');
-      if (body) {
-        bodyHtml = body.innerHTML;
-      } else {
-        bodyHtml = Array.prototype.map.call(node.children, function (child) {
-          if (child.tagName === 'SUMMARY' || child.tagName === 'H3' || child.classList.contains('panel-note')) {
-            return '';
-          }
-          return child.outerHTML;
-        }).join('');
-      }
-    } else {
-      bodyHtml = Array.prototype.map.call(node.children, function (child) {
-        if (child.tagName === 'H3' || child.classList.contains('panel-note')) {
-          return '';
-        }
-        return child.outerHTML;
-      }).join('');
-    }
-
-    sectionLookup[title] = {
-      title: title,
-      note: note,
-      bodyHtml: bodyHtml
-    };
-  });
-
-  var rebuilt = document.createDocumentFragment();
-  desiredOrder.forEach(function (title, index) {
-    var section = sectionLookup[title];
-    if (!section) {
-      return;
-    }
-
-    var details = document.createElement('details');
-    details.className = 'class-accordion';
-    if (index === 0) {
-      details.open = true;
-    }
-
-    var summary = document.createElement('summary');
-    summary.innerHTML =
-      '<div class="class-accordion-summary-copy">' +
-        '<h3>' + section.title + '</h3>' +
-        (section.note ? '<p>' + section.note + '</p>' : '') +
-      '</div>' +
-      '<span class="class-accordion-caret" aria-hidden="true"></span>';
-
-    var body = document.createElement('div');
-    body.className = 'class-accordion-body';
-    body.innerHTML = section.bodyHtml;
-
-    details.appendChild(summary);
-    details.appendChild(body);
-    rebuilt.appendChild(details);
-  });
-
-  if (rebuilt.childNodes.length) {
-    grid.innerHTML = '';
-    grid.appendChild(rebuilt);
-  }
-});
-</script>
 <?php builddiv_end(); ?>
 
 <?php /* Bot Rotation Health has moved to index.php?n=admin&sub=botrotation */ ?>

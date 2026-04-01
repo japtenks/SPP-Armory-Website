@@ -1,6 +1,10 @@
 ﻿<?php
 if (INCLUDED !== true) exit;
 
+if (empty($sub) && !empty($_GET['amp;sub'])) {
+    $sub = (string)$_GET['amp;sub'];
+}
+
 switch ($sub) {
     case 'realmstatus':
         include('realmstatus.php');
@@ -12,6 +16,10 @@ switch ($sub) {
 
     case 'botcommands':
         include('botcommands.php');
+        break;
+
+    case 'wbuffbuilder':
+        include('server.wbuffbuilder.php');
         break;
 
     case 'playermap':
