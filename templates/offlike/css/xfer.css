@@ -15,6 +15,11 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
   padding: 0 12px;
   z-index: 9999;
+  background:
+    linear-gradient(to bottom, rgba(10, 10, 10, 0.97), rgba(10, 10, 10, 0.93)),
+    linear-gradient(to right, rgba(72, 53, 20, 0.18), rgba(0, 0, 0, 0));
+  -webkit-backdrop-filter: blur(8px) saturate(115%);
+  backdrop-filter: blur(8px) saturate(115%);
 }
 
 /* === Logo === */
@@ -881,21 +886,32 @@ body {
 }
 
 main {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 8px 0 12px;
 }
 
 /* === INLINE FOOTER === */
 .site-footer {
   position: relative;
+  flex: 0 0 auto;
   width: 100%;
-  margin-top: auto;
+  margin-top: 0;
   text-align: center;
   font-size: 12px;
   line-height: 1.4;
   padding: 10px 0;
 
-  background: linear-gradient(rgba(10,10,10,0.82), rgba(5,5,5,0.9));
+  background:
+    linear-gradient(to bottom, rgba(12, 10, 8, 0.95), rgba(5, 5, 5, 0.97)),
+    linear-gradient(to right, rgba(96, 68, 24, 0.16), rgba(0, 0, 0, 0));
   border-top: 1px solid #3a3118;
+  box-shadow: 0 -10px 22px rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(8px) saturate(115%);
+  backdrop-filter: blur(8px) saturate(115%);
 }
 
 /* Wrap the logo + text inline */
@@ -946,6 +962,22 @@ main {
   width: 100%;
   height: 6px;
   background: linear-gradient(to bottom, rgba(255,215,0,0.12), transparent);
+}
+
+.nav-container::after,
+.site-footer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nav-container::after {
+  background: linear-gradient(to bottom, rgba(255, 220, 120, 0.05), transparent 48%);
+}
+
+.site-footer::after {
+  background: linear-gradient(to top, rgba(255, 220, 120, 0.04), transparent 55%);
 }
 
 
@@ -1091,9 +1123,17 @@ main {
 /* ======================================================
    GLOBAL STYLES
    ====================================================== */
+html {
+  height: 100%;
+}
+
 body {
   margin: 0;
+  box-sizing: border-box;
+  height: 100vh;
+  min-height: 100vh;
   padding-top: 48px;
+  overflow: hidden;
   background: #000;
   color: #ddd;
   font-family: Arial, sans-serif;
@@ -1324,6 +1364,17 @@ body {
   .nav-menu { gap: 8px; font-size: 13px; }
 }
 
+@media (max-width: 768px) {
+  main {
+    padding: 6px 0 10px;
+  }
+
+  .modern-wrapper {
+    margin: 12px auto;
+    padding: 16px;
+  }
+}
+
 /* ======================================================
    HEADER / WRAPPER ELEMENTS
    ====================================================== */
@@ -1340,7 +1391,7 @@ img[src*="*.jpg"] {
   position: relative;
   overflow: hidden;
   max-width: 1000px;
-  margin: 30px auto;
+  margin: 18px auto;
   border: 1px solid #222;
   border-radius: 10px;
   box-shadow: 0 0 15px rgba(0,0,0,0.7);
