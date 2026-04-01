@@ -26,6 +26,16 @@ function spp_admin_playerbots_strategy_keys(): array
     return array('co', 'nc', 'dead', 'react');
 }
 
+function spp_admin_playerbots_strategy_builder_options(): array
+{
+    return array(
+        'co' => array('dps', 'dps assist', 'dps aoe', 'tank', 'tank assist', 'threat', 'boost', 'offheal', 'cast time', 'custom::say', 'attack tagged', 'duel', 'pvp', 'avoid mobs'),
+        'nc' => array('follow', 'loot', 'delayed roll', 'food', 'conserve mana', 'quest', 'grind', 'wander', 'gather', 'consumables', 'rpg', 'rpg guild', 'rpg vendor', 'rpg maintenance', 'rpg craft', 'rpg explore', 'rpg bg', 'tfish', 'duel', 'free', 'roll', 'custom::say'),
+        'dead' => array('auto release', 'flee', 'corpse', 'return', 'delay'),
+        'react' => array('preheal', 'flee', 'avoid aoe', 'pvp'),
+    );
+}
+
 function spp_admin_playerbots_random_bot_baseline_profile(): array
 {
     return array(

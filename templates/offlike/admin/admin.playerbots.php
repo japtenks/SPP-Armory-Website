@@ -45,6 +45,9 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
 .playerbots-profile-card{padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:6px;background:rgba(255,255,255,.03)}
 .playerbots-profile-card strong{display:block;color:#f0e0b6;margin-bottom:4px}
 .playerbots-strategy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.playerbots-strategy-builder{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.playerbots-strategy-chip{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,255,255,.04);color:#f2dfb1;font-size:12px;font-weight:700;cursor:pointer}
+.playerbots-strategy-chip:hover{border-color:rgba(255,204,72,.34);background:rgba(255,216,122,.12);color:#fff3c4}
 .playerbots-status{display:inline-block;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:#d7e4f7;font-size:.85em}
 @media (max-width:700px){.playerbots-inline{grid-template-columns:1fr}}
 </style>
@@ -272,18 +275,38 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
       <div class="playerbots-strategy-grid">
         <div class="playerbots-field">
           <label>Guild Combat Layer (<code>co</code>)</label>
+          <div class="playerbots-strategy-builder">
+            <?php foreach (($strategyBuilderOptions['co'] ?? array()) as $token): ?>
+              <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-guild-strategy-co', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+            <?php endforeach; ?>
+          </div>
           <textarea id="playerbots-guild-strategy-co" name="strategy_co" placeholder="+dps,+dps assist,-threat"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['co'] ?? ($guildStrategyValues['co'] ?? ''))); ?></textarea>
         </div>
         <div class="playerbots-field">
           <label>Guild Non-Combat Layer (<code>nc</code>)</label>
+          <div class="playerbots-strategy-builder">
+            <?php foreach (($strategyBuilderOptions['nc'] ?? array()) as $token): ?>
+              <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-guild-strategy-nc', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+            <?php endforeach; ?>
+          </div>
           <textarea id="playerbots-guild-strategy-nc" name="strategy_nc" placeholder="+rpg,+quest,+grind"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['nc'] ?? ($guildStrategyValues['nc'] ?? ''))); ?></textarea>
         </div>
         <div class="playerbots-field">
           <label>Guild Dead Layer (<code>dead</code>)</label>
+          <div class="playerbots-strategy-builder">
+            <?php foreach (($strategyBuilderOptions['dead'] ?? array()) as $token): ?>
+              <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-guild-strategy-dead', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+            <?php endforeach; ?>
+          </div>
           <textarea id="playerbots-guild-strategy-dead" name="strategy_dead" placeholder="+auto release"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['dead'] ?? ($guildStrategyValues['dead'] ?? ''))); ?></textarea>
         </div>
         <div class="playerbots-field">
           <label>Guild Reaction Layer (<code>react</code>)</label>
+          <div class="playerbots-strategy-builder">
+            <?php foreach (($strategyBuilderOptions['react'] ?? array()) as $token): ?>
+              <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-guild-strategy-react', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+            <?php endforeach; ?>
+          </div>
           <textarea id="playerbots-guild-strategy-react" name="strategy_react" placeholder="+pvp,+preheal"><?php echo htmlspecialchars((string)($guildStrategyProfiles[$guildStrategyProfileKey]['react'] ?? ($guildStrategyValues['react'] ?? ''))); ?></textarea>
         </div>
       </div>
@@ -370,18 +393,38 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
           <div class="playerbots-strategy-grid">
             <div class="playerbots-field">
               <label>Combat (<code>co</code>)</label>
+              <div class="playerbots-strategy-builder">
+                <?php foreach (($strategyBuilderOptions['co'] ?? array()) as $token): ?>
+                  <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-bot-strategy-co', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                <?php endforeach; ?>
+              </div>
               <textarea id="playerbots-bot-strategy-co" name="strategy_co" placeholder="+dps,+dps assist,-threat"><?php echo htmlspecialchars((string)($characterStrategyValues['co'] ?? '')); ?></textarea>
             </div>
             <div class="playerbots-field">
               <label>Non-Combat (<code>nc</code>)</label>
+              <div class="playerbots-strategy-builder">
+                <?php foreach (($strategyBuilderOptions['nc'] ?? array()) as $token): ?>
+                  <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-bot-strategy-nc', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                <?php endforeach; ?>
+              </div>
               <textarea id="playerbots-bot-strategy-nc" name="strategy_nc" placeholder="+follow,+loot,+food"><?php echo htmlspecialchars((string)($characterStrategyValues['nc'] ?? '')); ?></textarea>
             </div>
             <div class="playerbots-field">
               <label>Dead (<code>dead</code>)</label>
+              <div class="playerbots-strategy-builder">
+                <?php foreach (($strategyBuilderOptions['dead'] ?? array()) as $token): ?>
+                  <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-bot-strategy-dead', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                <?php endforeach; ?>
+              </div>
               <textarea id="playerbots-bot-strategy-dead" name="strategy_dead" placeholder="+auto release"><?php echo htmlspecialchars((string)($characterStrategyValues['dead'] ?? '')); ?></textarea>
             </div>
             <div class="playerbots-field">
               <label>Reaction (<code>react</code>)</label>
+              <div class="playerbots-strategy-builder">
+                <?php foreach (($strategyBuilderOptions['react'] ?? array()) as $token): ?>
+                  <button class="playerbots-strategy-chip" type="button" onclick="sppPlayerbotsToggleStrategyToken('playerbots-bot-strategy-react', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                <?php endforeach; ?>
+              </div>
               <textarea id="playerbots-bot-strategy-react" name="strategy_react" placeholder="+pvp,+preheal"><?php echo htmlspecialchars((string)($characterStrategyValues['react'] ?? '')); ?></textarea>
             </div>
           </div>
@@ -464,6 +507,57 @@ function sppPlayerbotsMergeStrategyValue(currentValue, deltaValue) {
   }).filter(function (token) {
     return token.trim() !== '';
   }).join(',');
+}
+
+function sppPlayerbotsToggleStrategyToken(textareaId, token, mode) {
+  var textarea = document.getElementById(textareaId);
+  if (!textarea) {
+    return;
+  }
+
+  var normalizedToken = String(token || '').trim();
+  if (!normalizedToken) {
+    return;
+  }
+
+  var prefix = mode === 'minus' ? '-' : (mode === 'tilde' ? '~' : '+');
+  var target = prefix + normalizedToken;
+  var targetKey = normalizedToken.toLowerCase();
+  var tokens = sppPlayerbotsParseStrategyTokens(textarea.value || '');
+  var next = [];
+  var foundExact = false;
+
+  tokens.forEach(function (entry) {
+    var value = String(entry || '').trim();
+    if (!value) {
+      return;
+    }
+
+    var valuePrefix = value.charAt(0);
+    var bare = value;
+    if (valuePrefix === '+' || valuePrefix === '-' || valuePrefix === '~') {
+      bare = value.slice(1).trim();
+    } else {
+      valuePrefix = '+';
+      bare = value.trim();
+    }
+
+    if (bare.toLowerCase() !== targetKey) {
+      next.push(value);
+      return;
+    }
+
+    if (value === target) {
+      foundExact = true;
+      return;
+    }
+  });
+
+  if (!foundExact) {
+    next.push(target);
+  }
+
+  textarea.value = next.join(',');
 }
 
 function sppPlayerbotsApplyStrategyProfile(scope, profileKey) {

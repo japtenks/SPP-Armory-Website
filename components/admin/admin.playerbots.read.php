@@ -156,6 +156,7 @@ function spp_admin_playerbots_build_view(array $realmDbMap): array
         'randomBotBaselineProfile' => spp_admin_playerbots_random_bot_baseline_profile(),
         'guildStrategyProfiles' => spp_admin_playerbots_guild_strategy_profiles(),
         'botStrategyProfiles' => spp_admin_playerbots_bot_strategy_profiles(),
+        'strategyBuilderOptions' => spp_admin_playerbots_strategy_builder_options(),
         'guildStrategyState' => $guildStrategyState,
         'characterStrategyState' => $characterStrategyState,
         'invalidRealmRequested' => $invalidRealmRequested,

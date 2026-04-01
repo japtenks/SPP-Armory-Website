@@ -1,6 +1,7 @@
 <?php
 $siteRoot = dirname(__DIR__, 3);
 require_once($siteRoot . '/config/config-protected.php');
+require_once($siteRoot . '/components/admin/admin.playerbots.helpers.php');
 
 function spp_character_table_exists(PDO $pdo, $tableName) {
     static $cache = array();
@@ -432,6 +433,11 @@ function spp_character_decode_personality_value(?string $storedValue): string {
     if ($storedValue === '') return '';
     if (strpos($storedValue, $prefix) !== 0) return $storedValue;
     return substr($storedValue, strlen($prefix));
+}
+
+function spp_character_is_playerbot_account_name(?string $accountUsername): bool {
+    $accountUsername = strtolower(trim((string)$accountUsername));
+    return $accountUsername !== '' && strpos($accountUsername, 'rndbot') !== false;
 }
 
 function spp_character_profession_spell_matches_skill($skillId, $spellName, $itemName = '') {
@@ -944,10 +950,9 @@ $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $tab = strtolower(trim((string)($_GET['tab'] ?? 'overview')));
 $tabs = array('overview', 'talents', 'reputation', 'skills', 'professions', 'quest log', 'achievements', 'social');
-$canManageBotPersonality = (int)($user['gmlevel'] ?? 0) >= 1;
-if ($canManageBotPersonality) $tabs[] = 'personality';
-if (!in_array($tab, $tabs, true)) $tab = 'overview';
-$characterPersonalityCsrfToken = $canManageBotPersonality ? spp_csrf_token('character_personality') : '';
+$canManageBotPersonality = false;
+$characterIsBot = false;
+$characterPersonalityCsrfToken = '';
 
 $classNames = array(1 => 'Warrior', 2 => 'Paladin', 3 => 'Hunter', 4 => 'Rogue', 5 => 'Priest', 6 => 'Death Knight', 7 => 'Shaman', 8 => 'Mage', 9 => 'Warlock', 11 => 'Druid');
 $raceNames = array(1 => 'Human', 2 => 'Orc', 3 => 'Dwarf', 4 => 'Night Elf', 5 => 'Undead', 6 => 'Tauren', 7 => 'Gnome', 8 => 'Troll', 10 => 'Blood Elf', 11 => 'Draenei');
@@ -1010,6 +1015,20 @@ $botPersonalityText = '';
 $botSignatureText = '';
 $characterAdminFeedback = '';
 $characterAdminError = '';
+$botStrategyProfiles = spp_admin_playerbots_bot_strategy_profiles();
+$strategyBuilderOptions = array(
+    'co' => array('dps', 'dps assist', 'dps aoe', 'tank', 'tank assist', 'threat', 'boost', 'offheal', 'cast time', 'custom::say', 'attack tagged', 'duel', 'pvp', 'avoid mobs'),
+    'nc' => array('follow', 'loot', 'delayed roll', 'food', 'conserve mana', 'quest', 'grind', 'wander', 'gather', 'consumables', 'rpg', 'rpg guild', 'rpg vendor', 'rpg maintenance', 'rpg craft', 'rpg explore', 'rpg bg', 'tfish', 'duel', 'free', 'roll', 'custom::say'),
+    'dead' => array('auto release', 'flee', 'corpse', 'return', 'delay'),
+    'react' => array('preheal', 'flee', 'avoid aoe', 'pvp'),
+);
+$characterStrategyState = array(
+    'values' => array_fill_keys(spp_admin_playerbots_strategy_keys(), ''),
+    'consistent' => true,
+    'member_count' => 0,
+    'profile_key' => 'custom',
+    'mixed_count' => 0,
+);
 
 builddiv_start(1, 'Character Profile', 0);
 
@@ -1174,6 +1193,16 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             }
         } catch (Exception $e) {
             error_log('[character-social] ' . $e->getMessage());
+        }
+
+        $characterIsBot = spp_character_is_playerbot_account_name((string)($forumSocial['account_username'] ?? ''));
+        $canManageBotPersonality = $characterIsBot && (int)($user['gmlevel'] ?? 0) >= 1;
+        if ($canManageBotPersonality && !in_array('personality', $tabs, true)) {
+            $tabs[] = 'personality';
+            $characterPersonalityCsrfToken = spp_csrf_token('character_personality');
+        }
+        if (!in_array($tab, $tabs, true)) {
+            $tab = 'overview';
         }
 
         if (spp_character_table_exists($charsPdo, 'character_stats')) {
@@ -2036,25 +2065,28 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             }
         }
 
-        try {
-            $stmt = $charsPdo->prepare("
-                SELECT value
-                FROM ai_playerbot_db_store
-                WHERE guid = ?
-                  AND preset = ''
-                  AND `key` = 'value'
-                  AND value LIKE 'manual saved string::llmdefaultprompt>%'
-                ORDER BY value ASC
-                LIMIT 1
-            ");
-            $stmt->execute(array($characterGuid));
-            $storedPersonality = $stmt->fetchColumn();
-            $botPersonalityText = spp_character_decode_personality_value($storedPersonality !== false ? (string)$storedPersonality : '');
-        } catch (Throwable $e) {
-            error_log('[character-personality-read] ' . $e->getMessage());
-        }
+        if ($canManageBotPersonality) {
+            try {
+                $stmt = $charsPdo->prepare("
+                    SELECT value
+                    FROM ai_playerbot_db_store
+                    WHERE guid = ?
+                      AND preset = ''
+                      AND `key` = 'value'
+                      AND value LIKE 'manual saved string::llmdefaultprompt>%'
+                    ORDER BY value ASC
+                    LIMIT 1
+                ");
+                $stmt->execute(array($characterGuid));
+                $storedPersonality = $stmt->fetchColumn();
+                $botPersonalityText = spp_character_decode_personality_value($storedPersonality !== false ? (string)$storedPersonality : '');
+            } catch (Throwable $e) {
+                error_log('[character-personality-read] ' . $e->getMessage());
+            }
 
-        $botSignatureText = (string)($forumSocial['signature'] ?? '');
+            $botSignatureText = (string)($forumSocial['signature'] ?? '');
+            $characterStrategyState = spp_admin_playerbots_fetch_character_strategy_state($charsPdo, $characterGuid);
+        }
 
         if ($canManageBotPersonality && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $characterAdminAction = trim((string)($_POST['character_admin_action'] ?? ''));
@@ -2098,7 +2130,7 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                     $botSignatureText = trim((string)($_POST['llm_signature'] ?? ''));
                     $identityId = (int)($forumSocial['identity_id'] ?? 0);
                     if ($identityId <= 0) {
-                        $identityId = spp_ensure_char_identity($realmId, $characterGuid, (int)($character['account'] ?? 0), $characterName);
+                        $identityId = spp_ensure_char_identity($realmId, $characterGuid, (int)($character['account'] ?? 0), $characterName, 1, isset($character['guildid']) ? (int)$character['guildid'] : null);
                         $forumSocial['identity_id'] = $identityId;
                     }
 
@@ -2113,6 +2145,50 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                             exit;
                         }
                         $characterAdminFeedback = 'Bot signature saved.';
+                    }
+                } elseif ($characterAdminAction === 'save_bot_strategy') {
+                    $effectiveStrategyValues = array();
+                    foreach (spp_admin_playerbots_strategy_keys() as $strategyKey) {
+                        $effectiveStrategyValues[$strategyKey] = spp_admin_playerbots_normalize_strategy_value((string)($_POST['strategy_' . $strategyKey] ?? ''));
+                    }
+
+                    $baseRows = spp_admin_playerbots_fetch_strategy_rows_for_guids($charsPdo, array($characterGuid), 'default');
+                    $baseValues = $baseRows[$characterGuid] ?? array_fill_keys(spp_admin_playerbots_strategy_keys(), '');
+                    $strategyValues = spp_admin_playerbots_build_strategy_override_set($baseValues, $effectiveStrategyValues);
+
+                    try {
+                        $charsPdo->beginTransaction();
+
+                        $strategyKeys = spp_admin_playerbots_strategy_keys();
+                        $keyPlaceholders = implode(',', array_fill(0, count($strategyKeys), '?'));
+                        $deleteStmt = $charsPdo->prepare("
+                            DELETE FROM ai_playerbot_db_store
+                            WHERE guid = ?
+                              AND preset = ''
+                              AND `key` IN ($keyPlaceholders)
+                        ");
+                        $deleteStmt->execute(array_merge(array($characterGuid), $strategyKeys));
+
+                        $insertStmt = $charsPdo->prepare("
+                            INSERT INTO ai_playerbot_db_store (`guid`, `preset`, `key`, `value`)
+                            VALUES (?, '', ?, ?)
+                        ");
+                        foreach ($strategyValues as $strategyKey => $strategyValue) {
+                            if ($strategyValue === '') continue;
+                            $insertStmt->execute(array($characterGuid, $strategyKey, $strategyValue));
+                        }
+
+                        $charsPdo->commit();
+                        if (!headers_sent()) {
+                            header('Location: ' . $personalityTabUrl . '&bot_strategy_saved=1');
+                            exit;
+                        }
+                        $characterAdminFeedback = 'Bot strategy overrides saved.';
+                        $characterStrategyState = spp_admin_playerbots_fetch_character_strategy_state($charsPdo, $characterGuid);
+                    } catch (Throwable $e) {
+                        if ($charsPdo->inTransaction()) $charsPdo->rollBack();
+                        error_log('[character-bot-strategy-save] ' . $e->getMessage());
+                        $characterAdminError = 'Saving the bot strategy overrides failed.';
                     }
                 }
             }
@@ -2293,22 +2369,39 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-social-signature{padding:18px 20px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9));color:#e7d9b1;line-height:1.6}
 .character-social-signature p:first-child{margin-top:0}
 .character-social-signature p:last-child{margin-bottom:0}
+.character-hero-signature{margin-top:12px;max-width:260px}
+.character-hero-signature-label{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}
+.character-hero-signature-text{text-align:left;color:#f3e6c3;font-size:.94rem;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .character-admin-grid{display:grid;gap:18px}
-.character-admin-card{display:grid;gap:12px}
+.character-admin-card{display:grid;gap:14px;align-content:start}
+.character-admin-grid>.character-admin-card{padding:20px 22px;border-radius:18px;border:1px solid rgba(255,228,169,.09);background:rgba(8,12,20,.62)}
+.character-admin-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.character-admin-card-grid .character-admin-card{height:100%;padding:20px 22px;border-radius:18px;border:1px solid rgba(255,228,169,.09);background:rgba(8,12,20,.62)}
+.character-admin-card-grid .character-panel-title,.character-admin-grid>.character-admin-card .character-panel-title{text-align:left;margin-bottom:8px}
 .character-admin-banner{padding:12px 14px;border-radius:12px;border:1px solid rgba(255,228,169,.16);background:rgba(17,22,30,.72);color:#f0e4c4}
 .character-admin-banner.is-error{border-color:rgba(206,98,98,.42);background:rgba(48,18,18,.82);color:#ffd1c7}
 .character-admin-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .character-admin-stat{padding:12px 14px;border-radius:14px;background:rgba(14,19,27,.78);border:1px solid rgba(255,228,169,.09)}
 .character-admin-stat span{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a89878;margin-bottom:6px}
 .character-admin-stat strong{display:block;font-size:15px;color:#fff3d1}
-.character-admin-form{display:grid;gap:12px}
+.character-admin-form{display:grid;gap:12px;align-content:start}
+.character-admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.character-admin-form-grid .character-admin-form-wide{grid-column:1/-1}
 .character-admin-form label{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#cdb98f}
 .character-admin-form textarea{width:100%;min-height:150px;border-radius:14px;border:1px solid rgba(255,228,169,.14);background:rgba(10,14,21,.9);color:#f5edd9;padding:14px;font:inherit;line-height:1.55;resize:vertical}
+.character-admin-form textarea.character-admin-textarea-compact{min-height:156px}
 .character-admin-form textarea:focus{outline:none;border-color:rgba(255,210,111,.48);box-shadow:0 0 0 1px rgba(255,210,111,.18)}
 .character-admin-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .character-admin-button{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;padding:10px 18px;background:linear-gradient(135deg,#f0c56a,#b7862f);color:#23180b;font-weight:800;cursor:pointer}
 .character-admin-note{font-size:13px;line-height:1.6;color:#bda97f}
 .character-admin-code{padding:12px 14px;border-radius:12px;background:rgba(11,15,22,.88);border:1px solid rgba(255,228,169,.08);color:#f2e7ca;white-space:pre-wrap;word-break:break-word}
+.character-admin-top-card .character-admin-actions{margin-top:auto}
+.character-admin-subcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:4px}
+.character-admin-subcard{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,228,169,.09);background:rgba(11,15,22,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.character-admin-subcard label{margin-bottom:8px}
+.character-strategy-builder{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.character-strategy-chip{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,255,255,.04);color:#f2dfb1;font-size:12px;font-weight:700;cursor:pointer}
+.character-strategy-chip:hover{border-color:rgba(255,204,72,.34);background:rgba(255,216,122,.12);color:#fff3c4}
 .character-grid.character-grid-sheet{grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr)}
 .character-progress-panel{display:grid;gap:18px}
 .character-progress-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
@@ -2324,6 +2417,7 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 .character-progress-line{fill:none;stroke:#ffd467;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 6px 10px rgba(255,212,103,.18))}
 .character-progress-dot{fill:#fff3c4;stroke:#c99524;stroke-width:2}
 .character-progress-caption{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px;color:#aa9870;font-size:.86rem}
+@media (max-width:900px){.character-admin-card-grid,.character-admin-form-grid,.character-admin-subcards{grid-template-columns:1fr}}
 .character-achievement-section.is-collapsible{padding:0;border:1px solid rgba(255,196,0,.16);background:rgba(5,8,18,.38);overflow:hidden}
 .character-achievement-section.is-collapsible.is-open{background:rgba(5,8,18,.5)}
 .character-achievement-section.is-collapsible > .character-achievement-section-title{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;margin:0;cursor:pointer;user-select:none}
@@ -2762,6 +2856,33 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
     row.classList.toggle('is-hidden', !visible);
   }
 }
+
+function sppStrategyAppend(textareaId, token, mode) {
+  var el = document.getElementById(textareaId);
+  if (!el) return;
+  var raw = (el.value || '').trim();
+  var prefix = mode === 'minus' ? '-' : '+';
+  var value = prefix + token;
+  var parts = raw === '' ? [] : raw.split(',').map(function (part) { return part.trim(); }).filter(Boolean);
+  var normalized = token.toLowerCase();
+  for (var i = 0; i < parts.length; i++) {
+    var part = parts[i];
+    var partKey = part.replace(/^[-+~]/, '').trim().toLowerCase();
+    if (partKey === normalized) {
+      if (part === value) {
+        parts.splice(i, 1);
+      } else {
+        parts[i] = value;
+      }
+      el.value = parts.join(',');
+      el.focus();
+      return;
+    }
+  }
+  parts.push(value);
+  el.value = parts.join(',');
+  el.focus();
+}
 </script>
 <div class="character-page">
 <?php if ($pageError !== ''): ?>
@@ -2771,7 +2892,15 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
     <div class="character-hero-mark" aria-hidden="true"><img src="<?php echo htmlspecialchars($factionHeroLogo); ?>" alt=""></div>
     <div>
       <div class="character-identity">
-        <img class="character-portrait" src="<?php echo htmlspecialchars($portraitUrl); ?>" alt="">
+        <div>
+          <img class="character-portrait" src="<?php echo htmlspecialchars($portraitUrl); ?>" alt="">
+          <?php if (trim((string)$botSignatureText) !== ''): ?>
+            <div class="character-hero-signature">
+              <span class="character-hero-signature-label">Signature</span>
+              <div class="character-hero-signature-text"><?php echo htmlspecialchars((string)$botSignatureText); ?></div>
+            </div>
+          <?php endif; ?>
+        </div>
         <div>
           <p class="character-eyebrow"><?php echo htmlspecialchars($realmLabel); ?> Character Profile</p>
           <h1 class="character-title class-<?php echo htmlspecialchars($classSlug); ?>"><a href="<?php echo htmlspecialchars($characterUrl); ?>"><?php echo htmlspecialchars($characterName); ?></a></h1>
@@ -3074,6 +3203,9 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
       <?php if ((int)($_GET['signature_saved'] ?? 0) === 1): ?>
         <div class="character-admin-banner">Bot signature saved for <?php echo htmlspecialchars($characterName); ?>.</div>
       <?php endif; ?>
+      <?php if ((int)($_GET['bot_strategy_saved'] ?? 0) === 1): ?>
+        <div class="character-admin-banner">Bot strategy overrides saved for <?php echo htmlspecialchars($characterName); ?>.</div>
+      <?php endif; ?>
       <?php if ($characterAdminFeedback !== ''): ?>
         <div class="character-admin-banner"><?php echo htmlspecialchars($characterAdminFeedback); ?></div>
       <?php endif; ?>
@@ -3087,37 +3219,106 @@ function sppRecipeFilter(buttonEl, listId, filterKey) {
         <div class="character-admin-stat"><span>Website Identity</span><strong><?php echo (int)($forumSocial['identity_id'] ?? 0) > 0 ? ('Identity #' . (int)$forumSocial['identity_id']) : 'Not linked yet'; ?></strong></div>
       </div>
 
-      <section class="character-admin-card">
-        <h2 class="character-panel-title">LLM Personality Prompt</h2>
-        <form class="character-admin-form" method="post" action="<?php echo htmlspecialchars($characterUrl . '&tab=personality'); ?>">
-          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($characterPersonalityCsrfToken, ENT_QUOTES); ?>">
-          <input type="hidden" name="character_admin_action" value="save_personality">
-          <input type="hidden" name="character_guid" value="<?php echo (int)$characterGuid; ?>">
-          <div>
-            <label for="character-personality-text">Prompt Snapshot</label>
-            <textarea id="character-personality-text" name="personality_text" placeholder="I am the keeper of the source."><?php echo htmlspecialchars($botPersonalityText); ?></textarea>
-          </div>
-          <div class="character-admin-actions">
-            <button class="character-admin-button" type="submit">Save Personality</button>
-            <span class="character-admin-note">Stored in <code>ai_playerbot_db_store</code> as <code>manual saved string::llmdefaultprompt&gt;...</code>. This is the same per-bot override the Playerbots admin page uses.</span>
-          </div>
-        </form>
-        <div class="character-admin-code"><?php echo $botPersonalityText !== '' ? htmlspecialchars($botPersonalityText) : 'No stored personality prompt for this bot.'; ?></div>
-      </section>
+      <div class="character-admin-card-grid">
+        <section class="character-admin-card character-admin-top-card">
+          <h2 class="character-panel-title">LLM Personality</h2>
+          <form class="character-admin-form" method="post" action="<?php echo htmlspecialchars($characterUrl . '&tab=personality'); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($characterPersonalityCsrfToken, ENT_QUOTES); ?>">
+            <input type="hidden" name="character_admin_action" value="save_personality">
+            <input type="hidden" name="character_guid" value="<?php echo (int)$characterGuid; ?>">
+            <div>
+              <label for="character-personality-text">Prompt Snapshot</label>
+              <textarea id="character-personality-text" class="character-admin-textarea-compact" name="personality_text" placeholder="I am the keeper of the source."><?php echo htmlspecialchars($botPersonalityText); ?></textarea>
+            </div>
+            <div class="character-admin-actions">
+              <button class="character-admin-button" type="submit">Save Personality</button>
+              <span class="character-admin-note">Stored in <code>ai_playerbot_db_store</code> as this bot's prompt override.</span>
+            </div>
+          </form>
+        </section>
+
+        <section class="character-admin-card character-admin-top-card">
+          <h2 class="character-panel-title">Bot Signature</h2>
+          <form class="character-admin-form" method="post" action="<?php echo htmlspecialchars($characterUrl . '&tab=personality'); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($characterPersonalityCsrfToken, ENT_QUOTES); ?>">
+            <input type="hidden" name="character_admin_action" value="save_signature">
+            <input type="hidden" name="character_guid" value="<?php echo (int)$characterGuid; ?>">
+            <div>
+              <label for="character-llm-signature">Signature Text</label>
+              <textarea id="character-llm-signature" class="character-admin-textarea-compact" name="llm_signature" placeholder="Watching the roads for the next adventure."><?php echo htmlspecialchars($botSignatureText); ?></textarea>
+            </div>
+            <div class="character-admin-actions">
+              <button class="character-admin-button" type="submit">Save Signature</button>
+              <span class="character-admin-note">Saved to the website identity profile for the public-facing forum identity.</span>
+            </div>
+          </form>
+        </section>
+      </div>
 
       <section class="character-admin-card">
-        <h2 class="character-panel-title">LLM Sign / Bot Signature</h2>
+        <h2 class="character-panel-title">Bot Strategy Builder</h2>
         <form class="character-admin-form" method="post" action="<?php echo htmlspecialchars($characterUrl . '&tab=personality'); ?>">
           <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($characterPersonalityCsrfToken, ENT_QUOTES); ?>">
-          <input type="hidden" name="character_admin_action" value="save_signature">
+          <input type="hidden" name="character_admin_action" value="save_bot_strategy">
           <input type="hidden" name="character_guid" value="<?php echo (int)$characterGuid; ?>">
-          <div>
-            <label for="character-llm-signature">Signature Text</label>
-            <textarea id="character-llm-signature" name="llm_signature" placeholder="Watching the roads for the next adventure."><?php echo htmlspecialchars($botSignatureText); ?></textarea>
+          <div class="character-admin-form-grid">
+            <div class="character-admin-form-wide">
+              <label for="character-strategy-profile">Role Preset</label>
+              <select id="character-strategy-profile" class="character-paperdoll-select" onchange="(function(sel){var data=JSON.parse(sel.options[sel.selectedIndex].getAttribute('data-strategy')||'{}');['co','nc','dead','react'].forEach(function(k){var el=document.getElementById('character-strategy-'+k); if(el && data[k]!==undefined){el.value=data[k];}});})(this)">
+                <?php foreach ($botStrategyProfiles as $profileKey => $profile): ?>
+                  <option value="<?php echo htmlspecialchars((string)$profileKey); ?>" data-strategy="<?php echo htmlspecialchars(json_encode(array(
+                      'co' => (string)($profile['co'] ?? ''),
+                      'nc' => (string)($profile['nc'] ?? ''),
+                      'dead' => (string)($profile['dead'] ?? ''),
+                      'react' => (string)($profile['react'] ?? ''),
+                  )), ENT_QUOTES); ?>"<?php echo (($characterStrategyState['profile_key'] ?? 'custom') === $profileKey ? ' selected' : ''); ?>>
+                    <?php echo htmlspecialchars((string)$profile['label']); ?> - <?php echo htmlspecialchars((string)$profile['description']); ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="character-admin-subcards character-admin-form-wide">
+              <div class="character-admin-subcard">
+                <label for="character-strategy-co">Combat (`co`)</label>
+                <div class="character-strategy-builder">
+                  <?php foreach (($strategyBuilderOptions['co'] ?? array()) as $token): ?>
+                    <button class="character-strategy-chip" type="button" onclick="sppStrategyAppend('character-strategy-co', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                  <?php endforeach; ?>
+                </div>
+                <textarea id="character-strategy-co" name="strategy_co" placeholder="+dps,+dps assist,-threat"><?php echo htmlspecialchars((string)($characterStrategyState['values']['co'] ?? '')); ?></textarea>
+              </div>
+              <div class="character-admin-subcard">
+                <label for="character-strategy-nc">Non-Combat (`nc`)</label>
+                <div class="character-strategy-builder">
+                  <?php foreach (($strategyBuilderOptions['nc'] ?? array()) as $token): ?>
+                    <button class="character-strategy-chip" type="button" onclick="sppStrategyAppend('character-strategy-nc', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                  <?php endforeach; ?>
+                </div>
+                <textarea id="character-strategy-nc" name="strategy_nc" placeholder="+follow,+loot,+food"><?php echo htmlspecialchars((string)($characterStrategyState['values']['nc'] ?? '')); ?></textarea>
+              </div>
+              <div class="character-admin-subcard">
+                <label for="character-strategy-dead">Dead (`dead`)</label>
+                <div class="character-strategy-builder">
+                  <?php foreach (($strategyBuilderOptions['dead'] ?? array()) as $token): ?>
+                    <button class="character-strategy-chip" type="button" onclick="sppStrategyAppend('character-strategy-dead', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                  <?php endforeach; ?>
+                </div>
+                <textarea id="character-strategy-dead" name="strategy_dead" placeholder="+auto release"><?php echo htmlspecialchars((string)($characterStrategyState['values']['dead'] ?? '')); ?></textarea>
+              </div>
+              <div class="character-admin-subcard">
+                <label for="character-strategy-react">Reaction (`react`)</label>
+                <div class="character-strategy-builder">
+                  <?php foreach (($strategyBuilderOptions['react'] ?? array()) as $token): ?>
+                    <button class="character-strategy-chip" type="button" onclick="sppStrategyAppend('character-strategy-react', '<?php echo htmlspecialchars((string)$token, ENT_QUOTES); ?>', 'plus')">+<?php echo htmlspecialchars((string)$token); ?></button>
+                  <?php endforeach; ?>
+                </div>
+                <textarea id="character-strategy-react" name="strategy_react" placeholder="+pvp,+preheal"><?php echo htmlspecialchars((string)($characterStrategyState['values']['react'] ?? '')); ?></textarea>
+              </div>
+            </div>
           </div>
           <div class="character-admin-actions">
-            <button class="character-admin-button" type="submit">Save Signature</button>
-            <span class="character-admin-note">Saved to the website identity profile. This currently affects the bot's website/forum signature card, not the playerbot LLM prompt itself.</span>
+            <button class="character-admin-button" type="submit">Save Bot Strategy</button>
+            <span class="character-admin-note">These are the effective per-bot strategy values. Saving here writes this bot's personal override layer in <code>ai_playerbot_db_store</code> and leaves any guild default flavor underneath.</span>
           </div>
         </form>
       </section>
