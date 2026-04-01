@@ -145,7 +145,7 @@ $lang = array (
   'comm_header1' => 'Remember to Abide by all Server Rules! Here is a list of some helpful links for you to use:',
   'comm_header2' => 'If you have any questions or concerns, Be sure to check out the <a href="./index.php?n=forum">Forums</a><br /> and/or the <a href="./index.php?n=forum&sub=viewforum&fid=6">FAQ Site</a>. If you need to conatact the website admin, Just send a <br />PM by using the "Userlist" option from the navagation menu to the webadmin <br />or any other admin.',
   'commands' => 'Commands',
-  'botcommands' => 'Bot Commands',
+  'botcommands' => 'Bot Guide',
   'commands_manage' => 'Edit Commands',
   'comment' => 'Comment',
   'common' => 'Common',

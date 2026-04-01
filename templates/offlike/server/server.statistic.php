@@ -100,33 +100,10 @@
   box-shadow: inset 0 0 30px rgba(0,0,0,0.45), 0 18px 36px rgba(0,0,0,0.24);
 }
 
-.class-breakdown-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 18px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-.class-breakdown-title {
-  margin: 0;
-  font-size: 2rem;
-  color: #ffd777;
-  text-shadow: 0 0 14px rgba(255, 196, 84, 0.18);
-}
-
-.class-breakdown-note {
-  color: #c7c7c7;
-  font-size: 0.92rem;
-  max-width: 620px;
-  line-height: 1.5;
-}
-
 .class-breakdown-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .class-panel {
@@ -134,6 +111,65 @@
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(8, 10, 16, 0.74);
   padding: 20px 20px 18px;
+}
+
+.class-accordion {
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(8, 10, 16, 0.74);
+  overflow: hidden;
+}
+
+.class-accordion summary {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 20px 18px;
+  cursor: pointer;
+}
+
+.class-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.class-accordion-summary-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.class-accordion-summary-copy h3 {
+  margin: 0;
+  color: #ffd777;
+  font-size: 1.2rem;
+}
+
+.class-accordion-summary-copy p {
+  margin: 0;
+  color: #b3b3b3;
+  font-size: 0.88rem;
+}
+
+.class-accordion-caret {
+  width: 14px;
+  height: 14px;
+  border-right: 2px solid #f2d086;
+  border-bottom: 2px solid #f2d086;
+  transform: rotate(45deg);
+  transition: transform 0.18s ease;
+  flex: 0 0 auto;
+  margin-top: -5px;
+}
+
+.class-accordion[open] .class-accordion-caret {
+  transform: rotate(225deg);
+  margin-top: 5px;
+}
+
+.class-accordion-body {
+  padding: 0 20px 18px;
 }
 
 .class-panel h3 {
@@ -337,6 +373,11 @@
   .class-mini-grid {
     grid-template-columns: 1fr;
   }
+  .class-accordion summary,
+  .class-accordion-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
   .class-bucket-row {
     grid-template-columns: 82px minmax(90px, 1fr) 42px;
   }
@@ -510,6 +551,9 @@ $classHonorableKills = [];
 $realmQuestCompletions = [];
 $botQuestCompletions = [];
 $playerQuestCompletions = [];
+$realmPlaytimes = [];
+$botPlaytimes = [];
+$playerPlaytimes = [];
 $totalBots = 0;
 $totalPlayers = 0;
 $playtimeBuckets = [
@@ -558,20 +602,22 @@ try {
     }
     $classCounts[$classId]++;
     $classLevels[$classId][] = $level;
-    $classPlaytimes[$classId][] = max(0, $totaltime);
+    $safePlaytime = max(0, $totaltime);
+    $classPlaytimes[$classId][] = $safePlaytime;
+    $realmPlaytimes[] = $safePlaytime;
     $classOnlineCounts[$classId] += $online;
     if ($guildId > 0) {
       $classGuildedCounts[$classId]++;
     }
     $classHonorableKills[$classId][] = max(0, $honorableKills);
 
-    if ($totaltime < 7200) {
+    if ($safePlaytime < 7200) {
       $playtimeBuckets['Under 2h']++;
-    } elseif ($totaltime < 36000) {
+    } elseif ($safePlaytime < 36000) {
       $playtimeBuckets['2h - 10h']++;
-    } elseif ($totaltime < 86400) {
+    } elseif ($safePlaytime < 86400) {
       $playtimeBuckets['10h - 24h']++;
-    } elseif ($totaltime < 259200) {
+    } elseif ($safePlaytime < 259200) {
       $playtimeBuckets['1d - 3d']++;
     } else {
       $playtimeBuckets['3d+']++;
@@ -580,8 +626,10 @@ try {
     if ($accountId > 0) {
       if (isset($botAccountIds[$accountId])) {
         $totalBots++;
+        $botPlaytimes[] = $safePlaytime;
       } else {
         $totalPlayers++;
+        $playerPlaytimes[] = $safePlaytime;
       }
     }
   }
@@ -589,6 +637,9 @@ try {
   $classCounts = [];
   $classLevels = [];
   $classPlaytimes = [];
+  $realmPlaytimes = [];
+  $botPlaytimes = [];
+  $playerPlaytimes = [];
 }
 
 try {
@@ -705,6 +756,23 @@ foreach ($availableClassOrder as $classId) {
   ];
 }
 $accountSplitTotal = $totalBots + $totalPlayers;
+$playtimeSummary = [
+  'realm' => [
+    'max' => !empty($realmPlaytimes) ? max($realmPlaytimes) : 0,
+    'avg' => !empty($realmPlaytimes) ? (int)round(array_sum($realmPlaytimes) / count($realmPlaytimes)) : 0,
+    'median' => spp_stat_median($realmPlaytimes),
+  ],
+  'bots' => [
+    'max' => !empty($botPlaytimes) ? max($botPlaytimes) : 0,
+    'avg' => !empty($botPlaytimes) ? (int)round(array_sum($botPlaytimes) / count($botPlaytimes)) : 0,
+    'median' => spp_stat_median($botPlaytimes),
+  ],
+  'players' => [
+    'max' => !empty($playerPlaytimes) ? max($playerPlaytimes) : 0,
+    'avg' => !empty($playerPlaytimes) ? (int)round(array_sum($playerPlaytimes) / count($playerPlaytimes)) : 0,
+    'median' => spp_stat_median($playerPlaytimes),
+  ],
+];
 $questOverview = [
   'realm' => [
     'max' => !empty($realmQuestCompletions) ? max($realmQuestCompletions) : 0,
@@ -788,39 +856,16 @@ $questOverview = [
 
   <?php if (!empty($classCards)): ?>
     <section class="class-breakdown-shell">
-      <div class="class-breakdown-header">
-        <div>
-          <h2 class="class-breakdown-title">Class Breakdown</h2>
-          <div class="class-breakdown-note">
-            Horizontal bars show how many characters each class has. Vertical bars show median level by class, which is a stronger snapshot than average when there are lots of low-level alts.
-          </div>
-        </div>
-      </div>
-
       <div class="class-breakdown-grid">
-        <div class="class-panel">
-          <h3>Class Population</h3>
-          <p class="panel-note">Character count by class on this realm.</p>
-          <div class="class-bars">
-            <?php foreach ($availableClassOrder as $classId): ?>
-              <?php $class = $classCards[$classId]; ?>
-              <?php $width = $classCountMax > 0 ? max(4, (int)round(($class['count'] / $classCountMax) * 100)) : 0; ?>
-              <div class="class-row">
-                <div class="class-label" style="color: <?php echo htmlspecialchars($class['color']); ?>;">
-                  <?php echo htmlspecialchars($class['name']); ?>
-                </div>
-                <div class="class-bar-track">
-                  <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: <?php echo htmlspecialchars($class['color']); ?>;"></div>
-                </div>
-                <div class="class-value"><?php echo (int)$class['count']; ?></div>
-              </div>
-            <?php endforeach; ?>
-          </div>
-        </div>
-
-        <div class="class-panel">
-          <h3>Typical Class Level</h3>
-          <p class="panel-note">Median level by class on this realm.</p>
+        <details class="class-accordion" open>
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>Typical Class Level</h3>
+              <p>Median level by class on this realm.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
           <div class="class-columns">
             <?php foreach ($availableClassOrder as $classId): ?>
               <?php $class = $classCards[$classId]; ?>
@@ -836,11 +881,18 @@ $questOverview = [
               </div>
             <?php endforeach; ?>
           </div>
-        </div>
+          </div>
+        </details>
 
-        <div class="class-panel">
-          <h3>Typical Class Play Time</h3>
-          <p class="panel-note">Median play time by class, with average as a quick comparison.</p>
+        <details class="class-accordion">
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>Typical Class Play Time</h3>
+              <p>Median play time by class, with average as a quick comparison.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
           <div class="class-bars">
             <?php foreach ($availableClassOrder as $classId): ?>
               <?php $class = $classCards[$classId]; ?>
@@ -856,9 +908,37 @@ $questOverview = [
               </div>
             <?php endforeach; ?>
           </div>
-        </div>
+          </div>
+        </details>
 
-        <div class="class-panel">
+        <details class="class-accordion">
+          <summary>
+            <div class="class-accordion-summary-copy">
+              <h3>Class Population</h3>
+              <p>Character count by class on this realm.</p>
+            </div>
+            <span class="class-accordion-caret" aria-hidden="true"></span>
+          </summary>
+          <div class="class-accordion-body">
+          <div class="class-bars">
+            <?php foreach ($availableClassOrder as $classId): ?>
+              <?php $class = $classCards[$classId]; ?>
+              <?php $width = $classCountMax > 0 ? max(4, (int)round(($class['count'] / $classCountMax) * 100)) : 0; ?>
+              <div class="class-row">
+                <div class="class-label" style="color: <?php echo htmlspecialchars($class['color']); ?>;">
+                  <?php echo htmlspecialchars($class['name']); ?>
+                </div>
+                <div class="class-bar-track">
+                  <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: <?php echo htmlspecialchars($class['color']); ?>;"></div>
+                </div>
+                <div class="class-value"><?php echo (int)$class['count']; ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+          </div>
+        </details>
+
+        <details class="class-accordion">
           <h3>Typical Class Gear</h3>
           <p class="panel-note">Median equipped item level by class, using per-character average equipped gear.</p>
           <div class="class-bars">
@@ -996,6 +1076,25 @@ $questOverview = [
                 </div>
               </div>
             </div>
+
+            <div class="class-mini-card">
+              <h4>Play Time Summary</h4>
+              <p class="class-mini-note">Max, average, and median total play time across the same realm split.</p>
+              <div class="class-split-card">
+                <div class="class-split-stat">
+                  <span>Realm max / avg / median</span>
+                  <strong><?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['realm']['max'])); ?> / <?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['realm']['avg'])); ?> / <?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['realm']['median'])); ?></strong>
+                </div>
+                <div class="class-split-stat">
+                  <span>Bots max / avg / median</span>
+                  <strong><?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['bots']['max'])); ?> / <?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['bots']['avg'])); ?> / <?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['bots']['median'])); ?></strong>
+                </div>
+                <div class="class-split-stat">
+                  <span>Players max / avg / median</span>
+                  <strong><?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['players']['max'])); ?> / <?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['players']['avg'])); ?> / <?php echo htmlspecialchars(spp_stat_format_playtime($playtimeSummary['players']['median'])); ?></strong>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1004,6 +1103,104 @@ $questOverview = [
 
 <?php endif; ?>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var grid = document.querySelector('.class-breakdown-grid');
+  if (!grid) {
+    return;
+  }
+
+  var desiredOrder = [
+    'Typical Class Level',
+    'Class Population',
+    'Typical Class Play Time',
+    'Typical Class Gear',
+    'Online Share by Class',
+    'Guilded Share by Class',
+    'PvP Tendency',
+    'Realm Play Time Mix'
+  ];
+
+  var sectionLookup = {};
+  Array.prototype.forEach.call(grid.querySelectorAll('h3'), function (titleEl) {
+    var title = titleEl.textContent.trim();
+    if (!title || sectionLookup[title]) {
+      return;
+    }
+
+    var node = titleEl.closest('.class-panel, details');
+    if (!node) {
+      return;
+    }
+
+    var noteEl = node.querySelector('summary p, .panel-note');
+    var note = noteEl ? noteEl.textContent.trim() : '';
+    var bodyHtml = '';
+
+    if (node.tagName === 'DETAILS') {
+      var body = node.querySelector('.class-accordion-body');
+      if (body) {
+        bodyHtml = body.innerHTML;
+      } else {
+        bodyHtml = Array.prototype.map.call(node.children, function (child) {
+          if (child.tagName === 'SUMMARY' || child.tagName === 'H3' || child.classList.contains('panel-note')) {
+            return '';
+          }
+          return child.outerHTML;
+        }).join('');
+      }
+    } else {
+      bodyHtml = Array.prototype.map.call(node.children, function (child) {
+        if (child.tagName === 'H3' || child.classList.contains('panel-note')) {
+          return '';
+        }
+        return child.outerHTML;
+      }).join('');
+    }
+
+    sectionLookup[title] = {
+      title: title,
+      note: note,
+      bodyHtml: bodyHtml
+    };
+  });
+
+  var rebuilt = document.createDocumentFragment();
+  desiredOrder.forEach(function (title, index) {
+    var section = sectionLookup[title];
+    if (!section) {
+      return;
+    }
+
+    var details = document.createElement('details');
+    details.className = 'class-accordion';
+    if (index === 0) {
+      details.open = true;
+    }
+
+    var summary = document.createElement('summary');
+    summary.innerHTML =
+      '<div class="class-accordion-summary-copy">' +
+        '<h3>' + section.title + '</h3>' +
+        (section.note ? '<p>' + section.note + '</p>' : '') +
+      '</div>' +
+      '<span class="class-accordion-caret" aria-hidden="true"></span>';
+
+    var body = document.createElement('div');
+    body.className = 'class-accordion-body';
+    body.innerHTML = section.bodyHtml;
+
+    details.appendChild(summary);
+    details.appendChild(body);
+    rebuilt.appendChild(details);
+  });
+
+  if (rebuilt.childNodes.length) {
+    grid.innerHTML = '';
+    grid.appendChild(rebuilt);
+  }
+});
+</script>
 <?php builddiv_end(); ?>
 
 <?php /* Bot Rotation Health has moved to index.php?n=admin&sub=botrotation */ ?>

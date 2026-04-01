@@ -17,12 +17,12 @@ $com_content['server'] = array(
         0 // show in context menu (1-yes,0-no)          [4]
     ),
 	'botcommands' => array(
-    '', 
-    '(Bot) Commands', 
+      '', 
+    'Bot Guide', 
     mw_url('server', 'botcommands'),
     '3-menuGameGuide',
     0
-),
+  ),
 
     'chars' => array(
         '', 
