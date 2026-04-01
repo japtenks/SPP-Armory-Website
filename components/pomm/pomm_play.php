@@ -9,31 +9,6 @@ if (!isset($realm_id) || (int)$realm_id <= 0) {
     $realm_id = spp_resolve_realm_id($realmDbMap);
 }
 
-if (!function_exists('pomm_realm_has_recent_uptime')) {
-    function pomm_realm_has_recent_uptime(DBLayer $realm_db, int $realm_id, int $maxAgeSeconds = 300): bool
-    {
-        $query = $realm_db->query("
-            SELECT `starttime`
-            FROM `uptime`
-            WHERE `realmid` = " . (int)$realm_id . "
-            ORDER BY `starttime` DESC
-            LIMIT 1
-        ");
-
-        if (!$query) {
-            return false;
-        }
-
-        $row = $realm_db->fetch_row($query);
-        if (!$row || empty($row[0])) {
-            return false;
-        }
-
-        return ((time() - (int)$row[0]) <= $maxAgeSeconds);
-    }
-}
-
-
 $_RESULT = null;
 
 $maps_count = count($lang_defs['maps_names']);
@@ -54,23 +29,6 @@ if (!$realm_db->isValid()) {
 $realm_db->query("SET NAMES $database_encoding");
 
 $realm_is_reachable = test_realm();
-$realm_has_recent_uptime = pomm_realm_has_recent_uptime($realm_db, (int)$realm_id);
-$realm_is_active = ($realm_is_reachable && $realm_has_recent_uptime);
-
-if (!$realm_is_active) {
-    $_RESULT = array(
-        'online' => null,
-        'status' => array(
-            'online' => 0,
-            'uptime' => 0,
-            'maxplayers' => 0,
-            'gmonline' => 0
-        )
-    );
-    $realm_db->close();
-    unset($realm_db);
-    exit();
-}
 
 $gm_online = 0;
 $gm_accounts = array();
@@ -102,7 +60,7 @@ for ($i = 0; $i < $maps_count; $i++) {
 }
 $arr = array();
 $i=$maps_count;
-$query = $characters_db->query("SELECT `account`,`name`,`class`,`race`, `level`, `gender`, `playerFlags`, `position_x`,`position_y`,`map`,`zone`,`extra_flags` FROM `characters` WHERE `online`='1' ORDER BY `name`");
+$query = $characters_db->query("SELECT `guid`,`account`,`name`,`class`,`race`, `level`, `gender`, `playerFlags`, `position_x`,`position_y`,`map`,`zone`,`extra_flags` FROM `characters` WHERE `online`='1' ORDER BY `name`");
 while ($result = $characters_db->fetch_assoc($query)) {
     if ($result['map'] == 530 && $result['position_y'] > -1000 || in_array($result['map'], $outland_inst)) {
         $Extention = 1;
@@ -152,7 +110,7 @@ while ($result = $characters_db->fetch_assoc($query)) {
         continue;
     }
 
-    $char_data = 0;
+    $char_data = (int)$result['guid'];
     $char_flags = $char_data;
     $char_dead = ($result['playerFlags'] & 0x11)?1:0;
     $arr[$i]['x'] = $result['position_x'];
@@ -190,7 +148,7 @@ $query = $realm_db->query("
     ");
 
     if ($result = $realm_db->fetch_row($query)) {
-        $status['online']    = test_realm() ? 1 : 0;
+        $status['online']    = ($realm_is_reachable || count($arr) > $maps_count) ? 1 : 0;
         $status['uptime']    = $result[0] - $result[1];
         $status['maxplayers']= $result[2];
         $status['gmonline']  = $gm_online;
