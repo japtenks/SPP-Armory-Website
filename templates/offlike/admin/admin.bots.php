@@ -196,6 +196,24 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-dry')">Copy Dry Run</button>
       <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-run')">Copy Run Command</button>
     </div>
+    <p class="admin-bots__note" style="margin-top:14px;color:#ffbfa8;">Danger zone: this next variant clears every character on the selected realm, including player characters, while leaving auth accounts in place.</p>
+    <div class="admin-bots__grid" style="margin-top:14px;">
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['realm_characters'] ?? 0)); ?></strong><span>All realm characters to clear</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['player_characters'] ?? 0)); ?></strong><span>Player characters included</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['bot_characters'] ?? 0)); ?></strong><span>Bot characters included</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['realm_guilds'] ?? 0)); ?></strong><span>All guild rows on this realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['realm_db_store_rows'] ?? 0)); ?></strong><span>All <code>ai_playerbot_db_store</code> rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['realm_auction_rows'] ?? 0)); ?></strong><span>All auction house rows on this realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['rotation_state_rows'] ?? 0)); ?></strong><span>Rotation live-state rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['rotation_log_rows'] ?? 0) + (int)($botStepPreviews['realm_character_state']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
+    </div>
+    <div class="admin-bots__command" id="bot-step3-all-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_realm_character_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command" id="bot-step3-all-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_realm_character_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__actions">
+      <button type="button" class="admin-bots__btn-input admin-bots__btn-danger" onclick="copyBotCommand('bot-step3-all-dry')">Copy Full-Realm Dry Run</button>
+      <button type="button" class="admin-bots__btn-input admin-bots__btn-danger" onclick="copyBotCommand('bot-step3-all-run')">Copy Full-Realm Run</button>
+    </div>
+    <p class="admin-bots__note" style="margin-top:12px;">Use this only when you want a realm character wipe that keeps login accounts. Characters, guilds, auctions, and character-side bot store data on the selected realm are included.</p>
     <p class="admin-bots__note" style="margin-top:12px;">If you only want to clear the rotation history during a restart window, use the dedicated rotation reset instead of the full character-state reset.</p>
     <div class="admin-bots__grid" style="margin-top:14px;">
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['rotation_only']['rotation_state_rows'] ?? 0)); ?></strong><span>Rotation live-state rows</span></div>

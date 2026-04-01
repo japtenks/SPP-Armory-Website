@@ -34,6 +34,7 @@ function spp_admin_bots_handle_action(PDO $masterPdo): array
     $supportedActions = array(
         'reset_forum_realm' => 'Reset Selected Realm Forums',
         'fresh_reset' => 'Fresh Bot World Reset',
+        'clear_realm_character_state' => 'Clear Realm Character State',
         'rebuild_site_layers' => 'Rebuild Bot Website Layers',
         'status' => 'Refresh Helper Status',
     );
@@ -54,7 +55,7 @@ function spp_admin_bots_handle_action(PDO $masterPdo): array
         'requested_by' => (string)($GLOBALS['user']['username'] ?? 'admin'),
         'realm_id' => $selectedRealmId,
         'realm_name' => $selectedRealmName,
-        'execute' => in_array($action, array('reset_forum_realm', 'fresh_reset', 'rebuild_site_layers'), true),
+        'execute' => in_array($action, array('reset_forum_realm', 'fresh_reset', 'clear_realm_character_state', 'rebuild_site_layers'), true),
         'dry_run' => false,
         'preserve' => array(
             'player_accounts' => true,

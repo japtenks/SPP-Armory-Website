@@ -59,6 +59,7 @@ function spp_admin_bots_tool_script_name(string $action): string
         'clear_bot_web_state' => 'clear_bot_web_state.php',
         'reset_bot_rotation_realm' => 'reset_bot_rotation_realm.php',
         'clear_bot_character_state' => 'clear_bot_character_state.php',
+        'clear_realm_character_state' => 'clear_realm_character_state.php',
         'fresh_reset' => 'fresh_bot_reset.php',
         'rebuild_site_layers' => 'rebuild_bot_site_layers.php',
     );
@@ -114,6 +115,10 @@ function spp_admin_bots_script_commands_for_realm(int $realmId): array
         'clear_bot_character_state' => array(
             'run' => spp_admin_bots_build_manual_command('clear_bot_character_state', $basePayload),
             'dry_run' => spp_admin_bots_build_manual_command('clear_bot_character_state', $basePayload + array('dry_run' => true)),
+        ),
+        'clear_realm_character_state' => array(
+            'run' => spp_admin_bots_build_manual_command('clear_realm_character_state', $basePayload),
+            'dry_run' => spp_admin_bots_build_manual_command('clear_realm_character_state', $basePayload + array('dry_run' => true)),
         ),
         'rebuild_site_layers' => array(
             'run' => spp_admin_bots_build_manual_command('rebuild_site_layers', array('realm_id' => $realmId)),
@@ -343,9 +348,13 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
         'realm_forum_name' => (string)($forumScope['forum_name'] ?? ''),
         'bot_characters' => 0,
         'player_characters' => 0,
+        'realm_characters' => 0,
         'bot_guilds' => 0,
+        'realm_guilds' => 0,
         'bot_db_store_rows' => 0,
+        'realm_db_store_rows' => 0,
         'bot_auction_rows' => 0,
+        'realm_auction_rows' => 0,
         'forum_topics' => 0,
         'forum_posts' => 0,
         'forum_pms' => 0,
@@ -379,12 +388,17 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
         $charsPdo,
         "SELECT COUNT(*) FROM `characters` WHERE `account` NOT IN ({$botAccountSubquery})"
     );
+    $row['realm_characters'] = (int)$row['bot_characters'] + (int)$row['player_characters'];
     $row['bot_guilds'] = spp_admin_bots_scalar_safe(
         $charsPdo,
         "SELECT COUNT(DISTINCT gm.`guildid`)
          FROM `guild_member` gm
          INNER JOIN `characters` c ON c.`guid` = gm.`guid`
          WHERE c.`account` IN ({$botAccountSubquery})"
+    );
+    $row['realm_guilds'] = spp_admin_bots_scalar_safe(
+        $charsPdo,
+        "SELECT COUNT(*) FROM `guild`"
     );
     $row['bot_db_store_rows'] = spp_admin_bots_scalar_safe(
         $charsPdo,
@@ -393,6 +407,10 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
          INNER JOIN `characters` c ON c.`guid` = s.`guid`
          WHERE c.`account` IN ({$botAccountSubquery})"
     );
+    $row['realm_db_store_rows'] = spp_admin_bots_scalar_safe(
+        $charsPdo,
+        "SELECT COUNT(*) FROM `ai_playerbot_db_store`"
+    );
     if (spp_admin_identity_health_table_exists($charsPdo, 'auctionhouse')) {
         $row['bot_auction_rows'] = spp_admin_bots_scalar_safe(
             $charsPdo,
@@ -400,6 +418,10 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
              FROM `auctionhouse`
              WHERE `itemowner` IN (SELECT `guid` FROM `characters` WHERE `account` IN ({$botAccountSubquery}))
                 OR `buyguid` IN (SELECT `guid` FROM `characters` WHERE `account` IN ({$botAccountSubquery}))"
+        );
+        $row['realm_auction_rows'] = spp_admin_bots_scalar_safe(
+            $charsPdo,
+            "SELECT COUNT(*) FROM `auctionhouse`"
         );
     }
 
