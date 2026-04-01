@@ -3,6 +3,37 @@ if (INCLUDED !== true) {
     exit;
 }
 
+require_once(__DIR__ . '/admin.identities.helpers.php');
+
+if (!function_exists('spp_admin_botrotation_resolve_php_cli_binary')) {
+    function spp_admin_botrotation_resolve_php_cli_binary(): string
+    {
+        $candidates = array_filter(array_unique(array(
+            (defined('PHP_BINDIR') ? rtrim((string)PHP_BINDIR, '/\\') . DIRECTORY_SEPARATOR . 'php.exe' : ''),
+            (defined('PHP_BINDIR') ? rtrim((string)PHP_BINDIR, '/\\') . DIRECTORY_SEPARATOR . 'php' : ''),
+            (string)(PHP_BINARY ?? ''),
+            '/usr/bin/php',
+            '/usr/local/bin/php',
+            'php',
+        )));
+
+        foreach ($candidates as $candidate) {
+            $normalized = strtolower(str_replace('\\', '/', (string)$candidate));
+            if ($normalized !== '' && (strpos($normalized, 'httpd') !== false || strpos($normalized, 'apache') !== false)) {
+                continue;
+            }
+            if ($candidate === 'php') {
+                return $candidate;
+            }
+            if (@is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return 'php';
+    }
+}
+
 if (!function_exists('rotFormatUptimeSeconds')) {
     function rotFormatUptimeSeconds($seconds) {
         if ($seconds === null || $seconds === '' || !is_numeric($seconds) || $seconds <= 0) return 'N/A';
@@ -20,6 +51,12 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 function spp_admin_botrotation_build_view(array $realmDbMap)
 {
     $realmId = spp_resolve_realm_id($realmDbMap);
+    $siteRoot = dirname(__DIR__, 2);
+    $phpBin = spp_admin_botrotation_resolve_php_cli_binary();
+    $phpCommand = strtolower((string)$phpBin) === 'php'
+        ? 'php'
+        : ('"' . str_replace('"', '""', (string)$phpBin) . '"');
+    $rotationResetScript = $siteRoot . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'reset_bot_rotation_realm.php';
 
     $view = array(
         'realmId' => $realmId,
@@ -35,6 +72,12 @@ function spp_admin_botrotation_build_view(array $realmDbMap)
         'hasHistory' => false,
         'liveOnlineAvg' => null,
         'liveOnlineMax' => null,
+        'commands' => array(
+            'rotation_reset_dry_run' => $phpCommand . ' "' . str_replace('"', '""', $rotationResetScript) . '" --realm=' . $realmId . ' --execute --dry-run',
+            'rotation_reset_run' => $phpCommand . ' "' . str_replace('"', '""', $rotationResetScript) . '" --realm=' . $realmId . ' --execute',
+            'pause_logging' => "mv /etc/cron.d/spp-bot-rotation-log /etc/cron.d/spp-bot-rotation-log.disabled && systemctl restart cron",
+            'resume_logging' => "mv /etc/cron.d/spp-bot-rotation-log.disabled /etc/cron.d/spp-bot-rotation-log && systemctl restart cron",
+        ),
     );
 
     $realmdDbName = $realmDbMap[$realmId]['realmd'] ?? 'classicrealmd';

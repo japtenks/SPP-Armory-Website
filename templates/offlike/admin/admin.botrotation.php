@@ -110,6 +110,13 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 .rot-no-history { font-size:0.78rem; color:#555; font-style:italic; padding:6px 0; }
 .rot-subtitle { margin:18px 0 10px; color:#9f9f9f; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; }
 .rot-help { margin:-2px 0 12px; color:#8a8a8a; font-size:0.74rem; line-height:1.45; }
+.rot-toolbox { margin:0 0 20px; padding:16px 18px; border:1px solid #2c2c2c; border-radius:8px; background:rgba(255,255,255,0.03); }
+.rot-toolbox-title { margin:0 0 6px; color:#e8c96a; font-size:0.95rem; font-weight:700; letter-spacing:0.04em; }
+.rot-toolbox-note { margin:0 0 12px; color:#9a9a9a; font-size:0.76rem; line-height:1.5; }
+.rot-command { margin:8px 0 0; padding:10px 12px; border-radius:6px; border:1px solid #2a2a2a; background:#111; color:#dbe9ff; font-family:Consolas,Monaco,monospace; font-size:0.8rem; white-space:pre-wrap; word-break:break-word; }
+.rot-command-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.rot-btn { display:inline-flex; align-items:center; justify-content:center; padding:8px 14px; border-radius:8px; border:1px solid #3d4046; background:#2f3136; color:#f0e0b6; font-weight:700; cursor:pointer; }
+.rot-btn:hover { background:#3a3d43; border-color:#565a63; color:#ffcc66; }
 </style>
 
 <?php builddiv_start(1, 'Bot Rotation Health'); ?>
@@ -119,6 +126,28 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 
 <div class="rot-panel">
   <div class="rot-title">Bot Rotation Health</div>
+
+  <div class="rot-toolbox">
+    <div class="rot-toolbox-title">Rotation Logging Controls</div>
+    <p class="rot-toolbox-note">Rotation logging is a cron job in the DB container, not part of <code>mangosd.service</code>. These pause/resume commands are for the Linux host only. On Windows dev, ignore this box and just use the standalone reset command below.</p>
+    <div class="rot-command" id="rot-pause-command"><?php echo htmlspecialchars((string)($rotationCommands['pause_logging'] ?? '')); ?></div>
+    <div class="rot-command" id="rot-resume-command"><?php echo htmlspecialchars((string)($rotationCommands['resume_logging'] ?? '')); ?></div>
+    <div class="rot-command-actions">
+      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-pause-command')">Copy Pause Logging</button>
+      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-resume-command')">Copy Resume Logging</button>
+    </div>
+  </div>
+
+  <div class="rot-toolbox">
+    <div class="rot-toolbox-title">Standalone Rotation Reset</div>
+    <p class="rot-toolbox-note">Use this when you only want to clear rotation history for the selected realm without running the broader bot reset. This is the normal Windows-friendly script workflow. Dry run first if you want to confirm the current row counts.</p>
+    <div class="rot-command" id="rot-reset-dry"><?php echo htmlspecialchars((string)($rotationCommands['rotation_reset_dry_run'] ?? '')); ?></div>
+    <div class="rot-command" id="rot-reset-run"><?php echo htmlspecialchars((string)($rotationCommands['rotation_reset_run'] ?? '')); ?></div>
+    <div class="rot-command-actions">
+      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-reset-dry')">Copy Rotation Dry Run</button>
+      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-reset-run')">Copy Rotation Reset</button>
+    </div>
+  </div>
 
   <?php if ($rotationError): ?>
     <div class="rot-error">
@@ -426,5 +455,26 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 
   <?php endif; ?>
 </div>
+
+<script>
+(function(){
+  window.copyRotationCommand = function(id){
+    var box = document.getElementById(id);
+    if (!box) return;
+    var text = box.textContent || box.innerText || '';
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+      return;
+    }
+    var temp = document.createElement('textarea');
+    temp.value = text;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+  };
+})();
+</script>
 </div>
 <?php unset($GLOBALS['builddiv_header_actions']); ?>

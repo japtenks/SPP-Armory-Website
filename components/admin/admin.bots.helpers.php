@@ -56,6 +56,9 @@ function spp_admin_bots_tool_script_name(string $action): string
     $map = array(
         'status' => 'bot_maintenance_status.php',
         'reset_forum_realm' => 'reset_forum_realm.php',
+        'clear_bot_web_state' => 'clear_bot_web_state.php',
+        'reset_bot_rotation_realm' => 'reset_bot_rotation_realm.php',
+        'clear_bot_character_state' => 'clear_bot_character_state.php',
         'fresh_reset' => 'fresh_bot_reset.php',
         'rebuild_site_layers' => 'rebuild_bot_site_layers.php',
     );
@@ -88,6 +91,34 @@ function spp_admin_bots_build_manual_command(string $action, array $payload = ar
     }
 
     return implode(' ', $parts);
+}
+
+function spp_admin_bots_script_commands_for_realm(int $realmId): array
+{
+    $basePayload = array('realm_id' => $realmId, 'execute' => true);
+
+    return array(
+        'status' => spp_admin_bots_build_manual_command('status', array()),
+        'reset_forum_realm' => array(
+            'run' => spp_admin_bots_build_manual_command('reset_forum_realm', $basePayload),
+            'dry_run' => spp_admin_bots_build_manual_command('reset_forum_realm', $basePayload + array('dry_run' => true)),
+        ),
+        'clear_bot_web_state' => array(
+            'run' => spp_admin_bots_build_manual_command('clear_bot_web_state', $basePayload),
+            'dry_run' => spp_admin_bots_build_manual_command('clear_bot_web_state', $basePayload + array('dry_run' => true)),
+        ),
+        'reset_bot_rotation_realm' => array(
+            'run' => spp_admin_bots_build_manual_command('reset_bot_rotation_realm', $basePayload),
+            'dry_run' => spp_admin_bots_build_manual_command('reset_bot_rotation_realm', $basePayload + array('dry_run' => true)),
+        ),
+        'clear_bot_character_state' => array(
+            'run' => spp_admin_bots_build_manual_command('clear_bot_character_state', $basePayload),
+            'dry_run' => spp_admin_bots_build_manual_command('clear_bot_character_state', $basePayload + array('dry_run' => true)),
+        ),
+        'rebuild_site_layers' => array(
+            'run' => spp_admin_bots_build_manual_command('rebuild_site_layers', array('realm_id' => $realmId)),
+        ),
+    );
 }
 
 function spp_admin_bots_load_state(): array
@@ -325,6 +356,7 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
         'bot_identities' => 0,
         'bot_identity_profiles' => 0,
         'rotation_log_rows' => 0,
+        'rotation_ilvl_log_rows' => 0,
         'rotation_state_rows' => 0,
         'rotation_config_rows' => 0,
         'warning' => '',
@@ -457,6 +489,9 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
     if ($realmdPdo instanceof PDO) {
         if (spp_admin_identity_health_table_exists($realmdPdo, 'bot_rotation_log')) {
             $row['rotation_log_rows'] = spp_admin_bots_scalar_safe($realmdPdo, "SELECT COUNT(*) FROM `bot_rotation_log` WHERE `realm` = ?", array($realmId));
+        }
+        if (spp_admin_identity_health_table_exists($realmdPdo, 'bot_rotation_ilvl_log')) {
+            $row['rotation_ilvl_log_rows'] = spp_admin_bots_scalar_safe($realmdPdo, "SELECT COUNT(*) FROM `bot_rotation_ilvl_log` WHERE `realm` = ?", array($realmId));
         }
         if (spp_admin_identity_health_table_exists($realmdPdo, 'bot_rotation_state')) {
             $row['rotation_state_rows'] = spp_admin_bots_scalar_safe($realmdPdo, "SELECT COUNT(*) FROM `bot_rotation_state` WHERE `realm` = ?", array($realmId));

@@ -10,6 +10,8 @@ $botRealmOptions = $botMaintenanceView['realm_options'] ?? array();
 $botHelperConfig = $botMaintenanceView['helper_config'] ?? array();
 $botHelperStatus = $botMaintenanceView['helper_status'] ?? array();
 $botLastRun = $botMaintenanceView['last_run'] ?? array();
+$botScriptCommands = $botMaintenanceView['script_commands'] ?? array();
+$botStepPreviews = $botMaintenanceView['step_previews'] ?? array();
 $botPreviewRows = $botMaintenanceView['preview_rows'] ?? array();
 $botAccountCounts = $botMaintenanceView['account_counts'] ?? array();
 $botCacheCounts = $botMaintenanceView['cache_counts'] ?? array();
@@ -55,28 +57,45 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <?php echo htmlspecialchars((string)$botFlash['message'], ENT_QUOTES, 'UTF-8'); ?>
     </div>
   <?php endif; ?>
-  <?php if ($botManualNotice !== '' || $botManualCommand !== ''): ?>
-    <section class="admin-bots__panel">
-      <p class="admin-bots__eyebrow">Manual PowerShell Fallback</p>
-      <?php if ($botManualNotice !== ''): ?><p class="admin-bots__body"><?php echo htmlspecialchars($botManualNotice, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
-      <?php if ($botManualCommand !== ''): ?>
-        <div class="admin-bots__command" id="bot-manual-command-box"><?php echo htmlspecialchars($botManualCommand, ENT_QUOTES, 'UTF-8'); ?></div>
-        <div class="admin-bots__actions">
-          <button type="button" class="admin-bots__btn-input" onclick="copyBotManualCommand()">Copy Command</button>
-        </div>
-      <?php endif; ?>
-    </section>
-  <?php endif; ?>
-
   <section class="admin-bots__panel">
     <p class="admin-bots__eyebrow">Bot Maintenance</p>
-    <h2 class="admin-bots__title">Fresh bot-world resets without touching player and GM accounts</h2>
-    <p class="admin-bots__body">This page is the bot-only maintenance surface. It previews what belongs to the random-bot world, keeps protected human and GM data visible as untouched, and hands the risky drain/reset/restart work to a local trusted helper instead of asking you to shell into the host every time.</p>
+    <h2 class="admin-bots__title">Three-step bot reset flow without touching player and GM accounts</h2>
+    <p class="admin-bots__body">This page now follows the same script-first workflow as the identity backfills and bot-event tools. Pick a realm, review the three reset steps, run the dry-run command if you want a preview, then run the real command when you are ready.</p>
     <ul class="admin-bots__list">
       <li>Preserved: player accounts, player characters, GM4 accounts, and normal website users.</li>
-      <li>Reset scope: random bot characters, bot guilds, bot event and rotation state, bot DB-store layers, bot-linked identities, portrait/cache artifacts, and optionally the selected realm's forum footprint for a full fresh stack.</li>
+      <li>Step 1 resets only the selected realm forums while preserving the official seed posts from <code>SPP Team</code> and <code>web Team</code>.</li>
+      <li>Step 2 clears the website-side bot layer: bot events, bot identities, bot identity profiles, and portrait cache.</li>
+      <li>Step 3 clears the realm-side bot layer: bot DB-store rows plus the character-side data you are preparing to rebuild from a fresh bot stack.</li>
       <li>New bot GUIDs are expected after repopulation, so website-facing bot layers should be rebuilt rather than migrated forward.</li>
     </ul>
+    <div class="admin-bots__grid" style="margin-top:14px;">
+      <div class="admin-bots__mini">
+        <strong><?php echo htmlspecialchars((string)($botLastRun['label'] ?? 'No action yet'), ENT_QUOTES, 'UTF-8'); ?></strong>
+        <span>Last script action</span>
+      </div>
+      <div class="admin-bots__mini">
+        <strong><?php echo htmlspecialchars((string)($botLastRun['ran_at'] ?? 'Never'), ENT_QUOTES, 'UTF-8'); ?></strong>
+        <span>Last action timestamp</span>
+      </div>
+      <div class="admin-bots__mini">
+        <strong><?php echo !empty($botHelperStatus['ok']) ? 'Status script ran' : 'No recent status run'; ?></strong>
+        <span>Workflow state</span>
+      </div>
+      <div class="admin-bots__mini">
+        <strong>Server Note</strong>
+        <span>Only do host repopulate while the game server is shut down.</span>
+      </div>
+    </div>
+    <div class="admin-bots__command" id="bot-status-command"><?php echo htmlspecialchars((string)($botScriptCommands['status'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__actions">
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-status-command')">Copy Status Command</button>
+    </div>
+    <?php if (!empty($botLastRun['summary'])): ?>
+      <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;">Last run summary: <?php echo htmlspecialchars((string)$botLastRun['summary'], ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php endif; ?>
+    <?php if (!empty($botLastRun['error'])): ?>
+      <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;color:#ffb0b0;">Last run error: <?php echo htmlspecialchars((string)$botLastRun['error'], ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php endif; ?>
   </section>
 
   <section class="admin-bots__panel">
@@ -94,7 +113,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
 
   <section class="admin-bots__panel">
     <p class="admin-bots__eyebrow">Reset Preview</p>
-    <p class="admin-bots__body">These counts show the selected realm's bot-reset footprint before any destructive action is sent to the helper. Protected counts stay visible for context, but the helper payload is realm-scoped.</p>
+    <p class="admin-bots__body">These counts show the selected realm's overall bot-reset footprint before you run the three scripts below. Protected counts stay visible so it is obvious what is not part of the reset.</p>
     <div class="admin-bots__grid" style="margin-top:14px;">
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botAccountCounts['bot_accounts'] ?? 0)); ?></strong><span><code>rndbot%</code> accounts in auth</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['bot_characters'] ?? 0)); ?></strong><span>Bot characters on the selected realm</span></div>
@@ -104,7 +123,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['bot_identities'] ?? 0)); ?></strong><span>Bot speaking identities</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['bot_identity_profiles'] ?? 0)); ?></strong><span>Bot identity profile rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botEventCounts['website_bot_events'] ?? 0)); ?></strong><span>Bot event pipeline rows</span></div>
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['rotation_log_rows'] ?? 0) + (int)($botSelectedPreview['rotation_state_rows'] ?? 0)); ?></strong><span>Bot rotation log/state rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['rotation_log_rows'] ?? 0) + (int)($botSelectedPreview['rotation_ilvl_log_rows'] ?? 0) + (int)($botSelectedPreview['rotation_state_rows'] ?? 0)); ?></strong><span>Bot rotation log/state rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botCacheCounts['portrait_files'] ?? 0)); ?></strong><span>Cached portrait files</span></div>
     </div>
     <div class="admin-bots__grid" style="margin-top:14px;">
@@ -116,95 +135,89 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
   </section>
 
   <section class="admin-bots__panel">
-    <p class="admin-bots__eyebrow">Forum Reset Preview</p>
-    <p class="admin-bots__body">Forum reset is its own realm-scoped action. `Fresh Bot World Reset` still includes it, but you can also run just the selected realm forum reset when you want to rebuild forum-facing bot content without wiping the rest of the bot world. Official seeded posts from <code>SPP Team</code> / <code>web Team</code> are treated as preserved content.</p>
+    <p class="admin-bots__eyebrow">Step 1</p>
+    <h3 class="admin-bots__title" style="font-size:1.18rem;">Reset Selected Realm Forums</h3>
+    <p class="admin-bots__body">Delete selected realm forum topics and posts except preserved official seed content. This includes the selected realm discussion board and its recruitment board when one exists.</p>
     <?php if (!empty($botSelectedPreview['realm_forum_ids']) && is_array($botSelectedPreview['realm_forum_ids'])): ?>
       <p class="admin-bots__note" style="margin-top:10px;">Included forum IDs for this realm: <span class="admin-bots__mono"><?php echo htmlspecialchars(implode(', ', array_map('intval', $botSelectedPreview['realm_forum_ids'])), ENT_QUOTES, 'UTF-8'); ?></span></p>
     <?php endif; ?>
     <div class="admin-bots__grid" style="margin-top:14px;">
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['forum_topics'] ?? 0)); ?></strong><span>Selected realm forum topics</span></div>
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['forum_posts'] ?? 0)); ?></strong><span>Selected realm forum posts</span></div>
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['forum_pms'] ?? 0)); ?></strong><span>Selected realm PM rows</span></div>
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['bot_forum_topics'] ?? 0)); ?></strong><span>Bot-authored topics in that realm</span></div>
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['bot_forum_posts'] ?? 0)); ?></strong><span>Bot-authored posts in that realm</span></div>
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['preserved_forum_topics'] ?? 0)); ?></strong><span>Preserved official topics</span></div>
-      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['preserved_forum_posts'] ?? 0)); ?></strong><span>Preserved official posts</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['topics'] ?? 0)); ?></strong><span>Selected realm forum topics</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['posts'] ?? 0)); ?></strong><span>Selected realm forum posts</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['pms'] ?? 0)); ?></strong><span>Selected realm PM rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['bot_topics'] ?? 0)); ?></strong><span>Bot-authored topics in that realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['bot_posts'] ?? 0)); ?></strong><span>Bot-authored posts in that realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['preserved_topics'] ?? 0)); ?></strong><span>Preserved official topics</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['forum_reset']['preserved_posts'] ?? 0)); ?></strong><span>Preserved official posts</span></div>
       <div class="admin-bots__mini"><strong><?php echo htmlspecialchars((string)($botSelectedPreview['realm_name'] ?? ('Realm ' . $botSelectedRealmId)), ENT_QUOTES, 'UTF-8'); ?></strong><span>Forum reset scope stays on the selected realm only</span></div>
     </div>
+    <div class="admin-bots__command" id="bot-step1-dry"><?php echo htmlspecialchars((string)($botScriptCommands['reset_forum_realm']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command" id="bot-step1-run"><?php echo htmlspecialchars((string)($botScriptCommands['reset_forum_realm']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
-      <form method="post" action="<?php echo htmlspecialchars($botPageUrl, ENT_QUOTES, 'UTF-8'); ?>" onsubmit="return confirm('This requests a forum reset for the selected realm only. Continue?');">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($botCsrfToken, ENT_QUOTES, 'UTF-8'); ?>">
-        <input type="hidden" name="realm" value="<?php echo (int)$botSelectedRealmId; ?>">
-        <input type="hidden" name="bots_action" value="reset_forum_realm">
-        <input class="admin-bots__btn-input" type="submit" value="Reset Selected Realm Forums">
-      </form>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step1-dry')">Copy Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step1-run')">Copy Run Command</button>
     </div>
   </section>
 
   <section class="admin-bots__panel">
-    <p class="admin-bots__eyebrow">Maintenance Actions</p>
-    <p class="admin-bots__body">These actions follow the same workflow as the identity backfills and bot-event scripts: the page gives you one dedicated script to run for each action. `Fresh Bot World Reset` includes the selected realm forum reset as one of its phases.</p>
-    <div class="admin-bots__actions">
-      <form method="post" action="<?php echo htmlspecialchars($botPageUrl, ENT_QUOTES, 'UTF-8'); ?>" onsubmit="return confirm('This requests a fresh bot-world reset. Player accounts and GM accounts stay untouched, but bot characters, bot guild state, bot events, caches, and the selected realm forum footprint will be treated as disposable. Continue?');">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($botCsrfToken, ENT_QUOTES, 'UTF-8'); ?>">
-        <input type="hidden" name="realm" value="<?php echo (int)$botSelectedRealmId; ?>">
-        <input type="hidden" name="bots_action" value="fresh_reset">
-        <input class="admin-bots__btn-input admin-bots__btn-danger" type="submit" value="Fresh Bot World Reset">
-      </form>
-      <form method="post" action="<?php echo htmlspecialchars($botPageUrl, ENT_QUOTES, 'UTF-8'); ?>">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($botCsrfToken, ENT_QUOTES, 'UTF-8'); ?>">
-        <input type="hidden" name="realm" value="<?php echo (int)$botSelectedRealmId; ?>">
-        <input type="hidden" name="bots_action" value="rebuild_site_layers">
-        <input class="admin-bots__btn-input" type="submit" value="Rebuild Bot Website Layers">
-      </form>
-    </div>
-  </section>
-
-  <section class="admin-bots__panel">
-    <p class="admin-bots__eyebrow">Higher-Risk / Infrastructure</p>
-    <p class="admin-bots__body">The host-level drain, config edit, and restart path still needs to happen from the server side, but the website now keeps to one consistent script-driven workflow. Each script writes back into the shared maintenance state file so the page can show what last ran.</p>
-    <div class="admin-bots__actions" style="margin-top:12px;">
-      <span class="admin-bots__status<?php echo !empty($botHelperStatus['ok']) ? '' : ' admin-bots__status--warn'; ?>">
-        <?php echo !empty($botHelperStatus['ok']) ? 'Status script ran' : 'No recent status run'; ?>
-      </span>
-      <a class="admin-bots__btn" href="<?php echo htmlspecialchars(spp_admin_bots_route_url(array('refresh_helper' => 1)), ENT_QUOTES, 'UTF-8'); ?>">Show Status Script</a>
-    </div>
+    <p class="admin-bots__eyebrow">Step 2</p>
+    <h3 class="admin-bots__title" style="font-size:1.18rem;">Clear Bot Web State</h3>
+    <p class="admin-bots__body">Clear website bot event pipeline rows, bot-linked identities/profile rows, and bot-facing portrait cache. This is the website-side cleanup pass after the forum reset.</p>
     <div class="admin-bots__grid" style="margin-top:14px;">
-      <div class="admin-bots__mini">
-        <strong>Script Workflow</strong>
-        <span><?php echo htmlspecialchars((string)($botHelperConfig['display_name'] ?? 'Manual CLI / PowerShell Scripts'), ENT_QUOTES, 'UTF-8'); ?></span>
-      </div>
-      <div class="admin-bots__mini">
-        <strong><?php echo htmlspecialchars((string)($botHelperStatus['checked_at'] ?? 'Never'), ENT_QUOTES, 'UTF-8'); ?></strong>
-        <span>Last helper status check</span>
-      </div>
-      <div class="admin-bots__mini">
-        <strong><?php echo htmlspecialchars((string)($botLastRun['label'] ?? 'No action yet'), ENT_QUOTES, 'UTF-8'); ?></strong>
-        <span>Last requested maintenance action</span>
-      </div>
-      <div class="admin-bots__mini">
-        <strong><?php echo htmlspecialchars((string)($botLastRun['ran_at'] ?? 'Never'), ENT_QUOTES, 'UTF-8'); ?></strong>
-        <span>Last action timestamp</span>
-      </div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['web_state']['bot_events'] ?? 0)); ?></strong><span>Website bot event rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['web_state']['bot_identities'] ?? 0)); ?></strong><span>Bot identities in this realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['web_state']['bot_identity_profiles'] ?? 0)); ?></strong><span>Bot identity profiles in this realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['web_state']['portrait_files'] ?? 0)); ?></strong><span>Portrait cache files to clear</span></div>
     </div>
-    <p class="admin-bots__note" style="margin-top:14px;">Script contract: dedicated CLI tools named <code>bot_maintenance_status.php</code>, <code>reset_forum_realm.php</code>, <code>fresh_bot_reset.php</code>, and <code>rebuild_bot_site_layers.php</code>. Realm forum resets still preserve seeded official posts like <code>SPP Team</code> / <code>web Team</code>.</p>
-    <?php if (!empty($botHelperStatus['summary'])): ?>
-      <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;">Helper says: <?php echo htmlspecialchars((string)$botHelperStatus['summary'], ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($botHelperStatus['error'])): ?>
-      <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;color:#ffb0b0;">Helper error: <?php echo htmlspecialchars((string)$botHelperStatus['error'], ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($botLastRun['summary'])): ?>
-      <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;">Last run summary: <?php echo htmlspecialchars((string)$botLastRun['summary'], ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($botLastRun['error'])): ?>
-      <div class="admin-bots__note admin-bots__mono" style="margin-top:12px;color:#ffb0b0;">Last run error: <?php echo htmlspecialchars((string)$botLastRun['error'], ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php endif; ?>
+    <div class="admin-bots__command" id="bot-step2-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_web_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command" id="bot-step2-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_web_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__actions">
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step2-dry')">Copy Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step2-run')">Copy Run Command</button>
+    </div>
+  </section>
+
+  <section class="admin-bots__panel">
+    <p class="admin-bots__eyebrow">Step 3</p>
+    <h3 class="admin-bots__title" style="font-size:1.18rem;">Clear Bot Character State</h3>
+    <p class="admin-bots__body">Clear bot DB-store rows and prepare the selected realm for a fresh bot stack. This is the realm-side cleanup pass before host shutdown, restart, and repopulation.</p>
+    <div class="admin-bots__grid" style="margin-top:14px;">
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['bot_characters'] ?? 0)); ?></strong><span>Bot characters on this realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['bot_guilds'] ?? 0)); ?></strong><span>Bot guild shells / memberships</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['bot_db_store_rows'] ?? 0)); ?></strong><span>Bot DB-store rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['bot_auction_rows'] ?? 0)); ?></strong><span>Bot auction rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_state_rows'] ?? 0)); ?></strong><span>Rotation live-state rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation ilvl history rows</span></div>
+    </div>
+    <div class="admin-bots__command" id="bot-step3-dry"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_character_state']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command" id="bot-step3-run"><?php echo htmlspecialchars((string)($botScriptCommands['clear_bot_character_state']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__actions">
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-dry')">Copy Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step3-run')">Copy Run Command</button>
+    </div>
+    <p class="admin-bots__note" style="margin-top:12px;">If you only want to clear the rotation history during a restart window, use the dedicated rotation reset instead of the full character-state reset.</p>
+    <div class="admin-bots__grid" style="margin-top:14px;">
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['rotation_only']['rotation_state_rows'] ?? 0)); ?></strong><span>Rotation live-state rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['rotation_only']['rotation_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['rotation_only']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation ilvl history rows</span></div>
+    </div>
+    <div class="admin-bots__command" id="bot-rotation-dry"><?php echo htmlspecialchars((string)($botScriptCommands['reset_bot_rotation_realm']['dry_run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__command" id="bot-rotation-run"><?php echo htmlspecialchars((string)($botScriptCommands['reset_bot_rotation_realm']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__actions">
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-rotation-dry')">Copy Rotation Dry Run</button>
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-rotation-run')">Copy Rotation Run</button>
+    </div>
+    <p class="admin-bots__note" style="margin-top:12px;">Host repopulate comes after this step. Only perform the shutdown/restart/repopulate portion while the world server is offline.</p>
+    <div class="admin-bots__command" id="bot-step4-run"><?php echo htmlspecialchars((string)($botScriptCommands['rebuild_site_layers']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="admin-bots__actions">
+      <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step4-run')">Copy Rebuild Layers Command</button>
+    </div>
   </section>
 
   <section class="admin-bots__table-wrap">
     <p class="admin-bots__eyebrow">Per-Realm Preview</p>
-    <p class="admin-bots__body">Each realm row shows the bot footprint that a fresh reset would clear or rebuild. This is meant as a quick realm comparison now, not a second copy of the identities health audit.</p>
+    <p class="admin-bots__body">Each available realm row shows the bot footprint that a fresh reset would clear or rebuild. Unreachable realms are hidden here so this stays focused on the realms you can act on right now.</p>
     <table class="admin-bots__table">
       <thead>
         <tr>
@@ -239,7 +252,8 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
             <td>
               <?php echo number_format((int)$botRow['rotation_config_rows']); ?> rotation config<br>
               <?php echo number_format((int)$botRow['rotation_state_rows']); ?> live state rows<br>
-              <?php echo number_format((int)$botRow['rotation_log_rows']); ?> history rows
+              <?php echo number_format((int)$botRow['rotation_log_rows']); ?> history rows<br>
+              <?php echo number_format((int)$botRow['rotation_ilvl_log_rows']); ?> ilvl history rows
             </td>
             <td>
               <?php echo number_format((int)$botRow['player_characters']); ?> player chars untouched
@@ -252,8 +266,8 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
 </div>
 <script>
 (function(){
-  window.copyBotManualCommand = function(){
-    var box = document.getElementById('bot-manual-command-box');
+  window.copyBotCommand = function(id){
+    var box = document.getElementById(id);
     if (!box) return;
     var text = box.textContent || box.innerText || '';
     if (!text) return;

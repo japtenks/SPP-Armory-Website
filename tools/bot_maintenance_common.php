@@ -74,6 +74,9 @@ function bot_maintenance_record_action(string $action, array $response): void
     $labels = array(
         'status' => 'Refresh Script Status',
         'reset_forum_realm' => 'Reset Selected Realm Forums',
+        'clear_bot_web_state' => 'Clear Bot Web State',
+        'reset_bot_rotation_realm' => 'Reset Bot Rotation Realm',
+        'clear_bot_character_state' => 'Clear Bot Character State',
         'fresh_reset' => 'Fresh Bot World Reset',
         'rebuild_site_layers' => 'Rebuild Bot Website Layers',
     );
@@ -228,7 +231,7 @@ function bot_maintenance_parse_cli_args(array $argv): array
 
     foreach (array_slice($argv, 1) as $arg) {
         $arg = (string)$arg;
-        if (in_array($arg, array('status', 'reset_forum_realm', 'fresh_reset', 'rebuild_site_layers'), true)) {
+        if (in_array($arg, array('status', 'reset_forum_realm', 'clear_bot_web_state', 'reset_bot_rotation_realm', 'clear_bot_character_state', 'fresh_reset', 'rebuild_site_layers'), true)) {
             continue;
         }
         if (strpos($arg, '--realm=') === 0) {
@@ -472,6 +475,44 @@ function bot_maintenance_scalar(PDO $pdo, string $sql, array $params = array()):
     return (int)$stmt->fetchColumn();
 }
 
+function bot_maintenance_table_exists(PDO $pdo, string $table): bool
+{
+    static $cache = array();
+    $dbName = (string)$pdo->query('SELECT DATABASE()')->fetchColumn();
+    $key = strtolower($dbName . ':' . $table);
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?"
+    );
+    $stmt->execute(array($table));
+    $cache[$key] = ((int)$stmt->fetchColumn() > 0);
+    return $cache[$key];
+}
+
+function bot_maintenance_column_exists(PDO $pdo, string $table, string $column): bool
+{
+    static $cache = array();
+    $dbName = (string)$pdo->query('SELECT DATABASE()')->fetchColumn();
+    $key = strtolower($dbName . ':' . $table . ':' . $column);
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?"
+    );
+    $stmt->execute(array($table, $column));
+    $cache[$key] = ((int)$stmt->fetchColumn() > 0);
+    return $cache[$key];
+}
+
 function bot_maintenance_forum_reset_preview(int $realmId): array
 {
     $forumScope = bot_maintenance_realm_forum_scope($realmId);
@@ -645,30 +686,12 @@ function bot_maintenance_reset_forum_realm(array $payload, array $config): array
 
 function bot_maintenance_fresh_reset_plan(int $realmId): array
 {
-    $charsPdo = spp_get_pdo('chars', $realmId);
-    $masterPdo = spp_get_pdo('realmd', 1);
-    $realmdConfig = spp_get_db_config('realmd', $realmId);
-    $realmdDbName = '`' . str_replace('`', '``', (string)$realmdConfig['name']) . '`';
-    $botAccountSubquery = "SELECT `id` FROM {$realmdDbName}.`account` WHERE LOWER(`username`) LIKE 'rndbot%'";
-
     $preview = array(
-        'bot_accounts' => bot_maintenance_scalar($masterPdo, "SELECT COUNT(*) FROM `account` WHERE LOWER(`username`) LIKE 'rndbot%'"),
-        'bot_characters' => bot_maintenance_scalar($charsPdo, "SELECT COUNT(*) FROM `characters` WHERE `account` IN ({$botAccountSubquery})"),
-        'bot_guild_memberships' => bot_maintenance_scalar(
-            $charsPdo,
-            "SELECT COUNT(*)
-             FROM `guild_member` gm
-             INNER JOIN `characters` c ON c.`guid` = gm.`guid`
-             WHERE c.`account` IN ({$botAccountSubquery})"
-        ),
-        'bot_db_store_rows' => bot_maintenance_scalar(
-            $charsPdo,
-            "SELECT COUNT(*)
-             FROM `ai_playerbot_db_store` s
-             INNER JOIN `characters` c ON c.`guid` = s.`guid`
-             WHERE c.`account` IN ({$botAccountSubquery})"
-        ),
-        'website_bot_events' => bot_maintenance_scalar($masterPdo, "SELECT COUNT(*) FROM `website_bot_events`"),
+        'bot_accounts' => bot_maintenance_scalar(spp_get_pdo('realmd', 1), "SELECT COUNT(*) FROM `account` WHERE LOWER(`username`) LIKE 'rndbot%'"),
+        'bot_characters' => (int)(bot_maintenance_clear_bot_character_state_preview($realmId)['bot_characters'] ?? 0),
+        'bot_guild_memberships' => (int)(bot_maintenance_clear_bot_character_state_preview($realmId)['bot_guild_memberships'] ?? 0),
+        'bot_db_store_rows' => (int)(bot_maintenance_clear_bot_character_state_preview($realmId)['bot_db_store_rows'] ?? 0),
+        'website_bot_events' => (int)(bot_maintenance_clear_bot_web_state_preview($realmId)['website_bot_events'] ?? 0),
     );
 
     return array(
@@ -700,6 +723,571 @@ function bot_maintenance_fresh_reset_plan(int $realmId): array
                 ),
             ),
         ),
+    );
+}
+
+function bot_maintenance_count_portrait_files(): int
+{
+    $portraitDir = bot_maintenance_root_path() . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'offlike' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'portraits';
+    if (!is_dir($portraitDir)) {
+        return 0;
+    }
+
+    $files = glob($portraitDir . DIRECTORY_SEPARATOR . '*');
+    if (!is_array($files)) {
+        return 0;
+    }
+
+    $count = 0;
+    foreach ($files as $file) {
+        if (is_file($file)) {
+            $count++;
+        }
+    }
+    return $count;
+}
+
+function bot_maintenance_delete_portrait_files(): int
+{
+    $portraitDir = bot_maintenance_root_path() . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'offlike' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'portraits';
+    if (!is_dir($portraitDir)) {
+        return 0;
+    }
+
+    $files = glob($portraitDir . DIRECTORY_SEPARATOR . '*');
+    if (!is_array($files)) {
+        return 0;
+    }
+
+    $deleted = 0;
+    foreach ($files as $file) {
+        if (is_file($file) && @unlink($file)) {
+            $deleted++;
+        }
+    }
+
+    return $deleted;
+}
+
+function bot_maintenance_clear_bot_web_state_preview(int $realmId): array
+{
+    $masterPdo = spp_get_pdo('realmd', 1);
+    $preview = array(
+        'realm_id' => $realmId,
+        'website_bot_events' => 0,
+        'bot_identities' => 0,
+        'bot_identity_profiles' => 0,
+        'portrait_files' => bot_maintenance_count_portrait_files(),
+    );
+
+    try {
+        $preview['website_bot_events'] = bot_maintenance_scalar($masterPdo, "SELECT COUNT(*) FROM `website_bot_events` WHERE `realm_id` = ?", array($realmId));
+    } catch (Throwable $e) {
+        try {
+            $preview['website_bot_events'] = bot_maintenance_scalar($masterPdo, "SELECT COUNT(*) FROM `website_bot_events`");
+        } catch (Throwable $ignored) {
+            $preview['website_bot_events'] = 0;
+        }
+    }
+
+    try {
+        $preview['bot_identities'] = bot_maintenance_scalar(
+            $masterPdo,
+            "SELECT COUNT(*) FROM `website_identities` WHERE `realm_id` = ? AND (`identity_type` = 'bot_character' OR `is_bot` = 1)",
+            array($realmId)
+        );
+    } catch (Throwable $e) {
+        $preview['bot_identities'] = 0;
+    }
+
+    try {
+        $preview['bot_identity_profiles'] = bot_maintenance_scalar(
+            $masterPdo,
+            "SELECT COUNT(*)
+             FROM `website_identity_profiles` p
+             INNER JOIN `website_identities` i ON i.`identity_id` = p.`identity_id`
+             WHERE i.`realm_id` = ? AND (`identity_type` = 'bot_character' OR `is_bot` = 1)",
+            array($realmId)
+        );
+    } catch (Throwable $e) {
+        $preview['bot_identity_profiles'] = 0;
+    }
+
+    return $preview;
+}
+
+function bot_maintenance_clear_bot_web_state(array $payload, array $config): array
+{
+    $realmId = (int)($payload['realm_id'] ?? 0);
+    $dryRun = !empty($payload['dry_run']);
+    $execute = !empty($payload['execute']) && !$dryRun && !empty($config['allow_execute']);
+    $preview = bot_maintenance_clear_bot_web_state_preview($realmId);
+
+    $response = array(
+        'status' => 'ok',
+        'step' => 'clear_bot_web_state',
+        'summary' => 'Bot website-state preview prepared for the selected realm.',
+        'execute' => $execute,
+        'preview' => $preview,
+    );
+
+    if ($dryRun) {
+        $response['summary'] = 'Dry-run requested. No website rows or cache files were deleted.';
+        return $response;
+    }
+
+    if (!$execute) {
+        $response['status'] = 'error';
+        $response['summary'] = 'Execution was not requested. Use --execute to run this script, or add --dry-run to preview only.';
+        return $response;
+    }
+
+    $masterPdo = spp_get_pdo('realmd', 1);
+    $deletedPortraits = 0;
+
+    $masterPdo->beginTransaction();
+    try {
+        try {
+            $stmt = $masterPdo->prepare("DELETE FROM `website_bot_events` WHERE `realm_id` = ?");
+            $stmt->execute(array($realmId));
+        } catch (Throwable $e) {
+            $masterPdo->exec("DELETE FROM `website_bot_events`");
+        }
+
+        $identityIdsStmt = $masterPdo->prepare(
+            "SELECT `identity_id`
+             FROM `website_identities`
+             WHERE `realm_id` = ? AND (`identity_type` = 'bot_character' OR `is_bot` = 1)"
+        );
+        $identityIdsStmt->execute(array($realmId));
+        $identityIds = array_values(array_filter(array_map('intval', $identityIdsStmt->fetchAll(PDO::FETCH_COLUMN) ?: array())));
+
+        if (!empty($identityIds)) {
+            $placeholders = implode(',', array_fill(0, count($identityIds), '?'));
+            $deleteProfiles = $masterPdo->prepare("DELETE FROM `website_identity_profiles` WHERE `identity_id` IN ({$placeholders})");
+            $deleteProfiles->execute($identityIds);
+            $deleteIdentities = $masterPdo->prepare("DELETE FROM `website_identities` WHERE `identity_id` IN ({$placeholders})");
+            $deleteIdentities->execute($identityIds);
+        }
+
+        $masterPdo->commit();
+        $deletedPortraits = bot_maintenance_delete_portrait_files();
+    } catch (Throwable $e) {
+        if ($masterPdo->inTransaction()) {
+            $masterPdo->rollBack();
+        }
+        return array(
+            'status' => 'error',
+            'step' => 'clear_bot_web_state',
+            'error' => $e->getMessage(),
+        );
+    }
+
+    $response['summary'] = 'Selected realm bot website state was cleared.';
+    $response['deleted_portrait_files'] = $deletedPortraits;
+    $response['preview_after'] = bot_maintenance_clear_bot_web_state_preview($realmId);
+    return $response;
+}
+
+function bot_maintenance_clear_bot_character_state_preview(int $realmId): array
+{
+    $charsPdo = spp_get_pdo('chars', $realmId);
+    $realmdConfig = spp_get_db_config('realmd', $realmId);
+    $realmdDbName = '`' . str_replace('`', '``', (string)$realmdConfig['name']) . '`';
+    $botAccountSubquery = "SELECT `id` FROM {$realmdDbName}.`account` WHERE LOWER(`username`) LIKE 'rndbot%'";
+
+    $preview = array(
+        'realm_id' => $realmId,
+        'bot_characters' => bot_maintenance_scalar($charsPdo, "SELECT COUNT(*) FROM `characters` WHERE `account` IN ({$botAccountSubquery})"),
+        'bot_guild_memberships' => bot_maintenance_scalar(
+            $charsPdo,
+            "SELECT COUNT(*)
+             FROM `guild_member` gm
+             INNER JOIN `characters` c ON c.`guid` = gm.`guid`
+             WHERE c.`account` IN ({$botAccountSubquery})"
+        ),
+        'bot_guilds' => bot_maintenance_scalar(
+            $charsPdo,
+            "SELECT COUNT(DISTINCT gm.`guildid`)
+             FROM `guild_member` gm
+             INNER JOIN `characters` c ON c.`guid` = gm.`guid`
+             WHERE c.`account` IN ({$botAccountSubquery})"
+        ),
+        'bot_db_store_rows' => bot_maintenance_scalar(
+            $charsPdo,
+            "SELECT COUNT(*)
+             FROM `ai_playerbot_db_store` s
+             INNER JOIN `characters` c ON c.`guid` = s.`guid`
+             WHERE c.`account` IN ({$botAccountSubquery})"
+        ),
+        'bot_auction_rows' => 0,
+        'rotation_log_rows' => 0,
+        'rotation_ilvl_log_rows' => 0,
+        'rotation_state_rows' => 0,
+    );
+
+    try {
+        $preview['bot_auction_rows'] = bot_maintenance_scalar(
+            $charsPdo,
+            "SELECT COUNT(*)
+             FROM `auctionhouse`
+             WHERE `itemowner` IN (SELECT `guid` FROM `characters` WHERE `account` IN ({$botAccountSubquery}))
+                OR `buyguid` IN (SELECT `guid` FROM `characters` WHERE `account` IN ({$botAccountSubquery}))"
+        );
+    } catch (Throwable $e) {
+        $preview['bot_auction_rows'] = 0;
+    }
+
+    try {
+        $realmdPdo = spp_get_pdo('realmd', $realmId);
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_log')) {
+            $preview['rotation_log_rows'] = bot_maintenance_scalar($realmdPdo, "SELECT COUNT(*) FROM `bot_rotation_log` WHERE `realm` = ?", array($realmId));
+        }
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_ilvl_log')) {
+            $preview['rotation_ilvl_log_rows'] = bot_maintenance_scalar($realmdPdo, "SELECT COUNT(*) FROM `bot_rotation_ilvl_log` WHERE `realm` = ?", array($realmId));
+        }
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_state')) {
+            $preview['rotation_state_rows'] = bot_maintenance_scalar($realmdPdo, "SELECT COUNT(*) FROM `bot_rotation_state` WHERE `realm` = ?", array($realmId));
+        }
+    } catch (Throwable $e) {
+        $preview['rotation_log_rows'] = 0;
+        $preview['rotation_ilvl_log_rows'] = 0;
+        $preview['rotation_state_rows'] = 0;
+    }
+
+    return $preview;
+}
+
+function bot_maintenance_reset_bot_rotation_realm(array $payload, array $config): array
+{
+    $realmId = (int)($payload['realm_id'] ?? 0);
+    $dryRun = !empty($payload['dry_run']);
+    $execute = !empty($payload['execute']) && !$dryRun && !empty($config['allow_execute']);
+    $preview = bot_maintenance_clear_bot_character_state_preview($realmId);
+
+    $rotationPreview = array(
+        'realm_id' => $realmId,
+        'rotation_log_rows' => (int)($preview['rotation_log_rows'] ?? 0),
+        'rotation_ilvl_log_rows' => (int)($preview['rotation_ilvl_log_rows'] ?? 0),
+        'rotation_state_rows' => (int)($preview['rotation_state_rows'] ?? 0),
+    );
+
+    $response = array(
+        'status' => 'ok',
+        'step' => 'reset_bot_rotation_realm',
+        'summary' => 'Bot rotation reset preview prepared for the selected realm.',
+        'execute' => $execute,
+        'preview' => $rotationPreview,
+    );
+
+    if ($dryRun) {
+        $response['summary'] = 'Dry-run requested. No rotation rows were deleted.';
+        return $response;
+    }
+
+    if (!$execute) {
+        $response['status'] = 'error';
+        $response['summary'] = 'Execution was not requested. Use --execute to run this script, or add --dry-run to preview only.';
+        return $response;
+    }
+
+    try {
+        $realmdPdo = spp_get_pdo('realmd', $realmId);
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_log')) {
+            $stmt = $realmdPdo->prepare("DELETE FROM `bot_rotation_log` WHERE `realm` = ?");
+            $stmt->execute(array($realmId));
+        }
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_ilvl_log')) {
+            $stmt = $realmdPdo->prepare("DELETE FROM `bot_rotation_ilvl_log` WHERE `realm` = ?");
+            $stmt->execute(array($realmId));
+        }
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_state')) {
+            $stmt = $realmdPdo->prepare("DELETE FROM `bot_rotation_state` WHERE `realm` = ?");
+            $stmt->execute(array($realmId));
+        }
+    } catch (Throwable $e) {
+        return array(
+            'status' => 'error',
+            'step' => 'reset_bot_rotation_realm',
+            'error' => $e->getMessage(),
+        );
+    }
+
+    return array(
+        'status' => 'ok',
+        'step' => 'reset_bot_rotation_realm',
+        'summary' => 'Selected realm bot rotation history was cleared.',
+        'execute' => true,
+        'preview' => $rotationPreview,
+        'preview_after' => array(
+            'realm_id' => $realmId,
+            'rotation_log_rows' => 0,
+            'rotation_ilvl_log_rows' => 0,
+            'rotation_state_rows' => 0,
+        ),
+    );
+}
+
+function bot_maintenance_clear_bot_character_state(array $payload, array $config): array
+{
+    $realmId = (int)($payload['realm_id'] ?? 0);
+    $dryRun = !empty($payload['dry_run']);
+    $execute = !empty($payload['execute']) && !$dryRun && !empty($config['allow_execute']);
+    $preview = bot_maintenance_clear_bot_character_state_preview($realmId);
+
+    $response = array(
+        'status' => 'ok',
+        'step' => 'clear_bot_character_state',
+        'summary' => 'Bot character-state preview prepared for the selected realm.',
+        'execute' => $execute,
+        'preview' => $preview,
+    );
+
+    if ($dryRun) {
+        $response['summary'] = 'Dry-run requested. No bot character rows were deleted.';
+        return $response;
+    }
+
+    if (!$execute) {
+        $response['status'] = 'error';
+        $response['summary'] = 'Execution was not requested. Use --execute to run this script, or add --dry-run to preview only.';
+        return $response;
+    }
+
+    $charsPdo = spp_get_pdo('chars', $realmId);
+    $realmdPdo = spp_get_pdo('realmd', $realmId);
+    $realmdConfig = spp_get_db_config('realmd', $realmId);
+    $realmdDbName = '`' . str_replace('`', '``', (string)$realmdConfig['name']) . '`';
+    $botAccountSubquery = "SELECT `id` FROM {$realmdDbName}.`account` WHERE LOWER(`username`) LIKE 'rndbot%'";
+
+    try {
+        $charsPdo->beginTransaction();
+
+        $charsPdo->exec("DROP TEMPORARY TABLE IF EXISTS `tmp_bot_guids`");
+        $charsPdo->exec("CREATE TEMPORARY TABLE `tmp_bot_guids` (`guid` INT UNSIGNED NOT NULL PRIMARY KEY)");
+        $charsPdo->exec(
+            "INSERT INTO `tmp_bot_guids` (`guid`)
+             SELECT `guid`
+             FROM `characters`
+             WHERE `account` IN ({$botAccountSubquery})"
+        );
+
+        $charsPdo->exec("DROP TEMPORARY TABLE IF EXISTS `tmp_bot_guilds`");
+        $charsPdo->exec("CREATE TEMPORARY TABLE `tmp_bot_guilds` (`guildid` INT UNSIGNED NOT NULL PRIMARY KEY)");
+        if (bot_maintenance_table_exists($charsPdo, 'guild_member')) {
+            $charsPdo->exec(
+                "INSERT IGNORE INTO `tmp_bot_guilds` (`guildid`)
+                 SELECT DISTINCT gm.`guildid`
+                 FROM `guild_member` gm
+                 INNER JOIN `tmp_bot_guids` b ON b.`guid` = gm.`guid`"
+            );
+        }
+
+        $guidLinkedDeletes = array(
+            array('table' => 'character_action', 'column' => 'guid'),
+            array('table' => 'character_gifts', 'column' => 'guid'),
+            array('table' => 'character_homebind', 'column' => 'guid'),
+            array('table' => 'character_inventory', 'column' => 'guid'),
+            array('table' => 'character_queststatus', 'column' => 'guid'),
+            array('table' => 'character_reputation', 'column' => 'guid'),
+            array('table' => 'character_spell', 'column' => 'guid'),
+            array('table' => 'character_social', 'column' => 'guid'),
+            array('table' => 'corpse', 'column' => 'player'),
+            array('table' => 'petition', 'column' => 'ownerguid'),
+            array('table' => 'petition_sign', 'column' => 'ownerguid'),
+            array('table' => 'petition_sign', 'column' => 'playerguid'),
+            array('table' => 'mail', 'column' => 'receiver'),
+            array('table' => 'mail', 'column' => 'sender'),
+            array('table' => 'auctionhouse', 'column' => 'itemowner'),
+            array('table' => 'auctionhouse', 'column' => 'buyguid'),
+            array('table' => 'character_pet', 'column' => 'owner'),
+        );
+
+        foreach ($guidLinkedDeletes as $deleteSpec) {
+            $table = (string)$deleteSpec['table'];
+            $column = (string)$deleteSpec['column'];
+            if (!bot_maintenance_table_exists($charsPdo, $table) || !bot_maintenance_column_exists($charsPdo, $table, $column)) {
+                continue;
+            }
+
+            $charsPdo->exec(
+                "DELETE t
+                 FROM `{$table}` t
+                 INNER JOIN `tmp_bot_guids` b ON b.`guid` = t.`{$column}`"
+            );
+        }
+
+        if (bot_maintenance_table_exists($charsPdo, 'group_member')) {
+            $groupMemberColumns = array();
+            foreach (array('memberGuid', 'leaderGuid') as $column) {
+                if (bot_maintenance_column_exists($charsPdo, 'group_member', $column)) {
+                    $groupMemberColumns[] = $column;
+                }
+            }
+            foreach ($groupMemberColumns as $column) {
+                $charsPdo->exec(
+                    "DELETE gm
+                     FROM `group_member` gm
+                     INNER JOIN `tmp_bot_guids` b ON b.`guid` = gm.`{$column}`"
+                );
+            }
+        }
+
+        if (bot_maintenance_table_exists($charsPdo, 'groups') && bot_maintenance_column_exists($charsPdo, 'groups', 'leaderGuid')) {
+            $charsPdo->exec(
+                "DELETE g
+                 FROM `groups` g
+                 INNER JOIN `tmp_bot_guids` b ON b.`guid` = g.`leaderGuid`"
+            );
+        }
+
+        if (bot_maintenance_table_exists($charsPdo, 'group_instance') && bot_maintenance_column_exists($charsPdo, 'group_instance', 'leaderGuid')) {
+            $charsPdo->exec(
+                "DELETE gi
+                 FROM `group_instance` gi
+                 INNER JOIN `tmp_bot_guids` b ON b.`guid` = gi.`leaderGuid`"
+            );
+        }
+
+        if (bot_maintenance_table_exists($charsPdo, 'ai_playerbot_db_store')) {
+            $charsPdo->exec(
+                "DELETE s
+                 FROM `ai_playerbot_db_store` s
+                 INNER JOIN `tmp_bot_guids` b ON b.`guid` = s.`guid`"
+            );
+        }
+
+        if (bot_maintenance_table_exists($charsPdo, 'guild_member')) {
+            $charsPdo->exec(
+                "DELETE gm
+                 FROM `guild_member` gm
+                 INNER JOIN `tmp_bot_guids` b ON b.`guid` = gm.`guid`"
+            );
+        }
+
+        if (bot_maintenance_table_exists($charsPdo, 'guild')) {
+            $charsPdo->exec("DROP TEMPORARY TABLE IF EXISTS `tmp_empty_bot_guilds`");
+            $charsPdo->exec("CREATE TEMPORARY TABLE `tmp_empty_bot_guilds` (`guildid` INT UNSIGNED NOT NULL PRIMARY KEY)");
+            $charsPdo->exec(
+                "INSERT IGNORE INTO `tmp_empty_bot_guilds` (`guildid`)
+                 SELECT g.`guildid`
+                 FROM `guild` g
+                 INNER JOIN `tmp_bot_guilds` bg ON bg.`guildid` = g.`guildid`
+                 LEFT JOIN `guild_member` gm ON gm.`guildid` = g.`guildid`
+                 GROUP BY g.`guildid`
+                 HAVING COUNT(gm.`guid`) = 0"
+            );
+
+            $guildLinkedTables = array(
+                'guild_bank_eventlog',
+                'guild_bank_item',
+                'guild_bank_right',
+                'guild_bank_tab',
+                'guild_eventlog',
+                'guild_rank',
+                'guild',
+            );
+            foreach ($guildLinkedTables as $table) {
+                if (!bot_maintenance_table_exists($charsPdo, $table) || !bot_maintenance_column_exists($charsPdo, $table, 'guildid')) {
+                    continue;
+                }
+
+                $charsPdo->exec(
+                    "DELETE t
+                     FROM `{$table}` t
+                     INNER JOIN `tmp_empty_bot_guilds` g ON g.`guildid` = t.`guildid`"
+                );
+            }
+        }
+
+        $charsPdo->exec(
+            "DELETE c
+             FROM `characters` c
+             INNER JOIN `tmp_bot_guids` b ON b.`guid` = c.`guid`"
+        );
+
+        $orphanCleanupSql = array(
+            "DELETE FROM `auctionhouse` WHERE `itemowner` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_gifts` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_homebind` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_inventory` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_pet` WHERE `owner` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_queststatus` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_reputation` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_social` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `character_spell` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `corpse` WHERE `player` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `guild_member` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `guild_rank` WHERE `guildid` NOT IN (SELECT `guildid` FROM `guild`)",
+            "DELETE FROM `guild_eventlog` WHERE `guildid` NOT IN (SELECT `guildid` FROM `guild`)",
+            "DELETE FROM `guild_bank_eventlog` WHERE `guildid` NOT IN (SELECT `guildid` FROM `guild`)",
+            "DELETE FROM `guild_bank_item` WHERE `guildid` NOT IN (SELECT `guildid` FROM `guild`)",
+            "DELETE FROM `guild_bank_right` WHERE `guildid` NOT IN (SELECT `guildid` FROM `guild`)",
+            "DELETE FROM `guild_bank_tab` WHERE `guildid` NOT IN (SELECT `guildid` FROM `guild`)",
+            "DELETE FROM `mail` WHERE `receiver` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `mail_items` WHERE `mail_id` NOT IN (SELECT `id` FROM `mail`)",
+            "DELETE FROM `item_text` WHERE `id` NOT IN (SELECT `itemTextId` FROM `mail`)",
+            "DELETE FROM `petition` WHERE `ownerguid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `petition` WHERE `petitionguid` NOT IN (SELECT `guid` FROM `item_instance`)",
+            "DELETE FROM `petition_sign` WHERE `ownerguid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `petition_sign` WHERE `playerguid` NOT IN (SELECT `guid` FROM `characters`)",
+            "DELETE FROM `petition_sign` WHERE `petitionguid` NOT IN (SELECT `petitionguid` FROM `petition`)",
+            "DELETE FROM `pet_spell` WHERE `guid` NOT IN (SELECT `id` FROM `character_pet`)",
+            "DELETE FROM `item_instance` WHERE `guid` NOT IN (SELECT `item` FROM `character_inventory`) AND `guid` NOT IN (SELECT `itemguid` FROM `auctionhouse`) AND `guid` NOT IN (SELECT `item_guid` FROM `guild_bank_item`) AND `guid` NOT IN (SELECT `item_guid` FROM `mail_items`) AND `guid` NOT IN (SELECT `item_guid` FROM `character_gifts`)",
+            "DELETE FROM `item_instance` WHERE `owner_guid` NOT IN (SELECT `guid` FROM `characters`) AND `owner_guid` <> '0'",
+            "DELETE FROM `character_inventory` WHERE `item` NOT IN (SELECT `guid` FROM `item_instance`)",
+            "DELETE FROM `auctionhouse` WHERE `itemguid` NOT IN (SELECT `guid` FROM `item_instance`)",
+            "DELETE FROM `guild_bank_item` WHERE `item_guid` NOT IN (SELECT `guid` FROM `item_instance`)",
+            "DELETE FROM `mail_items` WHERE `item_guid` NOT IN (SELECT `guid` FROM `item_instance`)",
+            "DELETE FROM `character_gifts` WHERE `item_guid` NOT IN (SELECT `guid` FROM `item_instance`)"
+        );
+
+        foreach ($orphanCleanupSql as $sql) {
+            if (preg_match('/DELETE FROM `([^`]+)`/i', $sql, $matches)) {
+                $table = (string)$matches[1];
+                if (!bot_maintenance_table_exists($charsPdo, $table)) {
+                    continue;
+                }
+            }
+            try {
+                $charsPdo->exec($sql);
+            } catch (Throwable $e) {
+                // Keep cleanup best-effort for expansion-specific schema drift.
+            }
+        }
+
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_log')) {
+            $stmt = $realmdPdo->prepare("DELETE FROM `bot_rotation_log` WHERE `realm` = ?");
+            $stmt->execute(array($realmId));
+        }
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_ilvl_log')) {
+            $stmt = $realmdPdo->prepare("DELETE FROM `bot_rotation_ilvl_log` WHERE `realm` = ?");
+            $stmt->execute(array($realmId));
+        }
+        if (bot_maintenance_table_exists($realmdPdo, 'bot_rotation_state')) {
+            $stmt = $realmdPdo->prepare("DELETE FROM `bot_rotation_state` WHERE `realm` = ?");
+            $stmt->execute(array($realmId));
+        }
+
+        $charsPdo->commit();
+    } catch (Throwable $e) {
+        if ($charsPdo->inTransaction()) {
+            $charsPdo->rollBack();
+        }
+        return array(
+            'status' => 'error',
+            'step' => 'clear_bot_character_state',
+            'error' => $e->getMessage(),
+        );
+    }
+
+    return array(
+        'status' => 'ok',
+        'step' => 'clear_bot_character_state',
+        'summary' => 'Selected realm bot character state was cleared. Keep the world server offline until you finish the host restart and repopulate steps.',
+        'execute' => true,
+        'preview' => $preview,
+        'preview_after' => bot_maintenance_clear_bot_character_state_preview($realmId),
     );
 }
 
@@ -747,6 +1335,9 @@ function bot_maintenance_status(array $config): array
         'capabilities' => array(
             'status',
             'reset_forum_realm',
+            'clear_bot_web_state',
+            'reset_bot_rotation_realm',
+            'clear_bot_character_state',
             'fresh_reset',
             'rebuild_site_layers',
         ),
