@@ -30,6 +30,24 @@ if (!function_exists('rotFormatUptimeSeconds')) {
         return $seconds . 's';
     }
 }
+if (!function_exists('rotFormatSnapshotTime')) {
+    function rotFormatSnapshotTime($timestamp) {
+        $timestamp = trim((string)$timestamp);
+        if ($timestamp === '') {
+            return '—';
+        }
+
+        try {
+            $utc = new DateTimeZone('UTC');
+            $local = new DateTimeZone((string)date_default_timezone_get());
+            $dt = new DateTime($timestamp, $utc);
+            $dt->setTimezone($local);
+            return $dt->format('M j H:i');
+        } catch (Exception $e) {
+            return htmlspecialchars($timestamp, ENT_QUOTES, 'UTF-8');
+        }
+    }
+}
 ?>
 <style>
 .rot-shell {
@@ -89,6 +107,21 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 .rot-error { background:rgba(255,60,60,0.08); border:1px solid #5a1a1a; border-radius:6px; padding:10px 14px; color:#f88; font-size:0.82rem; margin-bottom:12px; font-family:monospace; }
 .rot-stats { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
 .rot-stat { flex:1 1 140px; background:rgba(255,255,255,0.03); border:1px solid #2c2c2c; border-radius:6px; padding:12px 14px; text-align:center; }
+.rot-stat-link {
+  display:block;
+  color:inherit;
+  text-decoration:none;
+  transition:border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+.rot-stat-link:hover {
+  border-color:#565a63;
+  background:rgba(255,255,255,0.05);
+  transform:translateY(-1px);
+}
+.rot-stat-link:focus-visible {
+  outline:2px solid #e8c96a;
+  outline-offset:2px;
+}
 .rot-stat .val { font-size:1.6rem; font-weight:700; line-height:1.1; }
 .rot-stat .lbl { font-size:0.72rem; color:#888; text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
 .rot-stat .meta { font-size:0.72rem; color:#999; margin-top:6px; line-height:1.35; }
@@ -239,6 +272,18 @@ if (!function_exists('rotFormatUptimeSeconds')) {
     $obsAvgOffline      = $latestHistory['observed_avg_offline_sec']  ?? null;
     $obsOnlineSessions  = $latestHistory['observed_online_sessions']  ?? 0;
     $obsOfflineSessions = $latestHistory['observed_offline_sessions'] ?? 0;
+    $uptimeSummary = $uptimeSummary ?? array();
+    $cleanHistory = $cleanHistory ?? array();
+    $medianUptimeSec = $uptimeSummary['median_uptime_sec'] ?? null;
+    $stableAvgUptimeHours = $uptimeSummary['stable_avg_uptime_hours'] ?? null;
+    $shortRestarts7d = (int)($uptimeSummary['short_restarts'] ?? 0);
+    $stableRuns7d = (int)($uptimeSummary['stable_runs'] ?? 0);
+    $cleanObsAvgOnline = $cleanHistory['avg_online_sec'] ?? null;
+    $cleanObsAvgOffline = $cleanHistory['avg_offline_sec'] ?? null;
+    $cleanOnlineSessions = (int)($cleanHistory['online_sessions'] ?? 0);
+    $cleanOfflineSessions = (int)($cleanHistory['offline_sessions'] ?? 0);
+    $cleanSnapshotCount = (int)($cleanHistory['snapshot_count'] ?? 0);
+    $skippedSnapshotCount = (int)($cleanHistory['skipped_snapshot_count'] ?? 0);
     $liveAvgOnline  = $liveOnlineAvg !== null && is_numeric($liveOnlineAvg)  ? (float)$liveOnlineAvg  : null;
     $liveMaxOnline  = $liveOnlineMax !== null && is_numeric($liveOnlineMax)  ? (float)$liveOnlineMax  : null;
     $liveAvgOffline = isset($rotationData['current_avg_offline_sec']) && is_numeric($rotationData['current_avg_offline_sec'])
@@ -249,6 +294,9 @@ if (!function_exists('rotFormatUptimeSeconds')) {
         $liveAvgOffline = $liveMaxOffline;
     }
     $topBotPlaytime = $topBotData ? rotFormatUptimeSeconds($topBotData['totaltime'] ?? null) : 'N/A';
+    $highestLevelUrl = !empty($topBotData['name']) ? 'index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . rawurlencode((string)$topBotData['name']) : '';
+    $longestOnlineUrl = !empty($longestOnlineBot['bot_name']) ? 'index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . rawurlencode((string)$longestOnlineBot['bot_name']) : '';
+    $longestOfflineUrl = !empty($longestOfflineBot['bot_name']) ? 'index.php?n=server&sub=character&realm=' . (int)$realmId . '&character=' . rawurlencode((string)$longestOfflineBot['bot_name']) : '';
   ?>
 
   <div class="rot-stats">
@@ -280,11 +328,17 @@ if (!function_exists('rotFormatUptimeSeconds')) {
       <div class="val"><?php echo $avgLvl; ?></div>
       <div class="lbl">Avg Level (rotating)</div>
     </div>
-    <div class="rot-stat good">
+    <a class="rot-stat rot-stat-link good" href="<?php echo htmlspecialchars($highestLevelUrl !== '' ? $highestLevelUrl : '#'); ?>">
       <div class="val"><?php echo $maxLvl; ?></div>
       <div class="lbl">Highest Level</div>
-      <div class="meta">Playtime: <?php echo htmlspecialchars($topBotPlaytime); ?></div>
-    </div>
+      <div class="meta">
+        <?php if (!empty($topBotData['name'])): ?>
+          <?php echo htmlspecialchars((string)$topBotData['name']); ?> &middot; Playtime: <?php echo htmlspecialchars($topBotPlaytime); ?>
+        <?php else: ?>
+          Playtime: <?php echo htmlspecialchars($topBotPlaytime); ?>
+        <?php endif; ?>
+      </div>
+    </a>
     <div class="rot-stat info" title="Average equipped item level across tracked random bots at snapshot time.">
       <div class="val"><?php echo htmlspecialchars((string)$avgBotIlvl); ?></div>
       <div class="lbl">Avg Bot iLvl</div>
@@ -296,6 +350,16 @@ if (!function_exists('rotFormatUptimeSeconds')) {
     <div class="rot-stat info">
       <div class="val"><?php echo htmlspecialchars($totalServerUptime); ?></div>
       <div class="lbl">Total Uptime</div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo rotFormatSeconds($medianUptimeSec); ?></div>
+      <div class="lbl">Median Uptime (7d)</div>
+      <div class="meta"><?php echo $stableRuns7d; ?> stable runs kept</div>
+    </div>
+    <div class="rot-stat <?php echo $shortRestarts7d > 0 ? 'warn' : 'good'; ?>">
+      <div class="val"><?php echo $shortRestarts7d; ?></div>
+      <div class="lbl">Short Restarts (7d)</div>
+      <div class="meta">Runs under 15m</div>
     </div>
   </div>
 
@@ -359,7 +423,7 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 
   <div class="rot-subtitle">Observed Timing</div>
   <div class="rot-help">
-    Current values reflect bots in their live state right now. Historical values are calculated from completed snapshot-to-snapshot transitions in <code>bot_rotation_state</code>.
+    Current values reflect bots in their live state right now. Clean historical values ignore snapshots from the first 15 minutes after a restart, which helps keep crash loops from distorting the averages.
   </div>
   <div class="rot-stats">
     <div class="rot-stat good">
@@ -367,25 +431,35 @@ if (!function_exists('rotFormatUptimeSeconds')) {
       <div class="lbl">Current Avg In World</div>
     </div>
     <div class="rot-stat good">
-      <div class="val"><?php echo rotFormatSeconds($obsAvgOnline); ?></div>
-      <div class="lbl">Historical Avg In World</div>
+      <div class="val"><?php echo rotFormatSeconds($cleanObsAvgOnline); ?></div>
+      <div class="lbl">Clean Historical Avg In World</div>
+      <div class="meta"><?php echo $cleanOnlineSessions; ?> sessions across <?php echo $cleanSnapshotCount; ?> snapshots</div>
     </div>
-    <div class="rot-stat info">
+    <a class="rot-stat rot-stat-link info" href="<?php echo htmlspecialchars($longestOnlineUrl !== '' ? $longestOnlineUrl : '#'); ?>">
       <div class="val"><?php echo rotFormatSeconds($liveMaxOnline); ?></div>
       <div class="lbl">Longest In World Now</div>
-    </div>
+      <div class="meta"><?php echo !empty($longestOnlineBot['bot_name']) ? htmlspecialchars((string)$longestOnlineBot['bot_name']) : 'No active bot found'; ?></div>
+    </a>
     <div class="rot-stat good">
       <div class="val"><?php echo rotFormatSeconds($liveAvgOffline); ?></div>
       <div class="lbl">Current Avg Offline</div>
     </div>
     <div class="rot-stat good">
-      <div class="val"><?php echo rotFormatSeconds($obsAvgOffline); ?></div>
-      <div class="lbl">Historical Avg Offline</div>
+      <div class="val"><?php echo rotFormatSeconds($cleanObsAvgOffline); ?></div>
+      <div class="lbl">Clean Historical Avg Offline</div>
+      <div class="meta"><?php echo $cleanOfflineSessions; ?> sessions across <?php echo $cleanSnapshotCount; ?> snapshots</div>
     </div>
-    <div class="rot-stat info">
+    <a class="rot-stat rot-stat-link info" href="<?php echo htmlspecialchars($longestOfflineUrl !== '' ? $longestOfflineUrl : '#'); ?>">
       <div class="val"><?php echo rotFormatSeconds($liveMaxOffline); ?></div>
       <div class="lbl">Longest Offline Now</div>
-    </div>
+      <div class="meta">
+        <?php if (!empty($longestOfflineBot['bot_name'])): ?>
+          <?php echo htmlspecialchars((string)$longestOfflineBot['bot_name']); ?> &middot; <?php echo $skippedSnapshotCount; ?> crash-adjacent snapshots skipped
+        <?php else: ?>
+          <?php echo $skippedSnapshotCount; ?> crash-adjacent snapshots skipped
+        <?php endif; ?>
+      </div>
+    </a>
   </div>
 
   <div class="rot-stats">
@@ -398,12 +472,12 @@ if (!function_exists('rotFormatUptimeSeconds')) {
       <div class="lbl">Since Last Restart</div>
     </div>
     <div class="rot-stat info">
-      <div class="val"><?php echo (int)$obsOnlineSessions; ?></div>
-      <div class="lbl">Historical Logoffs</div>
+      <div class="val"><?php echo $cleanOnlineSessions; ?></div>
+      <div class="lbl">Clean Logoffs</div>
     </div>
     <div class="rot-stat info">
-      <div class="val"><?php echo (int)$obsOfflineSessions; ?></div>
-      <div class="lbl">Historical Returns</div>
+      <div class="val"><?php echo $cleanOfflineSessions; ?></div>
+      <div class="lbl">Clean Returns</div>
     </div>
   </div>
 
@@ -527,7 +601,7 @@ if (!function_exists('rotFormatUptimeSeconds')) {
       <tbody>
         <?php foreach ($historyRows as $row): ?>
         <tr>
-          <td><?php echo date('M j H:i', strtotime($row['snapshot_time'])); ?></td>
+          <td><?php echo rotFormatSnapshotTime($row['snapshot_time']); ?></td>
           <td class="<?php echo rotPctClass((float)$row['pct_online_rotating']); ?>"><?php echo $row['pct_online_rotating']; ?>%</td>
           <td class="<?php echo rotPctClass((float)$row['pct_ever_rotated']); ?>"><?php echo $row['pct_ever_rotated']; ?>%</td>
           <td><?php echo ($row['cfg_expected_online_pct'] !== null && $row['cfg_expected_online_pct'] !== '') ? $row['cfg_expected_online_pct'] . '%' : '&mdash;'; ?></td>

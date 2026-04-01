@@ -20,6 +20,19 @@ function print_time($t){
   if($t['s']>0)$out[]=$t['s'].$lang['rs_seconds'];
   echo implode(', ',$out);
 }
+function format_time($n){
+  if (!is_numeric($n) || (int)$n <= 0) {
+    return '-';
+  }
+  $t = parse_time((int)$n);
+  $out = [];
+  global $lang;
+  if($t['d']>0)$out[]=$t['d'].$lang['rs_days'];
+  if($t['h']>0)$out[]=$t['h'].$lang['rs_hours'];
+  if($t['m']>0)$out[]=$t['m'].$lang['rs_minutes'];
+  if($t['s']>0)$out[]=$t['s'].$lang['rs_seconds'];
+  return empty($out) ? '-' : implode(', ',$out);
+}
 
 function connect_realm_db($target, $realmId){
   if (!function_exists('spp_get_db_config')) {
@@ -67,7 +80,11 @@ function realmstatus_fetch_uptime_stats(PDO $realmPdo, $realmId){
     'starttime' => 0,
     'uptime' => 0,
     'avg_uptime' => 0,
+    'median_uptime' => 0,
+    'stable_avg_uptime' => 0,
+    'stable_runs' => 0,
     'restart_count' => 0,
+    'short_restarts' => 0,
     'recent' => false,
   ];
 
@@ -98,6 +115,42 @@ function realmstatus_fetch_uptime_stats(PDO $realmPdo, $realmId){
   $stmtAvg->execute([(int)$realmId]);
   $avgUptime = $stmtAvg->fetchColumn();
   $stats['avg_uptime'] = $avgUptime !== false ? (float)$avgUptime : 0;
+
+  $stmtRuns = $realmPdo->prepare("
+    SELECT `uptime`
+    FROM `uptime`
+    WHERE `realmid` = ?
+      AND `starttime` > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 7 DAY))
+    ORDER BY `starttime` DESC
+  ");
+  $stmtRuns->execute([(int)$realmId]);
+  $runRows = $stmtRuns->fetchAll(PDO::FETCH_COLUMN) ?: [];
+  $allRuns = [];
+  $stableRuns = [];
+  foreach ($runRows as $uptimeValue) {
+    $uptimeSec = (int)$uptimeValue;
+    if ($uptimeSec <= 0) {
+      $stats['short_restarts']++;
+      continue;
+    }
+    $allRuns[] = $uptimeSec;
+    if ($uptimeSec < 900) {
+      $stats['short_restarts']++;
+    } else {
+      $stableRuns[] = $uptimeSec;
+    }
+  }
+  if (!empty($allRuns)) {
+    sort($allRuns, SORT_NUMERIC);
+    $mid = (int)floor(count($allRuns) / 2);
+    $stats['median_uptime'] = count($allRuns) % 2 === 0
+      ? (int)round(($allRuns[$mid - 1] + $allRuns[$mid]) / 2)
+      : (int)$allRuns[$mid];
+  }
+  if (!empty($stableRuns)) {
+    $stats['stable_runs'] = count($stableRuns);
+    $stats['stable_avg_uptime'] = round((array_sum($stableRuns) / count($stableRuns)) / 3600, 2);
+  }
 
   $stmtRestarts = $realmPdo->prepare("
     SELECT COUNT(*)
@@ -166,7 +219,10 @@ foreach($realms as $r){
   // uptime stats
   $uptime = (int)$uptimeStats['uptime'];
   $avg_uptime = (float)$uptimeStats['avg_uptime'];
+  $median_uptime = (int)($uptimeStats['median_uptime'] ?? 0);
+  $stable_avg_uptime = (float)($uptimeStats['stable_avg_uptime'] ?? 0);
   $restart_count = (int)$uptimeStats['restart_count'];
+  $short_restarts = (int)($uptimeStats['short_restarts'] ?? 0);
   if($restart_count==0 && ($is_online || $hasRecentUptime))$restart_count=1;
  
 
@@ -235,7 +291,7 @@ foreach($realms as $r){
   $items[]=[
     'id'=>$realm_id,'name'=>$realm_name,'type'=>$realm_type,'build'=>$build_ver,
     'exp'=>$exp,'pop'=>$pop,'online'=>$online,'alli'=>$alli,'horde'=>$horde,'uptime'=>$uptime,
-    'avg_up'=>$avg_uptime,'restarts'=>$restart_count,'avg_lvl'=>$avg_lvl,'max_lvl'=>$max_lvl,'avg_ilvl'=>$avg_ilvl,
+    'avg_up'=>$avg_uptime,'median_up'=>$median_uptime,'stable_avg_up'=>$stable_avg_uptime,'stable_runs'=>(int)($uptimeStats['stable_runs'] ?? 0),'short_restarts'=>$short_restarts,'restarts'=>$restart_count,'avg_lvl'=>$avg_lvl,'max_lvl'=>$max_lvl,'avg_ilvl'=>$avg_ilvl,
     'state'=>$state,'res_color'=>$res_color,'status_label'=>$res_label,'img'=>$res_img,
     'debug'=>[
       'realm_host' => (string)$dbHost,
@@ -296,7 +352,9 @@ foreach($realms as $r){
         <div><strong><?php echo $lang['uptime']; ?>:</strong> 
           <?php if($r['uptime']>1)print_time(parse_time($r['uptime']));else echo '-'; ?>
         </div>
-        <div><strong>Avg Uptime (7d):</strong> <?php echo $r['avg_up']?$r['avg_up'].' hrs':'-'; ?></div>
+        <div><strong>Stable Avg Uptime (7d):</strong> <?php echo !empty($r['stable_avg_up']) ? $r['stable_avg_up'].' hrs' : '-'; ?></div>
+        <div><strong>Median Uptime (7d):</strong> <?php echo htmlspecialchars(format_time($r['median_up'])); ?></div>
+        <div><strong>Short Restarts (7d):</strong> <?php echo (int)$r['short_restarts']; ?><?php echo !empty($r['stable_runs']) ? ' (' . (int)$r['stable_runs'] . ' stable runs kept)' : ''; ?></div>
         <div><strong>Restarts Today:</strong> <?php echo $r['restarts']; ?></div>
         <div><strong><?php echo $lang['si_type']; ?>:</strong> <?php echo htmlspecialchars($r['type']); ?></div>
         <div><strong><?php echo $lang['si_pop']; ?>:</strong> 
