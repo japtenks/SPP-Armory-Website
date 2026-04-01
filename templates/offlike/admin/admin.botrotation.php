@@ -67,6 +67,14 @@ if (!function_exists('rotFormatUptimeSeconds')) {
   color: #ddd;
   box-sizing: border-box;
 }
+.rot-panel + .rot-panel { margin-top: 18px; }
+.rot-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+  align-items: stretch;
+}
 .rot-title { font-size:1.05rem; font-weight:700; color:#e8c96a; text-shadow:0 0 8px rgba(232,201,106,0.3); margin-bottom:18px; letter-spacing:0.04em; border-bottom:1px solid #2a2a2a; padding-bottom:10px; }
 .rot-title {
     position: relative;
@@ -111,12 +119,60 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 .rot-subtitle { margin:18px 0 10px; color:#9f9f9f; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; }
 .rot-help { margin:-2px 0 12px; color:#8a8a8a; font-size:0.74rem; line-height:1.45; }
 .rot-toolbox { margin:0 0 20px; padding:16px 18px; border:1px solid #2c2c2c; border-radius:8px; background:rgba(255,255,255,0.03); }
+.rot-panel.rot-toolbox {
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  margin:0;
+}
 .rot-toolbox-title { margin:0 0 6px; color:#e8c96a; font-size:0.95rem; font-weight:700; letter-spacing:0.04em; }
-.rot-toolbox-note { margin:0 0 12px; color:#9a9a9a; font-size:0.76rem; line-height:1.5; }
-.rot-command { margin:8px 0 0; padding:10px 12px; border-radius:6px; border:1px solid #2a2a2a; background:#111; color:#dbe9ff; font-family:Consolas,Monaco,monospace; font-size:0.8rem; white-space:pre-wrap; word-break:break-word; }
-.rot-command-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.rot-toolbox-note { margin:0 0 14px; color:#9a9a9a; font-size:0.76rem; line-height:1.5; }
+.rot-command-stack {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:auto;
+}
+.rot-command-wrap {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.rot-command {
+  margin:0;
+  padding:10px 12px;
+  border-radius:6px;
+  border:1px solid #2a2a2a;
+  background:#111;
+  color:#dbe9ff;
+  font-family:Consolas,Monaco,monospace;
+  font-size:0.8rem;
+  white-space:pre-wrap;
+  word-break:break-word;
+  min-height:52px;
+  align-content:center;
+}
+.rot-command.is-collapsed { display:none; }
+.rot-command-caption {
+  margin:0;
+  font-size:0.68rem;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:#7f7f7f;
+}
+.rot-command-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:2px;
+}
 .rot-btn { display:inline-flex; align-items:center; justify-content:center; padding:8px 14px; border-radius:8px; border:1px solid #3d4046; background:#2f3136; color:#f0e0b6; font-weight:700; cursor:pointer; }
 .rot-btn:hover { background:#3a3d43; border-color:#565a63; color:#ffcc66; }
+@media (max-width: 860px) {
+  .rot-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 
 <?php builddiv_start(1, 'Bot Rotation Health'); ?>
@@ -126,28 +182,6 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 
 <div class="rot-panel">
   <div class="rot-title">Bot Rotation Health</div>
-
-  <div class="rot-toolbox">
-    <div class="rot-toolbox-title">Rotation Logging Controls</div>
-    <p class="rot-toolbox-note">Rotation logging is a cron job in the DB container, not part of <code>mangosd.service</code>. These pause/resume commands are for the Linux host only. On Windows dev, ignore this box and just use the standalone reset command below.</p>
-    <div class="rot-command" id="rot-pause-command"><?php echo htmlspecialchars((string)($rotationCommands['pause_logging'] ?? '')); ?></div>
-    <div class="rot-command" id="rot-resume-command"><?php echo htmlspecialchars((string)($rotationCommands['resume_logging'] ?? '')); ?></div>
-    <div class="rot-command-actions">
-      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-pause-command')">Copy Pause Logging</button>
-      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-resume-command')">Copy Resume Logging</button>
-    </div>
-  </div>
-
-  <div class="rot-toolbox">
-    <div class="rot-toolbox-title">Standalone Rotation Reset</div>
-    <p class="rot-toolbox-note">Use this when you only want to clear rotation history for the selected realm without running the broader bot reset. This is the normal Windows-friendly script workflow. Dry run first if you want to confirm the current row counts.</p>
-    <div class="rot-command" id="rot-reset-dry"><?php echo htmlspecialchars((string)($rotationCommands['rotation_reset_dry_run'] ?? '')); ?></div>
-    <div class="rot-command" id="rot-reset-run"><?php echo htmlspecialchars((string)($rotationCommands['rotation_reset_run'] ?? '')); ?></div>
-    <div class="rot-command-actions">
-      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-reset-dry')">Copy Rotation Dry Run</button>
-      <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-reset-run')">Copy Rotation Reset</button>
-    </div>
-  </div>
 
   <?php if ($rotationError): ?>
     <div class="rot-error">
@@ -416,10 +450,68 @@ if (!function_exists('rotFormatUptimeSeconds')) {
     </div>
   </div>
 
+  <?php endif; ?>
+</div>
+
+<div class="rot-panel-grid">
+  <div class="rot-panel rot-toolbox">
+    <div class="rot-toolbox-title">Rotation Logging Controls</div>
+    <p class="rot-toolbox-note">
+      Rotation logging is a cron job in the DB container, not part of <code>mangosd.service</code>.
+      <?php if ($isWindowsHost): ?>
+        These Linux-host commands stay collapsed on Windows until you click one of the copy buttons below.
+      <?php else: ?>
+        These pause and resume commands are shown inline on Linux hosts for quick terminal use.
+      <?php endif; ?>
+    </p>
+    <div class="rot-command-stack">
+      <div class="rot-command-wrap">
+        <p class="rot-command-caption">Pause Logging Command</p>
+        <div class="rot-command<?php echo $isWindowsHost ? ' is-collapsed' : ''; ?>" id="rot-pause-command"><?php echo htmlspecialchars((string)($rotationCommands['pause_logging'] ?? '')); ?></div>
+      </div>
+      <div class="rot-command-wrap">
+        <p class="rot-command-caption">Resume Logging Command</p>
+        <div class="rot-command<?php echo $isWindowsHost ? ' is-collapsed' : ''; ?>" id="rot-resume-command"><?php echo htmlspecialchars((string)($rotationCommands['resume_logging'] ?? '')); ?></div>
+      </div>
+      <div class="rot-command-actions">
+        <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-pause-command', this)">Copy Pause Logging</button>
+        <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-resume-command', this)">Copy Resume Logging</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rot-panel rot-toolbox">
+    <div class="rot-toolbox-title">Standalone Rotation Reset</div>
+    <p class="rot-toolbox-note">
+      Use this when you only want to clear rotation history for the selected realm without running the broader bot reset.
+      <?php if ($isWindowsHost): ?>
+        On Windows, the command blocks open only when you click the related copy button.
+      <?php else: ?>
+        On Linux, the command blocks stay visible so you can copy or run them directly.
+      <?php endif; ?>
+    </p>
+    <div class="rot-command-stack">
+      <div class="rot-command-wrap">
+        <p class="rot-command-caption">Dry Run Command</p>
+        <div class="rot-command<?php echo $isWindowsHost ? ' is-collapsed' : ''; ?>" id="rot-reset-dry"><?php echo htmlspecialchars((string)($rotationCommands['rotation_reset_dry_run'] ?? '')); ?></div>
+      </div>
+      <div class="rot-command-wrap">
+        <p class="rot-command-caption">Reset Command</p>
+        <div class="rot-command<?php echo $isWindowsHost ? ' is-collapsed' : ''; ?>" id="rot-reset-run"><?php echo htmlspecialchars((string)($rotationCommands['rotation_reset_run'] ?? '')); ?></div>
+      </div>
+      <div class="rot-command-actions">
+        <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-reset-dry', this)">Copy Rotation Dry Run</button>
+        <button type="button" class="rot-btn" onclick="copyRotationCommand('rot-reset-run', this)">Copy Rotation Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="rot-panel">
   <div class="rot-history">
     <div class="rot-history-title">Recent Snapshots
       <?php if (!$hasHistory): ?>
-        — <span style="color:#444;font-style:italic;text-transform:none;letter-spacing:0">
+        &mdash; <span style="color:#444;font-style:italic;text-transform:none;letter-spacing:0">
             enable cron logging to see trends
           </span>
       <?php endif; ?>
@@ -438,10 +530,10 @@ if (!function_exists('rotFormatUptimeSeconds')) {
           <td><?php echo date('M j H:i', strtotime($row['snapshot_time'])); ?></td>
           <td class="<?php echo rotPctClass((float)$row['pct_online_rotating']); ?>"><?php echo $row['pct_online_rotating']; ?>%</td>
           <td class="<?php echo rotPctClass((float)$row['pct_ever_rotated']); ?>"><?php echo $row['pct_ever_rotated']; ?>%</td>
-          <td><?php echo ($row['cfg_expected_online_pct'] !== null && $row['cfg_expected_online_pct'] !== '') ? $row['cfg_expected_online_pct'] . '%' : '—'; ?></td>
+          <td><?php echo ($row['cfg_expected_online_pct'] !== null && $row['cfg_expected_online_pct'] !== '') ? $row['cfg_expected_online_pct'] . '%' : '&mdash;'; ?></td>
           <td><?php echo $row['total_online']; ?></td>
           <td><?php echo $row['rotating_active']; ?></td>
-          <td><?php echo $row['avg_level_rotating'] ?? '—'; ?></td>
+          <td><?php echo $row['avg_level_rotating'] ?? '&mdash;'; ?></td>
           <td><?php echo rotFormatSeconds($row['observed_avg_online_sec'] ?? null); ?></td>
           <td><?php echo rotFormatSeconds($row['observed_avg_offline_sec'] ?? null); ?></td>
         </tr>
@@ -452,15 +544,27 @@ if (!function_exists('rotFormatUptimeSeconds')) {
       <div class="rot-no-history">No history yet. Set up the cron job to start tracking over time.</div>
     <?php endif; ?>
   </div>
-
-  <?php endif; ?>
 </div>
-
 <script>
 (function(){
-  window.copyRotationCommand = function(id){
+  var isWindowsHost = <?php echo $isWindowsHost ? 'true' : 'false'; ?>;
+
+  function revealRotationCommand(box, button) {
+    if (!isWindowsHost || !box) {
+      return;
+    }
+    if (box.classList.contains('is-collapsed')) {
+      box.classList.remove('is-collapsed');
+    }
+    if (button) {
+      button.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  window.copyRotationCommand = function(id, button){
     var box = document.getElementById(id);
     if (!box) return;
+    revealRotationCommand(box, button || null);
     var text = box.textContent || box.innerText || '';
     if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -478,3 +582,4 @@ if (!function_exists('rotFormatUptimeSeconds')) {
 </script>
 </div>
 <?php unset($GLOBALS['builddiv_header_actions']); ?>
+

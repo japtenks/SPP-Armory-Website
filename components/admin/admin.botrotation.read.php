@@ -53,6 +53,7 @@ function spp_admin_botrotation_build_view(array $realmDbMap)
     $realmId = spp_resolve_realm_id($realmDbMap);
     $siteRoot = dirname(__DIR__, 2);
     $phpBin = spp_admin_botrotation_resolve_php_cli_binary();
+    $isWindowsHost = DIRECTORY_SEPARATOR === '\\';
     $phpCommand = strtolower((string)$phpBin) === 'php'
         ? 'php'
         : ('"' . str_replace('"', '""', (string)$phpBin) . '"');
@@ -72,6 +73,7 @@ function spp_admin_botrotation_build_view(array $realmDbMap)
         'hasHistory' => false,
         'liveOnlineAvg' => null,
         'liveOnlineMax' => null,
+        'isWindowsHost' => $isWindowsHost,
         'commands' => array(
             'rotation_reset_dry_run' => $phpCommand . ' "' . str_replace('"', '""', $rotationResetScript) . '" --realm=' . $realmId . ' --execute --dry-run',
             'rotation_reset_run' => $phpCommand . ' "' . str_replace('"', '""', $rotationResetScript) . '" --realm=' . $realmId . ' --execute',

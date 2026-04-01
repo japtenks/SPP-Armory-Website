@@ -19,3 +19,4 @@ $hasHistory = $botRotationView['hasHistory'];
 $liveOnlineAvg = $botRotationView['liveOnlineAvg'];
 $liveOnlineMax = $botRotationView['liveOnlineMax'];
 $rotationCommands = $botRotationView['commands'] ?? array();
+$isWindowsHost = !empty($botRotationView['isWindowsHost']);
