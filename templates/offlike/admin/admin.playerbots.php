@@ -62,7 +62,7 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
   <?php if ($shareSaved): ?><div class="playerbots-success">Guild share block saved.</div><?php endif; ?>
   <?php if ($notesSaved): ?><div class="playerbots-success">Officer order notes saved.</div><?php endif; ?>
   <?php if ($personalitySaved): ?><div class="playerbots-success">Bot personality saved.</div><?php endif; ?>
-  <?php if ($forumToneSaved): ?><div class="playerbots-success">Forum reply tone saved.</div><?php endif; ?>
+  <?php if ($forumToneSaved): ?><div class="playerbots-success">Forum chatter tone saved.</div><?php endif; ?>
   <?php if ($botStrategySaved): ?><div class="playerbots-success">Bot strategy override saved.</div><?php endif; ?>
   <?php if ($strategySaved): ?><div class="playerbots-success">Guild flavor applied to member bots.</div><?php endif; ?>
   <?php if (!empty($invalidRealmRequested)): ?><div class="playerbots-success" style="background:#3a2612;border-color:#8d6130;color:#f5d8a8;">Realm <?php echo (int)$requestedRealmId; ?> is not configured here. Showing the nearest valid configured realm instead.</div><?php endif; ?>
@@ -444,8 +444,8 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
   </div>
 
   <div class="playerbots-card">
-    <h3 class="playerbots-section-title">Forum Reply Tone</h3>
-    <p class="playerbots-note">These lines populate the <code>forum:...</code> rows in <code>ai_playerbot_help_texts</code> for the selected realm. Each non-empty line becomes one possible reply, so the forum chatter can pull from the same help-text registry the core already uses.</p>
+    <h3 class="playerbots-section-title">Forum Chatter Tone</h3>
+    <p class="playerbots-note">These lines populate the <code>forum:...</code> rows in <code>ai_playerbot_texts</code> for the selected realm. Each non-empty line becomes one possible bit of bot chatter for forum reactions and guild seed posts. If you leave them empty, the site falls back to its built-in default lines.</p>
     <form method="post" action="index.php?n=admin&sub=playerbots&realm=<?php echo (int)$realmId; ?>&guildid=<?php echo (int)$selectedGuildId; ?>&character_guid=<?php echo (int)$selectedCharacterGuid; ?>">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($admin_playerbots_csrf_token, ENT_QUOTES); ?>">
       <input type="hidden" name="playerbots_action" value="save_forum_tone">
@@ -470,8 +470,8 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
         </div>
       <?php endforeach; ?>
       <div class="playerbots-actions">
-        <button class="playerbots-button" type="submit">Save Forum Tone</button>
-        <span class="playerbots-note">Placeholders supported by the event processor include <code>&lt;name&gt;</code>, <code>&lt;guild&gt;</code>, <code>&lt;level&gt;</code>, <code>&lt;skill&gt;</code>, <code>&lt;achievement&gt;</code>, <code>&lt;member_count&gt;</code>, <code>&lt;joined_count&gt;</code>, and <code>&lt;left_count&gt;</code>.</span>
+        <button class="playerbots-button" type="submit">Save Chatter Tone</button>
+        <span class="playerbots-note">Placeholders supported by the event processor include <code>&lt;name&gt;</code>, <code>&lt;guild&gt;</code>, <code>&lt;level&gt;</code>, <code>&lt;skill&gt;</code>, <code>&lt;achievement&gt;</code>, <code>&lt;member_count&gt;</code>, <code>&lt;joined_count&gt;</code>, <code>&lt;left_count&gt;</code>, <code>&lt;needs&gt;</code>, and <code>&lt;role_summary&gt;</code>.</span>
       </div>
     </form>
   </div>

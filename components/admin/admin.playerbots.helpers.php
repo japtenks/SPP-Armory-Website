@@ -81,6 +81,116 @@ function spp_admin_playerbots_forum_tone_groups(): array
                 ),
             ),
         ),
+        'guild_seed_leveling' => array(
+            'label' => 'Guild Seed: Leveling / Questing',
+            'description' => 'Initial recruitment post lines for leveling and questing guilds.',
+            'keys' => array(
+                'forum:guild_seed:leveling_questing:intro' => array(
+                    'label' => 'Intro',
+                    'placeholder' => "[b]<guild>[/b] is gathering companions for the long road ahead.\n[b]<guild>[/b] has raised its banner for questers and steady hands.",
+                ),
+                'forum:guild_seed:leveling_questing:focus' => array(
+                    'label' => 'Focus',
+                    'placeholder' => "We are building around leveling, questing, and helping one another through the rough stretches.\nMost of our strength is on the road, working through zones and dungeon detours.",
+                ),
+                'forum:guild_seed:leveling_questing:needs' => array(
+                    'label' => 'Needs',
+                    'placeholder' => "We are especially glad to see <needs>.\nAnyone is welcome, though <needs> would round us out nicely.",
+                ),
+                'forum:guild_seed:leveling_questing:closing' => array(
+                    'label' => 'Closing',
+                    'placeholder' => "If you want company more than spectacle, speak with [b]<leader_name>[/b] in-game.\nIf that sounds like your pace, whisper [b]<leader_name>[/b] and travel with us.",
+                ),
+            ),
+        ),
+        'guild_seed_dungeon' => array(
+            'label' => 'Guild Seed: Dungeon / Social',
+            'description' => 'Initial recruitment post lines for dungeon and social guilds.',
+            'keys' => array(
+                'forum:guild_seed:dungeon_social:intro' => array(
+                    'label' => 'Intro',
+                    'placeholder' => "[b]<guild>[/b] is recruiting for a lively dungeon-going roster.\n[b]<guild>[/b] is opening its doors to players who like steady groups and familiar company.",
+                ),
+                'forum:guild_seed:dungeon_social:focus' => array(
+                    'label' => 'Focus',
+                    'placeholder' => "We are building around five-man runs, social grouping, and players who enjoy returning to the same crew.\nOur guild leans toward dungeons, evening grouping, and keeping a dependable bench of familiar names.",
+                ),
+                'forum:guild_seed:dungeon_social:needs' => array(
+                    'label' => 'Needs',
+                    'placeholder' => "Right now <needs> would help keep our runs moving smoothly.\nWe welcome all comers, with a special eye for <needs>.",
+                ),
+                'forum:guild_seed:dungeon_social:closing' => array(
+                    'label' => 'Closing',
+                    'placeholder' => "If that sounds like your sort of company, whisper [b]<leader_name>[/b] in-game.\nSeek out [b]<leader_name>[/b] if you want a guild that actually groups together.",
+                ),
+            ),
+        ),
+        'guild_seed_raiding' => array(
+            'label' => 'Guild Seed: Raiding / Progression',
+            'description' => 'Initial recruitment post lines for progression-minded guilds.',
+            'keys' => array(
+                'forum:guild_seed:raiding_progression:intro' => array(
+                    'label' => 'Intro',
+                    'placeholder' => "[b]<guild>[/b] is recruiting to build a sharper progression roster.\n[b]<guild>[/b] is laying the groundwork for a disciplined endgame push.",
+                ),
+                'forum:guild_seed:raiding_progression:focus' => array(
+                    'label' => 'Focus',
+                    'placeholder' => "We are shaping a roster for reliable progression, better preparation, and a stronger weekly core.\nOur eye is on organized growth, cleaner rosters, and turning potential into real progression.",
+                ),
+                'forum:guild_seed:raiding_progression:needs' => array(
+                    'label' => 'Needs',
+                    'placeholder' => "Prepared <needs> are a particular priority for us right now.\nWe are open broadly, though <needs> would strengthen the roster immediately.",
+                ),
+                'forum:guild_seed:raiding_progression:closing' => array(
+                    'label' => 'Closing',
+                    'placeholder' => "Players who want structure and progress should speak with [b]<leader_name>[/b].\nIf you want to help build something serious, whisper [b]<leader_name>[/b] in-game.",
+                ),
+            ),
+        ),
+        'guild_seed_pvp' => array(
+            'label' => 'Guild Seed: PvP / Mercenary',
+            'description' => 'Initial recruitment post lines for PvP-heavy guilds.',
+            'keys' => array(
+                'forum:guild_seed:pvp_mercenary:intro' => array(
+                    'label' => 'Intro',
+                    'placeholder' => "[b]<guild>[/b] is recruiting for contested roads and hard fights.\n[b]<guild>[/b] is looking for the sort of adventurers who prefer banners and skirmishes to quiet inns.",
+                ),
+                'forum:guild_seed:pvp_mercenary:focus' => array(
+                    'label' => 'Focus',
+                    'placeholder' => "We lean toward battlegrounds, contested zones, and keeping a roster ready for sudden violence.\nThis is a guild for players who enjoy pressure, world PvP, and a little swagger in their step.",
+                ),
+                'forum:guild_seed:pvp_mercenary:needs' => array(
+                    'label' => 'Needs',
+                    'placeholder' => "<needs> would fit our current warband especially well.\nAll fighters are welcome, though <needs> are particularly useful to us now.",
+                ),
+                'forum:guild_seed:pvp_mercenary:closing' => array(
+                    'label' => 'Closing',
+                    'placeholder' => "If you like your victories noisy, whisper [b]<leader_name>[/b] in-game.\nThose looking for battle can seek out [b]<leader_name>[/b] and join the fight.",
+                ),
+            ),
+        ),
+        'guild_seed_generic' => array(
+            'label' => 'Guild Seed: Generic Fallbacks',
+            'description' => 'Used when a guild type has no specific seed lines yet.',
+            'keys' => array(
+                'forum:guild_seed:generic:intro' => array(
+                    'label' => 'Generic Intro',
+                    'placeholder' => "[b]<guild>[/b] is recruiting new hands.\n[b]<guild>[/b] is opening its banner to fresh company.",
+                ),
+                'forum:guild_seed:generic:focus' => array(
+                    'label' => 'Generic Focus',
+                    'placeholder' => "We are building a steadier roster and welcoming the right sort of company.\nOur guild is looking for dependable adventurers and a stronger bench.",
+                ),
+                'forum:guild_seed:generic:needs' => array(
+                    'label' => 'Generic Needs',
+                    'placeholder' => "<needs> would be especially welcome.\nAll adventurers are welcome, with a special eye for <needs>.",
+                ),
+                'forum:guild_seed:generic:closing' => array(
+                    'label' => 'Generic Closing',
+                    'placeholder' => "Whisper [b]<leader_name>[/b] in-game if you would like to join us.\nThose interested can speak with [b]<leader_name>[/b] in-game.",
+                ),
+            ),
+        ),
     );
 }
 
@@ -125,8 +235,8 @@ function spp_admin_playerbots_fetch_forum_tone_state(PDO $worldPdo): array
     try {
         $placeholders = implode(',', array_fill(0, count($keys), '?'));
         $stmt = $worldPdo->prepare("
-            SELECT `name`, `text`, `template_text`, `id`
-            FROM `ai_playerbot_help_texts`
+            SELECT `name`, `text`, `id`
+            FROM `ai_playerbot_texts`
             WHERE `name` IN ($placeholders)
             ORDER BY `name` ASC, `id` ASC
         ");
@@ -137,9 +247,6 @@ function spp_admin_playerbots_fetch_forum_tone_state(PDO $worldPdo): array
                 continue;
             }
             $line = trim((string)($row['text'] ?? ''));
-            if ($line === '') {
-                $line = trim((string)($row['template_text'] ?? ''));
-            }
             if ($line === '') {
                 continue;
             }

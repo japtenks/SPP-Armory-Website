@@ -237,6 +237,192 @@ function get_realm_herald(int $realmId, PDO $masterPdo): ?array {
     return $row;
 }
 
+function guild_seed_type_label(string $guildType): string
+{
+    $labels = array(
+        'leveling_questing' => 'Leveling and Questing Guild',
+        'dungeon_social' => 'Dungeon and Social Guild',
+        'raiding_progression' => 'Raiding Progression Guild',
+        'pvp_mercenary' => 'PvP Mercenary Guild',
+    );
+
+    return (string)($labels[$guildType] ?? 'Adventuring Guild');
+}
+
+function guild_seed_needs_phrase(array $needs): string
+{
+    $needs = array_values(array_filter(array_map(static function ($need): string {
+        return trim((string)$need);
+    }, $needs)));
+    if (empty($needs)) {
+        return 'all steady adventurers';
+    }
+    if (count($needs) === 1) {
+        return $needs[0];
+    }
+    if (count($needs) === 2) {
+        return $needs[0] . ' and ' . $needs[1];
+    }
+    $last = array_pop($needs);
+    return implode(', ', $needs) . ', and ' . $last;
+}
+
+function guild_seed_role_summary(array $roleProfile): string
+{
+    arsort($roleProfile, SORT_NUMERIC);
+    $labels = array(
+        'tanks' => 'front-liners',
+        'healers' => 'healers',
+        'melee_dps' => 'melee fighters',
+        'ranged_dps' => 'ranged support',
+        'support_hybrid' => 'hybrids',
+    );
+
+    $parts = array();
+    foreach ($roleProfile as $bucket => $count) {
+        $count = (int)$count;
+        if ($count <= 0 || empty($labels[$bucket])) {
+            continue;
+        }
+        $parts[] = $labels[$bucket];
+        if (count($parts) >= 2) {
+            break;
+        }
+    }
+
+    if (empty($parts)) {
+        return 'a mixed company';
+    }
+    if (count($parts) === 1) {
+        return $parts[0];
+    }
+
+    return $parts[0] . ' and ' . $parts[1];
+}
+
+function build_guild_created_post_content(array $event): array
+{
+    $payload = json_decode($event['payload_json'], true) ?? [];
+    $guild = trim((string)($payload['guild_name'] ?? 'A new guild'));
+    $leader = trim((string)($payload['leader_name'] ?? 'Unknown'));
+    $guildType = trim((string)($payload['guild_type'] ?? 'leveling_questing'));
+    $roleProfile = is_array($payload['role_profile'] ?? null) ? $payload['role_profile'] : array();
+    $roleNeeds = is_array($payload['role_needs'] ?? null) ? array_values($payload['role_needs']) : array();
+    $averageLevel = (float)($payload['average_level'] ?? 0);
+
+    $payload['leader_name'] = $leader !== '' ? $leader : 'Unknown';
+    $payload['guild_name'] = $guild;
+    $payload['guild_type'] = $guildType;
+    $payload['guild_type_label'] = guild_seed_type_label($guildType);
+    $payload['needs'] = guild_seed_needs_phrase($roleNeeds);
+    $payload['need_1'] = (string)($roleNeeds[0] ?? 'adventurers');
+    $payload['need_2'] = (string)($roleNeeds[1] ?? ($roleNeeds[0] ?? 'company'));
+    $payload['role_summary'] = guild_seed_role_summary($roleProfile);
+    $payload['average_level'] = $averageLevel;
+
+    $fallbackByType = array(
+        'leveling_questing' => array(
+            'intro' => array(
+                "[b]<{$guild}>[/b] is gathering companions for the long road ahead.",
+                "[b]<{$guild}>[/b] has raised its banner for questers, wanderers, and steady hands.",
+            ),
+            'focus' => array(
+                "We are building around leveling, questing, and helping one another through the rough stretches.",
+                "Most of our strength is on the road, working through zones, group quests, and the occasional dungeon push.",
+            ),
+            'needs' => array(
+                "We are especially glad to see {$payload['needs']}.",
+                "Anyone is welcome, though {$payload['needs']} would round us out nicely.",
+            ),
+            'closing' => array(
+                "If you want company more than spectacle, speak with [b]{$leader}[/b] in-game.",
+                "If that sounds like your pace, whisper [b]{$leader}[/b] and travel with us.",
+            ),
+        ),
+        'dungeon_social' => array(
+            'intro' => array(
+                "[b]<{$guild}>[/b] is recruiting for a lively dungeon-going roster.",
+                "[b]<{$guild}>[/b] is opening its doors to players who like steady groups and familiar company.",
+            ),
+            'focus' => array(
+                "We are building around five-man runs, social grouping, and players who enjoy returning to the same crew.",
+                "Our guild leans toward dungeons, evening grouping, and keeping a dependable bench of familiar names.",
+            ),
+            'needs' => array(
+                "Right now {$payload['needs']} would help keep our runs moving smoothly.",
+                "We welcome all comers, with a special eye for {$payload['needs']}.",
+            ),
+            'closing' => array(
+                "If that sounds like your sort of company, whisper [b]{$leader}[/b] in-game.",
+                "Seek out [b]{$leader}[/b] if you want a guild that actually groups together.",
+            ),
+        ),
+        'raiding_progression' => array(
+            'intro' => array(
+                "[b]<{$guild}>[/b] is recruiting to build a sharper progression roster.",
+                "[b]<{$guild}>[/b] is laying the groundwork for a disciplined endgame push.",
+            ),
+            'focus' => array(
+                "We are shaping a roster for reliable progression, better preparation, and a stronger weekly core.",
+                "Our eye is on organized growth, cleaner rosters, and turning potential into real progression.",
+            ),
+            'needs' => array(
+                "Prepared {$payload['needs']} are a particular priority for us right now.",
+                "We are open broadly, though {$payload['needs']} would strengthen the roster immediately.",
+            ),
+            'closing' => array(
+                "Players who want structure and progress should speak with [b]{$leader}[/b].",
+                "If you want to help build something serious, whisper [b]{$leader}[/b] in-game.",
+            ),
+        ),
+        'pvp_mercenary' => array(
+            'intro' => array(
+                "[b]<{$guild}>[/b] is recruiting for contested roads and hard fights.",
+                "[b]<{$guild}>[/b] is looking for the sort of adventurers who prefer banners and skirmishes to quiet inns.",
+            ),
+            'focus' => array(
+                "We lean toward battlegrounds, contested zones, and keeping a roster ready for sudden violence.",
+                "This is a guild for players who enjoy pressure, world PvP, and a little swagger in their step.",
+            ),
+            'needs' => array(
+                "{$payload['needs']} would fit our current warband especially well.",
+                "All fighters are welcome, though {$payload['needs']} are particularly useful to us now.",
+            ),
+            'closing' => array(
+                "If you like your victories noisy, whisper [b]{$leader}[/b] in-game.",
+                "Those looking for battle can seek out [b]{$leader}[/b] and join the fight.",
+            ),
+        ),
+    );
+
+    $fallback = $fallbackByType[$guildType] ?? $fallbackByType['leveling_questing'];
+    $lines = array();
+    foreach (array('intro', 'focus', 'needs', 'closing') as $section) {
+        $lines[] = pick_forum_help_text(
+            (int)$event['realm_id'],
+            array(
+                'forum:guild_seed:' . $guildType . ':' . $section,
+                'forum:guild_seed:generic:' . $section,
+            ),
+            $payload,
+            $fallback[$section]
+        );
+    }
+
+    $body = implode("\n\n", array_values(array_filter($lines, static function ($line): bool {
+        return trim((string)$line) !== '';
+    })));
+    $title = "<{$guild}> is Recruiting!";
+    if ($averageLevel > 0) {
+        $title = "<{$guild}> is Recruiting ({$payload['guild_type_label']})";
+    }
+
+    return array(
+        'title' => $title,
+        'body' => $body,
+    );
+}
+
 // ---- Content templates ----
 function build_post_content(array $event, bool $selfPost = false): array {
     $payload = json_decode($event['payload_json'], true) ?? [];
@@ -272,14 +458,7 @@ function build_post_content(array $event, bool $selfPost = false): array {
     }
 
     if ($type === 'guild_created') {
-        $guild  = trim((string)($payload['guild_name']  ?? 'A new guild'));
-        $leader = trim((string)($payload['leader_name'] ?? 'Unknown'));
-        return [
-            'title' => "<{$guild}> is Recruiting!",
-            'body'  => "[b]<{$guild}>[/b] is now open for recruitment!\n\n"
-                     . "Led by [b]{$leader}[/b], we are looking for dedicated adventurers to join our ranks.\n\n"
-                     . "Contact [b]{$leader}[/b] in-game to apply.",
-        ];
+        return build_guild_created_post_content($event);
     }
 
     if ($type === 'profession_milestone') {
@@ -937,8 +1116,8 @@ function get_forum_help_text_pool(int $realmId): array {
     try {
         $pdo = spp_get_pdo('world', $realmId);
         $stmt = $pdo->query("
-            SELECT `name`, `template_text`, `text`
-            FROM `ai_playerbot_help_texts`
+            SELECT `name`, `text`
+            FROM `ai_playerbot_texts`
             WHERE `name` LIKE 'forum:%'
             ORDER BY `name` ASC, `id` ASC
         ");
@@ -950,9 +1129,6 @@ function get_forum_help_text_pool(int $realmId): array {
             }
 
             $value = trim((string)($row['text'] ?? ''));
-            if ($value === '') {
-                $value = trim((string)($row['template_text'] ?? ''));
-            }
             if ($value === '') {
                 continue;
             }
@@ -984,6 +1160,8 @@ function forum_help_text_render(string $template, array $payload): string {
         '<leader_name>' => (string)($payload['leader_name'] ?? $payload['char_name'] ?? 'them'),
         '<guild>' => (string)($payload['guild_name'] ?? 'the guild'),
         '<guild_name>' => (string)($payload['guild_name'] ?? 'the guild'),
+        '<guild_type>' => (string)($payload['guild_type'] ?? 'guild'),
+        '<guild_type_label>' => (string)($payload['guild_type_label'] ?? 'adventuring guild'),
         '<level>' => (string)(int)($payload['level'] ?? 0),
         '<max_level>' => (string)$maxLevel,
         '<skill>' => (string)($payload['skill_name'] ?? 'that'),
@@ -994,6 +1172,12 @@ function forum_help_text_render(string $template, array $payload): string {
         '<member_count>' => (string)(int)($payload['member_count'] ?? 0),
         '<joined_count>' => (string)(int)($payload['joined_count'] ?? 0),
         '<left_count>' => (string)(int)($payload['left_count'] ?? 0),
+        '<needs>' => (string)($payload['needs'] ?? 'adventurers'),
+        '<need_1>' => (string)($payload['need_1'] ?? 'adventurers'),
+        '<need_2>' => (string)($payload['need_2'] ?? 'company'),
+        '<role_summary>' => (string)($payload['role_summary'] ?? 'a mixed company'),
+        '<average_level>' => (string)($payload['average_level'] ?? 0),
+        '<level_band>' => (string)($payload['level_band'] ?? 'unknown'),
     ];
 
     return trim(strtr($template, $replacements));
@@ -1668,6 +1852,28 @@ foreach ($events as $event) {
                 $guildSummary['thread_topic_id'] = (int)$topicId;
                 $guildSummary['roster_post_id'] = (int)$rosterPostId;
                 $guildSummary['recruitment_status'] = 'active';
+                if (empty($guildSummary['recruitment_profile']) || !is_array($guildSummary['recruitment_profile'])) {
+                    $guildSummary['recruitment_profile'] = array();
+                }
+                if (!empty($payload['guild_type'])) {
+                    $guildSummary['recruitment_profile']['guild_type'] = (string)$payload['guild_type'];
+                }
+                if (!empty($payload['guild_variant'])) {
+                    $guildSummary['recruitment_profile']['guild_variant'] = (string)$payload['guild_variant'];
+                }
+                if (!empty($payload['role_profile']) && is_array($payload['role_profile'])) {
+                    $guildSummary['recruitment_profile']['role_profile'] = (array)$payload['role_profile'];
+                }
+                if (!empty($payload['role_needs']) && is_array($payload['role_needs'])) {
+                    $guildSummary['recruitment_profile']['role_needs'] = array_values($payload['role_needs']);
+                }
+                if (isset($payload['average_level'])) {
+                    $guildSummary['recruitment_profile']['average_level'] = (float)$payload['average_level'];
+                }
+                if (!empty($payload['level_band'])) {
+                    $guildSummary['recruitment_profile']['level_band'] = (string)$payload['level_band'];
+                }
+                $guildSummary['recruitment_profile']['captured_at'] = date('Y-m-d H:i:s', $rosterPostTime);
                 $guildSummary['roster']['member_guids'] = $rosterSnapshot['member_guids'] ?? [];
                 $guildSummary['roster']['member_details'] = $rosterSnapshot['member_details'] ?? [];
                 $guildSummary['roster']['member_count'] = (int)($rosterSnapshot['member_count'] ?? 0);

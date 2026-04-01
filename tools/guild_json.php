@@ -74,6 +74,21 @@ function guild_json_skeleton(
             'captured_at'    => date('Y-m-d H:i:s'),
         ],
         'last_forum_roster_post' => null,
+        'recruitment_profile' => [
+            'guild_type' => null,
+            'guild_variant' => null,
+            'role_profile' => [
+                'tanks' => 0,
+                'healers' => 0,
+                'melee_dps' => 0,
+                'ranged_dps' => 0,
+                'support_hybrid' => 0,
+            ],
+            'role_needs' => [],
+            'average_level' => 0,
+            'level_band' => 'unknown',
+            'captured_at' => date('Y-m-d H:i:s'),
+        ],
         'pending_delta' => [
             'joined_guids' => [],
             'left_guids'   => [],

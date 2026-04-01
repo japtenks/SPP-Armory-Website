@@ -155,22 +155,22 @@ function spp_admin_playerbots_handle_action(PDO $charsPdo, int $realmId): void
             if (!empty($keys)) {
                 $placeholders = implode(',', array_fill(0, count($keys), '?'));
                 $deleteStmt = $worldPdo->prepare("
-                    DELETE FROM `ai_playerbot_help_texts`
+                    DELETE FROM `ai_playerbot_texts`
                     WHERE `name` IN ($placeholders)
                 ");
                 $deleteStmt->execute($keys);
             }
 
             $insertStmt = $worldPdo->prepare("
-                INSERT INTO `ai_playerbot_help_texts`
-                    (`name`, `template_changed`, `template_text`, `text`, `text_loc1`, `text_loc2`, `text_loc3`, `text_loc4`, `text_loc5`, `text_loc6`, `text_loc7`, `text_loc8`, `locs_updated`)
+                INSERT INTO `ai_playerbot_texts`
+                    (`name`, `text`, `say_type`, `reply_type`, `text_loc1`, `text_loc2`, `text_loc3`, `text_loc4`, `text_loc5`, `text_loc6`, `text_loc7`, `text_loc8`)
                 VALUES
-                    (?, 0, ?, ?, '', '', '', '', '', '', '', '', 0)
+                    (?, ?, 0, 0, '', '', '', '', '', '', '', '')
             ");
 
             foreach ($toneValues as $toneKey => $lines) {
                 foreach ($lines as $line) {
-                    $insertStmt->execute(array($toneKey, $line, $line));
+                    $insertStmt->execute(array($toneKey, $line));
                 }
             }
 
@@ -180,7 +180,7 @@ function spp_admin_playerbots_handle_action(PDO $charsPdo, int $realmId): void
                 $worldPdo->rollBack();
             }
             error_log('[admin.playerbots] Failed saving forum tone rows: ' . $e->getMessage());
-            output_message('alert', 'Saving forum reply tone failed.');
+            output_message('alert', 'Saving forum chatter tone failed.');
             return;
         }
 
