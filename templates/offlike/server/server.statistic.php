@@ -244,6 +244,75 @@
   font-weight: 700;
 }
 
+.class-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.class-mini-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  padding: 14px 16px;
+}
+
+.class-mini-card h4 {
+  margin: 0 0 4px;
+  color: #f2d086;
+  font-size: 1rem;
+}
+
+.class-mini-note {
+  margin: 0 0 12px;
+  color: #9f9f9f;
+  font-size: 0.8rem;
+}
+
+.class-bucket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.class-bucket-row {
+  display: grid;
+  grid-template-columns: 92px minmax(100px, 1fr) 48px;
+  gap: 10px;
+  align-items: center;
+}
+
+.class-bucket-label {
+  color: #ddd;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.class-bucket-value {
+  text-align: right;
+  color: #f2d086;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.class-split-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.class-split-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: #ddd;
+  font-size: 0.95rem;
+}
+
+.class-split-stat strong {
+  color: #f2d086;
+}
+
 @media (max-width: 860px) {
   .faction-wrapper {
     max-width: 500px;
@@ -265,6 +334,12 @@
   .class-column-track {
     height: 180px;
   }
+  .class-mini-grid {
+    grid-template-columns: 1fr;
+  }
+  .class-bucket-row {
+    grid-template-columns: 82px minmax(90px, 1fr) 42px;
+  }
 }
 select {
   background:#111;
@@ -282,6 +357,66 @@ builddiv_start(1, $lang['statistic'],1); ?>
 <div class="modern-content">
 
 <?php
+function spp_stat_median(array $values) {
+  $values = array_values(array_filter($values, static function ($value) {
+    return is_numeric($value);
+  }));
+  if (empty($values)) {
+    return 0;
+  }
+  sort($values, SORT_NUMERIC);
+  $count = count($values);
+  $middle = (int)floor(($count - 1) / 2);
+  if ($count % 2 === 0) {
+    return (int)round(($values[$middle] + $values[$middle + 1]) / 2);
+  }
+  return (int)$values[$middle];
+}
+
+function spp_stat_format_playtime($seconds) {
+  if (!is_numeric($seconds) || (int)$seconds <= 0) {
+    return '—';
+  }
+  $seconds = (int)$seconds;
+  if ($seconds >= 86400) {
+    return round($seconds / 86400, 1) . 'd';
+  }
+  if ($seconds >= 3600) {
+    return round($seconds / 3600, 1) . 'h';
+  }
+  if ($seconds >= 60) {
+    return round($seconds / 60, 1) . 'm';
+  }
+  return $seconds . 's';
+}
+
+function spp_stat_table_exists(PDO $pdo, $tableName) {
+  static $cache = [];
+  $key = spl_object_hash($pdo) . ':' . $tableName;
+  if (isset($cache[$key])) {
+    return $cache[$key];
+  }
+  $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
+  $stmt->execute([$tableName]);
+  return $cache[$key] = (bool)$stmt->fetchColumn();
+}
+
+function spp_stat_columns(PDO $pdo, $tableName) {
+  static $cache = [];
+  $key = spl_object_hash($pdo) . ':' . $tableName;
+  if (isset($cache[$key])) {
+    return $cache[$key];
+  }
+  $columns = [];
+  if (!spp_stat_table_exists($pdo, $tableName)) {
+    return $cache[$key] = $columns;
+  }
+  foreach ($pdo->query('SHOW COLUMNS FROM `' . str_replace('`', '``', $tableName) . '`')->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $columns[$row['Field']] = true;
+  }
+  return $cache[$key] = $columns;
+}
+
 /* ---------- Realm selection ---------- */
 $realmId = (int)($_GET['realm'] ?? 1);
 switch ($realmId) {
@@ -294,6 +429,7 @@ switch ($realmId) {
 /* ---------- Character data ---------- */
 $rc = [];
 $num_chars = 0;
+$statCharPdo = null;
 
 try {
   $statCharPdo = spp_get_pdo('chars', $realmId);
@@ -350,59 +486,242 @@ if ($realmId >= 2) {
 if ($realmId >= 3) {
   $availableClassOrder[] = 10;
 }
+$realmdDbName = $realmDbMap[$realmId]['realmd'] ?? 'classicrealmd';
+$botAccountIds = [];
+try {
+  $botAccountRows = $statCharPdo instanceof PDO
+    ? $statCharPdo->query("SELECT `id` FROM `{$realmdDbName}`.`account` WHERE LOWER(`username`) LIKE 'rndbot%'")->fetchAll(PDO::FETCH_COLUMN)
+    : [];
+  foreach (($botAccountRows ?: []) as $botAccountId) {
+    $botAccountIds[(int)$botAccountId] = true;
+  }
+} catch (Exception $e) {
+  $botAccountIds = [];
+}
 
 $classCounts = [];
 $classLevels = [];
+$classPlaytimes = [];
+$classItemLevels = [];
+$classOnlineCounts = [];
+$classGuildedCounts = [];
+$classQuestCompletions = [];
+$classHonorableKills = [];
+$realmQuestCompletions = [];
+$botQuestCompletions = [];
+$playerQuestCompletions = [];
+$totalBots = 0;
+$totalPlayers = 0;
+$playtimeBuckets = [
+  'Under 2h' => 0,
+  '2h - 10h' => 0,
+  '10h - 24h' => 0,
+  '1d - 3d' => 0,
+  '3d+' => 0,
+];
+$characterColumns = $statCharPdo instanceof PDO ? spp_stat_columns($statCharPdo, 'characters') : [];
+$honorableKillsSql = '0';
+if (isset($characterColumns['stored_honorable_kills'])) {
+  $honorableKillsSql = 'COALESCE(c.stored_honorable_kills, 0)';
+} elseif (isset($characterColumns['totalKills'])) {
+  $honorableKillsSql = 'COALESCE(c.totalKills, 0)';
+}
 try {
-  $classData = $statCharPdo->query("
-    SELECT class, level
-    FROM characters
+  $classData = $statCharPdo instanceof PDO ? $statCharPdo->query("
+    SELECT c.class, c.level, c.totaltime, c.account, c.online,
+           {$honorableKillsSql} AS honorable_kills,
+           gm.guildid
+    FROM characters c
+    LEFT JOIN guild_member gm ON gm.guid = c.guid
     WHERE NOT (level = 1 AND xp = 0)
-      AND class IS NOT NULL
-      AND level > 0
-  ")->fetchAll(PDO::FETCH_ASSOC);
+      AND c.class IS NOT NULL
+      AND c.level > 0
+  ")->fetchAll(PDO::FETCH_ASSOC) : [];
   foreach ($classData as $row) {
     $classId = (int)($row['class'] ?? 0);
     $level = (int)($row['level'] ?? 0);
+    $totaltime = (int)($row['totaltime'] ?? 0);
+    $accountId = (int)($row['account'] ?? 0);
+    $online = !empty($row['online']) ? 1 : 0;
+    $honorableKills = (int)($row['honorable_kills'] ?? 0);
+    $guildId = (int)($row['guildid'] ?? 0);
     if (!isset($classMeta[$classId]) || $level <= 0) {
       continue;
     }
     if (!isset($classCounts[$classId])) {
       $classCounts[$classId] = 0;
       $classLevels[$classId] = [];
+      $classPlaytimes[$classId] = [];
+      $classOnlineCounts[$classId] = 0;
+      $classGuildedCounts[$classId] = 0;
+      $classHonorableKills[$classId] = [];
     }
     $classCounts[$classId]++;
     $classLevels[$classId][] = $level;
+    $classPlaytimes[$classId][] = max(0, $totaltime);
+    $classOnlineCounts[$classId] += $online;
+    if ($guildId > 0) {
+      $classGuildedCounts[$classId]++;
+    }
+    $classHonorableKills[$classId][] = max(0, $honorableKills);
+
+    if ($totaltime < 7200) {
+      $playtimeBuckets['Under 2h']++;
+    } elseif ($totaltime < 36000) {
+      $playtimeBuckets['2h - 10h']++;
+    } elseif ($totaltime < 86400) {
+      $playtimeBuckets['10h - 24h']++;
+    } elseif ($totaltime < 259200) {
+      $playtimeBuckets['1d - 3d']++;
+    } else {
+      $playtimeBuckets['3d+']++;
+    }
+
+    if ($accountId > 0) {
+      if (isset($botAccountIds[$accountId])) {
+        $totalBots++;
+      } else {
+        $totalPlayers++;
+      }
+    }
   }
 } catch (Exception $e) {
   $classCounts = [];
   $classLevels = [];
+  $classPlaytimes = [];
+}
+
+try {
+  if ($statCharPdo instanceof PDO && spp_stat_table_exists($statCharPdo, 'character_queststatus')) {
+    $questRows = $statCharPdo->query("
+      SELECT c.class, c.account, COUNT(*) AS completed_quests
+      FROM character_queststatus qs
+      INNER JOIN characters c ON c.guid = qs.guid
+      WHERE NOT (c.level = 1 AND c.xp = 0)
+        AND c.class IS NOT NULL
+        AND c.level > 0
+        AND qs.rewarded <> 0
+      GROUP BY qs.guid, c.class, c.account
+    ")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($questRows as $row) {
+      $classId = (int)($row['class'] ?? 0);
+      $completed = (int)($row['completed_quests'] ?? 0);
+      $accountId = (int)($row['account'] ?? 0);
+      if (!isset($classMeta[$classId])) {
+        continue;
+      }
+      if (!isset($classQuestCompletions[$classId])) {
+        $classQuestCompletions[$classId] = [];
+      }
+      $classQuestCompletions[$classId][] = $completed;
+      $realmQuestCompletions[] = $completed;
+      if ($accountId > 0 && isset($botAccountIds[$accountId])) {
+        $botQuestCompletions[] = $completed;
+      } else {
+        $playerQuestCompletions[] = $completed;
+      }
+    }
+  }
+} catch (Exception $e) {
+  $classQuestCompletions = [];
+  $realmQuestCompletions = [];
+  $botQuestCompletions = [];
+  $playerQuestCompletions = [];
+}
+
+try {
+  $itemLevelRows = $statCharPdo instanceof PDO ? $statCharPdo->query("
+    SELECT c.class, ROUND(AVG(it.ItemLevel), 1) AS avg_item_level
+    FROM characters c
+    INNER JOIN character_inventory ci ON ci.guid = c.guid
+    INNER JOIN " . (($realmId === 1) ? 'classicmangos' : (($realmId === 2) ? 'tbcmangos' : 'wotlkmangos')) . ".item_template it ON it.entry = ci.item_template
+    WHERE NOT (c.level = 1 AND c.xp = 0)
+      AND c.class IS NOT NULL
+      AND c.level > 0
+      AND ci.bag = 0
+      AND ci.slot BETWEEN 0 AND 18
+      AND ci.slot NOT IN (3, 18)
+      AND ci.item_template > 0
+      AND it.ItemLevel > 0
+    GROUP BY c.guid, c.class
+  ")->fetchAll(PDO::FETCH_ASSOC) : [];
+  foreach ($itemLevelRows as $row) {
+    $classId = (int)($row['class'] ?? 0);
+    $avgItemLevel = (float)($row['avg_item_level'] ?? 0);
+    if (!isset($classMeta[$classId]) || $avgItemLevel <= 0) {
+      continue;
+    }
+    if (!isset($classItemLevels[$classId])) {
+      $classItemLevels[$classId] = [];
+    }
+    $classItemLevels[$classId][] = $avgItemLevel;
+  }
+} catch (Exception $e) {
+  $classItemLevels = [];
 }
 
 $classCountMax = !empty($classCounts) ? max($classCounts) : 0;
 $classMedianMax = 0;
+$classPlaytimeMedianMax = 0;
+$classGearMedianMax = 0;
+$classOnlineShareMax = 0;
+$classGuildedShareMax = 0;
+$classHonorMedianMax = 0;
+$playtimeBucketMax = !empty($playtimeBuckets) ? max($playtimeBuckets) : 0;
 $classCards = [];
 foreach ($availableClassOrder as $classId) {
   $levels = $classLevels[$classId] ?? [];
-  sort($levels, SORT_NUMERIC);
   $count = (int)($classCounts[$classId] ?? 0);
-  $median = 0;
-  if ($count > 0) {
-    $middle = (int)floor(($count - 1) / 2);
-    if ($count % 2 === 0) {
-      $median = (int)round(($levels[$middle] + $levels[$middle + 1]) / 2);
-    } else {
-      $median = (int)$levels[$middle];
-    }
-  }
+  $median = spp_stat_median($levels);
+  $playtimes = $classPlaytimes[$classId] ?? [];
+  $medianPlaytime = spp_stat_median($playtimes);
+  $avgPlaytime = !empty($playtimes) ? (int)round(array_sum($playtimes) / count($playtimes)) : 0;
+  $gearLevels = $classItemLevels[$classId] ?? [];
+  $medianGear = spp_stat_median($gearLevels);
+  $avgGear = !empty($gearLevels) ? round(array_sum($gearLevels) / count($gearLevels), 1) : 0;
+  $onlineCount = (int)($classOnlineCounts[$classId] ?? 0);
+  $onlineShare = $count > 0 ? round(($onlineCount / $count) * 100, 1) : 0;
+  $guildedCount = (int)($classGuildedCounts[$classId] ?? 0);
+  $guildedShare = $count > 0 ? round(($guildedCount / $count) * 100, 1) : 0;
+  $honorMedian = spp_stat_median($classHonorableKills[$classId] ?? []);
   $classMedianMax = max($classMedianMax, $median);
+  $classPlaytimeMedianMax = max($classPlaytimeMedianMax, $medianPlaytime);
+  $classGearMedianMax = max($classGearMedianMax, $medianGear);
+  $classOnlineShareMax = max($classOnlineShareMax, $onlineShare);
+  $classGuildedShareMax = max($classGuildedShareMax, $guildedShare);
+  $classHonorMedianMax = max($classHonorMedianMax, $honorMedian);
   $classCards[$classId] = [
     'name' => $classMeta[$classId]['name'],
     'color' => $classMeta[$classId]['color'],
     'count' => $count,
     'median_level' => $median,
+    'median_playtime' => $medianPlaytime,
+    'avg_playtime' => $avgPlaytime,
+    'median_gear' => $medianGear,
+    'avg_gear' => $avgGear,
+    'online_share' => $onlineShare,
+    'guilded_share' => $guildedShare,
+    'median_honorable_kills' => $honorMedian,
   ];
 }
+$accountSplitTotal = $totalBots + $totalPlayers;
+$questOverview = [
+  'realm' => [
+    'max' => !empty($realmQuestCompletions) ? max($realmQuestCompletions) : 0,
+    'avg' => !empty($realmQuestCompletions) ? round(array_sum($realmQuestCompletions) / count($realmQuestCompletions), 1) : 0,
+    'median' => spp_stat_median($realmQuestCompletions),
+  ],
+  'bots' => [
+    'max' => !empty($botQuestCompletions) ? max($botQuestCompletions) : 0,
+    'avg' => !empty($botQuestCompletions) ? round(array_sum($botQuestCompletions) / count($botQuestCompletions), 1) : 0,
+    'median' => spp_stat_median($botQuestCompletions),
+  ],
+  'players' => [
+    'max' => !empty($playerQuestCompletions) ? max($playerQuestCompletions) : 0,
+    'avg' => !empty($playerQuestCompletions) ? round(array_sum($playerQuestCompletions) / count($playerQuestCompletions), 1) : 0,
+    'median' => spp_stat_median($playerQuestCompletions),
+  ],
+];
 ?>
 
 <?php if ($num_chars == 0): ?>
@@ -516,6 +835,167 @@ foreach ($availableClassOrder as $classId) {
                 </div>
               </div>
             <?php endforeach; ?>
+          </div>
+        </div>
+
+        <div class="class-panel">
+          <h3>Typical Class Play Time</h3>
+          <p class="panel-note">Median play time by class, with average as a quick comparison.</p>
+          <div class="class-bars">
+            <?php foreach ($availableClassOrder as $classId): ?>
+              <?php $class = $classCards[$classId]; ?>
+              <?php $width = $classPlaytimeMedianMax > 0 ? max(4, (int)round(($class['median_playtime'] / $classPlaytimeMedianMax) * 100)) : 0; ?>
+              <div class="class-row">
+                <div class="class-label" style="color: <?php echo htmlspecialchars($class['color']); ?>;">
+                  <?php echo htmlspecialchars($class['name']); ?>
+                </div>
+                <div class="class-bar-track" title="Avg: <?php echo htmlspecialchars(spp_stat_format_playtime($class['avg_playtime'])); ?>">
+                  <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: <?php echo htmlspecialchars($class['color']); ?>;"></div>
+                </div>
+                <div class="class-value"><?php echo htmlspecialchars(spp_stat_format_playtime($class['median_playtime'])); ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <div class="class-panel">
+          <h3>Typical Class Gear</h3>
+          <p class="panel-note">Median equipped item level by class, using per-character average equipped gear.</p>
+          <div class="class-bars">
+            <?php foreach ($availableClassOrder as $classId): ?>
+              <?php $class = $classCards[$classId]; ?>
+              <?php $width = $classGearMedianMax > 0 ? max(4, (int)round(($class['median_gear'] / $classGearMedianMax) * 100)) : 0; ?>
+              <div class="class-row">
+                <div class="class-label" style="color: <?php echo htmlspecialchars($class['color']); ?>;">
+                  <?php echo htmlspecialchars($class['name']); ?>
+                </div>
+                <div class="class-bar-track" title="Avg: <?php echo $class['avg_gear'] > 0 ? htmlspecialchars(number_format((float)$class['avg_gear'], 1)) : '—'; ?>">
+                  <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: <?php echo htmlspecialchars($class['color']); ?>;"></div>
+                </div>
+                <div class="class-value"><?php echo $class['median_gear'] > 0 ? htmlspecialchars(number_format((float)$class['median_gear'], 1)) : '—'; ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <div class="class-panel">
+          <h3>Online Share by Class</h3>
+          <p class="panel-note">How much of each class is online right now.</p>
+          <div class="class-bars">
+            <?php foreach ($availableClassOrder as $classId): ?>
+              <?php $class = $classCards[$classId]; ?>
+              <?php $width = $classOnlineShareMax > 0 ? max(4, (int)round(($class['online_share'] / $classOnlineShareMax) * 100)) : 0; ?>
+              <div class="class-row">
+                <div class="class-label" style="color: <?php echo htmlspecialchars($class['color']); ?>;">
+                  <?php echo htmlspecialchars($class['name']); ?>
+                </div>
+                <div class="class-bar-track">
+                  <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: <?php echo htmlspecialchars($class['color']); ?>;"></div>
+                </div>
+                <div class="class-value"><?php echo htmlspecialchars(number_format((float)$class['online_share'], 1)); ?>%</div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <div class="class-panel">
+          <h3>Guilded Share by Class</h3>
+          <p class="panel-note">How much of each class is currently attached to a guild.</p>
+          <div class="class-bars">
+            <?php foreach ($availableClassOrder as $classId): ?>
+              <?php $class = $classCards[$classId]; ?>
+              <?php $width = $classGuildedShareMax > 0 ? max(4, (int)round(($class['guilded_share'] / $classGuildedShareMax) * 100)) : 0; ?>
+              <div class="class-row">
+                <div class="class-label" style="color: <?php echo htmlspecialchars($class['color']); ?>;">
+                  <?php echo htmlspecialchars($class['name']); ?>
+                </div>
+                <div class="class-bar-track">
+                  <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: <?php echo htmlspecialchars($class['color']); ?>;"></div>
+                </div>
+                <div class="class-value"><?php echo htmlspecialchars(number_format((float)$class['guilded_share'], 1)); ?>%</div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <div class="class-panel">
+          <h3>PvP Tendency</h3>
+          <p class="panel-note">Median honorable kills by class for a quick PvP-flavor read.</p>
+          <div class="class-bars">
+            <?php foreach ($availableClassOrder as $classId): ?>
+              <?php $class = $classCards[$classId]; ?>
+              <?php $width = $classHonorMedianMax > 0 ? max(4, (int)round(($class['median_honorable_kills'] / $classHonorMedianMax) * 100)) : 0; ?>
+              <div class="class-row">
+                <div class="class-label" style="color: <?php echo htmlspecialchars($class['color']); ?>;">
+                  <?php echo htmlspecialchars($class['name']); ?>
+                </div>
+                <div class="class-bar-track">
+                  <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: <?php echo htmlspecialchars($class['color']); ?>;"></div>
+                </div>
+                <div class="class-value"><?php echo (int)$class['median_honorable_kills']; ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <div class="class-panel">
+          <h3>Realm Play Time Mix</h3>
+          <p class="panel-note">Overall time investment buckets and a rough bot/player split.</p>
+          <div class="class-mini-grid">
+            <div class="class-mini-card">
+              <h4>Play Time Buckets</h4>
+              <p class="class-mini-note">A quick feel for how alt-heavy or main-heavy the realm is.</p>
+              <div class="class-bucket-list">
+                <?php foreach ($playtimeBuckets as $label => $count): ?>
+                  <?php $width = $playtimeBucketMax > 0 ? max(4, (int)round(($count / $playtimeBucketMax) * 100)) : 0; ?>
+                  <div class="class-bucket-row">
+                    <div class="class-bucket-label"><?php echo htmlspecialchars($label); ?></div>
+                    <div class="class-bar-track">
+                      <div class="class-bar-fill" style="width: <?php echo $width; ?>%; background: linear-gradient(90deg, #d69c3f, rgba(255,255,255,0.12));"></div>
+                    </div>
+                    <div class="class-bucket-value"><?php echo (int)$count; ?></div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+
+            <div class="class-mini-card">
+              <h4>Bot vs Player Split</h4>
+              <p class="class-mini-note">Pulled from auth accounts matching the <code>rndbot</code> naming pattern.</p>
+              <div class="class-split-card">
+                <div class="class-split-stat">
+                  <span>Players</span>
+                  <strong><?php echo (int)$totalPlayers; ?><?php echo $accountSplitTotal > 0 ? ' (' . round(($totalPlayers / $accountSplitTotal) * 100, 1) . '%)' : ''; ?></strong>
+                </div>
+                <div class="class-split-stat">
+                  <span>Bots</span>
+                  <strong><?php echo (int)$totalBots; ?><?php echo $accountSplitTotal > 0 ? ' (' . round(($totalBots / $accountSplitTotal) * 100, 1) . '%)' : ''; ?></strong>
+                </div>
+                <div class="class-split-stat">
+                  <span>Total tracked</span>
+                  <strong><?php echo (int)$accountSplitTotal; ?></strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="class-mini-card">
+              <h4>Quest Completion Overview</h4>
+              <p class="class-mini-note">Rewarded quest completions split by realm, bots, and players.</p>
+              <div class="class-split-card">
+                <div class="class-split-stat">
+                  <span>Realm max / avg / median</span>
+                  <strong><?php echo (int)$questOverview['realm']['max']; ?> / <?php echo htmlspecialchars(number_format((float)$questOverview['realm']['avg'], 1)); ?> / <?php echo (int)$questOverview['realm']['median']; ?></strong>
+                </div>
+                <div class="class-split-stat">
+                  <span>Bots max / avg / median</span>
+                  <strong><?php echo (int)$questOverview['bots']['max']; ?> / <?php echo htmlspecialchars(number_format((float)$questOverview['bots']['avg'], 1)); ?> / <?php echo (int)$questOverview['bots']['median']; ?></strong>
+                </div>
+                <div class="class-split-stat">
+                  <span>Players max / avg / median</span>
+                  <strong><?php echo (int)$questOverview['players']['max']; ?> / <?php echo htmlspecialchars(number_format((float)$questOverview['players']['avg'], 1)); ?> / <?php echo (int)$questOverview['players']['median']; ?></strong>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
