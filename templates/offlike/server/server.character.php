@@ -440,6 +440,15 @@ function spp_character_is_playerbot_account_name(?string $accountUsername): bool
     return $accountUsername !== '' && strpos($accountUsername, 'rndbot') !== false;
 }
 
+function spp_character_format_duration_short($seconds): string {
+    if ($seconds === null || $seconds === '' || !is_numeric($seconds) || (float)$seconds < 0) return 'N/A';
+    $seconds = (int)round((float)$seconds);
+    if ($seconds >= 86400) return round($seconds / 86400, 1) . 'd';
+    if ($seconds >= 3600) return round($seconds / 3600, 1) . 'h';
+    if ($seconds >= 60) return round($seconds / 60, 1) . 'm';
+    return $seconds . 's';
+}
+
 function spp_character_profession_spell_matches_skill($skillId, $spellName, $itemName = '') {
     $skillId = (int)$skillId;
     $haystack = strtolower(trim((string)$spellName . ' ' . $itemName));
@@ -1010,6 +1019,18 @@ $forumSocial = array(
     'last_topic' => 0,
     'recent_posts' => array(),
     'recent_topics' => array(),
+    'rotation_online_sessions' => 0,
+    'rotation_offline_sessions' => 0,
+    'rotation_full_cycles' => 0,
+    'rotation_last_online' => 0,
+    'rotation_online_seconds' => 0,
+    'rotation_offline_seconds' => 0,
+    'rotation_online_avg_seconds' => null,
+    'rotation_offline_avg_seconds' => null,
+    'rotation_current_span_seconds' => null,
+    'rotation_last_seen' => '',
+    'rotation_last_change' => '',
+    'rotation_tracked' => false,
 );
 $botPersonalityText = '';
 $botSignatureText = '';
@@ -1195,6 +1216,50 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
             error_log('[character-social] ' . $e->getMessage());
         }
 
+        try {
+            if ($realmdPdo instanceof PDO && spp_character_table_exists($realmdPdo, 'bot_rotation_state')) {
+                $stmt = $realmdPdo->prepare('
+                    SELECT `last_online`, `online_seconds`, `offline_seconds`,
+                           `online_sessions`, `offline_sessions`,
+                           `last_seen_time`, `last_change_time`,
+                           `last_online_start`, `last_offline_start`,
+                           TIMESTAMPDIFF(SECOND, `last_online_start`, NOW()) AS `online_span_seconds`,
+                           TIMESTAMPDIFF(SECOND, `last_offline_start`, NOW()) AS `offline_span_seconds`
+                    FROM `bot_rotation_state`
+                    WHERE `realm` = ? AND `bot_guid` = ?
+                    LIMIT 1
+                ');
+                $stmt->execute(array($realmId, $characterGuid));
+                $rotationState = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                if ($rotationState) {
+                    $forumSocial['rotation_last_online'] = !empty($rotationState['last_online']) ? 1 : 0;
+                    $forumSocial['rotation_online_seconds'] = (int)($rotationState['online_seconds'] ?? 0);
+                    $forumSocial['rotation_offline_seconds'] = (int)($rotationState['offline_seconds'] ?? 0);
+                    $forumSocial['rotation_online_sessions'] = (int)($rotationState['online_sessions'] ?? 0);
+                    $forumSocial['rotation_offline_sessions'] = (int)($rotationState['offline_sessions'] ?? 0);
+                    $forumSocial['rotation_full_cycles'] = min(
+                        $forumSocial['rotation_online_sessions'],
+                        $forumSocial['rotation_offline_sessions']
+                    );
+                    $forumSocial['rotation_online_avg_seconds'] = $forumSocial['rotation_online_sessions'] > 0
+                        ? ($forumSocial['rotation_online_seconds'] / $forumSocial['rotation_online_sessions'])
+                        : null;
+                    $forumSocial['rotation_offline_avg_seconds'] = $forumSocial['rotation_offline_sessions'] > 0
+                        ? ($forumSocial['rotation_offline_seconds'] / $forumSocial['rotation_offline_sessions'])
+                        : null;
+                    $forumSocial['rotation_last_seen'] = (string)($rotationState['last_seen_time'] ?? '');
+                    $forumSocial['rotation_last_change'] = (string)($rotationState['last_change_time'] ?? '');
+                    $forumSocial['rotation_tracked'] = true;
+                    $forumSocial['rotation_current_span_seconds'] = !empty($forumSocial['rotation_last_online'])
+                        ? max(0, (int)($rotationState['online_span_seconds'] ?? 0))
+                        : max(0, (int)($rotationState['offline_span_seconds'] ?? 0));
+                }
+            }
+        } catch (Exception $e) {
+            error_log('[character-rotation-social] ' . $e->getMessage());
+        }
+
+        $botSignatureText = (string)($forumSocial['signature'] ?? '');
         $characterIsBot = spp_character_is_playerbot_account_name((string)($forumSocial['account_username'] ?? ''));
         $canManageBotPersonality = $characterIsBot && (int)($user['gmlevel'] ?? 0) >= 1;
         if ($canManageBotPersonality && !in_array('personality', $tabs, true)) {
@@ -2084,7 +2149,6 @@ if (!is_array($realmMap) || !isset($realmMap[$realmId])) {
                 error_log('[character-personality-read] ' . $e->getMessage());
             }
 
-            $botSignatureText = (string)($forumSocial['signature'] ?? '');
             $characterStrategyState = spp_admin_playerbots_fetch_character_strategy_state($charsPdo, $characterGuid);
         }
 
@@ -2348,13 +2412,14 @@ $paperdollRightDefault = in_array((int)($character['class'] ?? 0), array(3), tru
 ?>
 
 <style>
-.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-hero>*{position:relative;z-index:1}.character-hero-mark{position:absolute;right:320px;top:34px;bottom:34px;width:min(360px,26vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}.character-hero-mark img{width:100%;max-width:340px;max-height:100%;object-fit:contain;opacity:.14;filter:drop-shadow(0 10px 24px rgba(0,0,0,.3))}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700;transition:background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease,transform .2s ease}.character-tab:hover{color:#fff3c4;border-color:rgba(255,204,72,.34);background:linear-gradient(180deg,rgba(255,216,122,.16),rgba(130,84,14,.18));box-shadow:0 0 0 1px rgba(255,204,72,.1),0 8px 20px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,245,214,.08);transform:translateY(-1px)}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45);box-shadow:0 10px 22px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.18)}.character-tab.is-active:hover{color:#120d03;transform:none}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img,.character-achievement-icon{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub,.character-achievement-meta{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}.character-achievement-list{gap:14px}.character-achievement-item{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:start}.character-achievement-icon{width:48px;height:48px;display:block}.character-achievement-title{color:#f7edd0;font-size:1.02rem;font-weight:800;line-height:1.2}.character-achievement-points-badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,204,72,.08);color:#ffd467;font-weight:800}.character-achievement-sections{display:grid;gap:18px}.character-achievement-section{display:grid;gap:12px}.character-achievement-disclosure{border:1px solid rgba(255,196,0,.16);border-radius:18px;background:rgba(5,8,18,.38)}.character-achievement-disclosure[open]{background:rgba(5,8,18,.5)}.character-achievement-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;cursor:pointer;list-style:none}.character-achievement-summary::-webkit-details-marker{display:none}.character-achievement-summary::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}.character-achievement-disclosure[open]>.character-achievement-summary::after{content:'-'}.character-achievement-summary-text{display:flex;flex-direction:column;gap:4px;min-width:0}.character-achievement-section-title{margin:0;color:#ffe39a;font-size:1.15rem}.character-achievement-count{color:#aa9870;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-disclosure-body{display:grid;gap:12px;padding:0 18px 18px}.character-achievement-subtitle{margin:0 0 4px;color:#c7b07b;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}.character-hero-mark{right:24px;top:auto;bottom:18px;width:min(300px,52vw);height:180px;justify-content:flex-end}.character-hero-mark img{max-width:220px;opacity:.1}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}.character-hero-mark{display:none}.character-achievement-item{grid-template-columns:40px minmax(0,1fr)}.character-achievement-points-badge{grid-column:2}.character-achievement-summary{padding:12px 14px}.character-achievement-disclosure-body{padding:0 14px 14px}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid,.character-achievement-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
+.character-page{display:grid;gap:18px;color:#f4ead0}.character-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.9fr);gap:22px;padding:28px;border-radius:22px;border:1px solid rgba(255,196,0,.22);background:radial-gradient(circle at top right,rgba(255,178,54,.15),transparent 36%),linear-gradient(180deg,rgba(8,10,20,.98),rgba(5,6,14,1))}.character-hero>*{position:relative;z-index:1}.character-hero-mark{position:absolute;right:320px;top:34px;bottom:34px;width:min(360px,26vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}.character-hero-mark img{width:100%;max-width:340px;max-height:100%;object-fit:contain;opacity:.14;filter:drop-shadow(0 10px 24px rgba(0,0,0,.3))}.character-hero-primary{display:grid;gap:12px}.character-identity{display:flex;gap:20px;align-items:flex-start}.character-portrait{width:118px;height:118px;border-radius:26px;border:1px solid rgba(255,196,0,.38);background:#050505;object-fit:cover}.character-eyebrow{margin:0 0 8px;color:#c7b07b;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}.character-title{margin:0;font-size:2.7rem;line-height:1}.character-title a{color:inherit;text-decoration:none}.class-warrior{color:#C79C6E}.class-paladin{color:#F58CBA}.class-hunter{color:#ABD473}.class-rogue{color:#FFF569}.class-priest{color:#FFFFFF}.class-deathknight{color:#C41F3B}.class-shaman{color:#0070DE}.class-mage{color:#69CCF0}.class-warlock{color:#9482C9}.class-druid{color:#FF7D0A}.character-subtitle{margin:10px 0 0;color:#e2d4ae;font-size:1.05rem}.character-tabs{display:flex;gap:10px;flex-wrap:wrap}.character-guildline{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;color:#e2d4ae;font-size:1.05rem}.character-tab,.character-link{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,204,72,.16);background:rgba(255,255,255,.04);color:#f2dfb1;text-decoration:none;font-weight:700;transition:background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease,transform .2s ease}.character-tab:hover{color:#fff3c4;border-color:rgba(255,204,72,.34);background:linear-gradient(180deg,rgba(255,216,122,.16),rgba(130,84,14,.18));box-shadow:0 0 0 1px rgba(255,204,72,.1),0 8px 20px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,245,214,.08);transform:translateY(-1px)}.character-link{border-color:rgba(255,196,0,.34);color:#ffe39a;background:rgba(255,204,72,.06)}.character-tab.is-active{color:#120d03;background:linear-gradient(180deg,#ffd87a,#d9a63d);border-color:rgba(255,204,72,.45);box-shadow:0 10px 22px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.18)}.character-tab.is-active:hover{color:#120d03;transform:none}.character-hero-grid,.character-grid{display:grid;gap:18px}.character-hero-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-grid{grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr)}.character-stat-card,.character-panel,.character-item,.character-skill-item,.character-achievement-item{border-radius:18px;border:1px solid rgba(255,196,0,.18);background:rgba(5,8,18,.72)}.character-stat-card{padding:18px}.character-stat-label,.character-item-slot{display:block;margin-bottom:6px;color:#c4b27c;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.character-stat-value{color:#ffd467;font-size:1.55rem;font-weight:700}.character-panel{padding:22px 24px}.character-panel-title{margin:0 0 16px;color:#fff4c4;font-size:1.55rem}.character-facts,.character-bars,.character-skill-list,.character-achievement-list{display:grid;gap:12px}.character-fact{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,204,72,.12)}.character-fact:last-child{padding-bottom:0;border-bottom:0}.character-fact span{color:#bda877;font-size:.83rem;text-transform:uppercase;letter-spacing:.08em}.character-fact strong{color:#f7edd0;font-size:1.08rem}.character-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.character-snapshot-card{position:relative;overflow:hidden;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-snapshot-card::after{content:'';position:absolute;inset:auto -20% -40% auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.14),transparent 68%);pointer-events:none}.character-snapshot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.character-snapshot-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-snapshot-value{display:block;margin-top:6px;color:#fff3c4;font-size:1.6rem;font-weight:800;line-height:1}.character-snapshot-meta{margin-top:10px;color:#9ea8c7;font-size:.82rem}.character-snapshot-accent{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,204,72,.18);background:linear-gradient(180deg,rgba(255,217,90,.22),rgba(255,217,90,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}.character-equip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.character-item{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center;padding:14px}.character-item img,.character-skill-head img,.character-achievement-icon{border-radius:12px;border:1px solid rgba(255,204,72,.22);background:#090909}.character-item img{width:54px;height:54px}.character-item-name{margin-top:4px;font-weight:700}.character-item-name a{color:inherit;text-decoration:none}.quality-0{color:#9d9d9d}.quality-1{color:#fff}.quality-2{color:#1eff00}.quality-3{color:#0070dd}.quality-4{color:#a335ee}.quality-5{color:#ff8000}.character-item-meta,.character-skill-meta,.character-fact-sub,.character-achievement-meta{margin-top:4px;color:#aa9870;font-size:.88rem}.character-fact-list{display:grid;gap:8px}.character-fact-link{display:flex;align-items:center;gap:10px;color:#f7edd0;text-decoration:none;font-weight:700}.character-fact-link img{width:24px;height:24px;border-radius:8px;border:1px solid rgba(255,204,72,.18);background:#090909}.character-combat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.character-combat-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}.character-combat-card strong{display:block;color:#fff3c4;font-size:1.35rem;line-height:1.1}.character-combat-card span{display:block;margin-bottom:6px;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}.character-bar-label{display:flex;align-items:center;justify-content:space-between;color:#d8c89f;font-size:.92rem}.character-bar-track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}.character-bar-fill{height:100%;background:linear-gradient(90deg,#ffd45f,#ffeab0)}.character-skill-item,.character-achievement-item{padding:14px 16px}.character-skill-head{display:flex;align-items:center;gap:12px}.character-skill-head img{width:34px;height:34px}.character-empty,.character-error{padding:18px;border-radius:16px}.character-empty{background:rgba(255,255,255,.03);color:#c8b78c;border:1px dashed rgba(255,204,72,.16)}.character-error{background:rgba(95,16,16,.4);border:1px solid rgba(255,122,122,.25);color:#ffd5d5}.character-achievement-points{color:#ffd467;font-weight:700}.character-achievement-list{gap:14px}.character-achievement-item{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:start}.character-achievement-icon{width:48px;height:48px;display:block}.character-achievement-title{color:#f7edd0;font-size:1.02rem;font-weight:800;line-height:1.2}.character-achievement-points-badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,204,72,.08);color:#ffd467;font-weight:800}.character-achievement-sections{display:grid;gap:18px}.character-achievement-section{display:grid;gap:12px}.character-achievement-disclosure{border:1px solid rgba(255,196,0,.16);border-radius:18px;background:rgba(5,8,18,.38)}.character-achievement-disclosure[open]{background:rgba(5,8,18,.5)}.character-achievement-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;cursor:pointer;list-style:none}.character-achievement-summary::-webkit-details-marker{display:none}.character-achievement-summary::after{content:'+';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,204,72,.18);color:#ffd467;font-size:1rem;font-weight:800;flex:0 0 auto}.character-achievement-disclosure[open]>.character-achievement-summary::after{content:'-'}.character-achievement-summary-text{display:flex;flex-direction:column;gap:4px;min-width:0}.character-achievement-section-title{margin:0;color:#ffe39a;font-size:1.15rem}.character-achievement-count{color:#aa9870;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-disclosure-body{display:grid;gap:12px;padding:0 18px 18px}.character-achievement-subtitle{margin:0 0 4px;color:#c7b07b;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase}.character-achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}@media (max-width:1100px){.character-hero,.character-grid{grid-template-columns:1fr}.character-hero-mark{right:24px;top:auto;bottom:18px;width:min(300px,52vw);height:180px;justify-content:flex-end}.character-hero-mark img{max-width:220px;opacity:.1}}@media (max-width:720px){.character-identity{flex-direction:column}.character-title{font-size:2.1rem}.character-hero-grid{grid-template-columns:1fr 1fr}.character-hero-mark{display:none}.character-achievement-item{grid-template-columns:40px minmax(0,1fr)}.character-achievement-points-badge{grid-column:2}.character-achievement-summary{padding:12px 14px}.character-achievement-disclosure-body{padding:0 14px 14px}}@media (max-width:560px){.character-hero-grid,.character-snapshot-grid,.character-combat-grid,.character-achievement-grid{grid-template-columns:1fr}.character-item{grid-template-columns:46px minmax(0,1fr)}.character-item img{width:46px;height:46px}}
 .character-grid.character-grid-overview{grid-template-columns:minmax(300px,.86fr) minmax(0,1.5fr)}
 .character-social-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .character-social-card{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}
 .character-social-card-label{display:block;color:#c7b07b;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase}
 .character-social-card-value{display:block;margin-top:8px;color:#fff3c4;font-size:1.45rem;font-weight:800;line-height:1.05}
 .character-social-card-meta{margin-top:8px;color:#9ea8c7;font-size:.82rem}
+.character-social-card-meta.is-statlines{white-space:nowrap}
 .character-social-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .character-social-list{display:grid;gap:12px}
 .character-social-item{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,204,72,.16);background:linear-gradient(180deg,rgba(14,19,34,.92),rgba(7,10,18,.9))}
@@ -2890,16 +2955,10 @@ function sppStrategyAppend(textareaId, token, mode) {
 <?php elseif ($character): ?>
   <section class="character-hero">
     <div class="character-hero-mark" aria-hidden="true"><img src="<?php echo htmlspecialchars($factionHeroLogo); ?>" alt=""></div>
-    <div>
+    <div class="character-hero-primary">
       <div class="character-identity">
         <div>
           <img class="character-portrait" src="<?php echo htmlspecialchars($portraitUrl); ?>" alt="">
-          <?php if (trim((string)$botSignatureText) !== ''): ?>
-            <div class="character-hero-signature">
-              <span class="character-hero-signature-label">Signature</span>
-              <div class="character-hero-signature-text"><?php echo htmlspecialchars((string)$botSignatureText); ?></div>
-            </div>
-          <?php endif; ?>
         </div>
         <div>
           <p class="character-eyebrow"><?php echo htmlspecialchars($realmLabel); ?> Character Profile</p>
@@ -2908,6 +2967,12 @@ function sppStrategyAppend(textareaId, token, mode) {
           <div class="character-guildline"><?php if ($guildId > 0 && $guildName !== ''): ?><a href="<?php echo htmlspecialchars('index.php?n=server&sub=guild&realm=' . (int)$realmId . '&guildid=' . $guildId); ?>" style="color:#ffe39a;text-decoration:none;font-weight:700;">&lt;<?php echo htmlspecialchars($guildName); ?>&gt;</a><?php else: ?><span style="color:#aa9870;">Unaffiliated</span><?php endif; ?></div>
         </div>
       </div>
+      <?php if (trim((string)$botSignatureText) !== ''): ?>
+        <div class="character-hero-signature">
+          <span class="character-hero-signature-label">Signature</span>
+          <div class="character-hero-signature-text"><?php echo htmlspecialchars((string)$botSignatureText); ?></div>
+        </div>
+      <?php endif; ?>
     </div>
     <div class="character-hero-grid">
       <div class="character-stat-card"><span class="character-stat-label">Play Time</span><div class="character-stat-value"><?php echo htmlspecialchars(spp_character_format_playtime($character['totaltime'] ?? 0)); ?></div><div class="character-fact-sub"><?php echo !empty($character['online']) ? 'Online' : 'Offline'; ?></div></div>
@@ -3131,6 +3196,27 @@ function sppStrategyAppend(textareaId, token, mode) {
             <div class="character-social-card-meta"><?php echo (int)$forumSocial['identity_id'] > 0 ? ('Identity #' . (int)$forumSocial['identity_id']) : 'No character forum identity found'; ?></div>
           </div>
         <?php endif; ?>
+        <div class="character-social-card">
+          <span class="character-social-card-label">Rotation Tracking</span>
+          <span class="character-social-card-value"><?php echo (int)$forumSocial['rotation_full_cycles']; ?></span>
+          <div class="character-social-card-meta is-statlines">
+            <?php if (!empty($forumSocial['rotation_tracked'])): ?>
+              Online sessions: <?php echo (int)$forumSocial['rotation_online_sessions']; ?><br>
+              Offline sessions: <?php echo (int)$forumSocial['rotation_offline_sessions']; ?><br>
+              Online avg: <?php echo htmlspecialchars(spp_character_format_duration_short($forumSocial['rotation_online_avg_seconds'])); ?><br>
+              Offline avg: <?php echo htmlspecialchars(spp_character_format_duration_short($forumSocial['rotation_offline_avg_seconds'])); ?><br>
+              <?php if (!empty($forumSocial['rotation_last_online'])): ?>
+                Online now: <?php echo htmlspecialchars(spp_character_format_duration_short($forumSocial['rotation_current_span_seconds'])); ?>
+              <?php elseif (!empty($forumSocial['rotation_last_seen'])): ?>
+                Last seen: <?php echo htmlspecialchars(date('M j, Y g:i A', strtotime((string)$forumSocial['rotation_last_seen']))); ?>
+              <?php else: ?>
+                Status: Offline
+              <?php endif; ?>
+            <?php else: ?>
+              No bot rotation tracking found yet
+            <?php endif; ?>
+          </div>
+        </div>
       </div>
       <div style="margin-top:18px;">
         <h3 class="character-skill-section-title">Signature</h3>
