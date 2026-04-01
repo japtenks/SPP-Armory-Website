@@ -36,6 +36,7 @@ function spp_admin_bots_build_view(PDO $masterPdo, array $realmDbMap, array $act
         'rotation_ilvl_log_rows' => 0,
         'rotation_state_rows' => 0,
         'rotation_config_rows' => 0,
+        'guild_json_files' => 0,
     );
 
     foreach ($realmDbMap as $realmId => $realmInfo) {
@@ -122,6 +123,7 @@ function spp_admin_bots_build_view(PDO $masterPdo, array $realmDbMap, array $act
             'bot_guilds' => (int)($selectedPreview['bot_guilds'] ?? 0),
             'bot_db_store_rows' => (int)($selectedPreview['bot_db_store_rows'] ?? 0),
             'bot_auction_rows' => (int)($selectedPreview['bot_auction_rows'] ?? 0),
+            'guild_json_files' => (int)($selectedPreview['guild_json_files'] ?? 0),
             'rotation_state_rows' => (int)($selectedPreview['rotation_state_rows'] ?? 0),
             'rotation_log_rows' => (int)($selectedPreview['rotation_log_rows'] ?? 0),
             'rotation_ilvl_log_rows' => (int)($selectedPreview['rotation_ilvl_log_rows'] ?? 0),
@@ -133,6 +135,7 @@ function spp_admin_bots_build_view(PDO $masterPdo, array $realmDbMap, array $act
             'realm_guilds' => (int)($selectedPreview['realm_guilds'] ?? 0),
             'realm_db_store_rows' => (int)($selectedPreview['realm_db_store_rows'] ?? 0),
             'realm_auction_rows' => (int)($selectedPreview['realm_auction_rows'] ?? 0),
+            'guild_json_files' => (int)($selectedPreview['guild_json_files'] ?? 0),
             'rotation_state_rows' => (int)($selectedPreview['rotation_state_rows'] ?? 0),
             'rotation_log_rows' => (int)($selectedPreview['rotation_log_rows'] ?? 0),
             'rotation_ilvl_log_rows' => (int)($selectedPreview['rotation_ilvl_log_rows'] ?? 0),

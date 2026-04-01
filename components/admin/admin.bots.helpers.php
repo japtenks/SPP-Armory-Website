@@ -62,6 +62,7 @@ function spp_admin_bots_tool_script_name(string $action): string
         'clear_realm_character_state' => 'clear_realm_character_state.php',
         'fresh_reset' => 'fresh_bot_reset.php',
         'rebuild_site_layers' => 'rebuild_bot_site_layers.php',
+        'seed_guild_recruitment' => 'seed_guild_recruitment.php',
     );
 
     return (string)($map[$action] ?? 'bot_maintenance_status.php');
@@ -192,14 +193,24 @@ function spp_admin_bots_preview_cache_counts(): array
     $portraitDir = $root . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'offlike' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'portraits';
     $coreCacheDir = $root . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . 'cache';
     $siteCacheDir = $coreCacheDir . DIRECTORY_SEPARATOR . 'sites';
+    $guildJsonRoot = $root . DIRECTORY_SEPARATOR . 'jsons' . DIRECTORY_SEPARATOR . 'guilds';
 
     return array(
         'portrait_files' => spp_admin_bots_count_files($portraitDir, '*'),
         'core_cache_files' => spp_admin_bots_count_files($coreCacheDir, '*'),
         'site_cache_files' => spp_admin_bots_count_files($siteCacheDir, '*'),
+        'guild_json_files' => spp_admin_bots_count_files($guildJsonRoot, 'realm-*' . DIRECTORY_SEPARATOR . '*.json'),
         'portrait_dir' => $portraitDir,
         'core_cache_dir' => $coreCacheDir,
+        'guild_json_dir' => $guildJsonRoot,
     );
+}
+
+function spp_admin_bots_count_realm_guild_json_files(int $realmId): int
+{
+    $root = spp_admin_bots_root_path();
+    $guildJsonDir = $root . DIRECTORY_SEPARATOR . 'jsons' . DIRECTORY_SEPARATOR . 'guilds' . DIRECTORY_SEPARATOR . 'realm-' . max(1, $realmId);
+    return spp_admin_bots_count_files($guildJsonDir, '*.json');
 }
 
 function spp_admin_bots_realm_options(array $realmDbMap): array
@@ -368,6 +379,7 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
         'rotation_ilvl_log_rows' => 0,
         'rotation_state_rows' => 0,
         'rotation_config_rows' => 0,
+        'guild_json_files' => 0,
         'warning' => '',
     );
 
@@ -411,6 +423,7 @@ function spp_admin_bots_realm_preview_row(PDO $masterPdo, int $realmId, ?PDO $ch
         $charsPdo,
         "SELECT COUNT(*) FROM `ai_playerbot_db_store`"
     );
+    $row['guild_json_files'] = spp_admin_bots_count_realm_guild_json_files($realmId);
     if (spp_admin_identity_health_table_exists($charsPdo, 'auctionhouse')) {
         $row['bot_auction_rows'] = spp_admin_bots_scalar_safe(
             $charsPdo,

@@ -546,7 +546,7 @@ function modernRequestTooltip(event, itemId, realmId) {
   modernShowTooltip(event, modernTooltipLoadingHtml());
   modernTooltipRequestToken += 1;
   const token = modernTooltipRequestToken;
-  const url = 'modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
+  const url = 'index.php?n=server&sub=itemtooltip&nobody=1&item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
 
   fetch(url, {
     credentials: 'same-origin',

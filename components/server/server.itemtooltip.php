@@ -1,4 +1,8 @@
 <?php
+if (!defined('INCLUDED') || INCLUDED !== true) {
+    exit;
+}
+
 $itemId = isset($_GET['item']) ? (int)$_GET['item'] : 0;
 $realmId = isset($_GET['realm']) ? (int)$_GET['realm'] : 0;
 $itemGuid = isset($_GET['guid']) ? (int)$_GET['guid'] : 0;
@@ -13,9 +17,9 @@ if ($itemId <= 0 || $realmId <= 0) {
 $_GET['realm'] = $realmId;
 $_REQUEST['realm'] = $realmId;
 
-require_once(__DIR__ . '/core/xfer/bootstrap.php');
-require_once(__DIR__ . '/core/xfer/helpers.php');
-require_once(__DIR__ . '/core/xfer/item_tooltip_renderer.php');
+require_once(__DIR__ . '/../../core/xfer/bootstrap.php');
+require_once(__DIR__ . '/../../core/xfer/helpers.php');
+require_once(__DIR__ . '/../../core/xfer/item_tooltip_renderer.php');
 
 $item = world_query("SELECT entry, name FROM item_template WHERE entry = {$itemId} LIMIT 1", 1);
 if (!$item) {
@@ -32,3 +36,5 @@ if ($html === '') {
 }
 
 echo $html;
+exit;
+?>

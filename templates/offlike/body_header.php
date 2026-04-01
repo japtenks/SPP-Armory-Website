@@ -37,7 +37,8 @@ $resolvedBackground = function_exists('spp_pick_background_path')
   <title><?php echo $MW->getConfig->generic->site_title ?? 'World of Warcraft'; ?></title>
 
 
-  <link rel="shortcut icon" href="<?php echo $currtmp; ?>/images/favicon.ico"/>
+  <link rel="shortcut icon" href="/favicon.ico"/>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon"/>
 
 
 <link rel="stylesheet" href="/templates/offlike/css/xfer.css">

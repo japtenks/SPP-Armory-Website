@@ -25,8 +25,7 @@ $mainnav_links = array(
   /* ------------------ 3. GAME GUIDE ------------------ */
   '3-menuGameGuide' => array(
     0 => array('howtoplay',   mw_url('gameguide', 'connect'), ''),
-    1 => array('commands',    mw_url('server', 'commands'),   ''),
-    2 => array('botcommands', mw_url('server', 'botcommands'),''),
+    1 => array('(Bot) Commands', mw_url('server', 'botcommands'),''),
   ),
 
   /* ------------------ 4. WORKSHOP ------------------ */

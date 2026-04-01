@@ -925,12 +925,115 @@ function get_guild_chatter_identities(
     }
 }
 
+function get_forum_help_text_pool(int $realmId): array {
+    static $cache = [];
+
+    if (isset($cache[$realmId])) {
+        return $cache[$realmId];
+    }
+
+    $pool = [];
+
+    try {
+        $pdo = spp_get_pdo('world', $realmId);
+        $stmt = $pdo->query("
+            SELECT `name`, `template_text`, `text`
+            FROM `ai_playerbot_help_texts`
+            WHERE `name` LIKE 'forum:%'
+            ORDER BY `name` ASC, `id` ASC
+        ");
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $name = strtolower(trim((string)($row['name'] ?? '')));
+            if ($name === '') {
+                continue;
+            }
+
+            $value = trim((string)($row['text'] ?? ''));
+            if ($value === '') {
+                $value = trim((string)($row['template_text'] ?? ''));
+            }
+            if ($value === '') {
+                continue;
+            }
+
+            if (!isset($pool[$name])) {
+                $pool[$name] = [];
+            }
+            $pool[$name][] = $value;
+        }
+    } catch (Throwable $e) {
+        error_log('[process_bot_events] Forum help text lookup failed: ' . $e->getMessage());
+    }
+
+    return $cache[$realmId] = $pool;
+}
+
+function forum_help_text_render(string $template, array $payload): string {
+    $expansion = strtolower(trim((string)($payload['expansion'] ?? '')));
+    $maxLevel = 80;
+    if ($expansion === 'classic') {
+        $maxLevel = 60;
+    } elseif ($expansion === 'tbc') {
+        $maxLevel = 70;
+    }
+
+    $replacements = [
+        '<name>' => (string)($payload['char_name'] ?? $payload['leader_name'] ?? 'them'),
+        '<char_name>' => (string)($payload['char_name'] ?? 'them'),
+        '<leader_name>' => (string)($payload['leader_name'] ?? $payload['char_name'] ?? 'them'),
+        '<guild>' => (string)($payload['guild_name'] ?? 'the guild'),
+        '<guild_name>' => (string)($payload['guild_name'] ?? 'the guild'),
+        '<level>' => (string)(int)($payload['level'] ?? 0),
+        '<max_level>' => (string)$maxLevel,
+        '<skill>' => (string)($payload['skill_name'] ?? 'that'),
+        '<skill_name>' => (string)($payload['skill_name'] ?? 'that'),
+        '<skill_value>' => (string)(int)($payload['skill_value'] ?? 0),
+        '<achievement>' => (string)($payload['achievement'] ?? 'that'),
+        '<points>' => (string)(int)($payload['points'] ?? 0),
+        '<member_count>' => (string)(int)($payload['member_count'] ?? 0),
+        '<joined_count>' => (string)(int)($payload['joined_count'] ?? 0),
+        '<left_count>' => (string)(int)($payload['left_count'] ?? 0),
+    ];
+
+    return trim(strtr($template, $replacements));
+}
+
+function pick_forum_help_text(
+    int $realmId,
+    array $keys,
+    array $payload,
+    array $fallbackPool
+): string {
+    $poolMap = get_forum_help_text_pool($realmId);
+    $candidates = [];
+
+    foreach ($keys as $key) {
+        $normalizedKey = strtolower(trim((string)$key));
+        if ($normalizedKey === '' || empty($poolMap[$normalizedKey])) {
+            continue;
+        }
+
+        foreach ($poolMap[$normalizedKey] as $template) {
+            $rendered = forum_help_text_render($template, $payload);
+            if ($rendered !== '') {
+                $candidates[] = $rendered;
+            }
+        }
+    }
+
+    if (!empty($candidates)) {
+        return $candidates[array_rand($candidates)];
+    }
+
+    return $fallbackPool[array_rand($fallbackPool)];
+}
+
 // ---- Reaction template pool ----
-function pick_reaction(string $eventType, array $payload): string {
+function pick_reaction(int $realmId, string $eventType, array $payload): string {
     $name    = $payload['char_name']   ?? 'them';
     $level   = (int)($payload['level'] ?? 0);
     $skill   = $payload['skill_name']  ?? 'that';
-    $achieve = $payload['achievement'] ?? 'that';
 
     $byType = [
         'level_up' => [
@@ -1003,10 +1106,18 @@ function pick_reaction(string $eventType, array $payload): string {
     ];
 
     $pool = array_merge($byType[$eventType] ?? [], $generic);
-    return $pool[array_rand($pool)];
+    return pick_forum_help_text(
+        $realmId,
+        [
+            'forum:reaction:' . $eventType,
+            'forum:reaction:generic',
+        ],
+        $payload,
+        $pool
+    );
 }
 
-function pick_guild_reaction(string $eventType, array $payload): string {
+function pick_guild_reaction(int $realmId, string $eventType, array $payload): string {
     $name  = $payload['char_name'] ?? ($payload['leader_name'] ?? 'them');
     $guild = $payload['guild_name'] ?? 'the guild';
     $skill = $payload['skill_name'] ?? 'that';
@@ -1064,7 +1175,17 @@ function pick_guild_reaction(string $eventType, array $payload): string {
     ];
 
     $pool = array_merge($byType[$eventType] ?? [], $generic);
-    return $pool[array_rand($pool)];
+    return pick_forum_help_text(
+        $realmId,
+        [
+            'forum:guild_reaction:' . $eventType,
+            'forum:guild_reaction:generic',
+            'forum:reaction:' . $eventType,
+            'forum:reaction:generic',
+        ],
+        $payload,
+        $pool
+    );
 }
 
 // Post random bot reactions to a newly created public topic.
@@ -1124,7 +1245,7 @@ function post_bot_reactions(
 
     foreach (array_slice($reactors, 0, $count) as $i => $reactor) {
         $reactionTime = $basePostTime + $offsets[$i];
-        $body         = pick_reaction($eventType, $payload);
+        $body         = pick_reaction($realmId, $eventType, $payload);
 
         if ($dryRun) {
             log_line("    [dry-run] Reaction by {$reactor['display_name']} at " . date('H:i:s', $reactionTime) . ": \"{$body}\"");
@@ -1186,7 +1307,7 @@ function post_guild_thread_reactions(
 
     foreach (array_slice($reactors, 0, $count) as $i => $reactor) {
         $reactionTime = $basePostTime + $offsets[$i];
-        $body         = pick_guild_reaction($eventType, $payload);
+        $body         = pick_guild_reaction($realmId, $eventType, $payload);
 
         if ($dryRun) {
             log_line("    [dry-run] Guild chatter by {$reactor['display_name']} at " . date('H:i:s', $reactionTime) . ": \"{$body}\"");

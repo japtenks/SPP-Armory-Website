@@ -7,10 +7,12 @@ switch ($sub) {
         break;
 
     case 'commands':
-        include('commands.php');
+        $_GET['tab'] = $_GET['tab'] ?? 'commands';
+        include('botcommands.php');
         break;
 
     case 'botcommands':
+        $_GET['tab'] = $_GET['tab'] ?? 'bot';
         include('botcommands.php');
         break;
 

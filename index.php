@@ -101,7 +101,7 @@ include 	( 'core/cache_class/gCache.php' ) ;
 //Site notice cookie
 if ( file_exists( "ToS.html" ) && ! isset( $_COOKIE['agreement_accepted'] ) )
 {
-	include ( 'notice.php' ) ;
+	include ( 'components/html/html.notice.php' ) ;
 	exit() ;
 }
 

@@ -39,7 +39,7 @@ if ($connectRealmlistHost === '') {
 $createAccountUrl = function_exists('mw_url')
     ? mw_url('account', 'register', null, false)
     : 'index.php?n=account&sub=register';
-$downloadRealmlistUrl = 'download-realmlist.php?realm=' . $connectRealmId;
+$downloadRealmlistUrl = 'index.php?n=server&sub=realmlist&nobody=1&realm=' . $connectRealmId;
 $isLoggedIn = !empty($user['id']) && (int)$user['id'] > 0;
 ?>
 <?php builddiv_start(1, $lang['howtoplay']); ?>

@@ -23,21 +23,19 @@ foreach ($realmDbMap as $id => $dbs) {
     $armory_DB[$id]     = [$hostport, $db['user'], $db['pass'], $dbs['armory']];
     $playerbot_DB[$id]  = [$hostport, $db['user'], $db['pass'], $dbs['bots']];
 
-    // Auto-detect realm name from realmlist
-    try {
-        $pdo = new PDO(
-            "mysql:host={$db['host']};port={$db['port']};dbname={$dbs['realmd']};charset=utf8",
-            $db['user'], $db['pass'],
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
-        $row = $pdo->query("SELECT `name` FROM `realmlist` LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $realmName = $row['name'];
-            $realms[$realmName] = [$id, $id, $id, $id, $id];
-            if (!$defaultRealm) $defaultRealm = $realmName;
-        }
-    } catch (PDOException $e) {
-        // DB not available, skip
+    $realmName = null;
+    if (function_exists('spp_get_armory_realm_name')) {
+        $realmName = spp_get_armory_realm_name((int)$id);
+    }
+
+    if (!is_string($realmName) || trim($realmName) === '') {
+        $realmName = 'Realm ' . (int)$id;
+    }
+
+    $realmName = trim((string)$realmName);
+    $realms[$realmName] = [$id, $id, $id, $id, $id];
+    if (!$defaultRealm) {
+        $defaultRealm = $realmName;
     }
 }
 
@@ -49,7 +47,34 @@ if ($defaultRealm) {
 
 function execute_query($db_name, $query, $method = 0, $error = ""){
     global $realms;
-    $realmId = defined('REALM_NAME') && isset($realms[REALM_NAME]) ? (int)$realms[REALM_NAME][0] : 1;
+    $realmDbMap = $GLOBALS['realmDbMap'] ?? [];
+    $realmId = 0;
+
+    $explicitCandidates = [
+        $GLOBALS['talent_calc_realm_id'] ?? null,
+        $GLOBALS['armory_realm_id'] ?? null,
+        $_GET['realm'] ?? null,
+    ];
+    foreach ($explicitCandidates as $candidate) {
+        $candidateId = (int)$candidate;
+        if ($candidateId > 0 && isset($realmDbMap[$candidateId])) {
+            $realmId = $candidateId;
+            break;
+        }
+    }
+
+    if ($realmId <= 0 && defined('REALM_NAME') && isset($realms[REALM_NAME])) {
+        $realmId = (int)$realms[REALM_NAME][0];
+    }
+
+    if ($realmId <= 0 && is_array($realmDbMap) && !empty($realmDbMap)) {
+        $realmId = (int)array_key_first($realmDbMap);
+    }
+
+    if ($realmId <= 0) {
+        $realmId = 1;
+    }
+
     $target_map = [
         'realm' => 'realmd',
         'char'  => 'chars',

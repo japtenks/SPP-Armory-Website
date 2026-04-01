@@ -246,10 +246,47 @@ if (!function_exists('spp_marketplace_is_specialization_recipe')) {
     }
 }
 
+if (!function_exists('spp_marketplace_detect_expansion')) {
+    function spp_marketplace_detect_expansion($realmId, array $realmMap = [])
+    {
+        $realmId = (int)$realmId;
+
+        if (function_exists('spp_realm_to_expansion')) {
+            $expansionName = strtolower(trim((string)spp_realm_to_expansion($realmId)));
+            if ($expansionName === 'tbc') {
+                return 1;
+            }
+            if ($expansionName === 'wotlk') {
+                return 2;
+            }
+            if ($expansionName === 'classic') {
+                return 0;
+            }
+        }
+
+        $realmInfo = $realmMap[$realmId] ?? [];
+        $haystack = strtolower(trim(implode(' ', array_filter([
+            (string)($realmInfo['world'] ?? ''),
+            (string)($realmInfo['chars'] ?? ''),
+            (string)($realmInfo['armory'] ?? ''),
+            (string)($realmInfo['bots'] ?? ''),
+        ]))));
+
+        if (strpos($haystack, 'wotlk') !== false) {
+            return 2;
+        }
+        if (strpos($haystack, 'tbc') !== false) {
+            return 1;
+        }
+
+        return 0;
+    }
+}
+
 $realmMap = $realmDbMap ?? ($GLOBALS['realmDbMap'] ?? null);
 $realmId = (is_array($realmMap) && !empty($realmMap)) ? spp_resolve_realm_id($realmMap) : 1;
 $realmLabel = spp_get_armory_realm_name($realmId) ?? '';
-$expansion = isset($GLOBALS['expansion']) ? (int)$GLOBALS['expansion'] : 0;
+$expansion = spp_marketplace_detect_expansion($realmId, is_array($realmMap) ? $realmMap : []);
 
 $craftProfessionIds = [164, 165, 171, 197, 202, 333];
 if ($expansion >= 1) {
@@ -267,7 +304,7 @@ $pageError = '';
 
 // --- data cache (avoids 3–4 s of DB queries on every load) ---
 $_mpCacheDir  = $siteRoot . '/core/cache/sites';
-$_mpCacheFile = $_mpCacheDir . '/mp_' . md5('marketplace_v8_' . $realmId) . '.dat';
+$_mpCacheFile = $_mpCacheDir . '/mp_' . md5('marketplace_v9_' . $realmId . '_x' . $expansion) . '.dat';
 $_mpCacheTTL  = 600; // 10 minutes
 
 $_mpFromCache = false;
@@ -829,7 +866,7 @@ function modernRequestTooltip(event, itemId, realmId, itemGuid) {
   modernShowTooltip(event, modernTooltipLoadingHtml());
   modernTooltipRequestToken += 1;
   const token = modernTooltipRequestToken;
-  let url = 'modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
+  let url = 'index.php?n=server&sub=itemtooltip&nobody=1&item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
   if (itemGuid) {
     url += '&guid=' + encodeURIComponent(itemGuid);
   }

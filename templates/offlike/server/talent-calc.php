@@ -382,7 +382,8 @@ if (!empty($tabs)) {
   $_tcSiteRoot  = isset($siteRoot) ? $siteRoot : dirname(dirname(dirname(__FILE__)));
   $_tcCacheDir  = $_tcSiteRoot . '/core/cache/sites';
   $_tcRealmId   = (int)($GLOBALS['talent_calc_realm_id'] ?? 0);
-  $_tcCacheKey  = 'tc_' . $_tcRealmId . '_c' . $charClassId;
+  $_tcClientId  = defined('CLIENT') ? (int)CLIENT : 0;
+  $_tcCacheKey  = 'tc_v2_' . $_tcRealmId . '_client' . $_tcClientId . '_c' . $charClassId;
   if ($isProfileMode && !empty($stat['guid'])) {
     $_tcCacheKey .= '_p' . (int)$stat['guid'] . '_l' . (int)($stat['level'] ?? 0);
   }
@@ -738,7 +739,7 @@ $charClassSafe = htmlspecialchars($charClass, ENT_QUOTES);
       <div class="talent-flex">
         <?php
           $cols = 4;
-          $rows = 7;
+          $rows = max(7, $maxRow + 1);
           for ($r = 0; $r < $rows; $r++) {
             for ($c = 0; $c < $cols; $c++) {
               if (!isset($byPos["$r:$c"])) {

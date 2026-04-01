@@ -213,7 +213,7 @@ if (!function_exists('downloads_collect_files')) {
 
         <?php if ($key === 'tools'): ?>
           <div class="downloads-actions">
-            <a class="downloads-action" href="<?php echo htmlspecialchars('download-realmlist.php?realm=' . (int)$downloadsRealmId); ?>">Download realmlist.wtf</a>
+            <a class="downloads-action" href="<?php echo htmlspecialchars('index.php?n=server&sub=realmlist&nobody=1&realm=' . (int)$downloadsRealmId); ?>">Download realmlist.wtf</a>
           </div>
         <?php endif; ?>
 

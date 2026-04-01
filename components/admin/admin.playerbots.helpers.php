@@ -26,6 +26,132 @@ function spp_admin_playerbots_strategy_keys(): array
     return array('co', 'nc', 'dead', 'react');
 }
 
+function spp_admin_playerbots_forum_tone_groups(): array
+{
+    return array(
+        'public' => array(
+            'label' => 'Public Topic Reactions',
+            'description' => 'Used when other bots reply to normal public event topics.',
+            'keys' => array(
+                'forum:reaction:level_up' => array(
+                    'label' => 'Level Up',
+                    'placeholder' => "grats!\n<level> already, damn",
+                ),
+                'forum:reaction:profession_milestone' => array(
+                    'label' => 'Profession Milestone',
+                    'placeholder' => "nice <skill> gains\nbags full of mats finally paid off",
+                ),
+                'forum:reaction:achievement_badge' => array(
+                    'label' => 'Achievement Badge',
+                    'placeholder' => "worth the grind\nactual legend",
+                ),
+                'forum:reaction:generic' => array(
+                    'label' => 'Generic Fallback',
+                    'placeholder' => "big day for <name>\nserver's heating up tonight",
+                ),
+            ),
+        ),
+        'guild' => array(
+            'label' => 'Guild Thread Reactions',
+            'description' => 'Used when guildmates react inside recruitment and roster threads.',
+            'keys' => array(
+                'forum:guild_reaction:guild_created' => array(
+                    'label' => 'Guild Created',
+                    'placeholder' => "guild's up, let's build it right\n<guild> starts now",
+                ),
+                'forum:guild_reaction:guild_roster_update' => array(
+                    'label' => 'Guild Roster Update',
+                    'placeholder' => "welcome aboard\nroster looking healthy",
+                ),
+                'forum:guild_reaction:level_up' => array(
+                    'label' => 'Guild Level Up',
+                    'placeholder' => "good stuff <name>\nwe'll get you geared",
+                ),
+                'forum:guild_reaction:profession_milestone' => array(
+                    'label' => 'Guild Profession Milestone',
+                    'placeholder' => "guild bank thanks you\nyou are on consumable duty now",
+                ),
+                'forum:guild_reaction:achievement_badge' => array(
+                    'label' => 'Guild Achievement Badge',
+                    'placeholder' => "nice one <name>\nthat's going in the guild stories",
+                ),
+                'forum:guild_reaction:generic' => array(
+                    'label' => 'Guild Generic Fallback',
+                    'placeholder' => "that's one of ours\nanother win for the tabard",
+                ),
+            ),
+        ),
+    );
+}
+
+function spp_admin_playerbots_forum_tone_key_map(): array
+{
+    $map = array();
+    foreach (spp_admin_playerbots_forum_tone_groups() as $group) {
+        foreach (($group['keys'] ?? array()) as $key => $meta) {
+            $map[(string)$key] = is_array($meta) ? $meta : array();
+        }
+    }
+    return $map;
+}
+
+function spp_admin_playerbots_forum_tone_keys(): array
+{
+    return array_keys(spp_admin_playerbots_forum_tone_key_map());
+}
+
+function spp_admin_playerbots_normalize_forum_tone_lines(string $value): array
+{
+    $lines = preg_split('/\r\n|\r|\n/', $value) ?: array();
+    $normalized = array();
+    foreach ($lines as $line) {
+        $line = trim((string)$line);
+        if ($line === '') {
+            continue;
+        }
+        $normalized[] = $line;
+    }
+    return $normalized;
+}
+
+function spp_admin_playerbots_fetch_forum_tone_state(PDO $worldPdo): array
+{
+    $state = array_fill_keys(spp_admin_playerbots_forum_tone_keys(), '');
+    $keys = spp_admin_playerbots_forum_tone_keys();
+    if (empty($keys)) {
+        return $state;
+    }
+
+    try {
+        $placeholders = implode(',', array_fill(0, count($keys), '?'));
+        $stmt = $worldPdo->prepare("
+            SELECT `name`, `text`, `template_text`, `id`
+            FROM `ai_playerbot_help_texts`
+            WHERE `name` IN ($placeholders)
+            ORDER BY `name` ASC, `id` ASC
+        ");
+        $stmt->execute($keys);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: array() as $row) {
+            $name = strtolower(trim((string)($row['name'] ?? '')));
+            if (!array_key_exists($name, $state)) {
+                continue;
+            }
+            $line = trim((string)($row['text'] ?? ''));
+            if ($line === '') {
+                $line = trim((string)($row['template_text'] ?? ''));
+            }
+            if ($line === '') {
+                continue;
+            }
+            $state[$name] = trim($state[$name] === '' ? $line : ($state[$name] . "\n" . $line));
+        }
+    } catch (Throwable $e) {
+        error_log('[admin.playerbots] Failed loading forum tone rows: ' . $e->getMessage());
+    }
+
+    return $state;
+}
+
 function spp_admin_playerbots_strategy_builder_options(): array
 {
     return array(

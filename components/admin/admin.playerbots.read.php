@@ -18,6 +18,7 @@ function spp_admin_playerbots_build_view(array $realmDbMap): array
 
     $realmInfo = isset($realmDbMap[$realmId]) && is_array($realmDbMap[$realmId]) ? $realmDbMap[$realmId] : array();
     $charsPdo = spp_get_pdo('chars', $realmId);
+    $worldPdo = spp_get_pdo('world', $realmId);
     $realmOptions = spp_admin_playerbots_build_realm_options($realmDbMap);
     $guildOptions = spp_admin_backup_fetch_guilds($charsPdo);
     $selectedGuildId = isset($_REQUEST['guildid']) ? (int)$_REQUEST['guildid'] : 0;
@@ -56,6 +57,8 @@ function spp_admin_playerbots_build_view(array $realmDbMap): array
         'profile_key' => 'custom',
         'mixed_count' => 0,
     );
+    $forumToneGroups = spp_admin_playerbots_forum_tone_groups();
+    $forumToneState = spp_admin_playerbots_fetch_forum_tone_state($worldPdo);
 
     if (!empty($selectedGuild)) {
         $stmt = $charsPdo->prepare("
@@ -159,6 +162,8 @@ function spp_admin_playerbots_build_view(array $realmDbMap): array
         'strategyBuilderOptions' => spp_admin_playerbots_strategy_builder_options(),
         'guildStrategyState' => $guildStrategyState,
         'characterStrategyState' => $characterStrategyState,
+        'forumToneGroups' => $forumToneGroups,
+        'forumToneState' => $forumToneState,
         'invalidRealmRequested' => $invalidRealmRequested,
         'requestedRealmId' => $requestedRealmId,
     );

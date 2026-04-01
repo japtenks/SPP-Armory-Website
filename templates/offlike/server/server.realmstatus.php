@@ -44,6 +44,74 @@ function connect_realm_db($target, $realmId){
   }
 }
 
+function realmstatus_probe_realm($host, $port, $timeout = 0.75){
+  $host = trim((string)$host);
+  $port = (int)$port;
+  if ($host === '' || $port <= 0) {
+    return false;
+  }
+
+  $errno = 0;
+  $errstr = '';
+  $socket = @fsockopen($host, $port, $errno, $errstr, (float)$timeout);
+  if (!$socket) {
+    return false;
+  }
+
+  fclose($socket);
+  return true;
+}
+
+function realmstatus_fetch_uptime_stats(PDO $realmPdo, $realmId){
+  $stats = [
+    'starttime' => 0,
+    'uptime' => 0,
+    'avg_uptime' => 0,
+    'restart_count' => 0,
+    'recent' => false,
+  ];
+
+  $stmtLatest = $realmPdo->prepare("
+    SELECT `starttime`, `uptime`
+    FROM `uptime`
+    WHERE `realmid` = ?
+    ORDER BY `starttime` DESC
+    LIMIT 1
+  ");
+  $stmtLatest->execute([(int)$realmId]);
+  $latest = $stmtLatest->fetch(PDO::FETCH_ASSOC);
+
+  if (is_array($latest) && !empty($latest['starttime'])) {
+    $stats['starttime'] = (int)$latest['starttime'];
+    $storedUptime = isset($latest['uptime']) ? (int)$latest['uptime'] : 0;
+    $calculatedUptime = max(0, time() - $stats['starttime']);
+    $stats['uptime'] = max($storedUptime, $calculatedUptime);
+    $stats['recent'] = ($calculatedUptime <= 300);
+  }
+
+  $stmtAvg = $realmPdo->prepare("
+    SELECT ROUND(AVG(`uptime`) / 3600, 2)
+    FROM `uptime`
+    WHERE `realmid` = ?
+      AND `starttime` > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 7 DAY))
+  ");
+  $stmtAvg->execute([(int)$realmId]);
+  $avgUptime = $stmtAvg->fetchColumn();
+  $stats['avg_uptime'] = $avgUptime !== false ? (float)$avgUptime : 0;
+
+  $stmtRestarts = $realmPdo->prepare("
+    SELECT COUNT(*)
+    FROM `uptime`
+    WHERE `realmid` = ?
+      AND `starttime` >= UNIX_TIMESTAMP(CURDATE())
+  ");
+  $stmtRestarts->execute([(int)$realmId]);
+  $restartCount = $stmtRestarts->fetchColumn();
+  $stats['restart_count'] = $restartCount !== false ? (int)$restartCount : 0;
+
+  return $stats;
+}
+
 $realmstatusDebug = !empty($_GET['debug']);
 
 /* ---------- Realm Data Build ---------- */
@@ -76,14 +144,19 @@ foreach($realms as $r){
   $worldDbName = $worldCfg['name'] ?? '';
   $dbHost = $charCfg['host'] ?? ($worldCfg['host'] ?? '');
   $dbPort = (int)($charCfg['port'] ?? ($worldCfg['port'] ?? 0));
+  $realmHost = trim((string)($r['address'] ?? ''));
+  $realmPort = (int)($r['port'] ?? 0);
 
   $CHDB_EXTRA = connect_realm_db('chars', $realm_id);
   $WSDB_EXTRA = connect_realm_db('world', $realm_id);
   $hasCharData = $CHDB_EXTRA ? 1 : 0;
   $hasWorldData = $WSDB_EXTRA ? 1 : 0;
 
-  // Use DB connectivity as the single online/offline source of truth.
-  $is_online = ($CHDB_EXTRA || $WSDB_EXTRA) ? true : false;
+  // The realm socket is the best up/down signal; DB access is only supporting data.
+  $realmReachable = realmstatus_probe_realm($realmHost, $realmPort);
+  $uptimeStats = realmstatus_fetch_uptime_stats($realmPdo, $realm_id);
+  $hasRecentUptime = !empty($uptimeStats['recent']);
+  $is_online = $realmReachable;
   $res_color = $is_online ? 1 : 0;
   $res_label = $is_online ? 'up' : 'down';
   $res_img = $is_online
@@ -91,28 +164,10 @@ foreach($realms as $r){
     : 'templates/offlike/images/modern/status/downarrow2.gif';
 
   // uptime stats
-  $uptime=0;$avg_uptime=0;$restart_count=0;
-  if($WSDB_EXTRA){
-    $stmtUp = $realmPdo->prepare("SELECT starttime FROM uptime WHERE realmid=? ORDER BY starttime DESC LIMIT 1");
-    $stmtUp->execute([$realm_id]);
-    $uptimeStart = $stmtUp->fetchColumn();
-    if($uptimeStart)$uptime=time()-$uptimeStart;
-    $stmtAvg = $realmPdo->prepare("SELECT ROUND(AVG(uptime)/3600,2) FROM uptime WHERE realmid=? AND starttime>UNIX_TIMESTAMP(DATE_SUB(NOW(),INTERVAL 7 DAY))");
-    $stmtAvg->execute([$realm_id]);
-    $avg_uptime = $stmtAvg->fetchColumn();
-    $stmtRc = $realmPdo->prepare("SELECT COUNT(*) FROM uptime WHERE realmid=? AND starttime>=UNIX_TIMESTAMP(CURDATE())");
-    $stmtRc->execute([$realm_id]);
-    $restart_count = (int)$stmtRc->fetchColumn();
-    if($restart_count==0 && $is_online)$restart_count=1; // current session counts as one
-  }
-  else {
-    $stmtAvg = $realmPdo->prepare("SELECT ROUND(AVG(uptime)/3600,2) FROM uptime WHERE realmid=? AND starttime>UNIX_TIMESTAMP(DATE_SUB(NOW(),INTERVAL 7 DAY))");
-    $stmtAvg->execute([$realm_id]);
-    $avg_uptime = $stmtAvg->fetchColumn();
-    $stmtRc = $realmPdo->prepare("SELECT COUNT(*) FROM uptime WHERE realmid=? AND starttime>=UNIX_TIMESTAMP(CURDATE())");
-    $stmtRc->execute([$realm_id]);
-    $restart_count = (int)$stmtRc->fetchColumn();
-  }
+  $uptime = (int)$uptimeStats['uptime'];
+  $avg_uptime = (float)$uptimeStats['avg_uptime'];
+  $restart_count = (int)$uptimeStats['restart_count'];
+  if($restart_count==0 && ($is_online || $hasRecentUptime))$restart_count=1;
  
 
   // player/faction/progression
@@ -185,6 +240,10 @@ foreach($realms as $r){
     'debug'=>[
       'realm_host' => (string)$dbHost,
       'realm_port' => $dbPort,
+      'realm_socket_host' => $realmHost,
+      'realm_socket_port' => $realmPort,
+      'realm_reachable' => $realmReachable ? 1 : 0,
+      'recent_uptime' => $hasRecentUptime ? 1 : 0,
       'char_db' => (string)$charDbName,
       'world_db' => (string)$worldDbName,
       'char_ok' => $hasCharData,
@@ -301,6 +360,11 @@ foreach($realms as $r){
             host=<?php echo htmlspecialchars($r['debug']['realm_host'] !== '' ? $r['debug']['realm_host'] : '(empty)'); ?>
             |
             port=<?php echo (int)$r['debug']['realm_port']; ?>
+            |
+            socket=<?php echo htmlspecialchars($r['debug']['realm_socket_host'] !== '' ? $r['debug']['realm_socket_host'] : '(empty)'); ?>:<?php echo (int)$r['debug']['realm_socket_port']; ?>
+            (<?php echo $r['debug']['realm_reachable'] ? 'up' : 'down'; ?>)
+            |
+            recent-uptime=<?php echo $r['debug']['recent_uptime'] ? 'yes' : 'no'; ?>
             |
             chars=<?php echo htmlspecialchars($r['debug']['char_db'] !== '' ? $r['debug']['char_db'] : '(empty)'); ?>
             (<?php echo $r['debug']['char_ok'] ? 'ok' : 'fail'; ?>)

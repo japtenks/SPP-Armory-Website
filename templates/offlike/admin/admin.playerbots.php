@@ -4,6 +4,7 @@ $meetingSaved = isset($_GET['meeting_saved']) && (string)$_GET['meeting_saved'] 
 $shareSaved = isset($_GET['share_saved']) && (string)$_GET['share_saved'] === '1';
 $notesSaved = isset($_GET['notes_saved']) && (string)$_GET['notes_saved'] === '1';
 $personalitySaved = isset($_GET['personality_saved']) && (string)$_GET['personality_saved'] === '1';
+$forumToneSaved = isset($_GET['forum_tone_saved']) && (string)$_GET['forum_tone_saved'] === '1';
 $botStrategySaved = isset($_GET['bot_strategy_saved']) && (string)$_GET['bot_strategy_saved'] === '1';
 $strategySaved = isset($_GET['strategy_saved']) && (string)$_GET['strategy_saved'] === '1';
 $seededMembers = isset($_GET['seeded_members']) ? max(0, (int)$_GET['seeded_members']) : 0;
@@ -44,6 +45,10 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
 .playerbots-profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
 .playerbots-profile-card{padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:6px;background:rgba(255,255,255,.03)}
 .playerbots-profile-card strong{display:block;color:#f0e0b6;margin-bottom:4px}
+.playerbots-tone-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.playerbots-tone-card{padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:6px;background:rgba(255,255,255,.03)}
+.playerbots-tone-card h4{margin:0 0 6px}
+.playerbots-tone-key{margin:0 0 6px;color:#f0e0b6;font-size:.92em}
 .playerbots-strategy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .playerbots-strategy-builder{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
 .playerbots-strategy-chip{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,204,72,.18);background:rgba(255,255,255,.04);color:#f2dfb1;font-size:12px;font-weight:700;cursor:pointer}
@@ -57,6 +62,7 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
   <?php if ($shareSaved): ?><div class="playerbots-success">Guild share block saved.</div><?php endif; ?>
   <?php if ($notesSaved): ?><div class="playerbots-success">Officer order notes saved.</div><?php endif; ?>
   <?php if ($personalitySaved): ?><div class="playerbots-success">Bot personality saved.</div><?php endif; ?>
+  <?php if ($forumToneSaved): ?><div class="playerbots-success">Forum reply tone saved.</div><?php endif; ?>
   <?php if ($botStrategySaved): ?><div class="playerbots-success">Bot strategy override saved.</div><?php endif; ?>
   <?php if ($strategySaved): ?><div class="playerbots-success">Guild flavor applied to member bots.</div><?php endif; ?>
   <?php if (!empty($invalidRealmRequested)): ?><div class="playerbots-success" style="background:#3a2612;border-color:#8d6130;color:#f5d8a8;">Realm <?php echo (int)$requestedRealmId; ?> is not configured here. Showing the nearest valid configured realm instead.</div><?php endif; ?>
@@ -435,6 +441,39 @@ $characterStrategyProfileKey = (string)($characterStrategyState['profile_key'] ?
         </form>
       </div>
       <?php endif; ?>
+  </div>
+
+  <div class="playerbots-card">
+    <h3 class="playerbots-section-title">Forum Reply Tone</h3>
+    <p class="playerbots-note">These lines populate the <code>forum:...</code> rows in <code>ai_playerbot_help_texts</code> for the selected realm. Each non-empty line becomes one possible reply, so the forum chatter can pull from the same help-text registry the core already uses.</p>
+    <form method="post" action="index.php?n=admin&sub=playerbots&realm=<?php echo (int)$realmId; ?>&guildid=<?php echo (int)$selectedGuildId; ?>&character_guid=<?php echo (int)$selectedCharacterGuid; ?>">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($admin_playerbots_csrf_token, ENT_QUOTES); ?>">
+      <input type="hidden" name="playerbots_action" value="save_forum_tone">
+      <input type="hidden" name="guildid" value="<?php echo (int)$selectedGuildId; ?>">
+      <input type="hidden" name="character_guid" value="<?php echo (int)$selectedCharacterGuid; ?>">
+      <?php foreach (($forumToneGroups ?? array()) as $group): ?>
+        <div class="playerbots-preview" style="margin-bottom:12px;">
+          <strong><?php echo htmlspecialchars((string)($group['label'] ?? 'Forum Tone')); ?></strong>
+          <div class="playerbots-note" style="margin:6px 0 12px;"><?php echo htmlspecialchars((string)($group['description'] ?? '')); ?></div>
+          <div class="playerbots-tone-grid">
+            <?php foreach ((array)($group['keys'] ?? array()) as $toneKey => $toneMeta): ?>
+              <?php $toneFieldName = 'forum_tone_' . md5((string)$toneKey); ?>
+              <div class="playerbots-tone-card">
+                <h4><?php echo htmlspecialchars((string)($toneMeta['label'] ?? $toneKey)); ?></h4>
+                <div class="playerbots-tone-key"><code><?php echo htmlspecialchars((string)$toneKey); ?></code></div>
+                <div class="playerbots-field">
+                  <textarea name="<?php echo htmlspecialchars($toneFieldName, ENT_QUOTES); ?>" placeholder="<?php echo htmlspecialchars((string)($toneMeta['placeholder'] ?? '')); ?>"><?php echo htmlspecialchars((string)($forumToneState[$toneKey] ?? '')); ?></textarea>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+      <div class="playerbots-actions">
+        <button class="playerbots-button" type="submit">Save Forum Tone</button>
+        <span class="playerbots-note">Placeholders supported by the event processor include <code>&lt;name&gt;</code>, <code>&lt;guild&gt;</code>, <code>&lt;level&gt;</code>, <code>&lt;skill&gt;</code>, <code>&lt;achievement&gt;</code>, <code>&lt;member_count&gt;</code>, <code>&lt;joined_count&gt;</code>, and <code>&lt;left_count&gt;</code>.</span>
+      </div>
+    </form>
   </div>
 </div>
 

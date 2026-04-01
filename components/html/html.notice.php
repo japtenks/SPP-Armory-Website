@@ -1,5 +1,4 @@
 <?php
-//Write your site name here
 $site_name = "";
 ?>
 
@@ -13,26 +12,26 @@ $site_name = "";
 		<meta http-equiv="Cache-Control" content="no-cache" />
 		<style type="text/css" title="currentStyle" media="screen">
 			@import "templates/offlike/css/notice.css";
-			body 
+			body
 			{
 				color: #FFF;
 			}
-			img 
+			img
 			{
 				border: 0px;
 			}
 		</style>
 		<script type="text/javascript">
-			function Set_Cookie( name, value, expires, path, domain, secure ) 
+			function Set_Cookie(name, value, expires, path, domain, secure)
 			{
 		        var today = new Date();
 		        today.setTime(today.getTime());
 		        var expires_date = new Date(today.getTime() + (expires ? expires * 1000 * 60 * 60 * 24 : 0));
-		        document.cookie = name + "=" +escape(value) + (expires ? ";expires=" + expires_date.toGMTString() : "" ) + (path ? ";path=" + path : "" ) +(domain ? ";domain=" + domain : "" ) + (secure ? ";secure" : "");
+		        document.cookie = name + "=" + escape(value) + (expires ? ";expires=" + expires_date.toGMTString() : "" ) + (path ? ";path=" + path : "" ) + (domain ? ";domain=" + domain : "" ) + (secure ? ";secure" : "");
 		    }
-			function checkForm() 
+			function checkForm()
 			{
-				if (checkboxFunc()) 
+				if (checkboxFunc())
 				{
 					Set_Cookie('agreement_accepted', 'true', '365');
 					window.location.href = 'index.php?n=gameguide&sub=connect';
@@ -40,16 +39,16 @@ $site_name = "";
 			}
 			function checkboxFunc()
 			{
-				if (terms_accepted=="")
+				if (terms_accepted == "")
 				{
 					alert("\You must accept the Terms of Service before you can enter!");
-				} 
-				else 
+				}
+				else
 				{
 					return true;
 				}
 			}
-			var terms_accepted="";
+			var terms_accepted = "";
 		</script>
 	</head>
 	<body>

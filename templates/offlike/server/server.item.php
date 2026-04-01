@@ -676,7 +676,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!panel) return;
   var itemId = panel.getAttribute('data-item-id');
   var realmId = panel.getAttribute('data-realm-id');
-  fetch('modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+  fetch('index.php?n=server&sub=itemtooltip&nobody=1&item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
     .then(function (response) { if (!response.ok) throw new Error('tooltip request failed'); return response.text(); })
     .then(function (html) { panel.innerHTML = html && html.trim() !== '' ? html : '<div class="item-detail-tooltip-loading">The tooltip renderer returned no item details.</div>'; })
     .catch(function () { panel.innerHTML = '<div class="item-detail-tooltip-loading">Unable to load the full item details.</div>'; });

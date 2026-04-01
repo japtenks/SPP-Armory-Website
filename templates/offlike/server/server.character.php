@@ -2774,7 +2774,7 @@ function modernRequestTooltip(event, itemId, realmId, itemGuid) {
   modernShowTooltip(event, modernTooltipLoadingHtml());
   modernTooltipRequestToken += 1;
   const token = modernTooltipRequestToken;
-  let url = 'modern-item-tooltip.php?item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
+  let url = 'index.php?n=server&sub=itemtooltip&nobody=1&item=' + encodeURIComponent(itemId) + '&realm=' + encodeURIComponent(realmId);
   if (itemGuid) {
     url += '&guid=' + encodeURIComponent(itemGuid);
   }

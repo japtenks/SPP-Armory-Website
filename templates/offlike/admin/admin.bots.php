@@ -125,6 +125,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botEventCounts['website_bot_events'] ?? 0)); ?></strong><span>Bot event pipeline rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['rotation_log_rows'] ?? 0) + (int)($botSelectedPreview['rotation_ilvl_log_rows'] ?? 0) + (int)($botSelectedPreview['rotation_state_rows'] ?? 0)); ?></strong><span>Bot rotation log/state rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botCacheCounts['portrait_files'] ?? 0)); ?></strong><span>Cached portrait files</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botSelectedPreview['guild_json_files'] ?? 0)); ?></strong><span>Guild summary JSON files on this realm</span></div>
     </div>
     <div class="admin-bots__grid" style="margin-top:14px;">
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botAccountCounts['human_accounts'] ?? 0)); ?></strong><span>Human/player auth accounts left untouched</span></div>
@@ -186,6 +187,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['bot_guilds'] ?? 0)); ?></strong><span>Bot guild shells / memberships</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['bot_db_store_rows'] ?? 0)); ?></strong><span>Bot DB-store rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['bot_auction_rows'] ?? 0)); ?></strong><span>Bot auction rows</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['guild_json_files'] ?? 0)); ?></strong><span>Guild summary JSON files to clear</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_state_rows'] ?? 0)); ?></strong><span>Rotation live-state rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['character_state']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation ilvl history rows</span></div>
@@ -204,6 +206,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['realm_guilds'] ?? 0)); ?></strong><span>All guild rows on this realm</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['realm_db_store_rows'] ?? 0)); ?></strong><span>All <code>ai_playerbot_db_store</code> rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['realm_auction_rows'] ?? 0)); ?></strong><span>All auction house rows on this realm</span></div>
+      <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['guild_json_files'] ?? 0)); ?></strong><span>Guild summary JSON files to clear</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['rotation_state_rows'] ?? 0)); ?></strong><span>Rotation live-state rows</span></div>
       <div class="admin-bots__mini"><strong><?php echo number_format((int)($botStepPreviews['realm_character_state']['rotation_log_rows'] ?? 0) + (int)($botStepPreviews['realm_character_state']['rotation_ilvl_log_rows'] ?? 0)); ?></strong><span>Rotation history rows</span></div>
     </div>
@@ -227,6 +230,7 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
       <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-rotation-run')">Copy Rotation Run</button>
     </div>
     <p class="admin-bots__note" style="margin-top:12px;">Host repopulate comes after this step. Only perform the shutdown/restart/repopulate portion while the world server is offline.</p>
+    <p class="admin-bots__note" style="margin-top:12px;">The rebuild command set now includes identity backfills plus a guild recruitment seed pass, so unknown guild summary JSONs can become active recruitment threads again after a wipe.</p>
     <div class="admin-bots__command" id="bot-step4-run"><?php echo htmlspecialchars((string)($botScriptCommands['rebuild_site_layers']['run'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="admin-bots__actions">
       <button type="button" class="admin-bots__btn-input" onclick="copyBotCommand('bot-step4-run')">Copy Rebuild Layers Command</button>
@@ -258,7 +262,8 @@ $botCsrfToken = (string)($botMaintenanceView['csrf_token'] ?? '');
               <?php echo number_format((int)$botRow['bot_characters']); ?> bot chars<br>
               <?php echo number_format((int)$botRow['bot_guilds']); ?> bot guilds<br>
               <?php echo number_format((int)$botRow['bot_db_store_rows']); ?> db-store rows<br>
-              <?php echo number_format((int)$botRow['bot_auction_rows']); ?> AH rows
+              <?php echo number_format((int)$botRow['bot_auction_rows']); ?> AH rows<br>
+              <?php echo number_format((int)$botRow['guild_json_files']); ?> guild json files
             </td>
             <td>
               <?php echo number_format((int)$botRow['forum_topics']); ?> topics / <?php echo number_format((int)$botRow['forum_posts']); ?> posts / <?php echo number_format((int)$botRow['forum_pms']); ?> PMs<br>

@@ -770,6 +770,58 @@ function bot_maintenance_delete_portrait_files(): int
     return $deleted;
 }
 
+function bot_maintenance_realm_guild_json_dir(int $realmId): string
+{
+    return bot_maintenance_root_path()
+        . DIRECTORY_SEPARATOR . 'jsons'
+        . DIRECTORY_SEPARATOR . 'guilds'
+        . DIRECTORY_SEPARATOR . 'realm-' . max(1, $realmId);
+}
+
+function bot_maintenance_count_realm_guild_json_files(int $realmId): int
+{
+    $guildJsonDir = bot_maintenance_realm_guild_json_dir($realmId);
+    if (!is_dir($guildJsonDir)) {
+        return 0;
+    }
+
+    $files = glob($guildJsonDir . DIRECTORY_SEPARATOR . '*.json');
+    if (!is_array($files)) {
+        return 0;
+    }
+
+    $count = 0;
+    foreach ($files as $file) {
+        if (is_file($file)) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+function bot_maintenance_delete_realm_guild_json_files(int $realmId): int
+{
+    $guildJsonDir = bot_maintenance_realm_guild_json_dir($realmId);
+    if (!is_dir($guildJsonDir)) {
+        return 0;
+    }
+
+    $files = glob($guildJsonDir . DIRECTORY_SEPARATOR . '*.json');
+    if (!is_array($files)) {
+        return 0;
+    }
+
+    $deleted = 0;
+    foreach ($files as $file) {
+        if (is_file($file) && @unlink($file)) {
+            $deleted++;
+        }
+    }
+
+    return $deleted;
+}
+
 function bot_maintenance_clear_bot_web_state_preview(int $realmId): array
 {
     $masterPdo = spp_get_pdo('realmd', 1);
@@ -922,6 +974,7 @@ function bot_maintenance_clear_bot_character_state_preview(int $realmId): array
              WHERE c.`account` IN ({$botAccountSubquery})"
         ),
         'bot_auction_rows' => 0,
+        'guild_json_files' => bot_maintenance_count_realm_guild_json_files($realmId),
         'rotation_log_rows' => 0,
         'rotation_ilvl_log_rows' => 0,
         'rotation_state_rows' => 0,
@@ -970,6 +1023,7 @@ function bot_maintenance_clear_realm_character_state_preview(int $realmId): arra
         'realm_guilds' => bot_maintenance_scalar($charsPdo, "SELECT COUNT(*) FROM `guild`"),
         'realm_db_store_rows' => bot_maintenance_scalar($charsPdo, "SELECT COUNT(*) FROM `ai_playerbot_db_store`"),
         'realm_auction_rows' => 0,
+        'guild_json_files' => bot_maintenance_count_realm_guild_json_files($realmId),
         'rotation_log_rows' => 0,
         'rotation_ilvl_log_rows' => 0,
         'rotation_state_rows' => 0,
@@ -1104,6 +1158,7 @@ function bot_maintenance_clear_bot_character_state(array $payload, array $config
     $realmdConfig = spp_get_db_config('realmd', $realmId);
     $realmdDbName = '`' . str_replace('`', '``', (string)$realmdConfig['name']) . '`';
     $botAccountSubquery = "SELECT `id` FROM {$realmdDbName}.`account` WHERE LOWER(`username`) LIKE 'rndbot%'";
+    $deletedGuildJsonFiles = 0;
 
     try {
         $charsPdo->beginTransaction();
@@ -1315,6 +1370,7 @@ function bot_maintenance_clear_bot_character_state(array $payload, array $config
         }
 
         $charsPdo->commit();
+        $deletedGuildJsonFiles = bot_maintenance_delete_realm_guild_json_files($realmId);
     } catch (Throwable $e) {
         if ($charsPdo->inTransaction()) {
             $charsPdo->rollBack();
@@ -1332,6 +1388,7 @@ function bot_maintenance_clear_bot_character_state(array $payload, array $config
         'summary' => 'Selected realm bot character state was cleared. Keep the world server offline until you finish the host restart and repopulate steps.',
         'execute' => true,
         'preview' => $preview,
+        'deleted_guild_json_files' => $deletedGuildJsonFiles,
         'preview_after' => bot_maintenance_clear_bot_character_state_preview($realmId),
     );
 }
@@ -1364,6 +1421,7 @@ function bot_maintenance_clear_realm_character_state(array $payload, array $conf
 
     $charsPdo = spp_get_pdo('chars', $realmId);
     $realmdPdo = spp_get_pdo('realmd', $realmId);
+    $deletedGuildJsonFiles = 0;
 
     try {
         $charsPdo->beginTransaction();
@@ -1553,6 +1611,7 @@ function bot_maintenance_clear_realm_character_state(array $payload, array $conf
         }
 
         $charsPdo->commit();
+        $deletedGuildJsonFiles = bot_maintenance_delete_realm_guild_json_files($realmId);
     } catch (Throwable $e) {
         if ($charsPdo->inTransaction()) {
             $charsPdo->rollBack();
@@ -1570,6 +1629,7 @@ function bot_maintenance_clear_realm_character_state(array $payload, array $conf
         'summary' => 'Selected realm character state was cleared while preserving auth accounts. Keep the world server offline until you finish the next rebuild steps.',
         'execute' => true,
         'preview' => $preview,
+        'deleted_guild_json_files' => $deletedGuildJsonFiles,
         'preview_after' => bot_maintenance_clear_realm_character_state_preview($realmId),
     );
 }
@@ -1605,6 +1665,9 @@ function bot_maintenance_rebuild_site_layers(array $payload): array
             'php tools/backfill_identities.php --realm=' . $realmId,
             'php tools/backfill_post_identities.php --realm=' . $realmId,
             'php tools/backfill_pm_identities.php --realm=' . $realmId,
+            'php tools/seed_guild_recruitment.php --realm=' . $realmId . ' --dry-run',
+            'php tools/seed_guild_recruitment.php --realm=' . $realmId,
+            'php tools/process_bot_events.php --event=guild_created --limit=200',
         ),
     );
 }

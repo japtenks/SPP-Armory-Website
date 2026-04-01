@@ -150,7 +150,7 @@ builddiv_start(1, 'Create Account');
     <?php echo $registerMessageHtml; ?>
     <?php if ($registerMessageClass === ' is-success'): ?>
       <div class="register-message-actions">
-        <a class="register-message-link" href="download-realmlist.php?realm=<?php echo (int)$registerRealmId; ?>">Download `realmlist.wtf`</a>
+        <a class="register-message-link" href="index.php?n=server&amp;sub=realmlist&amp;nobody=1&amp;realm=<?php echo (int)$registerRealmId; ?>">Download `realmlist.wtf`</a>
       </div>
     <?php endif; ?>
   </div>

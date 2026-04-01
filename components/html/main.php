@@ -6,6 +6,13 @@ $com_content['html'] = array(
         'index.php?n=html', // Link to                 [2]
         '', // main menu name/id ('' - not show)        [3]
         0 // show in context menu (1-yes,0-no)          [4]
-    )
+    ),
+    'notice' => array(
+        '',
+        'Terms of Service',
+        'index.php?n=html&sub=notice',
+        '',
+        0
+    ),
 );
 ?>

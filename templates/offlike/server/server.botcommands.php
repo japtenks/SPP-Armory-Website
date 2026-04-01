@@ -2,10 +2,22 @@
 require_once(dirname(__FILE__, 4).'/core/xfer/com_db.php');
 require_once(dirname(__FILE__, 4).'/core/xfer/com_search.php');
 $botCommands = loadCommands($pdo,$world_db,'bot');
+$gmCommands = loadCommands($pdo,$world_db,'gm');
+$userGmLevel = (int)($user['gmlevel'] ?? 0);
+if (($user['id'] ?? 0) > 0) {
+  $gmCommands = array_values(array_filter($gmCommands, function ($cmd) use ($userGmLevel) {
+    return (int)($cmd['security'] ?? 0) <= $userGmLevel;
+  }));
+}
+$commandTabs = array('bot', 'commands', 'strategies', 'builder');
+$activeCommandTab = strtolower(trim((string)($_GET['tab'] ?? (($sub ?? '') === 'commands' ? 'commands' : 'bot'))));
+if (!in_array($activeCommandTab, $commandTabs, true)) {
+  $activeCommandTab = 'bot';
+}
 ?>
 
 
-<?php builddiv_start(1, $lang['botcommands']); ?>
+<?php builddiv_start(1, '(Bot) Commands'); ?>
 
 <style>
 .sref-tabs { display:flex; gap:4px; margin-bottom:12px; }
@@ -66,15 +78,16 @@ $botCommands = loadCommands($pdo,$world_db,'bot');
 
   <!-- Tab buttons -->
   <div class="sref-tabs">
-    <button class="sref-tab-btn active" onclick="srefTab(this,'tab-commands')">Bot Commands</button>
-    <button class="sref-tab-btn" onclick="srefTab(this,'tab-strategies')">Strategy Reference</button>
-    <button class="sref-tab-btn" onclick="srefTab(this,'tab-builder')">Custom Builder</button>
+    <button class="sref-tab-btn<?php echo $activeCommandTab === 'bot' ? ' active' : ''; ?>" onclick="srefTab(this,'tab-bot')">Bot Commands</button>
+    <button class="sref-tab-btn<?php echo $activeCommandTab === 'commands' ? ' active' : ''; ?>" onclick="srefTab(this,'tab-commands')">Commands</button>
+    <button class="sref-tab-btn<?php echo $activeCommandTab === 'strategies' ? ' active' : ''; ?>" onclick="srefTab(this,'tab-strategies')">Strategy Reference</button>
+    <button class="sref-tab-btn<?php echo $activeCommandTab === 'builder' ? ' active' : ''; ?>" onclick="srefTab(this,'tab-builder')">Custom Builder</button>
   </div>
 
   <!-- Tab 1: Bot Commands table -->
-  <div id="tab-commands" class="sref-panel active">
-    <input type="text" id="commandSearch" onkeyup="filterTable('commandSearch','commandTable')" placeholder="Search commands...">
-    <table id="commandTable" class="sortable">
+  <div id="tab-bot" class="sref-panel<?php echo $activeCommandTab === 'bot' ? ' active' : ''; ?>">
+    <input type="text" id="botCommandSearch" onkeyup="filterTable('botCommandSearch','botCommandTable')" placeholder="Search bot commands...">
+    <table id="botCommandTable" class="sortable">
       <thead>
         <tr>
           <th><?php echo $lang['command_name'] ?? 'Command Name'; ?></th>
@@ -107,8 +120,37 @@ $botCommands = loadCommands($pdo,$world_db,'bot');
     </table>
   </div>
 
-  <!-- Tab 2: Strategy Reference -->
-  <div id="tab-strategies" class="sref-panel">
+  <!-- Tab 2: GM Commands table -->
+  <div id="tab-commands" class="sref-panel<?php echo $activeCommandTab === 'commands' ? ' active' : ''; ?>">
+    <input type="text" id="gmCommandSearch" onkeyup="filterTable('gmCommandSearch','gmCommandTable')" placeholder="Search GM commands...">
+    <table id="gmCommandTable" class="sortable">
+      <thead>
+        <tr>
+          <th><?php echo $lang['command_name'] ?? 'Command Name'; ?></th>
+          <th><?php echo $lang['security_level'] ?? 'Security'; ?></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($gmCommands as $cmd): ?>
+        <tr>
+          <td>
+            <details>
+              <summary><?php echo htmlspecialchars($cmd['name']); ?></summary>
+              <p><?php echo nl2br(htmlspecialchars($cmd['help'])); ?></p>
+            </details>
+          </td>
+          <td align="center"><b><?php echo htmlspecialchars($cmd['security']); ?></b></td>
+        </tr>
+        <?php endforeach; ?>
+        <?php if (empty($gmCommands)): ?>
+        <tr><td colspan="2" style="text-align:center;color:#888;">No GM commands found for this account level.</td></tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Tab 3: Strategy Reference -->
+  <div id="tab-strategies" class="sref-panel<?php echo $activeCommandTab === 'strategies' ? ' active' : ''; ?>">
 
     <h3>How Strategies Work</h3>
     <p>Each bot runs three independent strategy engines simultaneously. Strategies are additive — multiple run at once, each contributing triggers and actions resolved by a priority queue (1–100).</p>
@@ -400,7 +442,7 @@ nc: +gather,+grind,+loot,+tfish,+wander,+rpg maintenance</pre>
   </div><!-- end tab-strategies -->
 
   <!-- Tab 3: Custom Strategy Builder -->
-  <div id="tab-builder" class="sref-panel">
+  <div id="tab-builder" class="sref-panel<?php echo $activeCommandTab === 'builder' ? ' active' : ''; ?>">
 
     <h3>Custom Strategies</h3>
     <p>

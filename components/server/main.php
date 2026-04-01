@@ -16,18 +16,11 @@ $com_content['server'] = array(
         '', // main menu name/id ('' - not show)        [3]
         0 // show in context menu (1-yes,0-no)          [4]
     ),
-    'commands' => array(
-        '', 
-        'Availaible Commands(InGame)', 
-        mw_url('server', 'commands'),
-        '8-menuSupport',
-        0
-    ),
 	'botcommands' => array(
     '', 
-    'Bot Commands', 
+    '(Bot) Commands', 
     mw_url('server', 'botcommands'),
-    '8-menuSupport',
+    '3-menuGameGuide',
     0
 ),
 
@@ -141,6 +134,20 @@ $com_content['server'] = array(
         'Downloads',
         mw_url('server', 'downloads'),
         '4-menuWorkshop',
+        0
+    ),
+    'realmlist' => array(
+        '',
+        'Realm List Download',
+        mw_url('server', 'realmlist'),
+        '',
+        0
+    ),
+    'itemtooltip' => array(
+        '',
+        'Item Tooltip',
+        mw_url('server', 'itemtooltip'),
+        '',
         0
     ),
     'rules' => array(
