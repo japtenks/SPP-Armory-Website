@@ -3,7 +3,7 @@ if (!defined('Armory')) { define('Armory', 1); }
 
 $backgroundCatalog = function_exists('spp_background_image_catalog')
     ? spp_background_image_catalog()
-    : ['19.jpg' => 'templates/offlike/images/modern/bkgd/19.jpg'];
+    : ['19.jpg' => spp_template_path('images/modern/bkgd/19.jpg')];
 $backgroundMode = 'as_is';
 $backgroundImage = '';
 $backgroundSection = function_exists('spp_background_section_key')
@@ -27,7 +27,11 @@ if (!empty($user['id']) && (int)$user['id'] > 0) {
 
 $resolvedBackground = function_exists('spp_pick_background_path')
     ? spp_pick_background_path($backgroundMode, $backgroundImage, $backgroundCatalog, $backgroundSection)
-    : 'templates/offlike/images/modern/bkgd/19.jpg';
+    : spp_template_path('images/modern/bkgd/19.jpg');
+
+$mobileMenuLogo = ((int)$expansion === 1)
+    ? spp_site_url('components/pomm/img/map_tbc/realm_on.gif')
+    : spp_template_url('images/Modern/Logo-wow-NA.png');
 ?>
 
 <!DOCTYPE html>
@@ -41,7 +45,7 @@ $resolvedBackground = function_exists('spp_pick_background_path')
   <link rel="icon" href="/favicon.ico" type="image/x-icon"/>
 
 
-<link rel="stylesheet" href="/templates/offlike/css/xfer.css">
+<link rel="stylesheet" href="<?php echo htmlspecialchars(spp_template_url('css/xfer.css'), ENT_QUOTES); ?>">
 <script>
 function setcookie(name, value, days = 30) {
   const d = new Date();
@@ -65,7 +69,7 @@ function changeLanguage(lang) {
 	
 	<div class="nav-logo">
       <a href="./">
-        <img src="templates/offlike/images/modern/wow.png" alt="WoW Logo" class="nav-logo-img" />
+        <img src="<?php echo htmlspecialchars(spp_template_url('images/modern/wow.png'), ENT_QUOTES); ?>" alt="WoW Logo" class="nav-logo-img" />
       </a>
     </div>
 
@@ -75,9 +79,7 @@ function changeLanguage(lang) {
 
      
         <img 
-          src="<?php echo ($expansion == 1) 
-            ? 'components/pomm/img/map_tbc/realm_on.gif' 
-            : 'templates/offlike/images/Modern/Logo-wow-NA.png'; ?>" 
+          src="<?php echo htmlspecialchars($mobileMenuLogo, ENT_QUOTES); ?>" 
           alt="WoW Logo" 
           class="menu-logo" 
         />

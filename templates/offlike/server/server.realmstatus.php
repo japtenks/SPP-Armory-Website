@@ -339,8 +339,8 @@ foreach($realms as $r){
   <?php header_image("realm"); ?>
   <div class="modern-desc">
     <?php
-        $up   = '<span class="status up">▲ '.$lang['up'].'</span>';
-        $down = '<span class="status down">▼ '.$lang['down'].'</span>';
+        $up   = '<span class="status up">â–² '.$lang['up'].'</span>';
+        $down = '<span class="status down">â–¼ '.$lang['down'].'</span>';
       $link='<a href="index.php?n=forum">'.$lang['realm_status_forum'].'</a>';
       $up = '<span class="status up">&#9650; '.$lang['up'].'</span>';
       $down = '<span class="status down">&#9660; '.$lang['down'].'</span>';

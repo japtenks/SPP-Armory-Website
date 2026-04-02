@@ -125,45 +125,47 @@
 Menu1=new Array("Site Map","/","shared/wow-com/images/subnav/button_bg.gif",8,15,110,"","","","","","",-1,-1,-1,"","");
 
 	Menu1_1=new Array(bulletImg+"News"+underLine,"#","",3,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_1_1=new Array(bulletImg+"Current News"+underLine,"?","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_1_2=new Array(bulletImg+"Archived News"+underLine,"?n=news.archive","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_1_1=new Array(bulletImg+"Front Page"+underLine,"?","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_1_2=new Array(bulletImg+"Forum Archive"+underLine,"index.php?n=forum&sub=viewforum&fid=1","",0,15,110,"","","","","","",-1,-1,-1,"","");
 		Menu1_1_3=new Array(bulletImg+"RSS Feeds"+underLine,"inc/news.rss.xml","",0,15,110,"","","","","","",-1,-1,-1,"","");
 	
-	Menu1_2=new Array(bulletImg+"Account"+underLine,"#","",3,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_2_1=new Array(bulletImg+"Account Creation"+underLine,"?n=account.create","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_2_2=new Array(bulletImg+"Account Manage"+underLine,"?n=account.manage","",0,15,110,"","","","","","",-1,-1,-1,"","")
-		Menu1_2_3=new Array(bulletImg+"Realm Status"+underLine,"?n=account.realmstatus","",0,15,110,"","","","","","",-1,-1,-1,"","")
+	Menu1_2=new Array(bulletImg+"Account"+underLine,"index.php?n=account&sub=login","",4,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_2_1=new Array(bulletImg+"Login"+underLine,"index.php?n=account&sub=login","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_2_2=new Array(bulletImg+"Register"+underLine,"index.php?n=account&sub=register","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_2_3=new Array(bulletImg+"Manage Account"+underLine,"index.php?n=account&sub=manage","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_2_4=new Array(bulletImg+"Realm Status"+underLine,"index.php?n=server&sub=realmstatus","",0,15,110,"","","","","","",-1,-1,-1,"","");
 
-	Menu1_3=new Array(bulletImg+"Game Guide"+underLine,"#","",3,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_3_1=new Array(bulletImg+"Introduction"+underLine,"?n=gameguide.introduction","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_3_2=new Array(bulletImg+"Getting Started"+underLine,"?n=gameguide.gettingstarted","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_3_3=new Array(bulletImg+"FAQ"+underLine,"?n=gameguide.faq","",0,15,110,"","","","","","",-1,-1,-1,"","");
+	Menu1_3=new Array(bulletImg+"Game Guide"+underLine,"index.php?n=gameguide&sub=connect","",2,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_3_1=new Array(bulletImg+"How To Play"+underLine,"index.php?n=gameguide&sub=connect","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_3_2=new Array(bulletImg+"Bot Guide"+underLine,"index.php?n=server&sub=botcommands","",0,15,110,"","","","","","",-1,-1,-1,"","");
 				
-	Menu1_4=new Array(bulletImg+"Workshop"+underLine,"#","",4,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_4_1=new Array(bulletImg+"PvP Rankings"+underLine,"?n=workshop.pvprankings","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_4_2=new Array(bulletImg+"Events Calendar"+underLine,"?n=workshop.eventscalendar","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_4_3=new Array(bulletImg+"World Map"+underLine,"?n=workshop.worldmap","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_4_4=new Array(bulletImg+"Talent Calculators"+underLine,"?n=workshop.talentcalculator","",0,15,110,"","","","","","",-1,-1,-1,"","");
+	Menu1_4=new Array(bulletImg+"Workshop"+underLine,"index.php?n=server&sub=realmstatus","",6,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_4_1=new Array(bulletImg+"Realm Status"+underLine,"index.php?n=server&sub=realmstatus","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_4_2=new Array(bulletImg+"Player Map"+underLine,"index.php?n=server&sub=playermap","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_4_3=new Array(bulletImg+"Statistics"+underLine,"index.php?n=server&sub=statistic","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_4_4=new Array(bulletImg+"Auction House"+underLine,"index.php?n=server&sub=ah","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_4_5=new Array(bulletImg+"Armor Sets"+underLine,"index.php?n=server&sub=sets","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_4_6=new Array(bulletImg+"Downloads"+underLine,"index.php?n=server&sub=downloads","",0,15,110,"","","","","","",-1,-1,-1,"","");
 		
-	Menu1_5=new Array(bulletImg+"Media"+underLine,"/downloads/","",3,15,110,"","","","","","",-1,-1,-1,"",""); 
-		Menu1_5_1=new Array(bulletImg+"Screenshots"+underLine,"?n=media.screenshots","",0,15,110,"","","","","","",-1,-1,-1,"","");				        
-		Menu1_5_2=new Array(bulletImg+"Wallpapers"+underLine,"?n=media.wallpapers","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_5_3=new Array(bulletImg+"Other Downloads"+underLine,"?n=media.otherdownloads","",0,15,110,"","","","","","",-1,-1,-1,"","");
+	Menu1_5=new Array(bulletImg+"Downloads"+underLine,"index.php?n=server&sub=downloads","",0,15,110,"","","","","","",-1,-1,-1,"",""); 
 			
-	Menu1_6=new Array(bulletImg+"Forums"+underLine,"?n=forums","",4,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_6_1=new Array(bulletImg+"Members"+underLine,"?n=forums.members","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_6_2=new Array(bulletImg+"General"+underLine,"?n=forums","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_6_3=new Array(bulletImg+"Guild Recruitment"+underLine,"?n=forums&f=2","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_6_4=new Array(bulletImg+"Support"+underLine,"?n=forums&f=1","",0,15,110,"","","","","","",-1,-1,-1,"","");
+	Menu1_6=new Array(bulletImg+"Forums"+underLine,"index.php?n=forum","",2,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_6_1=new Array(bulletImg+"Forum Home"+underLine,"index.php?n=forum","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_6_2=new Array(bulletImg+"News Archive"+underLine,"index.php?n=forum&sub=viewforum&fid=1","",0,15,110,"","","","","","",-1,-1,-1,"","");
 
-	Menu1_7=new Array(bulletImg+"Community"+underLine,"?n=community.spotlight","",3,15,110,"","","","","","",-1,-1,-1,"",""); 
-		Menu1_7_1=new Array(bulletImg+"Community Spotlight"+underLine,"?n=community.spotlight","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_7_2=new Array(bulletImg+"Contests"+underLine,"?n=community.contests","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_7_3=new Array(bulletImg+"Fan Art"+underLine,"?n=community.fanart","",0,15,110,"","","","","","",-1,-1,-1,"","");
+	Menu1_7=new Array(bulletImg+"Armory"+underLine,"index.php?n=server&sub=chars","",6,15,110,"","","","","","",-1,-1,-1,"",""); 
+		Menu1_7_1=new Array(bulletImg+"Characters"+underLine,"index.php?n=server&sub=chars","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_7_2=new Array(bulletImg+"Guilds"+underLine,"index.php?n=server&sub=guilds","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_7_3=new Array(bulletImg+"Honor"+underLine,"index.php?n=server&sub=honor","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_7_4=new Array(bulletImg+"Talents"+underLine,"index.php?n=server&sub=talents","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_7_5=new Array(bulletImg+"Items"+underLine,"index.php?n=server&sub=items","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_7_6=new Array(bulletImg+"Marketplace"+underLine,"index.php?n=server&sub=marketplace","",0,15,110,"","","","","","",-1,-1,-1,"","");
 		
-	Menu1_8=new Array(bulletImg+"Support"+underLine,"#","",4,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_8_1=new Array(bulletImg+"In-Game Support"+underLine,"?n=support.ingame","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_8_2=new Array(bulletImg+"Bug Tracker Support"+underLine,"?n=support.bugtracker","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_8_3=new Array(bulletImg+"Donations"+underLine,"?n=support.donations","",0,15,110,"","","","","","",-1,-1,-1,"","");
-		Menu1_8_4=new Array(bulletImg+"Rules"+underLine,"?n=support.rules","",0,15,110,"","","","","","",-1,-1,-1,"","");
+	Menu1_8=new Array(bulletImg+"Support"+underLine,"#","",6,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_8_1=new Array(bulletImg+"Bug Tracker"+underLine,"index.php?n=forum&sub=viewforum&fid=2","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_8_2=new Array(bulletImg+"SPP Discord"+underLine,"https://discord.gg/TpxqWWT","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_8_3=new Array(bulletImg+"Bots Discord"+underLine,"https://discord.gg/s4JGKG2BUW","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_8_4=new Array(bulletImg+"SPP Proxmox"+underLine,"https://github.com/japtenks/spp-cmangos-prox/issues","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_8_5=new Array(bulletImg+"Mangos Bots"+underLine,"https://github.com/celguar/mangos-classic/tree/ike3-bots","",0,15,110,"","","","","","",-1,-1,-1,"","");
+		Menu1_8_6=new Array(bulletImg+"Website Issues"+underLine,"https://github.com/japtenks/SPP-Armory-Website/issues","",0,15,110,"","","","","","",-1,-1,-1,"","");
 

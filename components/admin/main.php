@@ -44,21 +44,21 @@ $com_content['admin'] = array(
      'news_add' => array(
         'g_is_admin', 
         'news_add', 
-        $fa,
+        'index.php?n=admin&sub=news_add',
         '',
-        1
+        0
     ),
     'news' => array(
         'g_is_admin', 
         'news_manage', 
-        $fn,
+        'index.php?n=admin&sub=news',
         '',
-        1
+        0
     ),
     'commands' => array(
         'g_is_admin',
         'commands_manage',
-        $fc,
+        'index.php?n=admin&sub=commands',
         '',
         0
     ),

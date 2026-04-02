@@ -1,6 +1,5 @@
 <?php
 if(INCLUDED!==true)exit;
-
-$pathway_info[] = array('title'=>$lang['howtoplay'],'link'=>'');
-$content = lang_resource('howtoplay.html');
+header('Location: index.php?n=server&sub=connect', true, 302);
+exit;
 ?>

@@ -14,8 +14,8 @@
         public $getDbInfo = array();
         
         // Holds paths.
-        public $path_configxml = "config/config.xml";
-        public $path_protectedconf = "config/config-protected.php";
+        public $path_configxml = "";
+        public $path_protectedconf = "";
         
         // Holds content output.
         public $content_output;
@@ -25,6 +25,8 @@
           *
           */
         public function mangosweb($path_configxml=false,$path_protectedconf=false){
+            $this->path_configxml = dirname(__DIR__) . "/config/config.xml";
+            $this->path_protectedconf = dirname(__DIR__) . "/config/config-protected.php";
             if ($path_configxml)$this->path_configxml = $path_configxml;
             if ($path_protectedconf)$this->path_protectedconf = $path_protectedconf;
            $this->parse_configxml();

@@ -1,5 +1,5 @@
 <?php
 if(INCLUDED!==true)exit;
-$screensize = $MW->getConfig->components->left_section->Screenshotsize;
-$pathway_info[] = array('title'=>$lang['UScreen'],'link'=>'');
+header('Location: index.php?n=media', true, 302);
+exit;
 ?>

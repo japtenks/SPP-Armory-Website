@@ -1,11 +1,69 @@
 <?php
 //cat /var/www/html/config/config-helper.php
 
-require_once($_SERVER['DOCUMENT_ROOT'] . '/config/config-protected.php');
-
 if (!function_exists('spp_default_realm_id')) {
     function spp_default_realm_id(array $realmDbMap) {
         return 1;
+    }
+}
+
+if (!function_exists('spp_template_name')) {
+    function spp_template_name($config = null): string {
+        $config = $config ?: ($GLOBALS['MW']->getConfig ?? null);
+        $template = '';
+        if ($config && isset($config->generic) && isset($config->generic->template)) {
+            $template = trim((string)$config->generic->template);
+        }
+
+        return $template !== '' ? $template : 'offlike';
+    }
+}
+
+if (!function_exists('spp_template_root')) {
+    function spp_template_root($config = null): string {
+        return 'templates/' . spp_template_name($config);
+    }
+}
+
+if (!function_exists('spp_component_root')) {
+    function spp_component_root(string $section = ''): string {
+        $section = trim(str_replace('\\', '/', $section), '/');
+        return $section === '' ? 'components' : 'components/' . $section;
+    }
+}
+
+if (!function_exists('spp_template_path')) {
+    function spp_template_path(string $relativePath = '', $config = null): string {
+        $base = spp_template_root($config);
+        $relativePath = ltrim(str_replace('\\', '/', $relativePath), '/');
+        return $relativePath === '' ? $base : $base . '/' . $relativePath;
+    }
+}
+
+if (!function_exists('spp_component_path')) {
+    function spp_component_path(string $relativePath = ''): string {
+        $base = spp_component_root();
+        $relativePath = ltrim(str_replace('\\', '/', $relativePath), '/');
+        return $relativePath === '' ? $base : $base . '/' . $relativePath;
+    }
+}
+
+if (!function_exists('spp_template_url')) {
+    function spp_template_url(string $relativePath = '', $config = null): string {
+        return '/' . ltrim(spp_template_path($relativePath, $config), '/');
+    }
+}
+
+if (!function_exists('spp_js_asset_url')) {
+    function spp_js_asset_url(string $filename): string {
+        return '/' . ltrim('js/' . ltrim($filename, '/'), '/');
+    }
+}
+
+if (!function_exists('spp_site_url')) {
+    function spp_site_url(string $relativePath = ''): string {
+        $relativePath = ltrim(str_replace('\\', '/', $relativePath), '/');
+        return $relativePath === '' ? '/' : '/' . $relativePath;
     }
 }
 
@@ -323,7 +381,7 @@ if (!function_exists('spp_update_account_profile_fields')) {
 
 if (!function_exists('spp_background_image_directory')) {
     function spp_background_image_directory() {
-        return 'templates/offlike/images/modern/bkgd/';
+        return spp_template_path('images/modern/bkgd/');
     }
 }
 
@@ -451,7 +509,7 @@ if (!function_exists('spp_pick_background_path')) {
     function spp_pick_background_path($mode = 'as_is', $selectedImage = '', array $catalog = null, $sectionKey = null) {
         $catalog = $catalog ?: spp_background_image_catalog();
         if (empty($catalog)) {
-            return 'templates/offlike/images/modern/bkgd/19.jpg';
+            return spp_template_path('images/modern/bkgd/19.jpg');
         }
 
         $mode = strtolower(trim((string)$mode));

@@ -53,7 +53,7 @@ $com_content['account'] = array(
         '',
         'userlist',
         'index.php?n=account&sub=userlist',
-        '4-menuInteractive',
+        '2-menuAccount',
         0
     ),
     'login' => array(

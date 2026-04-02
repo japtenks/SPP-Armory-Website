@@ -417,7 +417,7 @@ function add_pictureletter($text){
                                              "sozsozyyuaaaaaaaceeeeiiiidnoooooouuuuysaaaaaaaceeeeiiiionoooooouuuuyy");
     if (strpos("abcdefghijklmnopqrstuvwxyz", $imageletter) === false)
         return $text;
-    $img = '<img src="templates/offlike/images/letters/'.$imageletter.'.gif" alt="'.$letter.'" align="left"/>';
+    $img = '<img src="' . spp_template_path('images/letters/'.$imageletter.'.gif') . '" alt="'.$letter.'" align="left"/>';
     $output = $img . substr($text, 1);
     return $output;
 }
@@ -593,7 +593,10 @@ function lang_resource($name){
  * @param $dir string Path on local filesystem of server to the smilies (defaults to images/smiles/)
  * @return array List of found files in the given directory (.svn, Thumbs.db and index.html are exluded)
  */
-function load_smiles($dir='templates/offlike/images/smiles/'){
+function load_smiles($dir=''){
+    if ($dir === '') {
+        $dir = spp_template_path('images/smiles/');
+    }
     $allfiles = scandir($dir);
     $smiles = array_diff($allfiles, array(".", "..", ".svn", "Thumbs.db", "index.html"));
     return $smiles;
@@ -611,7 +614,7 @@ function send_email($to_email,$to_name,$theme,$text_text,$text_html=''){
         return false;
     }
     set_time_limit(300);
-    include('core/mail/smtp.php');
+    include(__DIR__ . '/mail/smtp.php');
     $mail = new SMTP;
     $mail->Delivery('relay');
     $mail->Relay((string)$MW->getConfig->generic->smtp_adress,(string)$MW->getConfig->generic->smtp_username,(string)$MW->getConfig->generic->smtp_password);
@@ -702,7 +705,7 @@ function check_image($img_file){
     if($fil_scr_res[0]>$max_width || $fil_scr_res[1]>$max_height){
         $n_img_file = $path_parts['dirname'].'/resized_'.$path_parts['basename'];
         if(!file_exists($n_img_file)){
-            include('core/class.image.php');
+            include(__DIR__ . '/class.image.php');
             $img = new IMAGE;
             ob_start();
             $res = $img->send_thumbnail($img_file,$max_width,$max_height,true);
@@ -1522,15 +1525,32 @@ function verifySRP6($user, $pass, $salt, $verifier)
 
 function subnav($menuname) {
     global $MW;
+    $subnavBase = spp_template_url('images/subnav/');
+    $pixelGif = spp_template_url('images/pixel.gif');
+    $communityIcon = $subnavBase . 'icon_community.jpg';
+    $navTop = $subnavBase . 'nav_top.jpg';
+    $navRight = $subnavBase . 'nav_right.jpg';
+    $navMiddle = $subnavBase . 'nav_middle.jpg';
+    $leftSubnav = $subnavBase . 'leftsubnav.jpg';
+    $subnavBg = $subnavBase . 'subnav.jpg';
+    $subnavTopLeft = $subnavBase . 'subnav_topleft.gif';
+    $subnavTop = $subnavBase . 'subnav_top.gif';
+    $subnavTopRight = $subnavBase . 'subnav_topright.gif';
+    $subnavLeft = $subnavBase . 'subnav_left.gif';
+    $subnavCenterBg = $subnavBase . 'subnav_bg.gif';
+    $subnavRight = $subnavBase . 'subnav_right.gif';
+    $subnavBotLeft = $subnavBase . 'subnav_botleft.gif';
+    $subnavBot = $subnavBase . 'subnav_bot.gif';
+    $subnavBotRight = $subnavBase . 'subnav_botright.gif';
     ?>
     <!---Subnav----->
     <script language = "javascript">
         var pageId = "<?php echo $menuname; ?>";
     </script>
     <?php sitemap(); ?>
-    <script type="text/javascript" src="js/navtree-main.js"></script>
-    <script type="text/javascript" src="js/menu132_com.js"></script>
-    <script type="text/javascript" src="js/navtreefunctions.js"></script>
+    <script type="text/javascript" src="<?php echo htmlspecialchars(spp_js_asset_url('navtree-main.js'), ENT_QUOTES); ?>"></script>
+    <script type="text/javascript" src="<?php echo htmlspecialchars(spp_js_asset_url('menu132_com.js'), ENT_QUOTES); ?>"></script>
+    <script type="text/javascript" src="<?php echo htmlspecialchars(spp_js_asset_url('navtreefunctions.js'), ENT_QUOTES); ?>"></script>
     <style type="text/css">
 
         .navigation
@@ -1585,36 +1605,36 @@ function subnav($menuname) {
                     <script language = "javascript">
                         var iconId;
                         if (result!=1)
-                            document.write('<td width="59" rowspan="3" valign = "top"><a href = "' + Menu2[1] + '"><img src = "templates/offlike/images/subnav/icon_' + Menu2[0].toLowerCase() + '.jpg" width="59" height="65" border = "0"></a></td>');
+                            document.write('<td width="59" rowspan="3" valign = "top"><a href = "' + Menu2[1] + '"><img src = "<?php echo $subnavBase; ?>icon_' + Menu2[0].toLowerCase() + '.jpg" width="59" height="65" border = "0"></a></td>');
                         else
-                            document.write('<td width="59" rowspan="3" valign = "top"><a href = "?"><img src = "templates/offlike/images/subnav/icon_community.jpg" width="59" height="65" border = "0"></a></td>');
+                            document.write('<td width="59" rowspan="3" valign = "top"><a href = "?"><img src = "<?php echo $communityIcon; ?>" width="59" height="65" border = "0"></a></td>');
                     </script>
 
-                    <td height="15" background="templates/offlike/images/subnav/nav_top.jpg"></td>
-                    <td width="18" height="65" rowspan="3" style="background-image:url(templates/offlike/images/subnav/nav_right.jpg); background-position:top; background-repeat:no-repeat;"></td>
+                    <td height="15" background="<?php echo $navTop; ?>"></td>
+                    <td width="18" height="65" rowspan="3" style="background-image:url('<?php echo $navRight; ?>'); background-position:top; background-repeat:no-repeat;"></td>
                 </tr>
 
                 <tr>
-                    <td height="17" background="templates/offlike/images/subnav/nav_middle.jpg" nowrap><div id = "filterMenu"></div></td>
+                    <td height="17" background="<?php echo $navMiddle; ?>" nowrap><div id = "filterMenu"></div></td>
                 </tr>
 
                 <tr>
                     <td>
                         <table width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
-                                <td width="5" height="33" style="background-image:url(templates/offlike/images/subnav/leftsubnav.jpg); background-position:top; background-repeat:repeat-x;"><img src="templates/offlike/images/pixel.gif" width="5" height="1"></td>
+                                <td width="5" height="33" style="background-image:url('<?php echo $leftSubnav; ?>'); background-position:top; background-repeat:repeat-x;"><img src="<?php echo $pixelGif; ?>" width="5" height="1"></td>
 
-                                <td height="33" background="templates/offlike/images/subnav/subnav.jpg" width="100%">
+                                <td height="33" background="<?php echo $subnavBg; ?>" width="100%">
                                     <table width="100%" height="33" cellpadding="0" cellspacing="0" border="0">
                                         <tr>
-                                            <td width="5" height="5" background="templates/offlike/images/subnav/subnav_topleft.gif"></td>
-                                            <td height="5" background="templates/offlike/images/subnav/subnav_top.gif"></td>
-                                            <td width="6" height="5" background="templates/offlike/images/subnav/subnav_topright.gif"></td>
+                                            <td width="5" height="5" background="<?php echo $subnavTopLeft; ?>"></td>
+                                            <td height="5" background="<?php echo $subnavTop; ?>"></td>
+                                            <td width="6" height="5" background="<?php echo $subnavTopRight; ?>"></td>
                                         </tr>
                                         <tr>
-                                            <td width="5" height="19" background="templates/offlike/images/subnav/subnav_left.gif"><img src = "templates/offlike/images/pixel.gif" width = "5"></td>
+                                            <td width="5" height="19" background="<?php echo $subnavLeft; ?>"><img src = "<?php echo $pixelGif; ?>" width = "5"></td>
 
-                                            <td height="19" style="text-align:center;" background="templates/offlike/images/subnav/subnav_bg.gif" valign="middle"><img src="templates/offlike/images/pixel.gif" width="1" height="1"><small class="button" style="color:#808080; letter-spacing:normal;">
+                                            <td height="19" style="text-align:center;" background="<?php echo $subnavCenterBg; ?>" valign="middle"><img src="<?php echo $pixelGif; ?>" width="1" height="1"><small class="button" style="color:#808080; letter-spacing:normal;">
 
                                                     <script language = "javascript">
 
@@ -1624,13 +1644,13 @@ function subnav($menuname) {
 
 
                                                 </small></td>
-                                            <td width="6" height="19" background="templates/offlike/images/subnav/subnav_right.gif"><img src = "templates/offlike/images/pixel.gif" width = "6"></td>
+                                            <td width="6" height="19" background="<?php echo $subnavRight; ?>"><img src = "<?php echo $pixelGif; ?>" width = "6"></td>
                                         </tr>
                                         <tr>
-                                            <td width="5" height="9" background="templates/offlike/images/subnav/subnav_botleft.gif"></td>
-                                            <td height="9" background="templates/offlike/images/subnav/subnav_bot.gif"></td>
+                                            <td width="5" height="9" background="<?php echo $subnavBotLeft; ?>"></td>
+                                            <td height="9" background="<?php echo $subnavBot; ?>"></td>
 
-                                            <td width="6" height="9" background="templates/offlike/images/subnav/subnav_botright.gif"></td>
+                                            <td width="6" height="9" background="<?php echo $subnavBotRight; ?>"></td>
                                         </tr>
                                     </table>
                                 </td>
@@ -1649,6 +1669,15 @@ function subnav($menuname) {
 
 function sitemap() {
     global $MW;
+    $pixelGif = spp_template_url('images/pixel.gif');
+    $bulletLine = spp_template_url('images/bullet-trans-line-blue.gif');
+    $bulletDot = spp_template_url('images/bullet-trans-dot-blue.gif');
+    $bulletDotIndent = spp_template_url('images/bullet-trans-dot-indent.gif');
+    $bulletBg = spp_template_url('images/bullet-trans-bg-blue.gif');
+    $bulletIndentBg = spp_template_url('images/bullet-trans-indent-bg.gif');
+    $subnavTri = spp_template_url('images/subnav/tri.gif');
+    $subnavArrow = spp_template_url('images/subnav/arrow_right2.gif');
+    $subnavButtonBg = spp_template_url('images/subnav/button_bg.gif');
     ?>
     <script language = "javascript">
         var linkClass="subMenuLink";//defines initial css class of the links
@@ -1657,13 +1686,13 @@ function sitemap() {
         if(is_ie){
             var menuBg="";
             var menuBgIndent="";
-            var underLine="<img src=templates/offlike/images/bullet-trans-line-blue.gif />";
-            var bulletImg="<img src=templates/offlike/images/bullet-trans-dot-blue.gif align=left />";
-            var bulletImgIndent="<img src=templates/offlike/images/bullet-trans-dot-indent.gif align=left />";
+            var underLine="<img src='<?php echo $bulletLine; ?>' />";
+            var bulletImg="<img src='<?php echo $bulletDot; ?>' align=left />";
+            var bulletImgIndent="<img src='<?php echo $bulletDotIndent; ?>' align=left />";
         }else{
-            var menuBg="templates/offlike/images/bullet-trans-bg-blue.gif";
-            var menuBgIndent="templates/offlike/images/bullet-trans-indent-bg.gif";
-            var bulletImgIndent="<img src = templates/offlike/images/pixel.gif width=16 height=1 />";
+            var menuBg="<?php echo $bulletBg; ?>";
+            var menuBgIndent="<?php echo $bulletIndentBg; ?>";
+            var bulletImgIndent="<img src='<?php echo $pixelGif; ?>' width=16 height=1 />";
             var underLine="";
             var bulletImg="";
         }
@@ -1723,7 +1752,7 @@ function sitemap() {
                                         // For testing on your harddisk use syntax like: BaseHref="file:///C|/MyFiles/Homepage/"
 
 
-        var Arrws=['templates/offlike/images/subnav/tri.gif',14,15,'templates/offlike/images/subnav/arrow_right2.gif',18,12,'templates/offlike/images/subnav/arrow_right2.gif',5,10];	// Arrow source, width and height
+        var Arrws=['<?php echo $subnavTri; ?>',14,15,'<?php echo $subnavArrow; ?>',18,12,'<?php echo $subnavArrow; ?>',5,10];	// Arrow source, width and height
 
 
         // Arrow source, width and height.
@@ -1771,45 +1800,42 @@ function sitemap() {
         function BeforeFirstOpen(){return}
         function AfterCloseAll(){return}
 
-        Menu1=new Array("<?php echo $MW->getConfig->generic->site_title; ?>","?","templates/offlike/images/subnav/button_bg.gif",5,15,110,"","","","","","",-1,-1,-1,"","");
+        Menu1=new Array("<?php echo $MW->getConfig->generic->site_title; ?>","?","<?php echo $subnavButtonBg; ?>",5,15,110,"","","","","","",-1,-1,-1,"","");
 
-        Menu1_1=new Array(bulletImg+"News"+underLine,"?",menuBg,1,15,110,"","","","","","",-1,-1,-1,"","");
+        Menu1_1=new Array(bulletImg+"News"+underLine,"?",menuBg,2,15,110,"","","","","","",-1,-1,-1,"","");
+        Menu1_1_1=new Array(bulletImg+"Front Page"+underLine,"?",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_1_2=new Array(bulletImg+"Forum Archive"+underLine,"index.php?n=forum&sub=viewforum&fid=1",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
 
-        Menu1_1_1=new Array(bulletImg+"Current News"+underLine,"?n=news.archive",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_2=new Array(bulletImg+"Account"+underLine,"index.php?n=account&sub=login", menuBg, 4,15,110,"","","","","","",-1,-1,-1,"","");
+        Menu1_2_1=new Array(bulletImg+"Login"+underLine,"index.php?n=account&sub=login",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_2_2=new Array(bulletImg+"Register"+underLine,"index.php?n=account&sub=register",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_2_3=new Array(bulletImg+"Manage Account"+underLine,"index.php?n=account&sub=manage",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_2_4=new Array(bulletImg+"Restore Password"+underLine,"index.php?n=account&sub=restore",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
 
-        Menu1_2=new Array(bulletImg+"Account"+underLine,"?", menuBg, 0,15,110,"","","","","","",-1,-1,-1,"","");
+        Menu1_3=new Array(bulletImg+"Game Guide"+underLine,"index.php?n=gameguide&sub=connect",menuBg,2,15,110,"","","","","","",-1,-1,-1,"","");
+        Menu1_3_1=new Array(bulletImg+"How To Play"+underLine,"index.php?n=gameguide&sub=connect",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_3_2=new Array(bulletImg+"Bot Guide"+underLine,"index.php?n=server&sub=botcommands",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
 
+        Menu1_4=new Array(bulletImg+"Workshop"+underLine,"index.php?n=server&sub=realmstatus",menuBg,4,15,110,"","","","","","",-1,-1,-1,"","");
+        Menu1_4_1=new Array(bulletImg+"Realm Status"+underLine,"index.php?n=server&sub=realmstatus",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_4_2=new Array(bulletImg+"Player Map"+underLine,"index.php?n=server&sub=playermap",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_4_3=new Array(bulletImg+"Statistics"+underLine,"index.php?n=server&sub=statistic",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_4_4=new Array(bulletImg+"Downloads"+underLine,"index.php?n=server&sub=downloads",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
 
-        Menu1_3=new Array(bulletImg+"Game Guide"+underLine,"?",menuBg,3,15,110,"","","","","","",-1,-1,-1,"","");
-
-        Menu1_3_1=new Array(bulletImg+"Introduction"+underLine,"?n=gameguide.introduction",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
-        Menu1_3_2=new Array(bulletImg+"Getting Started"+underLine,"?n=gameguide.gettingstarted",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
-        Menu1_3_3=new Array(bulletImg+"FAQ"+underLine,"?n=gameguide.faq",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
-
-        Menu1_4=new Array(bulletImg+"Workshop"+underLine,"?",menuBg,2,15,110,"","","","","","",-1,-1,-1,"","");
-
-        Menu1_4_1=new Array(bulletImg+"Events Calendar"+underLine,"?n=workshop.eventscalendar",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
-        Menu1_4_2=new Array(bulletImg+"World Map"+underLine,"?n=workshop.worldmap",menuBg,2,15,140,"","","","","","",-1,-1,-1,"","");
-        Menu1_4_2_1=new Array(bulletImg+"Azeroth"+underLine,"?n=workshop.worldmap&m=azeroth",menuBg,0,15,65,"","","","","","",-1,-1,-1,"","");
-        Menu1_4_2_2=new Array(bulletImg+"Outland"+underLine,"?n=workshop.worldmap&m=outland",menuBg,0,15,65,"","","","","","",-1,-1,-1,"","");
-
-        Menu1_5=new Array(bulletImg+"Media"+underLine,"?",menuBg,3,15,110,"","","","","","",-1,-1,-1,"","");
-
-        Menu1_5_1=new Array(bulletImg+"Screenshots"+underLine,"?n=media.screenshots ",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
-        Menu1_5_2=new Array(bulletImg+"Wallpapers"+underLine,"?n=media.wallpapers",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
-        Menu1_5_3=new Array(bulletImg+"Other Downloads"+underLine,"?n=media.otherdownloads",menuBg,0,15,140,"","","","","","",-1,-1,-1,"","");
+        Menu1_5=new Array(bulletImg+"Downloads"+underLine,"index.php?n=server&sub=downloads",menuBg,0,15,110,"","","","","","",-1,-1,-1,"","");
     </script>
     <?php
 }
 
 function subtitle($tit, $sz='90%') {
-
+    $subheaderLeft = spp_template_url('images/headers/subheader/subheader-left-sword.gif');
+    $subheaderRight = spp_template_url('images/headers/subheader/subheader-right.gif');
     ?>
     <table border='0' cellpadding='0' cellspacing='0' width='<?php echo $sz; ?>'>
         <tbody><tr>
-            <td width='24'><img src='templates/offlike/images/headers/subheader/subheader-left-sword.gif' height='20' width='24'></td>
+            <td width='24'><img src='<?php echo $subheaderLeft; ?>' height='20' width='24'></td>
             <td bgcolor='#05374a' width='100%'><b class='white'><?php echo $tit; ?></b></td>
-            <td width='10'><img src='templates/offlike/images/headers/subheader/subheader-right.gif' height='20' width='10'></td>
+            <td width='10'><img src='<?php echo $subheaderRight; ?>' height='20' width='10'></td>
         </tr>
         <tr>
             <td  height=10></td>
@@ -1820,14 +1846,16 @@ function subtitle($tit, $sz='90%') {
 }
 
 function title($tit) {
-
+    $dateheaderLeft = spp_template_url('images/headers/dateheader/dateheader-left.gif');
+    $dateheaderBg = spp_template_url('images/headers/dateheader/dateheader-bg.gif');
+    $dateheaderRight = spp_template_url('images/headers/dateheader/dateheader-right.gif');
     ?>
     <table cellspacing =" 0" cellpadding =" 0" border =" 0" width ="710">
         <tr>
             <td width=10>&nbsp;</td>
-            <td width =" 29"><img src ="templates/offlike/images/headers/dateheader/dateheader-left.gif" width =" 31" height =" 38"></td>
-            <td background ="templates/offlike/images/headers/dateheader/dateheader-bg.gif"><h3 class =" titleLight"> <font color=white><?php echo $tit; ?></font> </h3></td>
-            <td width =" 17"><img src ="templates/offlike/images/headers/dateheader/dateheader-right.gif" width =" 17" height =" 38"></td>
+            <td width =" 29"><img src ="<?php echo $dateheaderLeft; ?>" width =" 31" height =" 38"></td>
+            <td background ="<?php echo $dateheaderBg; ?>"><h3 class =" titleLight"> <font color=white><?php echo $tit; ?></font> </h3></td>
+            <td width =" 17"><img src ="<?php echo $dateheaderRight; ?>" width =" 17" height =" 38"></td>
             <td width=10>&nbsp;</td>
         </tr>
         <tr>
@@ -1838,13 +1866,14 @@ function title($tit) {
 }
 
 function header_image($img) {
-
+    $headerBg = spp_template_url('images/headers/' . $img . 'bg.jpg');
+    $headerHead = spp_template_url('images/headers/' . $img . 'head.jpg');
     ?>
     <table style="margin-left:-7px;" cellspacing =" 0" cellpadding =" 0" border =" 0" width ="102%">
         <tr>
             <td  width=10></td>
-            <td background="templates/offlike/images/headers/<?php echo $img; ?>bg.jpg" align=left>
-                <div><img src="templates/offlike/images/headers/<?php echo $img; ?>head.jpg"></div>
+            <td background="<?php echo $headerBg; ?>" align=left>
+                <div><img src="<?php echo $headerHead; ?>"></div>
             </td>
             <td  width=10></td>
         </tr>
@@ -1856,23 +1885,27 @@ function header_image($img) {
 }
 
 function header_image_gif($img) {
+    $headerBg = spp_template_url('images/headers/' . $img . '_bg.jpg');
+    $headerLeft = spp_template_url('images/headers/' . $img . '_left.gif');
+    $headerImage = spp_template_url('images/headers/' . $img . '_image.gif');
+    $headerRight = spp_template_url('images/headers/' . $img . '_right.gif');
 ?>
     <table 
 	cellspacing="0" 
 	cellpadding="0" 
 	border="0" 
 	width="100%" 
-	style="background: url('templates/offlike/images/headers/<?php echo $img; ?>_bg.jpg');">
+	style="background: url('<?php echo $headerBg; ?>');">
         <tbody><tr>
             <td 
 			width="293" 
 			height="187">
-			<img src="templates/offlike/images/headers/<?php echo $img; ?>_left.gif" 
+			<img src="<?php echo $headerLeft; ?>" 
 			width="293" 
 			height="187">
 			<div style="position:relative;">
 			<div style="position:absolute; left:-16px; top:-213px;">
-			<img src="templates/offlike/images/headers/<?php echo $img; ?>_image.gif" 
+			<img src="<?php echo $headerImage; ?>" 
 			width="446" 
 			height="213">
 			</div>
@@ -1881,7 +1914,7 @@ function header_image_gif($img) {
             <td 
 			width="175" 
 			height="187">
-			<img src="templates/offlike/images/headers/<?php echo $img; ?>_right.gif" 
+			<img src="<?php echo $headerRight; ?>" 
 			width="175" 
 			height="187" 
 			name="C1" 

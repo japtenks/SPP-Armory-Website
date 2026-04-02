@@ -53,14 +53,16 @@ if (isset($MW) && isset($_SESSION['selected_lang'])) {
 /****************************************************************************/
 
 
+require_once('config/config-helper.php');
+
 // path to your background images
-$bgDir = 'templates/offlike/images/modern/bkgd/';
+$bgDir = spp_template_path('images/modern/bkgd/');
 
 // gather all images in the directory
 $bgImages = glob($bgDir . '*.{jpg,jpeg,png,gif}', GLOB_BRACE);
 
 // pick a random one
-$randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : 'templates/offlike/images/modern/bkgd/19.jpg';
+$randomBg = $bgImages ? $bgImages[array_rand($bgImages)] : spp_template_path('images/modern/bkgd/19.jpg');
 
 
 // Current Revision
@@ -101,7 +103,7 @@ include 	( 'core/cache_class/gCache.php' ) ;
 //Site notice cookie
 if ( file_exists( "ToS.html" ) && ! isset( $_COOKIE['agreement_accepted'] ) )
 {
-	include ( 'components/html/html.notice.php' ) ;
+	include ( spp_component_path( 'html/html.notice.php' ) ) ;
 	exit() ;
 }
 
@@ -167,7 +169,7 @@ $user = $auth->user ;
 
 
 //Determine Current Template
-$currtmp = "templates/" . (string)$MW->getConfig->generic->template;
+$currtmp = spp_template_root($MW->getConfig);
 
 // Load Permissions and aviable sites.
 include ( 'core/default_components.php' ) ;
@@ -498,7 +500,7 @@ if (isset($_GET['setchar'])) {
 
 //initialize modules
 //if installing a new module, please delete the cache file
-include ( 'components/modules/initialize.php' ) ;
+include ( spp_component_path( 'modules/initialize.php' ) ) ;
 
 
 if ( in_array( $ext, $allowed_ext ) )
@@ -508,11 +510,10 @@ if ( in_array( $ext, $allowed_ext ) )
 
 	//set defaults here to be loaded -- these can be changed via the main.php or whatnot
 	//this is used especially in the case of the module system
-	$script_file = 'components/' . $ext . '/' . $ext . '.' . $sub . '.php' ;
-	$template_file = 'templates/' . ( string )$MW->getConfig->generic->template .
-		'/' . $ext . '/' . $ext . '.' . $sub . '.php' ;
+	$script_file = spp_component_path( $ext . '/' . $ext . '.' . $sub . '.php' ) ;
+	$template_file = spp_template_path( $ext . '/' . $ext . '.' . $sub . '.php', $MW->getConfig ) ;
 
-	require ( 'components/' . $ext . '/' . 'main.php' ) ;
+	require ( spp_component_path( $ext . '/main.php' ) ) ;
 	$group_privilege = $com_content[$ext][$sub][0] ;
 	$expectation = ( substr( $group_privilege, 0, 1 ) == '!' ) ? 0 : 1 ;
 	if ( $expectation == 0 )
@@ -572,11 +573,9 @@ if ( in_array( $ext, $allowed_ext ) )
 		}
 		// =======//
 
-		include ( 'templates/' . ( string )$MW->getConfig->generic->template .
-			'/body_functions.php' ) ;
+		include ( spp_template_path( 'body_functions.php', $MW->getConfig ) ) ;
 		ob_start() ;
-		include ( 'templates/' . ( string )$MW->getConfig->generic->template .
-			'/body_header.php' ) ;
+		include ( spp_template_path( 'body_header.php', $MW->getConfig ) ) ;
 		ob_end_flush() ;
 
 		if ( $req_tpl )
@@ -616,8 +615,7 @@ if ( in_array( $ext, $allowed_ext ) )
 		}
 		$time_end = microtime( 1 ) ;
 		$exec_time = $time_end - $time_start ;
-		include ( 'templates/' . ( string )$MW->getConfig->generic->template .
-			'/body_footer.php' ) ;
+		include ( spp_template_path( 'body_footer.php', $MW->getConfig ) ) ;
 	} else
 	{
 		if ( file_exists( $template_file ) )

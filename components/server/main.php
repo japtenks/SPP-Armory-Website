@@ -16,6 +16,13 @@ $com_content['server'] = array(
         '', // main menu name/id ('' - not show)        [3]
         0 // show in context menu (1-yes,0-no)          [4]
     ),
+    'connect' => array(
+        '',
+        'howtoplay',
+        mw_url('server', 'connect'),
+        '3-menuGameGuide',
+        0
+    ),
 	'botcommands' => array(
       '', 
     'Bot Guide', 
@@ -35,7 +42,7 @@ $com_content['server'] = array(
         '', 
         'Characters on the server', 
         mw_url('server', 'chars'),
-        '4-menuInteractive',
+        '7-menuArmory',
         0
     ),
     'character' => array(
@@ -49,7 +56,7 @@ $com_content['server'] = array(
         '',
         'Guilds on the server',
         mw_url('server', 'guilds'),
-        '4-menuInteractive',
+        '7-menuArmory',
         0
     ),
     'guild' => array(
@@ -63,35 +70,35 @@ $com_content['server'] = array(
         '', 
         'realms_status', 
         mw_url('server', 'realmstatus'),
-        '4-menuInteractive',
+        '4-menuWorkshop',
         0
     ),
     'honor' => array(
         '', 
         'honor', 
         mw_url('server', 'honor'),
-        '4-menuInteractive',
+        '7-menuArmory',
         0
     ),
     'playersonline' => array(
         '', 
         'players_online', 
         mw_url('server', 'playersonline'),
-        '4-menuInteractive',
+        '',
         0
     ),
     'playermap' => array(
         '', 
         'Player Map', 
         mw_url('server', 'playermap'),
-        '4-menuInteractive',
+        '4-menuWorkshop',
         0
     ),
     'talents' => array(
         '', 
         'Talents', 
         $talentsLink,
-        '4-menuInteractive',
+        '7-menuArmory',
         0
     ),
     'items' => array(
@@ -119,21 +126,21 @@ $com_content['server'] = array(
         '', 
         'statistic', 
         mw_url('server', 'statistic'),
-        '4-menuInteractive',
+        '4-menuWorkshop',
         0
     ),
     'ah' => array(
         '',
         'ah',
         mw_url('server', 'ah'),
-        '4-menuGameGuide',
+        '4-menuWorkshop',
         0
     ),
     'sets' => array(
         '', 
         'Armor Sets', 
         mw_url('server', 'sets'),
-        '3-menuGameGuide',
+        '4-menuWorkshop',
         0
     ),
     'downloads' => array(
@@ -161,7 +168,7 @@ $com_content['server'] = array(
         '', 
         'rules', 
         mw_url('server', 'rules'),
-        '4-menuGameGuide',
+        '2-menuAccount',
         0
     ),
 );

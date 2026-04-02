@@ -70,14 +70,13 @@ $botEventConfig = [
     'achievement_badge_min_points' => 10,
     'achievement_badge_min_level' => 20,
     'achievement_badge_exclude_categories' => [
-        92,
-        96,
-        97,
         122,
     ],
-    'achievement_badge_featured_ids' => [],
-    'achievement_badge_exclude' => [
+    'achievement_badge_featured_ids' => [
         6,
+        704,
+    ],
+    'achievement_badge_exclude' => [
         7,
         8,
         9,

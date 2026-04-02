@@ -24,7 +24,7 @@ $mainnav_links = array(
 
   /* ------------------ 3. GAME GUIDE ------------------ */
   '3-menuGameGuide' => array(
-    0 => array('howtoplay',   mw_url('gameguide', 'connect'), ''),
+    0 => array('howtoplay',   mw_url('server', 'connect'), ''),
     1 => array('Bot Guide', mw_url('server', 'botcommands'),''),
   ),
 
@@ -37,14 +37,6 @@ $mainnav_links = array(
     4 => array('module_ah',     mw_url('server', 'ah'),           ''),
     5 => array('armorsets',     'index.php?n=server&sub=sets',    ''),
     8 => array('downloads',     'index.php?n=server&sub=downloads',''),
-  ),
-
-  /* ------------------ 5. MEDIA ------------------ */
-  '5-menuMedia' => array(
-    0 => array('wallp',    mw_url('media', 'wallp'),        ''),
-    1 => array('screen',   mw_url('media', 'screen'),       ''),
-    2 => array('UScreen',  mw_url('media', 'addgalscreen'), 'g_view_profile'),
-    3 => array('UWallp',   mw_url('media', 'addgalwallp'),  'g_view_profile'),
   ),
 
   /* ------------------ 6. FORUMS ------------------ */
@@ -85,8 +77,7 @@ $allowed_ext = array(
     'frontpage',
     'gameguide',
     'media',
-    'statistic',  
-    'armory',     
+    'statistic',
     'admin'       
 );
 $com_content = array(
@@ -121,11 +112,6 @@ $com_content = array(
     'statistic' => array(
         'index' => array('', 'Statistics', 'index.php?n=statistic', 1, 1),
     ),
-
-    'armory' => array(
-        'index' => array('', 'Armory', 'index.php?n=armory', 1, 1),
-    ),
-
     'frontpage' => array(
         'index' => array('', 'Frontpage', 'index.php?n=frontpage', 1, 1),
     ),
@@ -171,45 +157,22 @@ if ((int)$MW->getConfig->components->left_section->retrieve_pass == 0)   unset($
 if ((int)$MW->getConfig->components->left_section->Activate_account == 0)unset($mainnav_links['2-menuAccount'][4]);
 if ((int)$MW->getConfig->components->left_section->Character_copy == 0) unset($mainnav_links['2-menuAccount'][5]);
 if ((int)$MW->getConfig->components->left_section->Character_tools == 0)unset($mainnav_links['2-menuAccount'][6]);
+if ((int)$MW->getConfig->components->left_section->Userlist == 0)       unset($mainnav_links['2-menuAccount'][7]);
 
 /* Game Guide */
-if ((int)$MW->getConfig->components->left_section->Armor_sets == 0)   	unset($mainnav_links['3-menuGameGuide'][1]);		
-if ((int)$MW->getConfig->components->left_section->world_sets == 0)   	unset($mainnav_links['3-menuGameGuide'][2]);			if ((int)$MW->getConfig->components->left_section->wow_bc == 0)     	unset($mainnav_links['3-menuGameGuide'][3]);
-if ((int)$MW->getConfig->components->left_section->wow_wrath == 0)  	unset($mainnav_links['3-menuGameGuide'][4]);
-if ((int)$MW->getConfig->components->left_section->pvp_sets == 0)   	unset($mainnav_links['3-menuGameGuide'][5]);
+if ((int)$MW->getConfig->components->left_section->How_to_play == 0)   unset($mainnav_links['3-menuGameGuide'][0]);
 
-/* Workshop (Interactive) */
-if ((int)$MW->getConfig->components->left_section->Realms_status == 0)          unset($mainnav_links['4-menuInteractive'][0]);
-if ((int)$MW->getConfig->components->left_section->Honor == 0)                   unset($mainnav_links['4-menuInteractive'][1]);
-if ((int)$MW->getConfig->components->left_section->Characters == 0)              unset($mainnav_links['4-menuInteractive'][3]);
-if ((int)$MW->getConfig->components->left_section->Playermap == 0)               unset($mainnav_links['4-menuInteractive'][4]);
-if ((int)$MW->getConfig->components->left_section->Statistic == 0)               unset($mainnav_links['4-menuInteractive'][5]);
-if ((int)$MW->getConfig->components->left_section->ah_system == 0)               unset($mainnav_links['4-menuInteractive'][6]);
-if ((int)$MW->getConfig->components->left_section->Armory == 0)                  unset($mainnav_links['4-menuInteractive'][7]);
-if ((int)$MW->getConfig->components->left_section->Talent_calc == 0)             unset($mainnav_links['4-menuInteractive'][8]);
-if ((int)$MW->getConfig->components->left_section->Interactive_world_atlas == 0) unset($mainnav_links['4-menuInteractive'][10]);
-if ((int)$MW->getConfig->components->left_section->talents == 0 || empty($user['character_name']))
-    unset($mainnav_links['4-menuInteractive'][11]);
-
-/* Media */
-if ((int)$MW->getConfig->components->left_section->Screenshots == 0)        unset($mainnav_links['5-menuMedia'][1]);
-if ((int)$MW->getConfig->components->left_section->Wallpapers == 0)         unset($mainnav_links['5-menuMedia'][0]);
-if ((int)$MW->getConfig->components->left_section->Upload_Screenshot == 0)  unset($mainnav_links['5-menuMedia'][2]);
-if ((int)$MW->getConfig->components->left_section->Upload_Wallpaper == 0)   unset($mainnav_links['5-menuMedia'][3]);
-
-/* Community */
-if ((int)$MW->getConfig->components->left_section->Teamspeak == 0) unset($mainnav_links['7-menuCommunity'][0]);
-if ((int)$MW->getConfig->components->left_section->donate == 0)    unset($mainnav_links['7-menuCommunity'][1]);
-if ((int)$MW->getConfig->components->left_section->chat == 0)      unset($mainnav_links['7-menuCommunity'][3]);
-
-
+/* Workshop */
+if ((int)$MW->getConfig->components->left_section->Realms_status == 0) unset($mainnav_links['4-menuWorkshop'][0]);
+if ((int)$MW->getConfig->components->left_section->Playermap == 0)     unset($mainnav_links['4-menuWorkshop'][2]);
+if ((int)$MW->getConfig->components->left_section->Statistic == 0)     unset($mainnav_links['4-menuWorkshop'][3]);
+if ((int)$MW->getConfig->components->left_section->ah_system == 0)     unset($mainnav_links['4-menuWorkshop'][4]);
+if ((int)$MW->getConfig->components->left_section->Armor_sets == 0)    unset($mainnav_links['4-menuWorkshop'][5]);
 
 /* Support */
-if ((int)$MW->getConfig->components->left_section->Commands == 0)          unset($mainnav_links['8-menuSupport'][0]);
-if ((int)$MW->getConfig->components->left_section->Bug_tracker == 0)       unset($mainnav_links['8-menuSupport'][1]);
-if ((int)$MW->getConfig->components->left_section->In_Game_Support == 0)   unset($mainnav_links['8-menuSupport'][2]);
-if ((int)$MW->getConfig->components->left_section->Online_GMs == 0)        unset($mainnav_links['8-menuSupport'][3]);
-if ((int)$MW->getConfig->components->left_section->botcommands == 1)         unset($mainnav_links['8-menuSupport'][4]);
+if ((int)$MW->getConfig->components->left_section->Bug_tracker == 0) unset($mainnav_links['8-menuSupport'][0]);
+if ((int)$MW->getConfig->components->left_section->SppDiscord == 0)  unset($mainnav_links['8-menuSupport'][1]);
+if ((int)$MW->getConfig->components->left_section->BotsDiscord == 0) unset($mainnav_links['8-menuSupport'][2]);
 
 
 

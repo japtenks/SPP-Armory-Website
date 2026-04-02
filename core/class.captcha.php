@@ -124,7 +124,7 @@ class Captcha
         }
         else
         {
-            $image = imagecreatefromjpeg("templates/offlike/images/rndimages/rndimg".rand(0,4).".jpg");
+            $image = imagecreatefromjpeg(spp_template_path("images/rndimages/rndimg".rand(0,4).".jpg"));
         }
 
 		// fill with noise or grid

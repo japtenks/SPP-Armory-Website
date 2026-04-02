@@ -1,6 +1,11 @@
 <br>
 <?php builddiv_start(1, $lang['screen']) ?>
 <?php
+    $editButtonUrl = spp_template_url('images/edit-button.gif');
+    $galleryBaseUrl = spp_template_url('images/gallery/');
+    $gallerySpacerUrl = $galleryBaseUrl . '_.gif';
+    $screenshotsBaseUrl = spp_site_url('images/screenshots/');
+    $screenshotsBasePath = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'screenshots' . DIRECTORY_SEPARATOR;
     if (isset($_POST['doadd'])){
      $img=isset($_FILES["filename"]["name"]) ? $_FILES["filename"]["name"] : '';
      $comment=isset($_POST['message']) ? $_POST['message'] : '';
@@ -25,7 +30,7 @@
      exit;
      }
      if(copy($_FILES["filename"]["tmp_name"],
-     "./images/screenshots/".$_FILES["filename"]["name"])) {
+     $screenshotsBasePath . $_FILES["filename"]["name"])) {
      $stmtScIns = $galleryPdoSc->prepare("INSERT INTO gallery (img,comment,autor,date,cat) VALUES(?,?,?,?,'screenshot')");
      $stmtScIns->execute([$img, $comment, $autor, $date]);
      } else {
@@ -40,7 +45,7 @@ $gal_count = (int)$galleryPdoSc->query("SELECT count(*) FROM `gallery` WHERE cat
 
 <table border = 0 width=100%>
 <?php if($user['id']>=1){ ?>
-<tr><td ><img src="<?php echo $currtmp; ?>/images/edit-button.gif"><a href="././index.php?n=media&sub=addgalscreen"><?php echo $lang['Addimage'];?></a></td>
+<tr><td ><img src="<?php echo htmlspecialchars($editButtonUrl, ENT_QUOTES); ?>"><a href="././index.php?n=media&sub=addgalscreen"><?php echo $lang['Addimage'];?></a></td>
 <td align=right><?php echo $lang['Totalingallery'].":";?> <?php echo $gal_count; ?></td></tr>
 </table>
 <?php }else{ ?>
@@ -73,22 +78,22 @@ foreach($sql as $tablerows){
 <table style="margin: 7px;" border="0" cellpadding="0" cellspacing="0">
 <tbody>
 <tr>
-<td><img src="<?php echo $currtmp; ?>/images/gallery/lt.png" class="png" style="width: 9px; height: 9px;" border="0" height="9" width="9"></td>
-<td background="<?php echo $currtmp; ?>/images/gallery/_t.gif"><img src="<?php echo $currtmp; ?>/images/gallery/_.gif" height="1" width="1"></td>
-<td><img src="<?php echo $currtmp; ?>/images/gallery/rt.png" class="png" style="width: 11px; height: 9px;" border="0" height="9" width="11"></td>
+<td><img src="<?php echo htmlspecialchars($galleryBaseUrl . 'lt.png', ENT_QUOTES); ?>" class="png" style="width: 9px; height: 9px;" border="0" height="9" width="9"></td>
+<td background="<?php echo htmlspecialchars($galleryBaseUrl . '_t.gif', ENT_QUOTES); ?>"><img src="<?php echo htmlspecialchars($gallerySpacerUrl, ENT_QUOTES); ?>" height="1" width="1"></td>
+<td><img src="<?php echo htmlspecialchars($galleryBaseUrl . 'rt.png', ENT_QUOTES); ?>" class="png" style="width: 11px; height: 9px;" border="0" height="9" width="11"></td>
 </tr>
 <tr>
-<td background="<?php echo $currtmp; ?>/images/gallery/_l.gif"><img src="<?php echo $currtmp; ?>/images/gallery/_.gif" height="1" width="1"></td>
+<td background="<?php echo htmlspecialchars($galleryBaseUrl . '_l.gif', ENT_QUOTES); ?>"><img src="<?php echo htmlspecialchars($gallerySpacerUrl, ENT_QUOTES); ?>" height="1" width="1"></td>
 <td>
-<a style="cursor: pointer;" onclick="javascript:void(window.open('./images/screenshots/<?php echo  $tablerows['img'];?>'))" target="_blank"><img style="width: 235px; height: 175px;" alt="<?php echo  $tablerows['comment'];?>"
+<a style="cursor: pointer;" onclick="javascript:void(window.open('<?php echo htmlspecialchars($screenshotsBaseUrl . rawurlencode($tablerows['img']), ENT_QUOTES); ?>'))" target="_blank"><img style="width: 235px; height: 175px;" alt="<?php echo  $tablerows['comment'];?>"
 src="show_picture.php?filename=<?php echo  $tablerows['img'];?>&gallery=screen&width=235&height=175" border="0"></a>
 </td>
-<td background="<?php echo $currtmp; ?>/images/gallery/_r.gif"><img src="<?php echo $currtmp; ?>/images/gallery/_.gif" height="1" width="1"></td>
+<td background="<?php echo htmlspecialchars($galleryBaseUrl . '_r.gif', ENT_QUOTES); ?>"><img src="<?php echo htmlspecialchars($gallerySpacerUrl, ENT_QUOTES); ?>" height="1" width="1"></td>
 </tr>
 <tr>
-<td><img src="<?php echo $currtmp; ?>/images/gallery/lb.png" class="png" style="width: 9px; height: 12px;" border="0" height="12" width="9"></td>
-<td background="<?php echo $currtmp; ?>/images/gallery/_b.gif"><img src="<?php echo $currtmp; ?>/images/gallery/_.gif" height="1" width="1"></td>
-<td><img src="<?php echo $currtmp; ?>/images/gallery/rb.png" class="png" style="width: 11px; height: 12px;" border="0" height="12" width="11"></td>
+<td><img src="<?php echo htmlspecialchars($galleryBaseUrl . 'lb.png', ENT_QUOTES); ?>" class="png" style="width: 9px; height: 12px;" border="0" height="12" width="9"></td>
+<td background="<?php echo htmlspecialchars($galleryBaseUrl . '_b.gif', ENT_QUOTES); ?>"><img src="<?php echo htmlspecialchars($gallerySpacerUrl, ENT_QUOTES); ?>" height="1" width="1"></td>
+<td><img src="<?php echo htmlspecialchars($galleryBaseUrl . 'rb.png', ENT_QUOTES); ?>" class="png" style="width: 11px; height: 12px;" border="0" height="12" width="11"></td>
 </tr>
 </tbody>
 </table>

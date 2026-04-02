@@ -12,21 +12,21 @@ $com_content['community'] = array(
         '', 
         'teamspeak', 
         'index.php?n=community&sub=teamspeak',
-        '7-menuCommunity',
+        '',
         0
     ),
     'donate' => array(
         '',
         'donate',
         'index.php?n=community&sub=donate',
-        '7-menuCommunity',
+        '',
         0
     ),
 	'chat' => array(
         '', 
         'chat', 
         'index.php?n=community&sub=chat',
-        '7-menuCommunity',
+        '',
         0
     ),
 );

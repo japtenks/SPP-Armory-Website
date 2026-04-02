@@ -13,7 +13,7 @@ class Mangos{
 
 
     public function construct_charDataField(){
-        include('./core/cache/mangos_scripts/UpdateFields.php');
+        include(__DIR__ . '/cache/mangos_scripts/UpdateFields.php');
         $this->charDataField = $mangos_field;
         unset($mangos_field);
     }

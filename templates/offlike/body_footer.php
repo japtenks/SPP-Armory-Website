@@ -5,7 +5,7 @@
 
 <footer class="site-footer">
   <div class="footer-inner">
-    <img src="<?php echo $currtmp; ?>/images/bot-blizzlogo.gif" alt="Blizzard.com" />
+    <img src="<?php echo htmlspecialchars(spp_template_url('images/bot-blizzlogo.gif'), ENT_QUOTES); ?>" alt="Blizzard.com" />
     <div class="footer-text">
       Page generated in <?php echo round($exec_time,4); ?> sec.<br/>
       &copy; <?php echo (string)$MW->getConfig->generic->copyright; ?><br/>
@@ -14,6 +14,6 @@
   </div>
 </footer>
 
-<!--look into replacement--><script src="js/wz_tooltip.js"></script>
+<!--look into replacement--><script src="<?php echo htmlspecialchars(spp_js_asset_url('wz_tooltip.js'), ENT_QUOTES); ?>"></script>
 </body>
 </html>

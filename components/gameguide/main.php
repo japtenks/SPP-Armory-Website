@@ -11,7 +11,7 @@ $com_content['gameguide'] = array(
         '', 
         'howtoplay', 
         mw_url('gameguide', 'connect'),
-        '3-menuGameGuide',
+        '',
         0
     ),
 );
