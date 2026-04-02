@@ -104,6 +104,15 @@ if (!function_exists('rotFormatSnapshotTime')) {
     color: #e8c96a;
     text-shadow: 0 0 8px rgba(232,201,106,0.3);
 }
+.rot-context {
+  margin: -8px 0 16px;
+  color: #9a9a9a;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+.rot-context strong {
+  color: #e8c96a;
+}
 .rot-error { background:rgba(255,60,60,0.08); border:1px solid #5a1a1a; border-radius:6px; padding:10px 14px; color:#f88; font-size:0.82rem; margin-bottom:12px; font-family:monospace; }
 .rot-stats { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
 .rot-stat { flex:1 1 140px; background:rgba(255,255,255,0.03); border:1px solid #2c2c2c; border-radius:6px; padding:12px 14px; text-align:center; }
@@ -208,13 +217,16 @@ if (!function_exists('rotFormatSnapshotTime')) {
 }
 </style>
 
-<?php builddiv_start(1, 'Bot Rotation Health'); ?>
+<?php builddiv_start(1, 'Bot Rotation Health', 1); ?>
 
 <?php builddiv_end(); ?>
 <div class="rot-shell">
 
 <div class="rot-panel">
   <div class="rot-title">Bot Rotation Health</div>
+  <div class="rot-context">
+    Selected realm: <strong><?php echo htmlspecialchars($realmName); ?></strong> (ID <?php echo (int)$realmId; ?>)
+  </div>
 
   <?php if ($rotationError): ?>
     <div class="rot-error">
@@ -350,6 +362,11 @@ if (!function_exists('rotFormatSnapshotTime')) {
     <div class="rot-stat info">
       <div class="val"><?php echo htmlspecialchars($totalServerUptime); ?></div>
       <div class="lbl">Total Uptime</div>
+    </div>
+    <div class="rot-stat info">
+      <div class="val"><?php echo $stableAvgUptimeHours !== null ? htmlspecialchars((string)$stableAvgUptimeHours) . 'h' : 'N/A'; ?></div>
+      <div class="lbl">Stable Avg Uptime (7d)</div>
+      <div class="meta">Runs lasting 15m+</div>
     </div>
     <div class="rot-stat info">
       <div class="val"><?php echo rotFormatSeconds($medianUptimeSec); ?></div>

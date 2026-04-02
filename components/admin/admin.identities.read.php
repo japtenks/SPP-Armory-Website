@@ -264,8 +264,10 @@ if (!function_exists('spp_admin_identity_health_coverage_row')) {
             'character_identities' => 0,
             'bot_identities' => 0,
             'posts_total' => 0,
+            'posts_eligible' => 0,
             'posts_covered' => 0,
             'topics_total' => 0,
+            'topics_eligible' => 0,
             'topics_covered' => 0,
             'pms_total' => 0,
             'pms_covered' => 0,
@@ -294,6 +296,9 @@ if (!function_exists('spp_admin_identity_health_coverage_row')) {
 
         if (spp_admin_identity_health_table_exists($realmPdo, 'f_posts')) {
             $row['posts_total'] = spp_admin_identity_health_scalar($realmPdo, "SELECT COUNT(*) FROM `f_posts`");
+            if (spp_admin_identity_health_column_exists($realmPdo, 'f_posts', 'poster_character_id')) {
+                $row['posts_eligible'] = spp_admin_identity_health_scalar($realmPdo, "SELECT COUNT(*) FROM `f_posts` WHERE `poster_character_id` IS NOT NULL AND `poster_character_id` > 0");
+            }
             if (spp_admin_identity_health_column_exists($realmPdo, 'f_posts', 'poster_identity_id')) {
                 $row['posts_covered'] = spp_admin_identity_health_scalar($realmPdo, "SELECT COUNT(*) FROM `f_posts` WHERE `poster_identity_id` IS NOT NULL AND `poster_identity_id` > 0");
             }
@@ -301,6 +306,9 @@ if (!function_exists('spp_admin_identity_health_coverage_row')) {
 
         if (spp_admin_identity_health_table_exists($realmPdo, 'f_topics')) {
             $row['topics_total'] = spp_admin_identity_health_scalar($realmPdo, "SELECT COUNT(*) FROM `f_topics`");
+            if (spp_admin_identity_health_column_exists($realmPdo, 'f_topics', 'topic_poster_id')) {
+                $row['topics_eligible'] = spp_admin_identity_health_scalar($realmPdo, "SELECT COUNT(*) FROM `f_topics` WHERE `topic_poster_id` IS NOT NULL AND `topic_poster_id` > 0");
+            }
             if (spp_admin_identity_health_column_exists($realmPdo, 'f_topics', 'topic_poster_identity_id')) {
                 $row['topics_covered'] = spp_admin_identity_health_scalar($realmPdo, "SELECT COUNT(*) FROM `f_topics` WHERE `topic_poster_identity_id` IS NOT NULL AND `topic_poster_identity_id` > 0");
             }
@@ -320,8 +328,8 @@ if (!function_exists('spp_admin_identity_health_coverage_row')) {
         }
 
         $missingTotal =
-            max(0, $row['posts_total'] - $row['posts_covered']) +
-            max(0, $row['topics_total'] - $row['topics_covered']) +
+            max(0, $row['posts_eligible'] - $row['posts_covered']) +
+            max(0, $row['topics_eligible'] - $row['topics_covered']) +
             max(0, $row['pms_total'] - $row['pms_covered']);
         if ($missingTotal > 0) {
             $row['health'] = 'attention';
@@ -362,8 +370,10 @@ if (!function_exists('spp_admin_identity_health_build_view')) {
             'realm_id' => $selectedRealmId,
             'realm_name' => $realmOptions[$selectedRealmId] ?? ('Realm ' . $selectedRealmId),
             'posts_total' => 0,
+            'posts_eligible' => 0,
             'posts_covered' => 0,
             'topics_total' => 0,
+            'topics_eligible' => 0,
             'topics_covered' => 0,
             'pms_total' => 0,
             'pms_covered' => 0,

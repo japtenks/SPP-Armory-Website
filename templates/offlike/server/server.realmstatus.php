@@ -170,7 +170,8 @@ $realmstatusDebug = !empty($_GET['debug']);
 /* ---------- Realm Data Build ---------- */
 $realm_flags_def=[0=>"Normal",1=>"PvP",4=>"RP",8=>"RPPvP"];
 $items=[];
-$realmPdo = spp_get_pdo('realmd', spp_resolve_realm_id($realmDbMap));
+$selectedRealmId = spp_resolve_realm_id($realmDbMap);
+$realmPdo = spp_get_pdo('realmd', $selectedRealmId);
 $realms=$realmPdo->query("SELECT * FROM `realmlist` ORDER BY `id` ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 foreach($realms as $r){
@@ -316,9 +317,24 @@ foreach($realms as $r){
   margin-left:14px;
   color:#d8c99d;
 }
+.realm-card.is-selected{
+  border-color:#c9a44b;
+  box-shadow:0 0 0 1px rgba(201,164,75,0.45), 0 12px 28px rgba(0,0,0,.38);
+}
+.realm-selected-badge{
+  margin-left:auto;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid rgba(201,164,75,0.45);
+  background:rgba(201,164,75,0.12);
+  color:#f0d58a;
+  font-size:.72rem;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
 </style>
 
-<?php builddiv_start(1,$lang['realm_status']); ?>
+<?php builddiv_start(1,$lang['realm_status'], 1); ?>
 <div class="modern-content">
   <?php header_image("realm"); ?>
   <div class="modern-desc">
@@ -341,10 +357,13 @@ foreach($realms as $r){
 
   <div class="realm-list">
     <?php foreach($items as $r): ?>
-    <div class="realm-card <?php echo $r['res_color']==1?'online':'offline'; ?>">
+    <div class="realm-card <?php echo $r['res_color']==1?'online':'offline'; ?><?php echo (int)$r['id'] === (int)$selectedRealmId ? ' is-selected' : ''; ?>">
       <div class="realm-header">
         <img src="<?php echo htmlspecialchars($r['img']); ?>" alt="<?php echo htmlspecialchars($r['status_label']); ?>" class="realm-icon"/>
         <span class="realm-name"><?php echo htmlspecialchars($r['name']); ?></span>
+        <?php if ((int)$r['id'] === (int)$selectedRealmId): ?>
+          <span class="realm-selected-badge">Selected Realm</span>
+        <?php endif; ?>
         <span style="color:#888;font-size:.9rem;">(Build: <?php echo htmlspecialchars($r['build']); ?>)</span>
       </div>
 

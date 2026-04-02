@@ -202,6 +202,7 @@ function spp_admin_botrotation_build_view(array $realmDbMap)
 
     $view = array(
         'realmId' => $realmId,
+        'realmName' => 'Realm #' . $realmId,
         'rotationData' => null,
         'rotationError' => null,
         'rotationConfig' => null,
@@ -228,6 +229,18 @@ function spp_admin_botrotation_build_view(array $realmDbMap)
     );
 
     $realmdDbName = $realmDbMap[$realmId]['realmd'] ?? 'classicrealmd';
+
+    try {
+        $realmMetaPdo = spp_get_pdo('realmd', $realmId);
+        $stmtRealm = $realmMetaPdo->prepare('SELECT `name` FROM `realmlist` WHERE `id` = ? LIMIT 1');
+        $stmtRealm->execute([$realmId]);
+        $realmName = $stmtRealm->fetchColumn();
+        if (is_string($realmName) && $realmName !== '') {
+            $view['realmName'] = $realmName;
+        }
+    } catch (Exception $e) {
+        // Keep fallback realm label when the lookup is unavailable.
+    }
 
     try {
         $statCharPdo = spp_get_pdo('chars', $realmId);

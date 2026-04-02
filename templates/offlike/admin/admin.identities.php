@@ -12,6 +12,18 @@ $identityCanonicalUrl = (string)($identityHealthView['canonical_url'] ?? 'index.
 $identityCsrfToken = (string)($identityHealthView['csrf_token'] ?? '');
 $identityBackfill = $identityHealthView['backfill'] ?? array();
 $identityIsWindowsHost = !empty($identityHealthView['is_windows_host']);
+$identitySharedForumData = false;
+$identityRealmDbMap = $GLOBALS['realmDbMap'] ?? array();
+if (is_array($identityRealmDbMap) && !empty($identityRealmDbMap)) {
+    $identityRealmdNames = array();
+    foreach ($identityRealmDbMap as $identityRealmInfo) {
+        $identityRealmdName = (string)($identityRealmInfo['realmd'] ?? '');
+        if ($identityRealmdName !== '') {
+            $identityRealmdNames[$identityRealmdName] = true;
+        }
+    }
+    $identitySharedForumData = count($identityRealmdNames) === 1;
+}
 
 if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
     function spp_admin_identity_health_template_coverage_text($covered, $total) {
@@ -21,6 +33,15 @@ if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
             return 'No rows yet';
         }
         return number_format($covered) . ' / ' . number_format($total) . ' covered';
+    }
+}
+if (!function_exists('spp_admin_identity_health_template_excluded_text')) {
+    function spp_admin_identity_health_template_excluded_text($total, $eligible) {
+        $excluded = max(0, (int)$total - (int)$eligible);
+        if ($excluded <= 0) {
+            return '';
+        }
+        return number_format($excluded) . ' seeded/system';
     }
 }
 ?>
@@ -124,14 +145,14 @@ if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
       <p class="admin-identity-health__eyebrow">Identity Coverage</p>
       <p class="admin-identity-health__metric"><?php echo number_format((int)($identityCoverageSelected['account_identities'] ?? 0) + (int)($identityCoverageSelected['character_identities'] ?? 0) + (int)($identityCoverageSelected['bot_identities'] ?? 0)); ?></p>
       <p class="admin-identity-health__label">Visible identity rows known for the selected realm</p>
-      <p class="admin-identity-health__note">Coverage answers one question: how much of the site has already been migrated to identity-aware forum and PM data.</p>
+      <p class="admin-identity-health__note">Coverage answers one question: how much of the site has already been migrated to identity-aware forum and PM data.<?php if ($identitySharedForumData) { ?> In this setup, forum posts, topics, and PMs live in a shared site database, so those totals are site-wide rather than realm-owned.<?php } ?></p>
       <div class="admin-identity-health__subgrid">
         <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityCoverageSelected['account_identities'] ?? 0)); ?></strong><span>Account identities</span></div>
         <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityCoverageSelected['character_identities'] ?? 0)); ?></strong><span>Human character identities</span></div>
         <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityCoverageSelected['bot_identities'] ?? 0)); ?></strong><span>Bot character identities</span></div>
-        <div class="admin-identity-health__mini"><strong><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)($identityCoverageSelected['posts_covered'] ?? 0), (int)($identityCoverageSelected['posts_total'] ?? 0)), ENT_QUOTES, 'UTF-8'); ?></strong><span>Forum post identity coverage</span></div>
-        <div class="admin-identity-health__mini"><strong><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)($identityCoverageSelected['topics_covered'] ?? 0), (int)($identityCoverageSelected['topics_total'] ?? 0)), ENT_QUOTES, 'UTF-8'); ?></strong><span>Forum topic identity coverage</span></div>
-        <div class="admin-identity-health__mini"><strong><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)($identityCoverageSelected['pms_covered'] ?? 0), (int)($identityCoverageSelected['pms_total'] ?? 0)), ENT_QUOTES, 'UTF-8'); ?></strong><span>PM identity coverage</span></div>
+        <div class="admin-identity-health__mini"><strong><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)($identityCoverageSelected['posts_covered'] ?? 0), (int)($identityCoverageSelected['posts_eligible'] ?? 0)), ENT_QUOTES, 'UTF-8'); ?></strong><span><?php echo $identitySharedForumData ? 'Shared character-backed post coverage' : 'Character-backed forum post coverage'; ?></span></div>
+        <div class="admin-identity-health__mini"><strong><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)($identityCoverageSelected['topics_covered'] ?? 0), (int)($identityCoverageSelected['topics_eligible'] ?? 0)), ENT_QUOTES, 'UTF-8'); ?></strong><span><?php echo $identitySharedForumData ? 'Shared character-backed topic coverage' : 'Character-backed forum topic coverage'; ?></span></div>
+        <div class="admin-identity-health__mini"><strong><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)($identityCoverageSelected['pms_covered'] ?? 0), (int)($identityCoverageSelected['pms_total'] ?? 0)), ENT_QUOTES, 'UTF-8'); ?></strong><span><?php echo $identitySharedForumData ? 'Shared PM coverage' : 'PM identity coverage'; ?></span></div>
       </div>
       <div class="admin-identity-health__actions">
         <a class="admin-identity-health__btn" href="<?php echo htmlspecialchars(spp_admin_identity_health_action_url(['n'=>'admin','sub'=>'identities','action'=>'run_backfill','realm'=>$identitySelectedRealmId,'type'=>'identities']), ENT_QUOTES, 'UTF-8'); ?>">Backfill Accounts + Characters</a>
@@ -178,9 +199,9 @@ if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
       <p class="admin-identity-health__label">Preview-only scope for destructive wipe, reseed, or reset planning</p>
       <p class="admin-identity-health__note">Reset buckets answer a different question than repairs: if you intentionally wiped or rebuilt a system, how much data would that affect?</p>
       <div class="admin-identity-health__subgrid">
-        <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['forum']['posts'] ?? 0)); ?></strong><span>Forum posts in reset scope</span></div>
-        <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['forum']['topics'] ?? 0)); ?></strong><span>Forum topics in reset scope</span></div>
-        <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['forum']['pms'] ?? 0)); ?></strong><span>PM rows in reset scope</span></div>
+        <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['forum']['posts'] ?? 0)); ?></strong><span><?php echo $identitySharedForumData ? 'Shared forum posts in reset scope' : 'Forum posts in reset scope'; ?></span></div>
+        <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['forum']['topics'] ?? 0)); ?></strong><span><?php echo $identitySharedForumData ? 'Shared forum topics in reset scope' : 'Forum topics in reset scope'; ?></span></div>
+        <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['forum']['pms'] ?? 0)); ?></strong><span><?php echo $identitySharedForumData ? 'Shared PM rows in reset scope' : 'PM rows in reset scope'; ?></span></div>
         <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['forum']['identities'] ?? 0)); ?></strong><span>Identity rows tied to this realm</span></div>
         <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['bots']['accounts'] ?? 0)); ?></strong><span>Bot-style accounts</span></div>
         <div class="admin-identity-health__mini"><strong><?php echo number_format((int)($identityResetPreview['bots']['identities'] ?? 0)); ?></strong><span>Bot speaking identities</span></div>
@@ -193,17 +214,17 @@ if (!function_exists('spp_admin_identity_health_template_coverage_text')) {
 
   <section class="admin-identity-health__table-wrap">
     <p class="admin-identity-health__eyebrow">Per-Realm Coverage Matrix</p>
-    <p class="admin-identity-health__body">Each row shows how far that realm has made it through the identity migration. Missing coverage does not always mean broken behavior, but it does mean the site is still falling back to older account-bound assumptions in part of the stack.</p>
+    <p class="admin-identity-health__body">Each row shows how far that realm has made it through the identity migration. Missing coverage does not always mean broken behavior, but it does mean the site is still falling back to older account-bound assumptions in part of the stack.<?php if ($identitySharedForumData) { ?> Forum posts, topics, and PM totals are shared site-wide in the current single-`realmd` layout, so those columns are repeated for each realm row on purpose. Forum post/topic coverage below uses only character-backed rows as the denominator and lists seeded/system rows separately.<?php } ?></p>
     <table class="admin-identity-health__table">
-      <thead><tr><th>Realm</th><th>Status</th><th>Identity Rows</th><th>Forum Posts</th><th>Topics</th><th>PMs</th></tr></thead>
+      <thead><tr><th>Realm</th><th>Status</th><th>Identity Rows</th><th><?php echo $identitySharedForumData ? 'Shared Forum Posts' : 'Forum Posts'; ?></th><th><?php echo $identitySharedForumData ? 'Shared Topics' : 'Topics'; ?></th><th><?php echo $identitySharedForumData ? 'Shared PMs' : 'PMs'; ?></th></tr></thead>
       <tbody>
         <?php foreach ($identityCoverageRows as $identityCoverageRow) { ?>
         <tr>
           <td><strong><?php echo htmlspecialchars((string)$identityCoverageRow['realm_name'], ENT_QUOTES, 'UTF-8'); ?></strong><br /><span class="admin-identity-health__mono">Realm <?php echo (int)$identityCoverageRow['realm_id']; ?></span></td>
           <td><?php if (!empty($identityCoverageRow['available'])) { ?><span class="admin-identity-health__status<?php echo ($identityCoverageRow['health'] === 'attention' ? ' admin-identity-health__status--warn' : ''); ?>"><?php echo ($identityCoverageRow['health'] === 'attention' ? 'Needs Backfill' : 'Available'); ?></span><?php } else { ?><span class="admin-identity-health__status admin-identity-health__status--warn">Skipped</span><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars((string)$identityCoverageRow['skip_reason'], ENT_QUOTES, 'UTF-8'); ?></span><?php } ?></td>
           <td><?php echo number_format((int)$identityCoverageRow['account_identities']); ?> account<br /><?php echo number_format((int)$identityCoverageRow['character_identities']); ?> character<br /><?php echo number_format((int)$identityCoverageRow['bot_identities']); ?> bot</td>
-          <td><?php echo htmlspecialchars(spp_admin_identity_health_template_coverage_text((int)$identityCoverageRow['posts_covered'], (int)$identityCoverageRow['posts_total']), ENT_QUOTES, 'UTF-8'); ?><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)$identityCoverageRow['posts_covered'], (int)$identityCoverageRow['posts_total']), ENT_QUOTES, 'UTF-8'); ?></span></td>
-          <td><?php echo htmlspecialchars(spp_admin_identity_health_template_coverage_text((int)$identityCoverageRow['topics_covered'], (int)$identityCoverageRow['topics_total']), ENT_QUOTES, 'UTF-8'); ?><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)$identityCoverageRow['topics_covered'], (int)$identityCoverageRow['topics_total']), ENT_QUOTES, 'UTF-8'); ?></span></td>
+          <td><?php echo htmlspecialchars(spp_admin_identity_health_template_coverage_text((int)$identityCoverageRow['posts_covered'], (int)$identityCoverageRow['posts_eligible']), ENT_QUOTES, 'UTF-8'); ?><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)$identityCoverageRow['posts_covered'], (int)$identityCoverageRow['posts_eligible']), ENT_QUOTES, 'UTF-8'); ?></span><?php $identityExcludedPostsText = spp_admin_identity_health_template_excluded_text((int)$identityCoverageRow['posts_total'], (int)$identityCoverageRow['posts_eligible']); if ($identityExcludedPostsText !== '') { ?><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars($identityExcludedPostsText, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?></td>
+          <td><?php echo htmlspecialchars(spp_admin_identity_health_template_coverage_text((int)$identityCoverageRow['topics_covered'], (int)$identityCoverageRow['topics_eligible']), ENT_QUOTES, 'UTF-8'); ?><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)$identityCoverageRow['topics_covered'], (int)$identityCoverageRow['topics_eligible']), ENT_QUOTES, 'UTF-8'); ?></span><?php $identityExcludedTopicsText = spp_admin_identity_health_template_excluded_text((int)$identityCoverageRow['topics_total'], (int)$identityCoverageRow['topics_eligible']); if ($identityExcludedTopicsText !== '') { ?><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars($identityExcludedTopicsText, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?></td>
           <td><?php echo htmlspecialchars(spp_admin_identity_health_template_coverage_text((int)$identityCoverageRow['pms_covered'], (int)$identityCoverageRow['pms_total']), ENT_QUOTES, 'UTF-8'); ?><br /><span class="admin-identity-health__mono"><?php echo htmlspecialchars(spp_admin_identity_health_format_percent((int)$identityCoverageRow['pms_covered'], (int)$identityCoverageRow['pms_total']), ENT_QUOTES, 'UTF-8'); ?></span></td>
         </tr>
         <?php } ?>
